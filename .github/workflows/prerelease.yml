@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   canary:
+    if: false # TEMPORARY: disabled for version reset
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
