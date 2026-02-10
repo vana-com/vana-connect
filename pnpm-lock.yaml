@@ -71,7 +71,7 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.2.2)(jiti@2.6.1)(yaml@2.8.2)
 
-  examples/test-builder-app:
+  examples/nextjs-starter:
     dependencies:
       "@opendatalabs/connect":
         specifier: workspace:*

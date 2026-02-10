@@ -4,7 +4,7 @@ import { useVanaConnect } from "./useVanaConnect.js";
 
 export interface ConnectButtonProps {
   sessionId: string;
-  sessionRelayUrl: string;
+  deepLinkUrl?: string;
   onComplete?: (grant: GrantPayload) => void;
   onError?: (error: string) => void;
   onDenied?: (reason: string) => void;
@@ -15,7 +15,7 @@ export interface ConnectButtonProps {
 export function ConnectButton(props: ConnectButtonProps) {
   const {
     sessionId,
-    sessionRelayUrl,
+    deepLinkUrl: deepLinkUrlProp,
     onComplete,
     onError,
     onDenied,
@@ -23,13 +23,11 @@ export function ConnectButton(props: ConnectButtonProps) {
     label,
   } = props;
 
-  const { connect, status, grant, error, deepLinkUrl } = useVanaConnect({
-    sessionRelayUrl,
-  });
+  const { connect, status, grant, error, deepLinkUrl } = useVanaConnect();
 
   useEffect(() => {
-    connect({ sessionId });
-  }, [sessionId, connect]);
+    connect({ sessionId, deepLinkUrl: deepLinkUrlProp });
+  }, [sessionId, deepLinkUrlProp, connect]);
 
   useEffect(() => {
     if (status === "approved" && grant && onComplete) {
