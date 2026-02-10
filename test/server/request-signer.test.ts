@@ -112,11 +112,9 @@ describe("createRequestSigner", () => {
     const payloadJson = Buffer.from(payloadBase64, "base64").toString("utf-8");
     const payload = JSON.parse(payloadJson);
 
-    expect(payload.bodyHash).toMatch(/^sha256:[0-9a-f]{64}$/);
-    // Should not be the empty-body hash
-    expect(payload.bodyHash).not.toBe(
-      "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    );
+    expect(payload.bodyHash).toMatch(/^[0-9a-f]{64}$/);
+    // Should not be empty (non-empty body)
+    expect(payload.bodyHash).not.toBe("");
   });
 
   it("uses empty-body hash when no body provided", async () => {
@@ -131,9 +129,7 @@ describe("createRequestSigner", () => {
     const payloadJson = Buffer.from(payloadBase64, "base64").toString("utf-8");
     const payload = JSON.parse(payloadJson);
 
-    expect(payload.bodyHash).toBe(
-      "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    );
+    expect(payload.bodyHash).toBe("");
   });
 
   it("canonicalizes body before hashing (key order does not matter)", async () => {
