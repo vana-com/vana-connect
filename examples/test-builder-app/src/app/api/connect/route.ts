@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSessionRelay } from "../../../../../src/server/session-relay.js";
+import { createSessionRelay } from "@opendatalabs/connect/server";
 
 export async function POST() {
   const relayUrl = process.env.SESSION_RELAY_URL;
   const privateKey = process.env.BUILDER_PRIVATE_KEY as `0x${string}`;
   const granteeAddress = process.env.GRANTEE_ADDRESS as `0x${string}`;
-  const scopes = (process.env.SCOPES ?? "test.data.read")
+  const scopes = (process.env.SCOPES ?? "test.dpv1.260130")
     .split(",")
     .map((s) => s.trim());
 

@@ -23,12 +23,12 @@ function canonicalizeJson(obj: unknown): unknown {
 
 function computeBodyHash(body?: string): string {
   if (!body || body.length === 0) {
-    return "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    return "";
   }
   const parsed = JSON.parse(body);
   const canonical = canonicalizeJson(parsed);
   const canonicalStr = JSON.stringify(canonical);
-  return `sha256:${createHash("sha256").update(canonicalStr).digest("hex")}`;
+  return createHash("sha256").update(canonicalStr).digest("hex");
 }
 
 export interface RequestSigner {
