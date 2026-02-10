@@ -7,3 +7,7 @@ coverage/
 .env.local
 .next/
 *.log
+.claude
+.cursor
+.agents
+.agent

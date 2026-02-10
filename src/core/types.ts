@@ -30,6 +30,7 @@ export interface GrantPayload {
   userAddress: string;
   builderAddress: string;
   scopes: string[];
+  serverAddress?: string;
   appUserId?: string;
 }
 

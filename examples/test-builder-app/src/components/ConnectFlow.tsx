@@ -25,6 +25,7 @@ interface PollResult {
     userAddress: string;
     builderAddress: string;
     scopes: string[];
+    serverAddress?: string;
   };
   reason?: string;
 }
@@ -35,6 +36,9 @@ export default function ConnectFlow() {
   const [grant, setGrant] = useState<PollResult["grant"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [fetchedData, setFetchedData] = useState<unknown>(null);
+  const [fetchLoading, setFetchLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const pollingRef = useRef(false);
 
   const startPolling = useCallback((info: SessionInfo) => {
@@ -116,12 +120,47 @@ export default function ConnectFlow() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleFetchData() {
+    if (!grant) return;
+    setFetchLoading(true);
+    setFetchError(null);
+    setFetchedData(null);
+
+    try {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userAddress: grant.userAddress,
+          serverAddress: grant.serverAddress,
+          grantId: grant.grantId,
+          scopes: grant.scopes,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFetchError(data.error ?? "Failed to fetch data");
+        return;
+      }
+
+      setFetchedData(data);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setFetchLoading(false);
+    }
+  }
+
   function handleReset() {
     pollingRef.current = false;
     setStatus("idle");
     setSession(null);
     setGrant(null);
     setError(null);
+    setFetchedData(null);
+    setFetchError(null);
+    setFetchLoading(false);
   }
 
   return (
@@ -141,61 +180,66 @@ export default function ConnectFlow() {
       )}
 
       {/* Waiting for approval */}
-      {(status === "waiting" || status === "approved" || status === "denied" || status === "expired") && session && (
-        <div style={cardStyle}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Status</div>
-            <div style={{ color: statusColor(status), fontWeight: 600 }}>
-              {statusLabel(status)}
+      {(status === "waiting" ||
+        status === "approved" ||
+        status === "denied" ||
+        status === "expired") &&
+        session && (
+          <div style={cardStyle}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={labelStyle}>Status</div>
+              <div style={{ color: statusColor(status), fontWeight: 600 }}>
+                {statusLabel(status)}
+              </div>
             </div>
-          </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Session ID</div>
-            <code style={codeStyle}>{session.sessionId}</code>
-          </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={labelStyle}>Session ID</div>
+              <code style={codeStyle}>{session.sessionId}</code>
+            </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Deep Link URL</div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "flex-start",
-              }}
-            >
-              <code
+            <div style={{ marginBottom: 16 }}>
+              <div style={labelStyle}>Deep Link URL</div>
+              <div
                 style={{
-                  ...codeStyle,
-                  flex: 1,
-                  wordBreak: "break-all" as const,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
                 }}
               >
-                {session.deepLinkUrl}
-              </code>
-              <button onClick={handleCopy} style={btnSmallStyle}>
-                {copied ? "Copied!" : "Copy"}
-              </button>
+                <code
+                  style={{
+                    ...codeStyle,
+                    flex: 1,
+                    wordBreak: "break-all" as const,
+                  }}
+                >
+                  {session.deepLinkUrl}
+                </code>
+                <button onClick={handleCopy} style={btnSmallStyle}>
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "#808080",
+                  marginTop: 6,
+                }}
+              >
+                Paste this URL into the Personal Server Dev UI &rarr; Connect
+                tab
+              </p>
             </div>
-            <p
-              style={{
-                fontSize: 11,
-                color: "#808080",
-                marginTop: 6,
-              }}
-            >
-              Paste this URL into the Personal Server Dev UI &rarr; Connect tab
-            </p>
-          </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={labelStyle}>Expires At</div>
-            <code style={codeStyle}>
-              {new Date(session.expiresAt).toLocaleTimeString()}
-            </code>
+            <div style={{ marginBottom: 16 }}>
+              <div style={labelStyle}>Expires At</div>
+              <code style={codeStyle}>
+                {new Date(session.expiresAt).toLocaleTimeString()}
+              </code>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Approved — show grant details */}
       {status === "approved" && grant && (
@@ -212,24 +256,60 @@ export default function ConnectFlow() {
           >
             {JSON.stringify(grant, null, 2)}
           </pre>
+
+          <button
+            onClick={handleFetchData}
+            disabled={fetchLoading}
+            style={{ ...btnStyle, marginTop: 16 }}
+          >
+            {fetchLoading ? "Fetching..." : "Fetch Data"}
+          </button>
+
+          {fetchError && (
+            <p style={{ color: "#ff4444", marginTop: 8, fontSize: 12 }}>
+              {fetchError}
+            </p>
+          )}
+
+          {fetchedData != null && (
+            <div style={{ marginTop: 12 }}>
+              <div style={labelStyle}>Fetched Data</div>
+              <pre
+                style={{
+                  background: "#1e1e1e",
+                  padding: 12,
+                  borderRadius: 4,
+                  fontSize: 12,
+                  overflow: "auto",
+                  maxHeight: 400,
+                }}
+              >
+                {JSON.stringify(fetchedData, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 
       {/* Error / Denied / Expired */}
-      {(status === "error" || status === "denied" || status === "expired") && error && (
-        <div
-          style={{
-            ...cardStyle,
-            borderColor: "#ff4444",
-          }}
-        >
-          <p style={{ color: "#ff4444" }}>{error}</p>
-        </div>
-      )}
+      {(status === "error" || status === "denied" || status === "expired") &&
+        error && (
+          <div
+            style={{
+              ...cardStyle,
+              borderColor: "#ff4444",
+            }}
+          >
+            <p style={{ color: "#ff4444" }}>{error}</p>
+          </div>
+        )}
 
       {/* Reset button */}
       {status !== "idle" && status !== "connecting" && (
-        <button onClick={handleReset} style={{ ...btnSmallStyle, marginTop: 12 }}>
+        <button
+          onClick={handleReset}
+          style={{ ...btnSmallStyle, marginTop: 12 }}
+        >
           Reset
         </button>
       )}
