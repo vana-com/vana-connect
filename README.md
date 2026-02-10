@@ -10,55 +10,36 @@ npm install @opendatalabs/connect
 
 ## Entrypoints
 
-| Entrypoint                     | Environment | Description                                |
-| ------------------------------ | ----------- | ------------------------------------------ |
-| `@opendatalabs/connect/server` | Node.js     | Session relay, request signer, data client |
-| `@opendatalabs/connect/react`  | Browser     | Polling hook, connect button               |
-| `@opendatalabs/connect/core`   | Universal   | Shared types and errors                    |
+| Entrypoint                     | Environment | Description                                 |
+| ------------------------------ | ----------- | ------------------------------------------- |
+| `@opendatalabs/connect/server` | Node.js     | `connect()`, `getData()`, low-level clients |
+| `@opendatalabs/connect/react`  | Browser     | Polling hook, connect button                |
+| `@opendatalabs/connect/core`   | Universal   | Shared types, errors, and constants         |
 
-## Quick Start (Server)
+## Quick Start
+
+### 1. Initialize a session (server)
 
 ```typescript
-import {
-  createSessionRelay,
-  createDataClient,
-} from "@opendatalabs/connect/server";
+import { connect } from "@opendatalabs/connect/server";
 
-// Create a session for your user
-const relay = createSessionRelay({
-  privateKey: process.env.VANA_APP_PRIVATE_KEY,
-  granteeAddress: "0x...",
-  sessionRelayUrl: "https://session-relay.vana.org",
-});
-const session = await relay.initSession({
-  scopes: ["instagram.profile"],
+const session = await connect({
+  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  scopes: ["instagram.dpv1"],
 });
 
-// Poll until user approves in Desktop App
-const result = await relay.pollUntilComplete(session.sessionId);
-
-// Fetch user data with the grant
-const data = createDataClient({
-  privateKey: process.env.VANA_APP_PRIVATE_KEY,
-  gatewayUrl: "https://gateway.vana.org",
-});
-const serverUrl = await data.resolveServerUrl(result.grant.userAddress);
-const profile = await data.fetchData({
-  serverUrl,
-  scope: "instagram.profile",
-  grantId: result.grant.grantId,
-});
+// session.sessionId   — pass to the client for polling
+// session.deepLinkUrl — surface to the user (QR code, deep link, etc.)
+// session.expiresAt   — session expiration timestamp
 ```
 
-## Quick Start (React)
+### 2. Poll for approval (client)
 
 ```tsx
 import { useVanaConnect } from "@opendatalabs/connect/react";
 
 function ConnectPage({ sessionId }: { sessionId: string }) {
-  const { connect, status, grant, deepLinkUrl } = useVanaConnect({
-    sessionRelayUrl: "https://session-relay.vana.org",
-  });
+  const { connect, status, grant, deepLinkUrl } = useVanaConnect();
 
   useEffect(() => {
     connect({ sessionId });
@@ -74,6 +55,43 @@ function ConnectPage({ sessionId }: { sessionId: string }) {
 
   return <p>Status: {status}</p>;
 }
+```
+
+### 3. Fetch data (server)
+
+```typescript
+import { getData } from "@opendatalabs/connect/server";
+
+const data = await getData({
+  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  grant, // GrantPayload from the approval step
+});
+
+// data is a Map<string, unknown> keyed by scope
+```
+
+### Options
+
+```typescript
+// connect() options
+await connect({
+  privateKey: "0x...",
+  scopes: ["instagram.dpv1"],
+  webhookUrl: "https://...", // optional webhook for session events
+  appUserId: "user-42", // optional app-level user ID
+});
+```
+
+### Advanced (Low-Level APIs)
+
+For full control, the low-level factories are still available:
+
+```typescript
+import {
+  createSessionRelay,
+  createDataClient,
+  createRequestSigner,
+} from "@opendatalabs/connect/server";
 ```
 
 ## License

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { SESSION_RELAY_URL } from "../core/constants.js";
 import type {
   ConnectionStatus,
   GrantPayload,
@@ -6,12 +7,11 @@ import type {
 } from "../core/types.js";
 
 export interface UseVanaConnectConfig {
-  sessionRelayUrl: string;
   pollingInterval?: number;
 }
 
 export interface UseVanaConnectResult {
-  connect: (params: { sessionId: string }) => void;
+  connect: (params: { sessionId: string; deepLinkUrl?: string }) => void;
   status: ConnectionStatus;
   grant: GrantPayload | null;
   error: string | null;
@@ -20,10 +20,10 @@ export interface UseVanaConnectResult {
 }
 
 export function useVanaConnect(
-  config: UseVanaConnectConfig,
+  config?: UseVanaConnectConfig,
 ): UseVanaConnectResult {
-  const baseUrl = config.sessionRelayUrl.replace(/\/+$/, "");
-  const interval = config.pollingInterval ?? 2000;
+  const baseUrl = SESSION_RELAY_URL;
+  const interval = config?.pollingInterval ?? 2000;
 
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [grant, setGrant] = useState<GrantPayload | null>(null);
@@ -47,12 +47,14 @@ export function useVanaConnect(
   }, [stopPolling]);
 
   const connect = useCallback(
-    (params: { sessionId: string }) => {
+    (params: { sessionId: string; deepLinkUrl?: string }) => {
       stopPolling();
       setStatus("connecting");
       setGrant(null);
       setError(null);
-      setDeepLinkUrl(`vana://connect?sessionId=${params.sessionId}`);
+      setDeepLinkUrl(
+        params.deepLinkUrl ?? `vana://connect?sessionId=${params.sessionId}`,
+      );
 
       const pollUrl = `${baseUrl}/v1/session/${params.sessionId}/poll`;
 

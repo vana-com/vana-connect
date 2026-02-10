@@ -1,5 +1,5 @@
 {
-  "name": "test-builder-app",
+  "name": "nextjs-starter",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001"

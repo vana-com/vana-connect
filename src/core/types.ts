@@ -56,3 +56,15 @@ export interface DataClientConfig {
   privateKey: `0x${string}`;
   gatewayUrl: string;
 }
+
+export interface ConnectConfig {
+  privateKey: `0x${string}`;
+  scopes: string[];
+  webhookUrl?: string;
+  appUserId?: string;
+}
+
+export interface GetDataConfig {
+  privateKey: `0x${string}`;
+  grant: GrantPayload;
+}
