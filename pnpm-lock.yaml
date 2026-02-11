@@ -144,7 +144,7 @@ importers:
   examples/nextjs-starter:
     dependencies:
       "@opendatalabs/connect":
-        specifier: workspace:*
+        specifier: ^0.4.0
         version: link:../..
       next:
         specifier: ^15.0.0
