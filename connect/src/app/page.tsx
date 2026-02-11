@@ -68,12 +68,15 @@ export default function Page() {
           </div>
 
           {IS_TEST_MODE ? (
-            <div className="mx-auto w-full rounded-card border border-foreground bg-muted px-w6 py-w4 text-left lg:w-3/4">
+            <div className="mx-auto w-full rounded-card border border-destructive px-4 py-3 text-left text-destructive **:text-destructive lg:w-3/4">
               <Text as="p" intent="small" weight="semi" className="uppercase">
                 Test mode only
               </Text>
               <Text as="p" intent="small">
-                Using hardcoded Rickroll defaults for connect flow testing.
+                Work in progress: native launch flow is not wired yet.
+              </Text>
+              <Text as="p" intent="small">
+                No launch URL yet.
               </Text>
               <Text as="p" intent="small">
                 Do not ship this config to production.
@@ -123,7 +126,7 @@ export default function Page() {
             <Text as="p">Already have Data Connect?</Text>
             <Button size="xl" fullWidth onClick={handleLaunchClick}>
               <DcIcon className="size-[1.5em]!" />
-              Launch Data Connect (Test)
+              Launch Data Connect (WIP)
               <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
             </Button>
           </div>
