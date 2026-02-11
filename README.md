@@ -10,11 +10,11 @@ npm install @opendatalabs/connect
 
 ## Entrypoints
 
-| Entrypoint                     | Environment | Description                                 |
-| ------------------------------ | ----------- | ------------------------------------------- |
-| `@opendatalabs/connect/server` | Node.js     | `connect()`, `getData()`, low-level clients |
-| `@opendatalabs/connect/react`  | Browser     | Polling hook, connect button                |
-| `@opendatalabs/connect/core`   | Universal   | Shared types, errors, and constants         |
+| Entrypoint                     | Environment | Description                                                       |
+| ------------------------------ | ----------- | ----------------------------------------------------------------- |
+| `@opendatalabs/connect/server` | Node.js     | `connect()`, `getData()`, `signVanaManifest()`, low-level clients |
+| `@opendatalabs/connect/react`  | Browser     | Polling hook, connect button                                      |
+| `@opendatalabs/connect/core`   | Universal   | Shared types, errors, and constants                               |
 
 ## Quick Start
 
@@ -80,6 +80,24 @@ await connect({
   webhookUrl: "https://...", // optional webhook for session events
   appUserId: "user-42", // optional app-level user ID
 });
+```
+
+### 4. Sign a web app manifest (server)
+
+```typescript
+import { signVanaManifest } from "@opendatalabs/connect/server";
+
+const vanaBlock = await signVanaManifest({
+  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  appUrl: "https://your-app.example.com",
+  privacyPolicyUrl: "https://your-app.example.com/privacy",
+  termsUrl: "https://your-app.example.com/terms",
+  supportUrl: "https://your-app.example.com/support",
+  webhookUrl: "https://your-app.example.com/api/webhook",
+});
+
+// Include vanaBlock in your W3C Web App Manifest as the "vana" key
+// The Desktop App fetches this manifest to verify builder identity
 ```
 
 ### Advanced (Low-Level APIs)

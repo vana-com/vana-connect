@@ -68,3 +68,21 @@ export interface GetDataConfig {
   privateKey: `0x${string}`;
   grant: GrantPayload;
 }
+
+export interface VanaManifestConfig {
+  privateKey: `0x${string}`;
+  appUrl: string;
+  privacyPolicyUrl: string;
+  termsUrl: string;
+  supportUrl: string;
+  webhookUrl: string;
+}
+
+export interface VanaManifestBlock {
+  appUrl: string;
+  privacyPolicyUrl: string;
+  termsUrl: string;
+  supportUrl: string;
+  webhookUrl: string;
+  signature: string;
+}
