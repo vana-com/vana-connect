@@ -136,9 +136,21 @@ export default function ConnectFlow() {
                   {copied ? "Copied" : "Copy"}
                 </button>
               </div>
-              <p style={{ fontSize: 12, color: "#52525b", margin: "8px 0 0" }}>
-                Paste into Personal Server Dev UI &rarr; Connect tab
-              </p>
+              <a
+                href={deepLinkUrl}
+                style={{
+                  ...btnPrimary,
+                  display: "inline-block",
+                  boxSizing: "border-box",
+                  marginTop: 8,
+                  fontSize: 13,
+                  textDecoration: "none",
+                  textAlign: "center",
+                  width: "100%",
+                }}
+              >
+                Open in Data Connect
+              </a>
             </div>
           )}
         </div>

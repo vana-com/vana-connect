@@ -37,7 +37,7 @@ The app serves a W3C Web App Manifest at `/manifest.json` containing a signed `v
 1. **Terminal 1** — Start your Personal Server (`pnpm dev`)
 2. **Terminal 2** — Start this app (`pnpm dev`)
 3. **Browser Tab 1** — Open `http://localhost:3001`, click "Connect Your Data"
-4. **Browser Tab 2** — Open the Personal Server Dev UI → Connect tab
-5. Paste the deep link URL from Tab 1 into Tab 2
+4. Click "Open in Data Connect" to launch the deep link in the Data Connect app
+5. Alternatively, copy the deep link URL and paste it into the Personal Server Dev UI → Connect tab
 6. Click "Auto-Approve All" (or step through manually)
 7. Tab 1 updates from "Waiting..." to "Approved!" with grant details
