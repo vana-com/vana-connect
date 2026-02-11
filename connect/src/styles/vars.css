@@ -1,0 +1,152 @@
+/*
+  SHADCN ↔ RADIX 12-STEP NOTES
+  - Keep the upstream shadcn variable names so imports remain drop-in compatible
+  - token is the surface/fill color (buttons, cards, badges)
+  - token-foreground is the content on that surface
+  - Neutrals map directly to Gray (background/card/popover = step 1, etc.).
+  - Semantic tokens (primary/accent/destructive/success) pick saturated step 9 surfaces with step 11-ish foregrounds.
+  - Light mode values stay opaque (no opacity hacks) so the contrast lives inside each pair.
+  - Original shadcn vars: https://ui.shadcn.com/docs/theming#list-of-variables
+
+  NB! For custom color scales we defer to the radix system. It is far more sensible! See: https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale
+*/
+
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1a1a1a;
+  background-color: #f5f5f7;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --radius: 9px;
+  --spacing: 4px;
+
+  /* Gray scale (using Shadcn naming + radix step 11) */
+  --background: oklch(1 0 0); /* step 1: white */
+  --foreground: oklch(0.145 0 0); /* step 12: #0a0a0a */
+  --foreground-11: oklch(0.5032 0 0); /* Gray 11 #646464 */
+  --muted-foreground: oklch(0.61 0 0); /* Gray 10 #838383; was 0.556 */
+  --muted: oklch(0.97 0 0); /* step 2-3 #f5f5f5 */
+  --border: oklch(0.922 0 0); /* step 4-5 */
+  --input: oklch(0.815 0 0); /* step 7-8: was oklch(0.922 0 0) */
+  --ring: oklch(0.708 0 0); /* step 8-9 */
+
+  /* Legacy shadcn gray scale */
+  /* --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0); */
+
+  /* Destructive red scale */
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0); /* white on red */
+
+  /* Success green scale */
+  --success: oklch(0.7566 0.255886 142.6788); /* #00D50B */
+  --success-foreground: oklch(1 0 0); /* white on green */
+
+  /* Accent blue scale (anchor: #4141fc):  */
+  /* Using: https://www.radix-ui.com/colors/custom */
+  --vana-blue: oklch(51.7% 0.265 272); /* #4141fc */
+  --accent: oklch(0.4248 0.1505 290.12); /* experiment; unused! */
+  --accent-1: oklch(99.4% 0.0021 272);
+  --accent-2: oklch(98.3% 0.011 272);
+  --accent-3: oklch(96.1% 0.0234 272);
+  --accent-4: oklch(93.5% 0.0461 272);
+  --accent-5: oklch(90.3% 0.0698 272);
+  --accent-6: oklch(86.3% 0.0973 272);
+  --accent-7: oklch(80.7% 0.1185 272);
+  --accent-8: oklch(73% 0.1547 272);
+  --accent-9: var(--accent);
+  --accent-10: oklch(46.8% 0.2357 272);
+  --accent-11: oklch(51% 0.2357 272);
+  --accent-12: oklch(31.3% 0.1173 272);
+
+  /* Stonebeige scale */
+  /* Anchor: #B8AD97 is closer to Gold 8; adjusted to #9D8E70 for Gold 9 LC */
+  --stonebeige: oklch(0.6509 0.0463 84.58);
+  --stonebeige-1: oklch(99.4% 0.0014 84.6);
+  --stonebeige-2: oklch(98.3% 0.0037 84.6);
+  --stonebeige-3: oklch(95.5% 0.0078 84.6);
+  --stonebeige-4: oklch(93% 0.0122 84.6);
+  --stonebeige-5: oklch(90.5% 0.0167 84.6);
+  --stonebeige-6: oklch(87.6% 0.0226 84.6);
+  --stonebeige-7: oklch(83.7% 0.0307 84.6);
+  --stonebeige-8: oklch(77.4% 0.0417 84.6);
+  --stonebeige-9: var(--stonebeige);
+  --stonebeige-10: oklch(61.1% 0.0424 84.6);
+  --stonebeige-11: oklch(50.4% 0.0337 84.6);
+  --stonebeige-12: oklch(27.9% 0.0134 84.6);
+
+  /* UNUSED */
+  /* We don't use this section of colors b/c doesn't make sense to Callum */
+  /* Keep it so we can import Shadcn components smoothly!  */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0); /* step 2-3 */
+  --secondary-foreground: oklch(0.205 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.87 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}

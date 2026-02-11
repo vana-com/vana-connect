@@ -5,20 +5,36 @@
 ```bash
 git clone https://github.com/vana-com/vana-connect.git
 cd vana-connect
-npm install
-npm run build
-npm test
+pnpm install
+pnpm build
+pnpm test
 ```
+
+## Package Manager
+
+- Use `pnpm` as the package manager for this repository (including the `connect` app).
+- Prefer `pnpm install` and `pnpm <script>` commands for local development.
+
+## Workspace Install Rules
+
+- Install dependencies for `connect` from repo root with filtering:
+  - `pnpm --filter connect add <package>`
+  - `pnpm --filter connect add -D <package>`
+- Install dependencies for the root package (`@opendatalabs/connect`) with:
+  - `pnpm -w add <package>`
+  - `pnpm -w add -D <package>`
+- Running `pnpm add` inside `connect/` also works, but root + `--filter` is the default convention.
+- Keep lockfile changes at the workspace root (`pnpm-lock.yaml`).
 
 ## Development
 
-- `npm run build` — Compile TypeScript
-- `npm test` — Run unit tests
-- `npm run test:e2e` — Run E2E tests (requires env vars)
-- `npm run lint` — Type-check
-- `npm run lint:eslint` — Lint with ESLint
-- `npm run format` — Format with Prettier
-- `npm run validate` — Run all checks
+- `pnpm build` — Compile TypeScript
+- `pnpm test` — Run unit tests
+- `pnpm test:e2e` — Run E2E tests (requires env vars)
+- `pnpm lint` — Type-check
+- `pnpm lint:eslint` — Lint with ESLint
+- `pnpm format` — Format with Prettier
+- `pnpm validate` — Run all checks
 
 ## Commit Convention
 

@@ -1,0 +1,99 @@
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes waveFlow {
+  0%,
+  100% {
+    background-position: -100% 0%;
+  }
+  50% {
+    background-position: 100% 0%;
+  }
+}
+
+@keyframes waveFlowVana {
+  0%,
+  100% {
+    background-position: 0% 0%;
+  }
+  25% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+}
+
+@keyframes hapticPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes iosRipple {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes dataFlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateY(0px);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1) translateY(-2px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.8) translateY(-4px);
+  }
+  75% {
+    opacity: 0.4;
+    transform: scale(0.6) translateY(-6px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.4) translateY(-8px);
+  }
+}
+
+@keyframes capitalPulse {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+}

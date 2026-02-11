@@ -1,0 +1,161 @@
+/*
+  https://tailwindcss.com/docs/adding-custom-styles#adding-custom-utilities
+  
+  Tailwind v4 note:
+  - Use @utility for anything you want to @apply elsewhere (makes it a utility candidate).
+  - Classes declared inside @layer utilities are plain CSS classes. You can use them in markup, but you CANNOT @apply them unless you also define a matching @utility.
+*/
+
+@utility link {
+  @apply relative;
+  @apply underline underline-offset-[0.25em];
+  @apply decoration-solid decoration-[0.025em];
+  @apply hover:text-current hover:decoration-current hover:decoration-[0.05em];
+  /* @apply transition-colors duration-300 ease-linear; */
+}
+
+@utility container {
+  @apply px-inset mx-auto w-full;
+  @apply max-w-desktop-width;
+}
+
+@utility action-outset {
+  /* extend action content blocks outside the container */
+  margin-inline: calc(var(--radius-squish) * -1);
+}
+
+/* These are iOS-specific (and take no effect in any other env). We set them here to @apply them in Tailwind classes for ease of application, eg. compose singularly in .viewport-wrapper */
+@utility safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+@utility safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+@utility safe-area-inset {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* 
+  Robust viewport fill
+  
+  NB! iOS-specific variant is set in platform-ios.css, which gets merged into h-viewport by the CSS cascade.
+
+  - Use svh for stable layouts (hero sections, pages where scroll-resize is undesirable).
+  - Use dvh for immersive full-height views that should grow when UI chrome collapses. It tracks the live viewport as browser UI (address/tab bars) hides/shows. It resizes on scroll; can cause layout jumps when using using viewport-percentage units (like 80dvh) but lets content expand when bars collapse.
+
+  See: https://developer.mozilla.org/en-US/docs/Web/CSS/length#relative_length_units_based_on_viewport
+ */
+@utility h-viewport {
+  /* legacy vh fallback */
+  min-height: 100vh;
+  /* Dynamic viewport height. If you want “never grow on scroll even on modern browsers” swap to svh. */
+  min-height: 100dvh;
+}
+
+@layer utilities {
+  /* Absolute device viewport height with safe areas. Applied to body element; owns viewport min-height (+ iOS override) */
+  .viewport-wrapper {
+    @apply h-viewport safe-area-top safe-area-bottom;
+  }
+  /* Target a child content div to inherit the viewport min-height. This helps us track where the viewport height is being used, making it easy to test and update. */
+  .viewport-wrapper-child {
+    @apply min-h-[inherit];
+  }
+
+  /* reusable branding gradient for auth screens */
+  .viewport-gradient {
+    @apply from-accent/20 via-accent/10 to-background bg-linear-to-t via-20% to-50%;
+  }
+  /* consistent auth screen content layout */
+  .auth-screen-content {
+    @apply container max-w-(--spacing-mobile-width) px-inset;
+    /* default space between elements */
+    @apply space-y-6;
+    /* margin bottom improve centering appearance */
+    @apply mb-[10vh];
+  }
+
+  /* These are plain classes. Use them directly in markup. Do NOT @apply them unless you also promote them to @utility. */
+  .link-block a:not(.Button) {
+    @apply link;
+  }
+
+  /* must add a height when used within a flex parent */
+  .hr-vertical {
+    @apply w-px border-l;
+  }
+
+  /* https://sebhastian.com/hide-scrollbar-css/ */
+  /* If you ever need to `@apply hide-scrollbar`, change this to `@utility hide-scrollbar` */
+  /* Firefox */
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* marquee: keyframes and class used by marquee.tsx */
+@keyframes marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none !important;
+  }
+}
+
+@layer utilities {
+  .marquee-track {
+    animation: marquee-scroll var(--marquee-duration, 12s) linear infinite;
+  }
+
+  /* Basic syntax highlighting for code editors */
+  .json-editor {
+    /* JSON syntax highlighting would go here - for now just ensure monospace */
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+      Menlo, monospace;
+  }
+
+  .markdown-editor {
+    /* Markdown syntax highlighting would go here - for now just ensure monospace */
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+      Menlo, monospace;
+  }
+}
+
+/* Custom scrollbar */
+/* ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+} */
