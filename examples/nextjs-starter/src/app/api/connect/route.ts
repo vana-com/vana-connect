@@ -11,9 +11,13 @@ export async function POST() {
     );
   }
 
-  const scopes = (process.env.SCOPES ?? "test.dpv1.260130")
-    .split(",")
-    .map((s) => s.trim());
+  const scopes = process.env.SCOPES?.split(",").map((s) => s.trim());
+  if (!scopes || !scopes.length) {
+    return NextResponse.json(
+      { error: "Missing env var: SCOPES" },
+      { status: 500 },
+    );
+  }
 
   const result = await connect({ privateKey, scopes });
 

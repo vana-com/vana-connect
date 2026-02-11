@@ -21,7 +21,7 @@ pnpm dev   # Opens on http://localhost:3001
 | Variable           | Required | Description                                                        |
 | ------------------ | -------- | ------------------------------------------------------------------ |
 | `VANA_PRIVATE_KEY` | Yes      | Builder private key registered on-chain                            |
-| `SCOPES`           | No       | Comma-separated scopes (default: `test.dpv1.260130`)               |
+| `SCOPES`           | No       | Comma-separated scopes                                             |
 | `APP_URL`          | No       | Public URL of your deployed app (default: `http://localhost:3001`) |
 
 ## Web App Manifest

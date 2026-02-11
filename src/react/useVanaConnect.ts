@@ -62,8 +62,17 @@ export function useVanaConnect(
         try {
           const res = await fetch(pollUrl);
           if (!res.ok) {
-            setStatus("error");
-            setError(`Poll failed: ${res.status}`);
+            // Try to extract structured error from response body
+            const body = await res.json().catch(() => null);
+            const errorCode = (body as any)?.error?.errorCode;
+
+            if (res.status === 410 || errorCode === "SESSION_EXPIRED") {
+              setStatus("expired");
+              setError("Session expired");
+            } else {
+              setStatus("error");
+              setError(`Poll failed: ${res.status}`);
+            }
             stopPolling();
             return;
           }

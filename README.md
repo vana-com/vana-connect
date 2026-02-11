@@ -25,7 +25,7 @@ import { connect } from "@opendatalabs/connect/server";
 
 const session = await connect({
   privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
-  scopes: ["instagram.dpv1"],
+  scopes: ["chatgpt.conversations"],
 });
 
 // session.sessionId   — pass to the client for polling
@@ -76,7 +76,7 @@ const data = await getData({
 // connect() options
 await connect({
   privateKey: "0x...",
-  scopes: ["instagram.dpv1"],
+  scopes: ["chatgpt.conversations"],
   webhookUrl: "https://...", // optional webhook for session events
   appUserId: "user-42", // optional app-level user ID
 });
