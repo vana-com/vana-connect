@@ -12,4 +12,6 @@ export type {
   DataClientConfig,
   ConnectConfig,
   GetDataConfig,
+  VanaManifestConfig,
+  VanaManifestBlock,
 } from "./types.js";
