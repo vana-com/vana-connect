@@ -1,4 +1,4 @@
 # TODOs
 
 - [ ] Add terms & privacy links (from DC docs?)
-- [ ] XXX
+- [ ] Add favicon
