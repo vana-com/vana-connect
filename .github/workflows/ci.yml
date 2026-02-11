@@ -3,8 +3,14 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - "connect/**"
+      - "examples/**"
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - "connect/**"
+      - "examples/**"
 
 jobs:
   test:

@@ -159,6 +159,9 @@ importers:
         specifier: ^2.0.0
         version: 2.45.2(typescript@5.7.3)(zod@3.25.76)
     devDependencies:
+      "@types/node":
+        specifier: ^22.0.0
+        version: 22.19.11
       "@types/react":
         specifier: ^19.0.0
         version: 19.2.13
@@ -3119,6 +3122,12 @@ packages:
     resolution:
       {
         integrity: sha512-Rs1bVAIdBs5gbTIKza/tgpMuG1k3U/UMJLWecIMxNdJFDMzcM5LOiLVRYh3PilWEYDIeUDv7bpiHPLPsbydGcw==,
+      }
+
+  "@types/node@22.19.11":
+    resolution:
+      {
+        integrity: sha512-BH7YwL6rA93ReqeQS1c4bsPpcfOmJasG+Fkr6Y59q83f9M1WcBRHR2vM+P9eOisYRcN3ujQoiZY8uk5W+1WL8w==,
       }
 
   "@types/node@25.2.2":
@@ -9809,6 +9818,10 @@ snapshots:
   "@types/json-schema@7.0.15": {}
 
   "@types/node@20.19.33":
+    dependencies:
+      undici-types: 6.21.0
+
+  "@types/node@22.19.11":
     dependencies:
       undici-types: 6.21.0
 
