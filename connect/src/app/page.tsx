@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowLeftIcon, ArrowRightIcon, ImportIcon } from "lucide-react";
 import Link from "next/link";
 import { DcIcon } from "@/components/icons/dc-icon";
@@ -7,16 +9,26 @@ import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
 
-// TODO(team): replace with real download URL (DMG page, CDN, etc.).
-const DOWNLOAD_APP_URL = "https://example.com/data-connect/download";
-// TODO(team): replace with real deep-link format + route/params.
-const DATA_CONNECT_DEEP_LINK = "dataconnect://connect";
+// TEST DEFAULTS: intentionally hardcoded for local/testing flow.
+const IS_TEST_MODE = true;
+const DEFAULT_DOWNLOAD_URL =
+  "https://github.com/vana-com/databridge/releases/latest";
+const DEFAULT_LAUNCH_URL =
+  "dataconnect://?appId=rickroll&scopes=read:chatgpt-conversations";
+
 const BACK_LINK_HREF = "/";
 const PRIVACY_POLICY_URL = "#";
 const TERMS_OF_SERVICE_URL = "#";
 const downloadPlatformLabel = "macOS";
 
 export default function Page() {
+  function handleLaunchClick() {
+    // NOTE: skip-to-grant decision is owned by desktop app @src/pages/connect.
+    const launchUrl = new URL(DEFAULT_LAUNCH_URL);
+    launchUrl.searchParams.set("sessionId", `ext-${crypto.randomUUID()}`);
+    window.location.href = launchUrl.toString();
+  }
+
   return (
     <div className="min-h-screen p-w8 pb-w32 flex flex-col bg-[#F0F4F8]">
       <Link
@@ -55,9 +67,23 @@ export default function Page() {
             </Text>
           </div>
 
+          {IS_TEST_MODE ? (
+            <div className="mx-auto w-full rounded-card border border-foreground bg-muted px-w6 py-w4 text-left lg:w-3/4">
+              <Text as="p" intent="small" weight="semi" className="uppercase">
+                Test mode only
+              </Text>
+              <Text as="p" intent="small">
+                Using hardcoded Rickroll defaults for connect flow testing.
+              </Text>
+              <Text as="p" intent="small">
+                Do not ship this config to production.
+              </Text>
+            </div>
+          ) : null}
+
           {/* Download app link */}
           <a
-            href={DOWNLOAD_APP_URL}
+            href={DEFAULT_DOWNLOAD_URL}
             target="_blank"
             rel="noreferrer"
             className={cn(
@@ -95,12 +121,10 @@ export default function Page() {
           {/* Deep link into installed Data Connect app */}
           <div className="lg:w-3/4 mx-auto space-y-gap">
             <Text as="p">Already have Data Connect?</Text>
-            <Button asChild size="xl" fullWidth>
-              <a href={DATA_CONNECT_DEEP_LINK}>
-                <DcIcon className="size-[1.5em]!" />
-                Launch Data Connect
-                <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
-              </a>
+            <Button size="xl" fullWidth onClick={handleLaunchClick}>
+              <DcIcon className="size-[1.5em]!" />
+              Launch Data Connect (Test)
+              <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
             </Button>
           </div>
 
