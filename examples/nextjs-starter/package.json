@@ -1,8 +1,10 @@
 {
   "name": "nextjs-starter",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev --port 3001"
+    "dev": "next dev --port 3001",
+    "build": "pnpm --filter @opendatalabs/connect build && next build"
   },
   "dependencies": {
     "@opendatalabs/connect": "^0.4.0",
