@@ -1,6 +1,6 @@
 # Vana Connect SDK
 
-Let your users customize your app with their own data. 
+Let your users customize your app with their own data.
 
 Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Vana Desktop App](https://www.vana.com/download), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
 
@@ -44,7 +44,6 @@ npm install @opendatalabs/connect
 
 Register as a builder through the Vana Desktop App first.
 
-
 ## Quickstart
 
 ### 1. Create a session (server)
@@ -55,8 +54,8 @@ import { connect } from "@opendatalabs/connect/server";
 const session = await connect({
   privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   scopes: ["chatgpt.conversations"],
-  webhookUrl: "https://yourapp.com/api/webhook",  // optional
-  appUserId: "user-42",                            // optional
+  webhookUrl: "https://yourapp.com/api/webhook", // optional
+  appUserId: "user-42", // optional
 });
 
 // Return to your frontend:
@@ -97,7 +96,7 @@ import { ConnectButton } from "@opendatalabs/connect/react";
   sessionId={sessionId}
   onComplete={(grant) => saveGrant(grant)}
   onError={(err) => console.error(err)}
-/>
+/>;
 ```
 
 ### 3. Fetch user data (server)
@@ -146,31 +145,31 @@ Make sure your HTML includes `<link rel="manifest" href="/manifest.json">`.
 
 ### Entrypoints
 
-| Import                          | Environment | Exports                                                          |
-| ------------------------------- | ----------- | ---------------------------------------------------------------- |
-| `@opendatalabs/connect/server`  | Node.js     | `connect()`, `getData()`, `signVanaManifest()`, low-level clients |
-| `@opendatalabs/connect/react`   | Browser     | `useVanaConnect()`, `ConnectButton`                               |
-| `@opendatalabs/connect/core`    | Universal   | Types, `ConnectError`, constants                                  |
+| Import                         | Environment | Exports                                                           |
+| ------------------------------ | ----------- | ----------------------------------------------------------------- |
+| `@opendatalabs/connect/server` | Node.js     | `connect()`, `getData()`, `signVanaManifest()`, low-level clients |
+| `@opendatalabs/connect/react`  | Browser     | `useVanaConnect()`, `ConnectButton`                               |
+| `@opendatalabs/connect/core`   | Universal   | Types, `ConnectError`, constants                                  |
 
 ### `connect(config): Promise<SessionInitResult>`
 
 Creates a session on the Session Relay. Returns `sessionId`, `deepLinkUrl`, and `expiresAt`.
 
-| Param        | Type           | Required | Description                         |
-| ------------ | -------------- | -------- | ----------------------------------- |
-| `privateKey` | `` `0x${string}` `` | Yes      | Builder private key                 |
-| `scopes`     | `string[]`     | Yes      | Data scopes to request              |
-| `webhookUrl` | `string`       | No       | Public HTTPS URL for grant event notifications (localhost is rejected) |
-| `appUserId`  | `string`       | No       | Your app's user ID for correlation  |
+| Param        | Type                | Required | Description                                                            |
+| ------------ | ------------------- | -------- | ---------------------------------------------------------------------- |
+| `privateKey` | `` `0x${string}` `` | Yes      | Builder private key                                                    |
+| `scopes`     | `string[]`          | Yes      | Data scopes to request                                                 |
+| `webhookUrl` | `string`            | No       | Public HTTPS URL for grant event notifications (localhost is rejected) |
+| `appUserId`  | `string`            | No       | Your app's user ID for correlation                                     |
 
 ### `getData(config): Promise<Map<string, unknown>>`
 
 Fetches user data from their Personal Server using a signed grant.
 
-| Param        | Type           | Required | Description                     |
-| ------------ | -------------- | -------- | ------------------------------- |
-| `privateKey` | `` `0x${string}` `` | Yes      | Builder private key             |
-| `grant`      | `GrantPayload` | Yes      | Grant from the approval step    |
+| Param        | Type                | Required | Description                  |
+| ------------ | ------------------- | -------- | ---------------------------- |
+| `privateKey` | `` `0x${string}` `` | Yes      | Builder private key          |
+| `grant`      | `GrantPayload`      | Yes      | Grant from the approval step |
 
 ### `useVanaConnect(config?): UseVanaConnectResult`
 
@@ -188,12 +187,12 @@ Returned when a user approves access:
 
 ```typescript
 interface GrantPayload {
-  grantId: string;        // on-chain permission ID
-  userAddress: string;    // user's wallet address
+  grantId: string; // on-chain permission ID
+  userAddress: string; // user's wallet address
   builderAddress: string; // your registered address
-  scopes: string[];       // approved data scopes
+  scopes: string[]; // approved data scopes
   serverAddress?: string; // user's Personal Server
-  appUserId?: string;     // your app's user ID (if provided)
+  appUserId?: string; // your app's user ID (if provided)
 }
 ```
 
@@ -203,9 +202,9 @@ For full control over individual protocol interactions:
 
 ```typescript
 import {
-  createRequestSigner,  // Web3Signed header generation
-  createSessionRelay,   // Session Relay HTTP client
-  createDataClient,     // Data Gateway HTTP client
+  createRequestSigner, // Web3Signed header generation
+  createSessionRelay, // Session Relay HTTP client
+  createDataClient, // Data Gateway HTTP client
 } from "@opendatalabs/connect/server";
 ```
 
