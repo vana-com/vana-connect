@@ -26,7 +26,7 @@ The SDK handles session creation, cryptographic request signing, polling, and da
 
 ## Where this fits in the Vana protocol
 
-The [Data Portability Protocol](https://docs.vana.com) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. The protocol participants are:
+The [Data Portability Protocol](https://docs.vana.org) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. The protocol participants are:
 
 - **Personal Server** — stores and serves user data, enforces grants
 - **Data Portability Gateway** — fast API with eventual on-chain consistency
