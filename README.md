@@ -1,6 +1,6 @@
-# @opendatalabs/connect
+# Vana Connect SDK
 
-Let users bring their own data into your app. One SDK call to request consent, one to fetch the data.
+Let your users customize your app with their own data. 
 
 Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Vana Desktop App](https://www.vana.com/download), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
 
