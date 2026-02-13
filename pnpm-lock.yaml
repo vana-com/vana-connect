@@ -144,8 +144,8 @@ importers:
   examples/nextjs-starter:
     dependencies:
       "@opendatalabs/connect":
-        specifier: ^0.4.0
-        version: link:../..
+        specifier: ^0.6.0
+        version: 0.6.0(react@19.2.4)(viem@2.45.2(typescript@5.7.3)(zod@3.25.76))
       next:
         specifier: ^15.0.0
         version: 15.5.12(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1711,6 +1711,19 @@ packages:
       {
         integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==,
       }
+
+  "@opendatalabs/connect@0.6.0":
+    resolution:
+      {
+        integrity: sha512-vhgpTXDqvYEge+gWizOC97D0cA/C9O09xJoRmoofa7cYt7l3smMQXSxMwclWJfZPE95ywQ5fkQakEmrxeDgr1g==,
+      }
+    engines: { node: ">=20.0.0" }
+    peerDependencies:
+      react: ">=18.0.0"
+      viem: ^2.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   "@pnpm/config.env-replace@1.1.0":
     resolution:
@@ -8767,6 +8780,12 @@ snapshots:
       outvariant: 1.4.3
 
   "@open-draft/until@2.1.0": {}
+
+  "@opendatalabs/connect@0.6.0(react@19.2.4)(viem@2.45.2(typescript@5.7.3)(zod@3.25.76))":
+    dependencies:
+      viem: 2.45.2(typescript@5.7.3)(zod@3.25.76)
+    optionalDependencies:
+      react: 19.2.4
 
   "@pnpm/config.env-replace@1.1.0": {}
 
