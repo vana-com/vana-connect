@@ -131,6 +131,7 @@ describe("createDataClient", () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 403,
+        text: async () => "Forbidden",
       });
 
       const client = createDataClient({

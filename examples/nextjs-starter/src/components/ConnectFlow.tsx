@@ -1,186 +1,123 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useVanaConnect } from "@opendatalabs/connect/react";
+// useVanaData() manages the full connect → poll → fetch-data lifecycle.
+// initConnect() starts a session, the hook polls until approved, then
+// fetchData() calls /api/data with the grant to retrieve user data.
+
+import { useEffect, useRef } from "react";
+import { useVanaData } from "@opendatalabs/connect/react";
+import type { ConnectionStatus } from "@opendatalabs/connect/core";
+
+const STATUS_DISPLAY: Record<
+  ConnectionStatus,
+  { dot: string; label: string; className: string }
+> = {
+  idle: { dot: "\u25CB", label: "Idle", className: "status-default" },
+  connecting: {
+    dot: "\u25CB",
+    label: "Connecting",
+    className: "status-default",
+  },
+  waiting: {
+    dot: "\u25CB",
+    label: "Waiting for approval",
+    className: "status-waiting",
+  },
+  approved: { dot: "\u25CF", label: "Approved", className: "status-approved" },
+  denied: { dot: "\u25CF", label: "Denied", className: "status-denied" },
+  expired: { dot: "\u25CF", label: "Expired", className: "status-expired" },
+  error: { dot: "\u25CF", label: "Error", className: "status-error" },
+};
 
 export default function ConnectFlow() {
-  const { connect, status, grant, error, deepLinkUrl, reset } =
-    useVanaConnect();
+  const {
+    status,
+    grant,
+    data,
+    error,
+    deepLinkUrl,
+    initConnect,
+    fetchData,
+    isLoading,
+  } = useVanaData();
 
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [fetchedData, setFetchedData] = useState<unknown>(null);
-  const [fetchLoading, setFetchLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const handleConnect = useCallback(async () => {
-    setFetchedData(null);
-    setFetchError(null);
-
-    try {
-      const res = await fetch("/api/connect", { method: "POST" });
-      const data = await res.json();
-
-      if (!res.ok) {
-        return;
-      }
-
-      setSessionId(data.sessionId);
-      connect({ sessionId: data.sessionId, deepLinkUrl: data.deepLinkUrl });
-    } catch {
-      // Network error — hook will show error state
+  const initRef = useRef(false);
+  useEffect(() => {
+    if (!initRef.current) {
+      initRef.current = true;
+      void initConnect();
     }
-  }, [connect]);
+  }, [initConnect]);
 
-  function handleCopy() {
-    if (!deepLinkUrl) return;
-    navigator.clipboard.writeText(deepLinkUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleFetchData() {
-    if (!grant) return;
-    setFetchLoading(true);
-    setFetchError(null);
-    setFetchedData(null);
-
-    try {
-      const res = await fetch("/api/data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grant }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setFetchError(data.error ?? "Failed to fetch data");
-        return;
-      }
-
-      setFetchedData(data);
-    } catch (e) {
-      setFetchError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setFetchLoading(false);
-    }
-  }
-
-  function handleReset() {
-    reset();
-    setSessionId(null);
-    setFetchedData(null);
-    setFetchError(null);
-    setFetchLoading(false);
-  }
-
-  const isTerminal =
-    status === "waiting" ||
-    status === "approved" ||
-    status === "denied" ||
-    status === "expired";
+  const display = STATUS_DISPLAY[status];
+  const sessionReady = !!deepLinkUrl;
 
   return (
     <div>
-      {/* Connect CTA */}
-      {status === "idle" && (
-        <button onClick={handleConnect} style={btnPrimary}>
-          Connect Your Data
-        </button>
-      )}
-
-      {/* Loading */}
-      {status === "connecting" && (
-        <div style={card}>
-          <span style={mono}>Initializing session...</span>
-        </div>
-      )}
-
-      {/* Session info */}
-      {isTerminal && sessionId && (
-        <div style={card}>
+      {/* Launch button — shown until approved */}
+      {status !== "approved" && (
+        <div className="card">
           <div style={{ marginBottom: 20 }}>
-            <div style={fieldRow}>
-              <span style={label}>Status</span>
-              <span
-                style={{
-                  ...mono,
-                  fontSize: 12,
-                  color: statusColor(status),
-                }}
-              >
-                {statusDot(status)} {statusLabel(status)}
+            <div className="field-row">
+              <span className="label">Status</span>
+              <span className={`mono ${display.className}`}>
+                {display.dot} {display.label}
               </span>
             </div>
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <div style={label}>Session</div>
-            <code style={codeBlock}>{sessionId}</code>
-          </div>
-
-          {deepLinkUrl && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={label}>Deep Link</div>
-              <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-                <code
-                  style={{
-                    ...codeBlock,
-                    flex: 1,
-                    wordBreak: "break-all" as const,
-                  }}
-                >
-                  {deepLinkUrl}
-                </code>
-                <button onClick={handleCopy} style={btnGhost}>
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-              <a
-                href={deepLinkUrl}
-                style={{
-                  ...btnPrimary,
-                  display: "inline-block",
-                  boxSizing: "border-box",
-                  marginTop: 8,
-                  fontSize: 13,
-                  textDecoration: "none",
-                  textAlign: "center",
-                  width: "100%",
-                }}
-              >
-                Open in Data Connect
-              </a>
-            </div>
+          {sessionReady ? (
+            <a
+              href={deepLinkUrl}
+              className="btn-primary"
+              style={{
+                display: "inline-block",
+                boxSizing: "border-box",
+                fontSize: 13,
+                textDecoration: "none",
+                textAlign: "center",
+                width: "100%",
+              }}
+            >
+              Launch dataConnect
+            </a>
+          ) : (
+            <button disabled className="btn-primary" style={{ width: "100%" }}>
+              <span className="spinner" /> Creating session...
+            </button>
           )}
         </div>
       )}
 
-      {/* Grant details */}
+      {/* Grant details + data */}
       {status === "approved" && grant && (
-        <div style={{ ...card, borderColor: "#22c55e33" }}>
-          <div style={label}>Grant</div>
-          <pre style={preBlock}>{JSON.stringify(grant, null, 2)}</pre>
+        <div className="card card-approved">
+          <div style={{ marginBottom: 20 }}>
+            <div className="field-row">
+              <span className="label">Status</span>
+              <span className={`mono ${display.className}`}>
+                {display.dot} {display.label}
+              </span>
+            </div>
+          </div>
+
+          <div className="label">Grant</div>
+          <pre className="pre-block">{JSON.stringify(grant, null, 2)}</pre>
 
           <button
-            onClick={handleFetchData}
-            disabled={fetchLoading}
-            style={{ ...btnPrimary, marginTop: 16, width: "100%" }}
+            onClick={fetchData}
+            disabled={isLoading}
+            className="btn-primary"
+            style={{ marginTop: 16, width: "100%" }}
           >
-            {fetchLoading ? "Fetching..." : "Fetch Data"}
+            {isLoading ? "Fetching..." : "Fetch Data"}
           </button>
 
-          {fetchError && (
-            <p style={{ color: "#ef4444", marginTop: 8, fontSize: 13 }}>
-              {fetchError}
-            </p>
-          )}
-
-          {fetchedData != null && (
+          {data != null && (
             <div style={{ marginTop: 16 }}>
-              <div style={label}>Response</div>
-              <pre style={{ ...preBlock, maxHeight: 400 }}>
-                {JSON.stringify(fetchedData, null, 2)}
+              <div className="label">Response</div>
+              <pre className="pre-block" style={{ maxHeight: 400 }}>
+                {JSON.stringify(data, null, 2)}
               </pre>
             </div>
           )}
@@ -190,144 +127,23 @@ export default function ConnectFlow() {
       {/* Errors */}
       {(status === "error" || status === "denied" || status === "expired") &&
         error && (
-          <div style={{ ...card, borderColor: "#ef444444" }}>
-            <p style={{ color: "#ef4444", margin: 0, fontSize: 13 }}>{error}</p>
+          <div className="card card-error">
+            <p className="text-error" style={{ margin: 0 }}>
+              {error}
+            </p>
           </div>
         )}
 
-      {/* Reset */}
+      {/* Reset — reloads the page to start a fresh session */}
       {status !== "idle" && status !== "connecting" && (
-        <button onClick={handleReset} style={{ ...btnGhost, marginTop: 12 }}>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn-ghost"
+          style={{ marginTop: 12 }}
+        >
           Reset
         </button>
       )}
     </div>
   );
 }
-
-/* ── Helpers ── */
-
-function statusColor(s: string): string {
-  switch (s) {
-    case "waiting":
-      return "#eab308";
-    case "approved":
-      return "#22c55e";
-    case "denied":
-    case "expired":
-    case "error":
-      return "#ef4444";
-    default:
-      return "#71717a";
-  }
-}
-
-function statusDot(s: string): string {
-  switch (s) {
-    case "waiting":
-      return "\u25CB";
-    case "approved":
-      return "\u25CF";
-    case "denied":
-    case "expired":
-    case "error":
-      return "\u25CF";
-    default:
-      return "\u25CB";
-  }
-}
-
-function statusLabel(s: string): string {
-  switch (s) {
-    case "waiting":
-      return "Waiting for approval";
-    case "approved":
-      return "Approved";
-    case "denied":
-      return "Denied";
-    case "expired":
-      return "Expired";
-    default:
-      return s;
-  }
-}
-
-/* ── Styles ── */
-
-const mono: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
-  fontSize: 13,
-  color: "#a1a1aa",
-};
-
-const label: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
-  fontSize: 11,
-  fontWeight: 500,
-  textTransform: "uppercase",
-  letterSpacing: 1.5,
-  color: "#52525b",
-  marginBottom: 6,
-};
-
-const fieldRow: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const card: React.CSSProperties = {
-  background: "#0f0f12",
-  border: "1px solid #27272a",
-  borderRadius: 8,
-  padding: 20,
-  marginBottom: 12,
-};
-
-const codeBlock: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
-  fontSize: 12,
-  background: "#18181b",
-  border: "1px solid #27272a",
-  borderRadius: 6,
-  padding: "8px 10px",
-  color: "#d4d4d8",
-  display: "block",
-};
-
-const preBlock: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
-  fontSize: 12,
-  lineHeight: 1.6,
-  background: "#18181b",
-  border: "1px solid #27272a",
-  borderRadius: 6,
-  padding: 12,
-  color: "#d4d4d8",
-  overflow: "auto",
-  margin: 0,
-};
-
-const btnPrimary: React.CSSProperties = {
-  fontFamily: '"DM Sans", sans-serif',
-  fontSize: 14,
-  fontWeight: 500,
-  padding: "10px 20px",
-  border: "none",
-  borderRadius: 6,
-  background: "#22c55e",
-  color: "#09090b",
-  cursor: "pointer",
-};
-
-const btnGhost: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
-  fontSize: 12,
-  padding: "8px 12px",
-  border: "1px solid #27272a",
-  borderRadius: 6,
-  background: "transparent",
-  color: "#71717a",
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};

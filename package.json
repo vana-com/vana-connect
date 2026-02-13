@@ -12,6 +12,7 @@
     "url": "https://github.com/vana-com/vana-connect/issues"
   },
   "type": "module",
+  "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },
@@ -68,9 +69,6 @@
   },
   "peerDependenciesMeta": {
     "react": {
-      "optional": true
-    },
-    "viem": {
       "optional": true
     }
   },

@@ -1,5 +1,11 @@
-export { ConnectError } from "./errors.js";
-export { SESSION_RELAY_URL, GATEWAY_URL } from "./constants.js";
+export { ConnectError, ConnectErrorCode } from "./errors.js";
+export { isValidGrant } from "./grants.js";
+export {
+  getEnvConfig,
+  ENV_CONFIG,
+  DEFAULT_ENVIRONMENT,
+  type VanaEnvironment,
+} from "./constants.js";
 export type {
   ConnectionStatus,
   SessionInitParams,

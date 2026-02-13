@@ -1,4 +1,4 @@
-import { ConnectError } from "../core/errors.js";
+import { ConnectError, ConnectErrorCode } from "../core/errors.js";
 import type {
   SessionRelayConfig,
   SessionInitParams,
@@ -7,15 +7,37 @@ import type {
 } from "../core/types.js";
 import { createRequestSigner } from "./request-signer.js";
 
+/**
+ * Low-level client for the Session Relay service.
+ *
+ * @see {@link createSessionRelay} to create an instance.
+ */
 export interface SessionRelay {
+  /** Creates a new session and returns the session ID and deep link URL. */
   initSession(params: SessionInitParams): Promise<SessionInitResult>;
+  /** Polls the session status once. */
   pollSession(sessionId: string): Promise<SessionPollResult>;
+  /**
+   * Polls until the session reaches a terminal state (`approved`, `denied`, or `expired`).
+   *
+   * @param sessionId - The session to poll.
+   * @param opts - Optional polling interval (default 2 s) and timeout (default 15 min).
+   * @throws {@link ConnectError} with code `POLL_TIMEOUT` if the timeout is exceeded.
+   */
   pollUntilComplete(
     sessionId: string,
     opts?: { interval?: number; timeout?: number },
   ): Promise<SessionPollResult>;
 }
 
+/**
+ * Creates a low-level Session Relay client.
+ *
+ * Prefer the high-level {@link connect} function for most use cases.
+ *
+ * @param config - Session Relay configuration.
+ * @returns A {@link SessionRelay} instance.
+ */
 export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
   const baseUrl = config.sessionRelayUrl.replace(/\/+$/, "");
   const signer = createRequestSigner({ privateKey: config.privateKey });
@@ -56,7 +78,7 @@ export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
         throw new ConnectError(
           errorMsg,
           ((errorBody as Record<string, Record<string, unknown>>).error
-            ?.errorCode as string) ?? "SESSION_INIT_FAILED",
+            ?.errorCode as string) ?? ConnectErrorCode.SESSION_INIT_FAILED,
           res.status,
         );
       }
@@ -72,7 +94,7 @@ export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
         throw new ConnectError(
           `Poll failed: ${res.status}`,
           ((errorBody as Record<string, Record<string, unknown>>).error
-            ?.errorCode as string) ?? "POLL_FAILED",
+            ?.errorCode as string) ?? ConnectErrorCode.POLL_FAILED,
           res.status,
         );
       }
@@ -102,7 +124,10 @@ export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
         await new Promise((resolve) => setTimeout(resolve, interval));
       }
 
-      throw new ConnectError("Polling timed out", "POLL_TIMEOUT");
+      throw new ConnectError(
+        "Polling timed out",
+        ConnectErrorCode.POLL_TIMEOUT,
+      );
     },
   };
 }

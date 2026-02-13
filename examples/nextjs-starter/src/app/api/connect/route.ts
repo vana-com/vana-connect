@@ -1,25 +1,19 @@
+// Creates a session to connect data from dataConnect into your app.
+// Returns a deep link for the user to approve in the dataConnect Desktop App.
+
 import { NextResponse } from "next/server";
 import { connect } from "@opendatalabs/connect/server";
+import { ConnectError } from "@opendatalabs/connect/core";
+import { config } from "@/config";
 
 export async function POST() {
-  const privateKey = process.env.VANA_PRIVATE_KEY as `0x${string}`;
-
-  if (!privateKey) {
-    return NextResponse.json(
-      { error: "Missing env var: VANA_PRIVATE_KEY" },
-      { status: 500 },
-    );
+  try {
+    const result = await connect(config);
+    return NextResponse.json(result);
+  } catch (err) {
+    const message =
+      err instanceof ConnectError ? err.message : "Failed to create session";
+    const status = err instanceof ConnectError ? (err.statusCode ?? 500) : 500;
+    return NextResponse.json({ error: message }, { status });
   }
-
-  const scopes = process.env.SCOPES?.split(",").map((s) => s.trim());
-  if (!scopes || !scopes.length) {
-    return NextResponse.json(
-      { error: "Missing env var: SCOPES" },
-      { status: 500 },
-    );
-  }
-
-  const result = await connect({ privateKey, scopes });
-
-  return NextResponse.json(result);
 }

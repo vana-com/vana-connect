@@ -31,7 +31,18 @@ function computeBodyHash(body?: string): string {
   return createHash("sha256").update(canonicalStr).digest("hex");
 }
 
+/**
+ * Generates `Web3Signed` authorization headers for protocol requests.
+ *
+ * @see {@link createRequestSigner} to create an instance.
+ */
 export interface RequestSigner {
+  /**
+   * Signs a request and returns the `Authorization` header value.
+   *
+   * @param params - Request metadata (audience, method, URI, optional body and grantId).
+   * @returns A `Web3Signed <payload>.<signature>` header string.
+   */
   signRequest(params: {
     aud: string;
     method: string;
@@ -39,9 +50,16 @@ export interface RequestSigner {
     body?: string;
     grantId?: string;
   }): Promise<string>;
+  /** The wallet address derived from the private key. */
   readonly address: `0x${string}`;
 }
 
+/**
+ * Creates a request signer that generates `Web3Signed` authorization headers.
+ *
+ * @param config - Configuration containing the builder's private key.
+ * @returns A {@link RequestSigner} instance.
+ */
 export function createRequestSigner(
   config: RequestSignerConfig,
 ): RequestSigner {

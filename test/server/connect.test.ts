@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { connect, getData } from "../../src/server/connect.js";
-import { SESSION_RELAY_URL, GATEWAY_URL } from "../../src/core/constants.js";
+import { getEnvConfig } from "../../src/core/constants.js";
 import type { GrantPayload } from "../../src/core/types.js";
 
 const TEST_PRIVATE_KEY =
@@ -69,7 +69,7 @@ describe("connect", () => {
     expect(body.granteeAddress).toBe(TEST_GRANTEE);
   });
 
-  it("uses SESSION_RELAY_URL", async () => {
+  it("uses default session relay URL", async () => {
     mockInitSession();
 
     await connect({
@@ -78,7 +78,8 @@ describe("connect", () => {
     });
 
     const initUrl = mockFetch.mock.calls[0][0] as string;
-    expect(initUrl).toBe(`${SESSION_RELAY_URL}/v1/session/init`);
+    const { sessionRelayUrl } = getEnvConfig();
+    expect(initUrl).toBe(`${sessionRelayUrl}/v1/session/init`);
   });
 
   it("returns session init result", async () => {
@@ -121,10 +122,24 @@ describe("connect", () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("uses environment config URL when environment is specified", async () => {
+    mockInitSession();
+
+    await connect({
+      privateKey: TEST_PRIVATE_KEY,
+      scopes: ["instagram.dpv1"],
+      environment: "dev",
+    });
+
+    const initUrl = mockFetch.mock.calls[0][0] as string;
+    const { sessionRelayUrl } = getEnvConfig("dev");
+    expect(initUrl).toBe(`${sessionRelayUrl}/v1/session/init`);
+  });
 });
 
 describe("getData", () => {
-  it("uses GATEWAY_URL to resolve server URL", async () => {
+  it("uses default gateway URL to resolve server URL", async () => {
     mockResolveServerUrl();
     mockFetchData("instagram.dpv1");
 
@@ -133,8 +148,9 @@ describe("getData", () => {
       grant: TEST_GRANT,
     });
 
-    const gatewayUrl = mockFetch.mock.calls[0][0] as string;
-    expect(gatewayUrl).toContain(GATEWAY_URL);
+    const fetchedUrl = mockFetch.mock.calls[0][0] as string;
+    const { gatewayUrl } = getEnvConfig();
+    expect(fetchedUrl).toContain(gatewayUrl);
   });
 
   it("resolves server URL from grant.serverAddress", async () => {
@@ -165,7 +181,7 @@ describe("getData", () => {
     expect(resolveUrl).toContain("0xuser");
   });
 
-  it("fetches data for all scopes and returns a Map", async () => {
+  it("fetches data for all scopes and returns a Record", async () => {
     const multiScopeGrant: GrantPayload = {
       ...TEST_GRANT,
       scopes: ["instagram.dpv1", "twitter.dpv1"],
@@ -180,12 +196,12 @@ describe("getData", () => {
       grant: multiScopeGrant,
     });
 
-    expect(data).toBeInstanceOf(Map);
-    expect(data.size).toBe(2);
-    expect(data.get("instagram.dpv1")).toEqual({
+    expect(typeof data).toBe("object");
+    expect(Object.keys(data)).toHaveLength(2);
+    expect(data["instagram.dpv1"]).toEqual({
       data: { scope: "instagram.dpv1", username: "alice" },
     });
-    expect(data.get("twitter.dpv1")).toEqual({
+    expect(data["twitter.dpv1"]).toEqual({
       data: { scope: "twitter.dpv1", username: "alice" },
     });
   });
@@ -199,7 +215,7 @@ describe("getData", () => {
       grant: TEST_GRANT,
     });
 
-    expect(data.size).toBe(1);
-    expect(data.has("instagram.dpv1")).toBe(true);
+    expect(Object.keys(data)).toHaveLength(1);
+    expect("instagram.dpv1" in data).toBe(true);
   });
 });
