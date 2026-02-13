@@ -116,7 +116,7 @@ const conversations = data.get("chatgpt.conversations");
 
 ### Web App Manifest
 
-The Desktop App verifies your identity by fetching your [W3C Web App Manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest) and checking its `vana` block signature. Use `signVanaManifest()` to generate it:
+The Desktop App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
 ```typescript
 import { signVanaManifest } from "@opendatalabs/connect/server";
