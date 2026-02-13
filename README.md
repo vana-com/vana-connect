@@ -40,21 +40,10 @@ The [Data Portability Protocol](https://docs.vana.org) defines how users collect
 npm install @opendatalabs/connect
 ```
 
-Peer dependencies (installed automatically in most setups):
-
-```bash
-npm install viem        # required for server-side signing
-npm install react       # only if using React hooks/components
-```
-
 ## Prerequisites
 
-Register as a builder through the Vana Desktop App:
+Register as a builder through the Vana Desktop App first.
 
-1. Open **Desktop App** &rarr; **Builder Registration**
-2. Enter your app's canonical URL
-3. Save the generated private key — set it as `VANA_PRIVATE_KEY` in your server environment
-4. Serve a [Web App Manifest](#web-app-manifest) at your app URL so the Desktop App can verify your identity
 
 ## Quickstart
 
