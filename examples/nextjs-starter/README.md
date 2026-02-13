@@ -1,6 +1,6 @@
 # Next.js Starter
 
-Minimal Next.js app demonstrating the Vana Connect flow. Shows the server-side SDK (`connect()` + `getData()`) and client-side polling via `useVanaConnect()`.
+Minimal Next.js app demonstrating the Vana Connect flow. Shows the server-side SDK (`connect()` + `getData()`) and client-side polling via `useVanaData()`.
 
 ## Prerequisites
 
@@ -18,11 +18,12 @@ pnpm dev   # Opens on http://localhost:3001
 
 ## Environment Variables
 
-| Variable           | Required | Description                                                        |
-| ------------------ | -------- | ------------------------------------------------------------------ |
-| `VANA_PRIVATE_KEY` | Yes      | Builder private key registered on-chain                            |
-| `SCOPES`           | No       | Comma-separated scopes                                             |
-| `APP_URL`          | No       | Public URL of your deployed app (default: `http://localhost:3001`) |
+| Variable           | Required | Description                             |
+| ------------------ | -------- | --------------------------------------- |
+| `VANA_PRIVATE_KEY` | Yes      | Builder private key registered on-chain |
+| `APP_URL`          | Yes      | Public URL of your deployed app         |
+
+> Scopes are configured in `src/config.ts`. Edit the `SCOPES` array to change which user data your app requests.
 
 ## Web App Manifest
 

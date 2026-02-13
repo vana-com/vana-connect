@@ -109,8 +109,8 @@ const data = await getData({
   grant, // GrantPayload from step 2
 });
 
-// Map<string, unknown> keyed by scope
-const conversations = data.get("chatgpt.conversations");
+// Record<string, unknown> keyed by scope
+const conversations = data["chatgpt.conversations"];
 ```
 
 ### Web App Manifest
@@ -148,7 +148,7 @@ Make sure your HTML includes `<link rel="manifest" href="/manifest.json">`.
 | Import                         | Environment | Exports                                                           |
 | ------------------------------ | ----------- | ----------------------------------------------------------------- |
 | `@opendatalabs/connect/server` | Node.js     | `connect()`, `getData()`, `signVanaManifest()`, low-level clients |
-| `@opendatalabs/connect/react`  | Browser     | `useVanaConnect()`, `ConnectButton`                               |
+| `@opendatalabs/connect/react`  | Browser     | `useVanaConnect()`, `useVanaData()`, `ConnectButton`              |
 | `@opendatalabs/connect/core`   | Universal   | Types, `ConnectError`, constants                                  |
 
 ### `connect(config): Promise<SessionInitResult>`
@@ -162,7 +162,7 @@ Creates a session on the Session Relay. Returns `sessionId`, `deepLinkUrl`, and 
 | `webhookUrl` | `string`            | No       | Public HTTPS URL for grant event notifications (localhost is rejected) |
 | `appUserId`  | `string`            | No       | Your app's user ID for correlation                                     |
 
-### `getData(config): Promise<Map<string, unknown>>`
+### `getData(config): Promise<Record<string, unknown>>`
 
 Fetches user data from their Personal Server using a signed grant.
 

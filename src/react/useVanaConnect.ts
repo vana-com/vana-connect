@@ -1,28 +1,62 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { SESSION_RELAY_URL } from "../core/constants.js";
+import { getEnvConfig } from "../core/constants.js";
 import type {
   ConnectionStatus,
   GrantPayload,
   SessionPollResult,
 } from "../core/types.js";
 
+/** Configuration for the {@link useVanaConnect} hook. */
 export interface UseVanaConnectConfig {
+  /** Polling interval in milliseconds (default: 2000). */
   pollingInterval?: number;
+  /** SDK environment (`"dev"` or `"prod"`). Defaults to `"prod"`. */
+  environment?: "dev" | "prod";
 }
 
+/** Return value of the {@link useVanaConnect} hook. */
 export interface UseVanaConnectResult {
+  /** Starts polling the Session Relay for the given session. */
   connect: (params: { sessionId: string; deepLinkUrl?: string }) => void;
+  /** Current connection status. */
   status: ConnectionStatus;
+  /** Grant payload after user approval, or `null`. */
   grant: GrantPayload | null;
+  /** Error message, or `null`. */
   error: string | null;
+  /** Deep link URL to open the Vana Desktop App, or `null`. */
   deepLinkUrl: string | null;
+  /** Resets all state back to idle and stops polling. */
   reset: () => void;
 }
 
+/**
+ * React hook that polls the Session Relay and manages connection state.
+ *
+ * Call `connect()` with a session ID (from your server's `/api/connect` route)
+ * to begin polling. The hook will update `status` through the lifecycle:
+ * `idle` -> `connecting` -> `waiting` -> `approved` | `denied` | `expired` | `error`.
+ *
+ * @param config - Optional configuration for polling interval and environment.
+ * @returns A {@link UseVanaConnectResult} with state and actions.
+ *
+ * @example
+ * ```tsx
+ * const { connect, status, grant, deepLinkUrl } = useVanaConnect();
+ *
+ * useEffect(() => {
+ *   connect({ sessionId: "sess-123" });
+ * }, []);
+ *
+ * if (status === "waiting") return <a href={deepLinkUrl!}>Open Vana</a>;
+ * if (status === "approved") return <p>Connected! Grant: {grant!.grantId}</p>;
+ * ```
+ */
 export function useVanaConnect(
   config?: UseVanaConnectConfig,
 ): UseVanaConnectResult {
-  const baseUrl = SESSION_RELAY_URL;
+  const { sessionRelayUrl } = getEnvConfig(config?.environment);
+  const baseUrl = sessionRelayUrl;
   const interval = config?.pollingInterval ?? 2000;
 
   const [status, setStatus] = useState<ConnectionStatus>("idle");
@@ -64,7 +98,11 @@ export function useVanaConnect(
           if (!res.ok) {
             // Try to extract structured error from response body
             const body = await res.json().catch(() => null);
-            const errorCode = (body as any)?.error?.errorCode;
+            const errorCode =
+              body && typeof body === "object"
+                ? (body as Record<string, Record<string, unknown>>).error
+                    ?.errorCode
+                : undefined;
 
             if (res.status === 410 || errorCode === "SESSION_EXPIRED") {
               setStatus("expired");

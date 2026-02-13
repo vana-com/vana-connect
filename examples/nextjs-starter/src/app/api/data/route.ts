@@ -1,26 +1,32 @@
+// Fetches user data from their Personal Server using an approved grant.
+
 import { NextResponse } from "next/server";
 import { getData } from "@opendatalabs/connect/server";
+import { ConnectError, isValidGrant } from "@opendatalabs/connect/core";
+import { config } from "@/config";
 
 export async function POST(request: Request) {
-  const privateKey = process.env.VANA_PRIVATE_KEY as `0x${string}`;
-
-  if (!privateKey) {
-    return NextResponse.json(
-      { error: "Missing env var: VANA_PRIVATE_KEY" },
-      { status: 500 },
-    );
-  }
-
   const { grant } = await request.json();
 
-  if (!grant?.grantId || !grant?.userAddress || !grant?.scopes?.length) {
+  if (!isValidGrant(grant)) {
     return NextResponse.json(
-      { error: "Missing required grant fields: grantId, userAddress, scopes" },
+      { error: "Invalid grant payload" },
       { status: 400 },
     );
   }
 
-  const data = await getData({ privateKey, grant });
+  try {
+    const data = await getData({
+      privateKey: config.privateKey,
+      grant,
+      environment: config.environment,
+    });
 
-  return NextResponse.json({ data: Object.fromEntries(data) });
+    return NextResponse.json({ data });
+  } catch (err) {
+    const message =
+      err instanceof ConnectError ? err.message : "Failed to fetch data";
+    const status = err instanceof ConnectError ? (err.statusCode ?? 500) : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

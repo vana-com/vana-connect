@@ -1,0 +1,143 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: #09090b;
+  color: #e4e4e7;
+  min-height: 100vh;
+}
+
+.card {
+  background: #0f0f12;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+.card-approved {
+  border-color: #22c55e33;
+}
+
+.card-error {
+  border-color: #ef444444;
+}
+
+.btn-primary {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background: #22c55e;
+  color: #09090b;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+.btn-ghost {
+  font-family: monospace;
+  font-size: 12px;
+  padding: 8px 12px;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.label {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #52525b;
+  margin-bottom: 6px;
+}
+
+.mono {
+  font-family: monospace;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.code-block {
+  font-family: monospace;
+  font-size: 12px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #d4d4d8;
+  display: block;
+}
+
+.pre-block {
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  padding: 12px;
+  color: #d4d4d8;
+  overflow: auto;
+  margin: 0;
+}
+
+.status-waiting {
+  color: #eab308;
+}
+.status-approved {
+  color: #22c55e;
+}
+.status-denied,
+.status-expired,
+.status-error {
+  color: #ef4444;
+}
+.status-default {
+  color: #71717a;
+}
+
+.text-error {
+  color: #ef4444;
+  font-size: 13px;
+}

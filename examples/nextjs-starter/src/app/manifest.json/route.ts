@@ -1,47 +1,48 @@
+// Serves a signed web app manifest.
+// The dataConnect Desktop App reads this to verify your app's identity.
+
 import { NextResponse } from "next/server";
 import { signVanaManifest } from "@opendatalabs/connect/server";
+import { ConnectError } from "@opendatalabs/connect/core";
+import { config } from "@/config";
 
 export async function GET() {
-  const privateKey = process.env.VANA_PRIVATE_KEY as `0x${string}`;
+  try {
+    const vanaBlock = await signVanaManifest({
+      privateKey: config.privateKey,
+      appUrl: config.appUrl,
+      privacyPolicyUrl: `${config.appUrl}/privacy`,
+      termsUrl: `${config.appUrl}/terms`,
+      supportUrl: `${config.appUrl}/support`,
+      webhookUrl: `${config.appUrl}/api/webhook`,
+    });
 
-  if (!privateKey) {
-    return NextResponse.json(
-      { error: "Missing env var: VANA_PRIVATE_KEY" },
-      { status: 500 },
-    );
-  }
+    const manifest = {
+      name: "Vana Connect — Next.js Starter",
+      short_name: "Vana Starter",
+      start_url: "/",
+      display: "standalone",
+      background_color: "#09090b",
+      theme_color: "#09090b",
+      icons: [
+        {
+          src: "/icon.png",
+          sizes: "192x192",
+          type: "image/png",
+        },
+      ],
+      vana: vanaBlock,
+    };
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3001";
-
-  const vanaBlock = await signVanaManifest({
-    privateKey,
-    appUrl,
-    privacyPolicyUrl: `${appUrl}/privacy`,
-    termsUrl: `${appUrl}/terms`,
-    supportUrl: `${appUrl}/support`,
-    webhookUrl: `${appUrl}/api/webhook`,
-  });
-
-  const manifest = {
-    name: "Vana Connect — Next.js Starter",
-    short_name: "Vana Starter",
-    start_url: "/",
-    display: "standalone",
-    background_color: "#09090b",
-    theme_color: "#09090b",
-    icons: [
-      {
-        src: "/icon.png",
-        sizes: "192x192",
-        type: "image/png",
+    return NextResponse.json(manifest, {
+      headers: {
+        "Cache-Control": "public, max-age=86400",
       },
-    ],
-    vana: vanaBlock,
-  };
-
-  return NextResponse.json(manifest, {
-    headers: {
-      "Cache-Control": "public, max-age=86400",
-    },
-  });
+    });
+  } catch (err) {
+    const message =
+      err instanceof ConnectError ? err.message : "Failed to sign manifest";
+    const status = err instanceof ConnectError ? (err.statusCode ?? 500) : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

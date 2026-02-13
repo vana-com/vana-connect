@@ -1,4 +1,4 @@
-import { SESSION_RELAY_URL, GATEWAY_URL } from "../core/constants.js";
+import { getEnvConfig } from "../core/constants.js";
 import type {
   ConnectConfig,
   GetDataConfig,
@@ -8,16 +8,36 @@ import { createRequestSigner } from "./request-signer.js";
 import { createSessionRelay } from "./session-relay.js";
 import { createDataClient } from "./data-client.js";
 
+/**
+ * Creates a session on the Session Relay and returns the session ID and deep link URL.
+ *
+ * This is the entry point for the Vana Connect flow. The returned `deepLinkUrl`
+ * should be presented to the user to open the Vana Desktop App.
+ *
+ * @param config - Connection configuration including private key and scopes.
+ * @returns Session ID, deep link URL, and expiration timestamp.
+ * @throws {@link ConnectError} with code `SESSION_INIT_FAILED` if the relay rejects the request.
+ *
+ * @example
+ * ```typescript
+ * const session = await connect({
+ *   privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+ *   scopes: ["chatgpt.conversations"],
+ * });
+ * // session.sessionId, session.deepLinkUrl, session.expiresAt
+ * ```
+ */
 export async function connect(
   config: ConnectConfig,
 ): Promise<SessionInitResult> {
+  const { sessionRelayUrl } = getEnvConfig(config.environment);
   const signer = createRequestSigner({ privateKey: config.privateKey });
   const granteeAddress = signer.address;
 
   const relay = createSessionRelay({
     privateKey: config.privateKey,
     granteeAddress,
-    sessionRelayUrl: SESSION_RELAY_URL,
+    sessionRelayUrl,
   });
 
   return relay.initSession({
@@ -27,14 +47,35 @@ export async function connect(
   });
 }
 
+/**
+ * Fetches user data from their Personal Server using a signed grant.
+ *
+ * Resolves the server URL via the Data Portability Gateway, then fetches
+ * data for each scope in the grant concurrently.
+ *
+ * @param config - Data fetch configuration including private key and grant.
+ * @returns A `Record` keyed by scope name with the fetched data as values.
+ * @throws {@link ConnectError} with code `SERVER_NOT_FOUND` if no server is registered.
+ * @throws {@link ConnectError} with code `DATA_FETCH_FAILED` if a scope fetch fails.
+ *
+ * @example
+ * ```typescript
+ * const data = await getData({
+ *   privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+ *   grant,
+ * });
+ * const conversations = data["chatgpt.conversations"];
+ * ```
+ */
 export async function getData(
   config: GetDataConfig,
-): Promise<Map<string, unknown>> {
+): Promise<Record<string, unknown>> {
+  const { gatewayUrl } = getEnvConfig(config.environment);
   const { grant } = config;
 
   const dataClient = createDataClient({
     privateKey: config.privateKey,
-    gatewayUrl: GATEWAY_URL,
+    gatewayUrl,
   });
 
   const serverUrl = await dataClient.resolveServerUrl(
@@ -52,9 +93,9 @@ export async function getData(
     }),
   );
 
-  const data = new Map<string, unknown>();
+  const data: Record<string, unknown> = {};
   for (const [scope, result] of results) {
-    data.set(scope, result);
+    data[scope] = result;
   }
 
   return data;

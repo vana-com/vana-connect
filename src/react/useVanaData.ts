@@ -1,0 +1,188 @@
+import { useState, useCallback, useRef, useEffect } from "react";
+import type { GrantPayload, ConnectionStatus } from "../core/types.js";
+import { useVanaConnect } from "./useVanaConnect.js";
+
+/**
+ * Configuration for the {@link useVanaData} hook.
+ */
+export interface UseVanaDataConfig {
+  /** URL of the connect API route (default: `"/api/connect"`). */
+  connectUrl?: string;
+  /** URL of the data API route (default: `"/api/data"`). */
+  dataUrl?: string;
+  /** Polling interval in ms passed to {@link useVanaConnect} (default: 2000). */
+  pollingInterval?: number;
+  /** SDK environment passed through to {@link useVanaConnect}. */
+  environment?: "dev" | "prod";
+  /** When true, automatically fetches data after grant approval (default: `true`). */
+  autoFetch?: boolean;
+}
+
+/**
+ * Return value of the {@link useVanaData} hook.
+ */
+export interface UseVanaDataResult {
+  /** Current connection status. */
+  status: ConnectionStatus;
+  /** Grant payload after user approval, or `null`. */
+  grant: GrantPayload | null;
+  /** Fetched data after calling the data route, or `null`. */
+  data: unknown;
+  /** Error message, or `null`. */
+  error: string | null;
+  /** Deep link URL to open the Vana Desktop App, or `null`. */
+  deepLinkUrl: string | null;
+  /** Starts the connect flow by calling the connect API route. */
+  initConnect: () => Promise<void>;
+  /** Manually fetches data using the current grant. */
+  fetchData: () => Promise<void>;
+  /** Resets all state back to idle. */
+  reset: () => void;
+  /** `true` while any async operation is in progress. */
+  isLoading: boolean;
+  /** `true` when status is `"approved"`. */
+  isConnected: boolean;
+}
+
+/**
+ * Full-flow hook that orchestrates the entire Vana Connect lifecycle:
+ * session init, polling, and data fetching.
+ *
+ * Composes {@link useVanaConnect} internally and adds automatic
+ * calls to your app's `/api/connect` and `/api/data` routes.
+ *
+ * @param config - Optional configuration.
+ * @returns A {@link UseVanaDataResult} with state and actions.
+ *
+ * @example
+ * ```tsx
+ * import { useVanaData } from "@opendatalabs/connect/react";
+ *
+ * function MyComponent() {
+ *   const { status, data, deepLinkUrl, initConnect, isLoading } = useVanaData();
+ *
+ *   if (status === "idle") return <button onClick={initConnect}>Connect</button>;
+ *   if (status === "waiting") return <a href={deepLinkUrl!}>Open Vana</a>;
+ *   if (data) return <pre>{JSON.stringify(data, null, 2)}</pre>;
+ *   return <p>{isLoading ? "Loading..." : status}</p>;
+ * }
+ * ```
+ */
+export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
+  const connectUrl = config?.connectUrl ?? "/api/connect";
+  const dataUrl = config?.dataUrl ?? "/api/data";
+  const autoFetch = config?.autoFetch ?? true;
+
+  const {
+    connect,
+    status: pollStatus,
+    grant: pollGrant,
+    error: pollError,
+    deepLinkUrl,
+    reset: resetPoll,
+  } = useVanaConnect({
+    pollingInterval: config?.pollingInterval,
+    environment: config?.environment,
+  });
+
+  const [data, setData] = useState<unknown>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [initLoading, setInitLoading] = useState(false);
+  const autoFetchedRef = useRef(false);
+
+  const fetchData = useCallback(async () => {
+    if (!pollGrant) return;
+    setFetching(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(dataUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grant: pollGrant }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setFetchError(
+          (json as Record<string, unknown>).error
+            ? String((json as Record<string, unknown>).error)
+            : `Data fetch failed: ${res.status}`,
+        );
+        return;
+      }
+      setData(json);
+    } catch (err) {
+      setFetchError(
+        err instanceof Error ? err.message : "Unknown data fetch error",
+      );
+    } finally {
+      setFetching(false);
+    }
+  }, [pollGrant, dataUrl]);
+
+  // Auto-fetch on approval
+  useEffect(() => {
+    if (
+      pollStatus === "approved" &&
+      pollGrant &&
+      autoFetch &&
+      !autoFetchedRef.current
+    ) {
+      autoFetchedRef.current = true;
+      void fetchData();
+    }
+  }, [pollStatus, pollGrant, autoFetch, fetchData]);
+
+  const initConnect = useCallback(async () => {
+    setData(null);
+    setFetchError(null);
+    autoFetchedRef.current = false;
+    setInitLoading(true);
+    try {
+      const res = await fetch(connectUrl, { method: "POST" });
+      const json = (await res.json()) as Record<string, unknown>;
+      if (!res.ok) {
+        setFetchError(
+          json.error ? String(json.error) : `Connect failed: ${res.status}`,
+        );
+        return;
+      }
+      connect({
+        sessionId: json.sessionId as string,
+        deepLinkUrl: json.deepLinkUrl as string,
+      });
+    } catch (err) {
+      setFetchError(
+        err instanceof Error ? err.message : "Unknown connect error",
+      );
+    } finally {
+      setInitLoading(false);
+    }
+  }, [connectUrl, connect]);
+
+  const reset = useCallback(() => {
+    resetPoll();
+    setData(null);
+    setFetchError(null);
+    setFetching(false);
+    setInitLoading(false);
+    autoFetchedRef.current = false;
+  }, [resetPoll]);
+
+  const error = pollError ?? fetchError;
+  const isLoading = initLoading || fetching || pollStatus === "connecting";
+  const isConnected = pollStatus === "approved";
+
+  return {
+    status: pollStatus,
+    grant: pollGrant,
+    data,
+    error,
+    deepLinkUrl,
+    initConnect,
+    fetchData,
+    reset,
+    isLoading,
+    isConnected,
+  };
+}
