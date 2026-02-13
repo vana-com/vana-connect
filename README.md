@@ -160,7 +160,7 @@ Creates a session on the Session Relay. Returns `sessionId`, `deepLinkUrl`, and 
 | ------------ | -------------- | -------- | ----------------------------------- |
 | `privateKey` | `` `0x${string}` `` | Yes      | Builder private key                 |
 | `scopes`     | `string[]`     | Yes      | Data scopes to request              |
-| `webhookUrl` | `string`       | No       | URL for grant event notifications   |
+| `webhookUrl` | `string`       | No       | Public HTTPS URL for grant event notifications (localhost is rejected) |
 | `appUserId`  | `string`       | No       | Your app's user ID for correlation  |
 
 ### `getData(config): Promise<Map<string, unknown>>`
