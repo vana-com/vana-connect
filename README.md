@@ -7,16 +7,16 @@ Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more
 ## How it works
 
 ```
-Your App                         Vana Desktop App
+Your App                         Vana Protocol
 ──────────────────────────────   ──────────────────────────────
 
 1. connect({ scopes })
    → creates session
-   → returns deep link      ──▶  2. User opens deep link
-                                     sees requested scopes
-                                     approves or denies
+   → returns deep link      ──▶  2. User opens Desktop App
+                                     reviews scopes, exports data,
+                                     approves grant
 
-3. Poll resolves with grant  ◀──  Grant signed on-chain
+3. Poll resolves with grant  ◀──  Grant signed & registered
 
 4. getData({ grant })        ──▶  5. Personal Server returns
    → structured JSON                 user data over TLS
@@ -53,7 +53,7 @@ Register as a builder through the Vana Desktop App first.
 import { connect } from "@opendatalabs/connect/server";
 
 const session = await connect({
-  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   scopes: ["chatgpt.conversations"],
   webhookUrl: "https://yourapp.com/api/webhook",  // optional
   appUserId: "user-42",                            // optional
@@ -106,7 +106,7 @@ import { ConnectButton } from "@opendatalabs/connect/react";
 import { getData } from "@opendatalabs/connect/server";
 
 const data = await getData({
-  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   grant, // GrantPayload from step 2
 });
 
@@ -123,7 +123,7 @@ import { signVanaManifest } from "@opendatalabs/connect/server";
 
 // In your manifest route handler (e.g. Next.js /manifest.json/route.ts):
 const vanaBlock = await signVanaManifest({
-  privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
+  privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   appUrl: "https://yourapp.com",
   privacyPolicyUrl: "https://yourapp.com/privacy",
   termsUrl: "https://yourapp.com/terms",
