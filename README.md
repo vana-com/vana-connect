@@ -2,7 +2,7 @@
 
 Let your users customize your app with their own data.
 
-Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Vana Desktop App](https://www.vana.com/download), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
+Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [dataConnect desktop app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
 
 ## How it works
 
@@ -12,9 +12,9 @@ Your App                         Vana Protocol
 
 1. connect({ scopes })
    → creates session
-   → returns deep link      ──▶  2. User opens Desktop App
-                                     reviews scopes, exports data,
-                                     approves grant
+   → returns deep link      ──▶  2. User opens dataConnect
+                                    reviews scopes, exports data,
+                                    approves grant
 
 3. Poll resolves with grant  ◀──  Grant signed & registered
 
@@ -22,17 +22,7 @@ Your App                         Vana Protocol
    → structured JSON                 user data over TLS
 ```
 
-The SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
-
-## Where this fits in the Vana protocol
-
-The [Data Portability Protocol](https://docs.vana.org) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. The protocol participants are:
-
-- **Personal Server** — stores and serves user data, enforces grants
-- **Data Portability Gateway** — fast API with eventual on-chain consistency
-- **Vana L1** — on-chain source of truth for grants, builder registry, and file records
-
-**This SDK is the builder integration layer.** It sits between your app and the protocol, abstracting the Session Relay handshake, Web3Signed authentication, and Personal Server data fetching into a clean API.
+The [Data Portability Protocol](https://docs.vana.org/docs/data-portability-1) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
 
 ## Installation
 
@@ -42,7 +32,7 @@ npm install @opendatalabs/connect
 
 ## Prerequisites
 
-Register as a builder through the Vana Desktop App first.
+Register an app through dataConnect first. You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
 
 ## Quickstart
 
@@ -54,13 +44,13 @@ import { connect } from "@opendatalabs/connect/server";
 const session = await connect({
   privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   scopes: ["chatgpt.conversations"],
-  webhookUrl: "https://yourapp.com/api/webhook", // optional
-  appUserId: "user-42", // optional
+  webhookUrl: "https://yourapp.com/api/webhook", // optional, data can be pushed to a web hook after a grant is approved
+  appUserId: "yourapp-user-42", // optional: this is used to corelate your app user with the data they provided
 });
 
 // Return to your frontend:
 // session.sessionId   — used for polling
-// session.deepLinkUrl — opens the Vana Desktop App
+// session.deepLinkUrl — opens the dataConnect Desktop App
 // session.expiresAt   — ISO 8601 expiration
 ```
 
@@ -115,7 +105,7 @@ const conversations = data["chatgpt.conversations"];
 
 ### Web App Manifest
 
-The Desktop App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
+The dataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
 ```typescript
 import { signVanaManifest } from "@opendatalabs/connect/server";
