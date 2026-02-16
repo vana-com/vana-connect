@@ -20,7 +20,7 @@ IMPORTANT: You must respond with a JSON object (no markdown fences). The format 
   "suggestions": ["Personalized follow-up question 1?", "Follow-up question 2?", "Follow-up question 3?"]
 }
 
-The suggestions must be SHORT (max 6 words each), punchy, and personalized. Think chat-bubble style, e.g. "Am I a night owl?", "My top hobby?", "Do I overthink things?".`;
+The suggestions must be SHORT (max 6 words each), punchy, and personalized. Write them in FIRST PERSON ("I"/"my"), as if the user is asking about themselves. E.g. "Am I a night owl?", "My top hobby?", "Do I overthink things?".`;
 
 // Vana Personal Server returns data shaped as:
 // { data: { "chatgpt.conversations": { data: { conversations: [...] } } } }
