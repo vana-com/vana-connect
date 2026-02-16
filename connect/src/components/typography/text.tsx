@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 const eyebrowStyle =
   "subpixel-antialiased uppercase leading-none tracking-[0.05em]";

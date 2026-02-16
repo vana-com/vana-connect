@@ -1,9 +1,13 @@
 import { Slot as SlotPrimitive } from "@radix-ui/react-slot";
-import { cn } from "@/lib/classes";
-import { type VariantProps, cva } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDown, type LucideIcon } from "lucide-react";
-import * as React from "react";
-import { fieldHeight, stateFocus, stateInvalid } from "../typography/field";
+import type * as React from "react";
+import {
+  fieldHeight,
+  stateFocus,
+  stateInvalid,
+} from "@/components/typography/field";
+import { cn } from "@/lib/classes";
 
 const buttonVariants = cva(
   [
@@ -37,7 +41,7 @@ const buttonVariants = cva(
         default: "bg-foreground text-background hover:bg-foreground",
         outline: [
           // shadow-xs
-          "border border-ring/20 bg-background",
+          "border border-ring/30 bg-background",
           // "hover:bg-muted "
           "hover:border-ring active:border-ring",
           "active:ring-ring/50 active:ring-[3px] data-[state=open]:border-ring data-[state=open]:ring-ring/50 data-[state=open]:ring-[3px]",

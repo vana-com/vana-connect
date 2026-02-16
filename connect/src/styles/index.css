@@ -35,11 +35,15 @@
 @theme inline {
   --font-sans: var(--font-inter), sans-serif;
 
+  /* custom font weights */
+  --font-weight-semibold: 550;
+
   /* text sizes */
   /* --text-* is a theme variable namespace that controls text-* utilities, and Tailwind only registers those when they’re defined via @theme. inline is explicitly required when a theme variable references another variable, which your alias lines do (e.g. --text-sm: var(--text-small)). */
   --text-pill: 10px;
   --text-fine: 12px;
-  --text-small: 13.5px;
+  --text-compact: 13px;
+  --text-small: 14px;
   --text-body: 15px;
   --text-button: 16px;
   --text-large: 17px;
@@ -73,7 +77,7 @@
   --text-xlarge--line-height: 1.3;
   --text-heading--line-height: 1.25;
   --text-subtitle--line-height: 1.25;
-  --text-title--line-height: 1.1;
+  --text-title--line-height: 1.2;
   --text-display--line-height: 1;
   --text-hero--line-height: 1;
   /* tailwind aliases → semantic tokens */
