@@ -31,8 +31,7 @@ export const textVariants = cva(
         background: "text-background",
         foreground: "text-foreground",
         foregroundDim: "text-foreground-dim",
-        primary: "text-primary",
-        secondary: "text-secondary",
+        foregroundMuted: "text-foreground-muted",
         muted: "text-muted",
         mutedForeground: "text-muted-foreground",
         accent: "text-accent",
@@ -40,6 +39,8 @@ export const textVariants = cva(
         destructive: "text-destructive",
         success: "text-success",
         inherit: "text-inherit",
+        // extras
+        iris: "text-iris",
       },
       // Patterns: intentional design decisions
       // "I need a section label" (driven by size)

@@ -187,6 +187,9 @@
   --color-success-foreground: var(--success-foreground);
 
   --color-iris: var(--vana-blue);
+  --color-iris-surface: var(--vana-blue-surface);
+  --color-iris-foreground: var(--vana-blue-foreground);
+
   --color-accent-canvas: var(--accent-1);
   --color-accent-subtle: var(--accent-2);
   --color-accent-surface: var(--accent-3);
