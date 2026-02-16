@@ -28,7 +28,7 @@ export const AUTH_FORM_UI_DEBUG: {
   enabled: boolean;
   scenario: AuthFormUiDebugScenario;
 } = {
-  enabled: true,
+  enabled: false,
   scenario: "login-idle",
 };
 
