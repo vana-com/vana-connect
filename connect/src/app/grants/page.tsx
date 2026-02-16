@@ -1,118 +1,105 @@
 "use client";
 
-import { ArrowRightIcon, ImportIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowRightLeftIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { resolveGrantAppRef } from "@/app/grants/app-query";
+import { resolveGrantApp } from "@/app/grants/app-registry";
+import { resolveGrantLaunchUrl } from "@/app/grants/launch-url";
 import { DcIcon } from "@/components/icons/dc-icon";
-import { DcLogotype } from "@/components/icons/dc-logotype";
-import { fieldHeight } from "@/components/typography/field";
+import { PlatformIcon } from "@/components/icons/platform-icon";
+import { VanaV } from "@/components/icons/vana-v";
 import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
-import { CONNECT_CONFIG } from "@/config/config";
 import { cn } from "@/lib/classes";
-import { getDownloadPlatformLabel } from "@/lib/platform";
 
-// TEST DEFAULTS: intentionally hardcoded for local/testing flow.
-const IS_TEST_MODE = true;
 const DEFAULT_DOWNLOAD_URL =
   "https://github.com/vana-com/databridge/releases/latest";
-const DEFAULT_LAUNCH_URL =
-  "dataconnect://?appId=rickroll&scopes=read:chatgpt-conversations";
-
-const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
-const downloadPlatformLabel = getDownloadPlatformLabel();
+const DEFAULT_SCOPE_STUB = "read:chatgpt-conversations";
+const GRANTS_TEST_DEEPLINK_URL =
+  process.env.NEXT_PUBLIC_GRANTS_TEST_DEEPLINK_URL;
 
 export default function GrantsPage() {
+  const searchParams = useSearchParams();
+  const appRef = resolveGrantAppRef(searchParams);
+  const app = resolveGrantApp(appRef);
+
   function handleLaunchClick() {
-    // NOTE: skip-to-grant decision is owned by desktop app @src/pages/connect.
-    const launchUrl = new URL(DEFAULT_LAUNCH_URL);
-    launchUrl.searchParams.set("sessionId", `ext-${crypto.randomUUID()}`);
-    window.location.href = launchUrl.toString();
+    // Canonical integration is a relay deepLinkUrl passthrough.
+    // While backend wiring is pending, we keep a local `vana://connect` fallback.
+    const launchUrl = resolveGrantLaunchUrl({
+      relayDeepLinkUrl:
+        searchParams.get("deepLinkUrl") || searchParams.get("deep_link_url"),
+      testDeepLinkUrl: GRANTS_TEST_DEEPLINK_URL,
+      sessionId: searchParams.get("sessionId"),
+      secret: searchParams.get("secret"),
+      appId: app.id,
+      scopes: searchParams.get("scopes") || DEFAULT_SCOPE_STUB,
+    });
+    window.location.href = launchUrl;
   }
 
   return (
     <PageShell>
-      <div
-        className={cn(
-          "w-full max-w-[560px]",
-          "rounded-squish ring ring-border",
-          "bg-background px-small py-small",
-          "text-center space-y-small",
-        )}
-      >
-        <div className="space-y-0">
-          <Text as="h1" intent="title" weight="semi">
-            Connect your data.
-          </Text>
-          <Text as="h2" intent="title" color="mutedForeground" className="mt-0">
-            Bring it everywhere.
-          </Text>
+      <PagePanel className={cn("text-center justify-center space-y-small")}>
+        <div className="space-y-gap">
+          <div className="flex items-center justify-center gap-3">
+            <PlatformIcon
+              iconName={app.displayName}
+              imageSrc={app.iconUrl}
+              imageAlt={`${app.displayName} icon`}
+              fallbackLabel={app.displayName.charAt(0)}
+              size={44}
+              inset={4}
+              style={{ backgroundColor: app.iconBg, color: app.iconFg }}
+            />
+            <ArrowRightLeftIcon className="size-5.5" />
+            <PlatformIcon
+              iconName="Vana"
+              Icon={VanaV}
+              size={44}
+              inset={10}
+              className="bg-iris-surface text-iris"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Text as="h1" intent="title">
+              You don't have any data.
+            </Text>
+            <Text as="h1" intent="xlarge" dim>
+              To connect your data, download Data Connect.
+            </Text>
+          </div>
         </div>
 
-        {IS_TEST_MODE ? (
-          <div className="mx-auto w-full rounded-card border border-destructive px-4 py-3 text-left text-destructive **:text-destructive lg:w-3/4">
-            <Text as="p" intent="small" weight="semi" className="uppercase">
-              Test mode only
-            </Text>
-            <Text as="p" intent="small">
-              Work in progress: native launch flow is not wired yet.
-            </Text>
-            <Text as="p" intent="small">
-              No launch URL yet.
-            </Text>
-            <Text as="p" intent="small">
-              Do not ship this config to production.
-            </Text>
-          </div>
-        ) : null}
-
-        {/* Download app link */}
-        <a
-          href={DEFAULT_DOWNLOAD_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={cn(
-            "lg:w-3/4 mx-auto",
-            "flex flex-col items-center",
-            "rounded-card border border-foreground",
-            "px-w6 group hover:bg-muted cursor-pointer",
-          )}
-        >
-          <div className="flex flex-col items-center gap-gap py-gap">
-            <div
-              className={cn(
-                "size-16",
-                "flex items-center justify-center",
-                "rounded-button",
-                "bg-foreground shadow-sm",
-              )}
-            >
-              <DcIcon className="size-12!" />
-            </div>
-            <DcLogotype height={13} aria-hidden />
-          </div>
-          <hr className="w-full border-ring/30" />
-          <Text
-            intent="button"
-            weight="medium"
-            withIcon
-            className={cn(fieldHeight.lg)}
-          >
-            <ImportIcon className="size-[1.25em]" />
-            Download for {downloadPlatformLabel}
-          </Text>
-        </a>
-
-        {/* Deep link into installed Data Connect app */}
+        {/* DEEP LINK LAUNCH into installed Data Connect app */}
         <div className="lg:w-3/4 mx-auto space-y-gap">
-          <Text as="p">Already have Data Connect?</Text>
           <Button size="xl" fullWidth onClick={handleLaunchClick}>
             <DcIcon className="size-[1.5em]!" />
-            Launch Data Connect (WIP)
+            Launch Data Connect
             <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
           </Button>
+
+          {/* Download Data Connect */}
+          <Text as="p">
+            Don’t have it?{" "}
+            <a
+              href={DEFAULT_DOWNLOAD_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="link hover:text-foreground"
+            >
+              Download Data Connect
+            </a>
+            .
+          </Text>
         </div>
 
-        <div className="pt-2 lg:w-5/6 mx-auto">
+        {/*
+          Intentionally hidden for now: this page currently routes users to install/launch Data Connect first. Re-enable this legal copy once web grant consent is active in this flow.
+         */}
+        {/* <div className="pt-2 lg:w-5/6 mx-auto">
           <Text as="p" intent="small" align="center" muted>
             To continue, you will share data with this app. Before using this
             app, you can review its{" "}
@@ -125,8 +112,8 @@ export default function GrantsPage() {
             </a>
             .
           </Text>
-        </div>
-      </div>
+        </div> */}
+      </PagePanel>
     </PageShell>
   );
 }
