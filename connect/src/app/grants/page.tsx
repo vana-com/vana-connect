@@ -2,6 +2,7 @@
 
 import { ArrowRightIcon, ArrowRightLeftIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { resolveGrantAppRef } from "@/app/grants/app-query";
@@ -20,7 +21,7 @@ const DEFAULT_SCOPE_STUB = "read:chatgpt-conversations";
 const GRANTS_TEST_DEEPLINK_URL =
   process.env.NEXT_PUBLIC_GRANTS_TEST_DEEPLINK_URL;
 
-export default function GrantsPage() {
+function GrantsPageContent() {
   const searchParams = useSearchParams();
   const appRef = resolveGrantAppRef(searchParams);
   const app = resolveGrantApp(appRef);
@@ -115,5 +116,13 @@ export default function GrantsPage() {
         </div> */}
       </PagePanel>
     </PageShell>
+  );
+}
+
+export default function GrantsPage() {
+  return (
+    <Suspense fallback={null}>
+      <GrantsPageContent />
+    </Suspense>
   );
 }
