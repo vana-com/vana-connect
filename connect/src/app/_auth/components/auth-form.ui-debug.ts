@@ -29,7 +29,7 @@ export const AUTH_FORM_UI_DEBUG: {
   scenario: AuthFormUiDebugScenario;
 } = {
   enabled: true,
-  scenario: "verify-idle",
+  scenario: "login-idle",
 };
 
 const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
@@ -78,7 +78,7 @@ const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
   },
   loading: {
     view: "loading",
-    loadingText: "Preparing your wallet...",
+    loadingText: "Preparing…",
   },
   success: {
     view: "success",

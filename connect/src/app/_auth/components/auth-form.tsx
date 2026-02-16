@@ -1,4 +1,5 @@
-import { CheckIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
+import { Spinner } from "@/components/elements/spinner";
 import { VanaLogotype } from "@/components/icons/vana-logotype";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
@@ -65,14 +66,15 @@ export const App = () => {
         className={cn(
           "container bg-background rounded-squish",
           "py-w8 px-w8",
-          "min-h-[480px]",
+          "min-h-mobile-width",
+          "flex flex-col",
           "ring-1 ring-input/20",
         )}
       >
         {/* LOADING */}
         {ui.view === "loading" && (
-          <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-            <Loader2Icon className="size-8 animate-spin text-accent" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <Spinner boxSize={32} className="text-iris" />
             <Text intent="small" color="mutedForeground">
               {ui.loadingText}
             </Text>
@@ -81,14 +83,14 @@ export const App = () => {
 
         {/* SUCCESS */}
         {ui.view === "success" && (
-          <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-success/20 text-success">
-              <CheckIcon className="size-8" aria-hidden="true" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
+            <div className="flex items-center justify-center text-iris">
+              <CheckIcon className="size-12" aria-hidden="true" />
             </div>
-            <Text as="h2" intent="heading" weight="semi">
+            <Text as="h2" intent="title" color="iris">
               Signed in.
             </Text>
-            <Text intent="small" color="mutedForeground">
+            <Text dim className="pt-1.5">
               You may now close this tab.
             </Text>
           </div>
@@ -97,25 +99,32 @@ export const App = () => {
         {/* LOGIN */}
         {ui.view === "login" && (
           <div className="space-y-small">
-            <div className="space-y-gap">
-              <VanaLogotype height={13} className="text-iris" />
-              <Text as="h1" intent="title">
-                <span className="text-iris">Sign in to Vana Passport</span>
-                <br />
-                to bring your data everywhere
-              </Text>
+            <div className="space-y-w6">
+              <div className="space-y-2.5">
+                <VanaLogotype height={13} className="text-iris" />
+                <Text as="h1" intent="title">
+                  <span className="text-iris">Sign in to Vana Passport</span>
+                  <br />
+                  to bring your data everywhere
+                </Text>
+              </div>
               <Text as="p">
-                Sign-in or create your Vana Passport to grant permissions.
+                Sign-in or create your Vana Passport to grant data permissions.
               </Text>
-              {ui.error && (
-                <Text as="p" intent="small" color="destructive">
+              {/* {ui.error && (
+                <Text
+                  as="p"
+                  intent="small"
+                  color="destructive"
+                  className="pt-2"
+                >
                   {ui.error}
                 </Text>
-              )}
+              )} */}
             </div>
 
-            <div className="space-y-3">
-              {!ui.showCode && (
+            {!ui.showCode && (
+              <div className="space-y-3">
                 <EmailEntryForm
                   email={ui.email}
                   isLoading={ui.isSendingEmail}
@@ -123,24 +132,20 @@ export const App = () => {
                   onEmailChange={handleEmailChange}
                   onSubmit={handleEmailSubmit}
                 />
-              )}
-              {!ui.showCode && (
-                <>
-                  <SocialAuthButton
-                    kind="google"
-                    onClick={handleGoogleLogin}
-                    isLoading={ui.isGoogleLoading}
-                    disabled={ui.isGoogleLoading}
-                  />
-                  <SocialAuthButton
-                    kind="apple"
-                    onClick={handleAppleLogin}
-                    isLoading={ui.isAppleLoading}
-                    disabled={ui.isAppleLoading}
-                  />
-                </>
-              )}
-            </div>
+                <SocialAuthButton
+                  kind="google"
+                  onClick={handleGoogleLogin}
+                  isLoading={ui.isGoogleLoading}
+                  disabled={ui.isGoogleLoading}
+                />
+                <SocialAuthButton
+                  kind="apple"
+                  onClick={handleAppleLogin}
+                  isLoading={ui.isAppleLoading}
+                  disabled={ui.isAppleLoading}
+                />
+              </div>
+            )}
 
             {ui.showCode && (
               <CodeVerificationForm

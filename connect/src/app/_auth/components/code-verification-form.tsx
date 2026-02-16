@@ -1,6 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Text } from "@/components/typography/text";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { LoadingButton } from "@/components/elements/button-loading";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { cn } from "@/lib/classes";
 
 type CodeVerificationFormProps = {
   code: string;
@@ -9,6 +15,8 @@ type CodeVerificationFormProps = {
   onCodeChange: (code: string) => void;
   onSubmit: () => void;
 };
+
+const otpSlotBaseClassName = cn("text-title font-normal h-[72px]");
 
 export const CodeVerificationForm = ({
   code,
@@ -23,28 +31,65 @@ export const CodeVerificationForm = ({
         event.preventDefault();
         onSubmit();
       }}
-      className="space-y-3"
+      className="pt-1"
     >
-      <Text as="label" intent="small" weight="medium" className="block">
-        Enter verification code
-      </Text>
-      <Input
-        type="text"
-        value={code}
-        onChange={(event) => onCodeChange(event.target.value)}
-        placeholder="------"
-        maxLength={6}
-        className="h-12 text-center text-xlarge tracking-[0.35em]"
-      />
-      <Button
-        type="submit"
-        variant="accent"
-        size="lg"
-        fullWidth
-        disabled={disabled}
-      >
-        {isVerifying ? "Verifying..." : "Verify code"}
-      </Button>
+      <div className="mx-auto flex w-max flex-col gap-3">
+        <InputOTP
+          id="auth-verification-code"
+          maxLength={6}
+          pattern={REGEXP_ONLY_DIGITS}
+          value={code}
+          onChange={onCodeChange}
+          disabled={disabled}
+          autoComplete="one-time-code"
+          className="w-max"
+          containerClassName="inline-flex w-max items-center gap-2"
+        >
+          <div className="mx-auto inline-flex items-center gap-2">
+            <InputOTPGroup className="gap-0">
+              <InputOTPSlot
+                index={0}
+                className={cn(otpSlotBaseClassName, "rounded-r-none")}
+              />
+              <InputOTPSlot
+                index={1}
+                className={cn(otpSlotBaseClassName, "-ml-px rounded-none")}
+              />
+              <InputOTPSlot
+                index={2}
+                className={cn(otpSlotBaseClassName, "-ml-px rounded-l-none")}
+              />
+            </InputOTPGroup>
+            <InputOTPSeparator />
+            <InputOTPGroup className="gap-0">
+              <InputOTPSlot
+                index={3}
+                className={cn(otpSlotBaseClassName, "rounded-r-none")}
+              />
+              <InputOTPSlot
+                index={4}
+                className={cn(otpSlotBaseClassName, "-ml-px rounded-none")}
+              />
+              <InputOTPSlot
+                index={5}
+                className={cn(otpSlotBaseClassName, "-ml-px rounded-l-none")}
+              />
+            </InputOTPGroup>
+          </div>
+        </InputOTP>
+        <LoadingButton
+          type="submit"
+          variant="iris"
+          size="lg"
+          fullWidth
+          className="disabled:opacity-100"
+          isLoading={isVerifying}
+          loadingLabel="Verifying…"
+          disabled={disabled}
+        >
+          Verify email code
+        </LoadingButton>
+      </div>
     </form>
   );
 };
