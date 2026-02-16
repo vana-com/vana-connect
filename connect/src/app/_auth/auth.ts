@@ -28,6 +28,7 @@ type UseAuthPageState = {
   view: AuthView;
   loadingText: string;
   error: string | null;
+  grantsUrl: string;
   email: string;
   code: string;
   showCode: boolean;
@@ -52,6 +53,19 @@ type EmbeddedWalletProviderAccount = Parameters<
 
 const MASTER_KEY_MESSAGE = "vana-master-key-v1";
 const LOGIN_ERROR_MESSAGE = "Auth init failed.";
+const SUCCESS_REDIRECT_DELAY_MS = 1500;
+const GRANTS_PATH = "/grants";
+const GRANT_QUERY_KEYS = ["app", "appId", "appName"] as const;
+
+const buildGrantsUrl = (searchParams: URLSearchParams) => {
+  const grantParams = new URLSearchParams();
+  for (const key of GRANT_QUERY_KEYS) {
+    const value = searchParams.get(key);
+    if (value) grantParams.set(key, value);
+  }
+  const query = grantParams.toString();
+  return query ? `${GRANTS_PATH}?${query}` : GRANTS_PATH;
+};
 
 type CloseTabActions = {
   close?: () => void;
@@ -117,6 +131,7 @@ export const useAuthPage = (): UseAuthPageState => {
   const [view, setView] = useState<AuthView>("loading");
   const [loadingText, setLoadingText] = useState("Starting...");
   const [error, setError] = useState<string | null>(null);
+  const [grantsUrl, setGrantsUrl] = useState(GRANTS_PATH);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
@@ -749,7 +764,21 @@ export const useAuthPage = (): UseAuthPageState => {
           // ignore logout failures
         }
 
-        const redirectURI = `${window.location.origin}${window.location.pathname}`;
+        const redirectParams = new URLSearchParams(window.location.search);
+        redirectParams.delete("privy_oauth_code");
+        redirectParams.delete("privy_oauth_state");
+        const oauthRedirectUrl = new URL(
+          `${window.location.origin}${window.location.pathname}`,
+        );
+        const grantsContext = buildGrantsUrl(redirectParams);
+        setGrantsUrl(grantsContext);
+        const grantsContextQuery = grantsContext.split("?")[1];
+        if (grantsContextQuery) {
+          for (const [key, value] of new URLSearchParams(grantsContextQuery)) {
+            oauthRedirectUrl.searchParams.set(key, value);
+          }
+        }
+        const redirectURI = oauthRedirectUrl.toString();
         const result = await privy.auth.oauth.generateURL(
           provider,
           redirectURI,
@@ -854,6 +883,7 @@ export const useAuthPage = (): UseAuthPageState => {
 
       try {
         const queryParams = new URLSearchParams(window.location.search);
+        setGrantsUrl(buildGrantsUrl(queryParams));
         const oauthCode = queryParams.get("privy_oauth_code");
         const oauthState = queryParams.get("privy_oauth_state");
 
@@ -929,6 +959,20 @@ export const useAuthPage = (): UseAuthPageState => {
     showLoginForm,
   ]);
 
+  useEffect(() => {
+    if (view !== "success") return;
+    const timeoutId = window.setTimeout(() => {
+      try {
+        window.location.href = grantsUrl;
+      } catch (err) {
+        console.warn("[AUTH] Redirect to grants failed:", err);
+      }
+    }, SUCCESS_REDIRECT_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [grantsUrl, view]);
+
   // Message forwarding is handled by the single handler installed in
   // setupWalletIframe (via messageHandlerInstalledRef) to avoid race
   // conditions with React's async effect scheduling.
@@ -937,6 +981,7 @@ export const useAuthPage = (): UseAuthPageState => {
     view,
     loadingText,
     error,
+    grantsUrl,
     email,
     code,
     showCode,

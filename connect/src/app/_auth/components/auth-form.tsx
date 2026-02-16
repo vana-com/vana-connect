@@ -1,9 +1,10 @@
 import { CheckIcon } from "lucide-react";
+import Link from "next/link";
+import { PagePanel } from "@/app/_components/page-panel";
 import { Spinner } from "@/components/elements/spinner";
 import { VanaLogotype } from "@/components/icons/vana-logotype";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
-import { cn } from "@/lib/classes";
 import { useAuthPage } from "../auth";
 import { resolveAuthFormUiDebugState } from "./auth-form.ui-debug";
 import { CodeVerificationForm } from "./code-verification-form";
@@ -24,6 +25,7 @@ export const App = () => {
     view,
     loadingText,
     error,
+    grantsUrl,
     email,
     code,
     showCode,
@@ -62,15 +64,7 @@ export const App = () => {
 
   return (
     <>
-      <div
-        className={cn(
-          "container bg-background rounded-squish",
-          "py-w8 px-w8",
-          "min-h-mobile-width",
-          "flex flex-col",
-          "ring-1 ring-input/20",
-        )}
-      >
+      <PagePanel>
         {/* LOADING */}
         {ui.view === "loading" && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
@@ -90,8 +84,15 @@ export const App = () => {
             <Text as="h2" intent="title" color="iris">
               Signed in.
             </Text>
-            <Text dim className="pt-1.5">
-              You may now close this tab.
+            <Text dim className="pt-2">
+              Redirecting you to your data permissions…
+            </Text>
+            <Text dim>
+              Didn't work?{" "}
+              <Link className="link hover:text-foreground" href={grantsUrl}>
+                Click here
+              </Link>
+              .
             </Text>
           </div>
         )}
@@ -186,7 +187,7 @@ export const App = () => {
             </Text>
           </div>
         )}
-      </div>
+      </PagePanel>
 
       {/* Hidden embedded-wallet bridge iframe used for Privy wallet messaging/signing. */}
       {walletIframeUrl && (
