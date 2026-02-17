@@ -42,7 +42,8 @@ function GrantsPageContent() {
   }
 
   return (
-    <PageShell>
+    // No back button for either continue_to_grants or return_to_app modes here!
+    <PageShell showBackButton={false}>
       <PagePanel className={cn("text-center justify-center space-y-small")}>
         <div className="space-y-gap">
           <div className="flex items-center justify-center gap-3">
