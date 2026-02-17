@@ -26,6 +26,7 @@ export const App = () => {
     loadingText,
     error,
     grantsUrl,
+    isDesktopHandoff,
     email,
     code,
     showCode,
@@ -85,14 +86,22 @@ export const App = () => {
               Signed in.
             </Text>
             <Text dim className="pt-2">
-              Redirecting you to your data permissions…
+              {isDesktopHandoff
+                ? "Return to the Data Connect app."
+                : "Redirecting you to your data permissions…"}
             </Text>
             <Text dim>
-              Didn't work?{" "}
-              <Link className="link hover:text-foreground" href={grantsUrl}>
-                Click here
-              </Link>
-              .
+              {isDesktopHandoff ? (
+                "You may close this tab."
+              ) : (
+                <>
+                  Didn't work?{" "}
+                  <Link className="link hover:text-foreground" href={grantsUrl}>
+                    Click here
+                  </Link>
+                  .
+                </>
+              )}
             </Text>
           </div>
         )}

@@ -120,6 +120,7 @@ describe("useAuthPage", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     window.history.pushState({}, "", "/");
   });
@@ -191,6 +192,7 @@ describe("useAuthPage", () => {
   });
 
   it("shows missing app config error", async () => {
+    window.history.pushState({}, "", "/?mode=return_to_app");
     (window as typeof window & { __AUTH_CONFIG__?: unknown }).__AUTH_CONFIG__ =
       {
         privyAppId: "",
@@ -203,6 +205,7 @@ describe("useAuthPage", () => {
       expect(result.current.error).toBe("Missing Privy app config.");
       expect(result.current.view).toBe("login");
     });
+    expect(result.current.isDesktopHandoff).toBe(true);
   });
 
   it("validates empty email before sending code", async () => {
@@ -291,6 +294,91 @@ describe("useAuthPage", () => {
       expect(result.current.view).toBe("success");
       expect(result.current.error).toBeNull();
     });
+  });
+
+  it("stays on success and does not redirect for desktop handoff mode", async () => {
+    window.history.pushState({}, "", "/?mode=return_to_app");
+    mockPrivy.mockEmbeddedWalletCreate.mockResolvedValueOnce({
+      user: { linked_accounts: [] },
+    });
+    mockPrivy.mockEmailLoginWithCode.mockResolvedValueOnce({
+      accessToken: "token-123",
+      user: {
+        id: "user-3",
+        email: { address: "user@example.com" },
+      },
+    });
+
+    const fetchSpy = vi.fn(async () => {
+      return { ok: true, status: 200 } as Response;
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+      expect(result.current.isDesktopHandoff).toBe(true);
+    });
+
+    act(() => {
+      result.current.handleEmailChange("user@example.com");
+    });
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    act(() => {
+      const iframe = {
+        contentWindow: {} as Window,
+        addEventListener: vi.fn(),
+      } as unknown as HTMLIFrameElement;
+      result.current.walletIframeRef.current = iframe;
+      result.current.handleCodeChange("123456");
+    });
+
+    await act(async () => {
+      await result.current.handleVerifyCode();
+    });
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("success");
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+    });
+
+    expect(fetchSpy.mock.calls.some((call) => call[0] === "/close-tab")).toBe(
+      false,
+    );
+    expect(window.location.pathname).toBe("/");
+    expect(window.location.search).toBe("?mode=return_to_app");
+  });
+
+  it("marks desktop handoff mode from query params", async () => {
+    window.history.pushState({}, "", "/?mode=return_to_app");
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    expect(result.current.isDesktopHandoff).toBe(true);
+  });
+
+  it("falls back to web mode for unknown arrival mode", async () => {
+    window.history.pushState({}, "", "/?mode=unknown");
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    expect(result.current.isDesktopHandoff).toBe(false);
   });
 
   it("sets the wallet message poster on iframe load", async () => {

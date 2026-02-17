@@ -29,6 +29,7 @@ type UseAuthPageState = {
   loadingText: string;
   error: string | null;
   grantsUrl: string;
+  isDesktopHandoff: boolean;
   email: string;
   code: string;
   showCode: boolean;
@@ -56,6 +57,8 @@ const LOGIN_ERROR_MESSAGE = "Auth init failed.";
 const SUCCESS_REDIRECT_DELAY_MS = 1500;
 const GRANTS_PATH = "/grants";
 const GRANT_QUERY_KEYS = ["app", "appId", "appName"] as const;
+const ARRIVAL_MODE_QUERY_KEY = "mode";
+const ARRIVAL_MODE_DESKTOP_HANDOFF = "return_to_app";
 
 const buildGrantsUrl = (searchParams: URLSearchParams) => {
   const grantParams = new URLSearchParams();
@@ -66,6 +69,9 @@ const buildGrantsUrl = (searchParams: URLSearchParams) => {
   const query = grantParams.toString();
   return query ? `${GRANTS_PATH}?${query}` : GRANTS_PATH;
 };
+
+const isDesktopHandoffArrival = (searchParams: URLSearchParams) =>
+  searchParams.get(ARRIVAL_MODE_QUERY_KEY) === ARRIVAL_MODE_DESKTOP_HANDOFF;
 
 type CloseTabActions = {
   close?: () => void;
@@ -132,6 +138,7 @@ export const useAuthPage = (): UseAuthPageState => {
   const [loadingText, setLoadingText] = useState("Starting...");
   const [error, setError] = useState<string | null>(null);
   const [grantsUrl, setGrantsUrl] = useState(GRANTS_PATH);
+  const [isDesktopHandoff, setIsDesktopHandoff] = useState(false);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
@@ -770,8 +777,15 @@ export const useAuthPage = (): UseAuthPageState => {
         const oauthRedirectUrl = new URL(
           `${window.location.origin}${window.location.pathname}`,
         );
+        const arrivalMode = redirectParams.get(ARRIVAL_MODE_QUERY_KEY);
         const grantsContext = buildGrantsUrl(redirectParams);
         setGrantsUrl(grantsContext);
+        if (arrivalMode) {
+          oauthRedirectUrl.searchParams.set(
+            ARRIVAL_MODE_QUERY_KEY,
+            arrivalMode,
+          );
+        }
         const grantsContextQuery = grantsContext.split("?")[1];
         if (grantsContextQuery) {
           for (const [key, value] of new URLSearchParams(grantsContextQuery)) {
@@ -872,6 +886,10 @@ export const useAuthPage = (): UseAuthPageState => {
 
   useEffect(() => {
     const init = async () => {
+      const queryParams = new URLSearchParams(window.location.search);
+      setGrantsUrl(buildGrantsUrl(queryParams));
+      setIsDesktopHandoff(isDesktopHandoffArrival(queryParams));
+
       const configResult = parseAuthConfig();
       if (!("config" in configResult)) {
         showLoginForm();
@@ -882,8 +900,6 @@ export const useAuthPage = (): UseAuthPageState => {
       const config = configResult.config;
 
       try {
-        const queryParams = new URLSearchParams(window.location.search);
-        setGrantsUrl(buildGrantsUrl(queryParams));
         const oauthCode = queryParams.get("privy_oauth_code");
         const oauthState = queryParams.get("privy_oauth_state");
 
@@ -961,6 +977,12 @@ export const useAuthPage = (): UseAuthPageState => {
 
   useEffect(() => {
     if (view !== "success") return;
+
+    if (isDesktopHandoff) {
+      // Desktop handoff flow ends on this success screen.
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       try {
         window.location.href = grantsUrl;
@@ -971,7 +993,7 @@ export const useAuthPage = (): UseAuthPageState => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [grantsUrl, view]);
+  }, [grantsUrl, isDesktopHandoff, view]);
 
   // Message forwarding is handled by the single handler installed in
   // setupWalletIframe (via messageHandlerInstalledRef) to avoid race
@@ -982,6 +1004,7 @@ export const useAuthPage = (): UseAuthPageState => {
     loadingText,
     error,
     grantsUrl,
+    isDesktopHandoff,
     email,
     code,
     showCode,
