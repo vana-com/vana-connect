@@ -29,6 +29,9 @@ type AuthFormUiDebugScenario =
 // - /auth?authDebug=1
 // - /auth?mode=return_to_app&authDebug=1
 // Scenario is set below via `scenario`.
+// NB!
+// - `mode=continue_to_grants` = default web behavior,
+// - `mode=return_to_app` = desktop-handoff behavior
 export const AUTH_FORM_UI_DEBUG: {
   enabled: boolean;
   scenario: AuthFormUiDebugScenario;
@@ -37,7 +40,7 @@ export const AUTH_FORM_UI_DEBUG: {
     process.env.NODE_ENV !== "production" &&
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("authDebug") === "1",
-  scenario: "success",
+  scenario: "login-idle",
 };
 
 const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
