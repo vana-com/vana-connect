@@ -56,6 +56,33 @@ Any arrival-context param used for success branching should be:
 - preserved through OAuth round-trips
 - explicitly consumed by success transition logic
 
+## Query Param Preservation Contract (Critical)
+
+This is the highest-risk integration gap right now.
+Teams may assume auth->grants carries all params, but current behavior is selective.
+
+### Current observed behavior
+
+| Param                           | Read in auth (`/`)             | Preserved through OAuth callback    | Forwarded to `/grants` URL                     |
+| ------------------------------- | ------------------------------ | ----------------------------------- | ---------------------------------------------- |
+| `mode`                          | Yes                            | Yes                                 | No (used only by auth success logic)           |
+| `app`                           | Yes                            | Yes                                 | Yes                                            |
+| `appId`                         | Yes                            | Yes                                 | Yes                                            |
+| `appName`                       | Yes                            | Yes                                 | Yes                                            |
+| `deepLinkUrl` / `deep_link_url` | Read by `/grants` launch logic | Not guaranteed by auth pass-through | Not currently added by auth grants URL builder |
+| `sessionId`                     | Read by `/grants` launch logic | Not guaranteed by auth pass-through | Not currently added by auth grants URL builder |
+| `secret`                        | Read by `/grants` launch logic | Not guaranteed by auth pass-through | Not currently added by auth grants URL builder |
+| `scopes`                        | Read by `/grants` launch logic | Not guaranteed by auth pass-through | Not currently added by auth grants URL builder |
+
+### Decision needed (within next 24 hours)
+
+Define one explicit contract and align all repos:
+
+1. **Minimal contract (current-ish):** only `app/appId/appName` are guaranteed at `/grants`.
+2. **Launch-complete contract:** auth guarantees pass-through for launch-critical params (`deepLinkUrl`, `sessionId`, `secret`, `scopes`) as well.
+
+Without this decision, downstream integrations can silently break after OAuth redirects.
+
 ## Success Behavior Matrix
 
 | Arrival context | Auth success copy                                 | Auth success action                       |
@@ -67,12 +94,15 @@ Any arrival-context param used for success branching should be:
 
 Current:
 
-- One success path in auth: always redirect to `grantsUrl`.
+- Auth success is context-aware:
+  - `mode=return_to_app` -> stay on auth success screen (no redirect).
+  - any other mode / missing mode -> redirect to `grantsUrl` after delay.
+- `/grants` renders with no back button.
 
 Target:
 
-- Success path is conditional on arrival context.
-- UI copy and action are both context-aware.
+- Keep the above success behavior stable.
+- Finalize and document full query param preservation contract across auth -> OAuth -> grants.
 
 ## Pages and Responsibilities (Supporting Detail)
 
@@ -108,13 +138,11 @@ Current implementation notes:
 
 ## Implementation Direction (Next Step)
 
-1. Introduce an explicit arrival-context query param contract.
-2. Parse it in `useAuthPage()` during init.
-3. Preserve it through OAuth redirect generation.
-4. Branch success transition:
-   - web mode -> existing redirect to `grantsUrl`
-   - app mode -> no redirect; remain on success message
-5. Update success UI in `auth-form.tsx` to render copy by mode.
+1. Freeze mode contract (`continue_to_grants` vs `return_to_app`) and keep existing behavior.
+2. Decide query param preservation contract (minimal vs launch-complete).
+3. Implement pass-through rules consistently in auth redirect and grants URL builder.
+4. Add contract tests for param preservation (auth init, OAuth callback, grants fallback link).
+5. Share contract with external repo owners before cross-repo implementation.
 
 ## Non-goals (for now)
 
