@@ -49,7 +49,7 @@ vi.mock("@privy-io/js-sdk-core", () => {
   return { default: MockPrivyClient, LocalStorage };
 });
 
-const { scheduleCloseTab, useAuthPage } = authModule;
+const { useAuthPage } = authModule;
 
 const createDeferred = <T>() => {
   let resolve: ((value: T) => void) | undefined;
@@ -63,28 +63,6 @@ const createDeferred = <T>() => {
   }
   return { promise, resolve, reject };
 };
-
-describe("scheduleCloseTab", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it("requests close-tab before closing", () => {
-    vi.useFakeTimers();
-    const closeSpy = vi.fn();
-    const requestSpy = vi.fn();
-
-    scheduleCloseTab(10, { close: closeSpy, requestCloseTab: requestSpy });
-    vi.runAllTimers();
-
-    expect(closeSpy).toHaveBeenCalled();
-    expect(requestSpy).toHaveBeenCalled();
-    expect(requestSpy.mock.invocationCallOrder[0]).toBeLessThan(
-      closeSpy.mock.invocationCallOrder[0],
-    );
-  });
-});
 
 describe("useAuthPage", () => {
   beforeEach(() => {
@@ -125,7 +103,7 @@ describe("useAuthPage", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("shows an error when auth callback fails and skips close-tab", async () => {
+  it("shows an error when auth callback fails", async () => {
     window.history.pushState(
       {},
       "",
@@ -154,7 +132,6 @@ describe("useAuthPage", () => {
     }>();
     mockPrivy.mockLoginWithCode.mockReturnValueOnce(sessionDeferred.promise);
 
-    const scheduleSpy = vi.spyOn(authModule, "scheduleCloseTab");
     const { result } = renderHook(() => useAuthPage());
 
     await waitFor(() => {
@@ -188,7 +165,6 @@ describe("useAuthPage", () => {
     });
 
     expect(result.current.view).toBe("login");
-    expect(scheduleSpy).not.toHaveBeenCalled();
   });
 
   it("shows missing app config error", async () => {
@@ -565,6 +541,71 @@ describe("useAuthPage", () => {
     expect(logs.some((entry) => entry.includes("token-123"))).toBe(false);
     expect(logs.some((entry) => entry.includes("Sending auth result:"))).toBe(
       false,
+    );
+  });
+
+  it("removes wallet message listener on unmount", async () => {
+    mockPrivy.mockEmailLoginWithCode.mockResolvedValueOnce({
+      accessToken: "token-123",
+      user: {
+        id: "user-6",
+        email: { address: "user@example.com" },
+        linked_accounts: [
+          { type: "wallet", address: "0xabc", walletClientType: "privy" },
+        ],
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (input.toString().includes("/auth-callback")) {
+          return { ok: false, status: 500 } as Response;
+        }
+        return { ok: true, status: 200 } as Response;
+      }),
+    );
+
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
+    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const { result, unmount } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    act(() => {
+      const iframe = {
+        contentWindow: {} as Window,
+        addEventListener: vi.fn(),
+      } as unknown as HTMLIFrameElement;
+      result.current.walletIframeRef.current = iframe;
+      result.current.handleEmailChange("user@example.com");
+    });
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    act(() => {
+      result.current.handleCodeChange("123456");
+    });
+
+    await act(async () => {
+      await result.current.handleVerifyCode();
+    });
+
+    const messageAddCall = addEventListenerSpy.mock.calls.find(
+      ([type]) => type === "message",
+    );
+    expect(messageAddCall).toBeTruthy();
+    const installedHandler = messageAddCall?.[1];
+    expect(typeof installedHandler).toBe("function");
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "message",
+      installedHandler as EventListener,
     );
   });
 });

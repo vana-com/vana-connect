@@ -61,6 +61,18 @@ const ARRIVAL_MODE_QUERY_KEY = "mode";
 const ARRIVAL_MODE_DESKTOP_HANDOFF = "return_to_app";
 const AUTH_DEBUG = process.env.NODE_ENV !== "production";
 const AUTH_STORAGE_PREFIXES = ["privy", "vana", "auth"] as const;
+const VANA_TYPED_DATA_DOMAIN = {
+  name: "Vana Data Portability",
+  version: "1",
+  chainId: 14800,
+  verifyingContract: "0x1483B1F634DBA75AeaE60da7f01A679aabd5ee2c",
+} as const;
+const EIP712_DOMAIN_FIELDS = [
+  { name: "name", type: "string" },
+  { name: "version", type: "string" },
+  { name: "chainId", type: "uint256" },
+  { name: "verifyingContract", type: "address" },
+] as const;
 
 const authLog = (...args: unknown[]) => {
   if (AUTH_DEBUG) {
@@ -81,48 +93,12 @@ const buildGrantsUrl = (searchParams: URLSearchParams) => {
 const isDesktopHandoffArrival = (searchParams: URLSearchParams) =>
   searchParams.get(ARRIVAL_MODE_QUERY_KEY) === ARRIVAL_MODE_DESKTOP_HANDOFF;
 
-type CloseTabActions = {
-  close?: () => void;
-  requestCloseTab?: () => void;
-};
-
-const requestCloseTabDefault = () => {
-  try {
-    void fetch("/close-tab", { method: "GET", keepalive: true });
-  } catch {
-    // ignored
-  }
-};
-
 const clearAuthStorage = () => {
   for (const key of Object.keys(window.localStorage)) {
     if (AUTH_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       window.localStorage.removeItem(key);
     }
   }
-};
-
-export const scheduleCloseTab = (
-  delayMs = 1500,
-  actions: CloseTabActions = {},
-) => {
-  const close = actions.close ?? (() => window.close());
-  const requestCloseTab = actions.requestCloseTab ?? requestCloseTabDefault;
-
-  window.setTimeout(() => {
-    try {
-      requestCloseTab();
-    } catch {
-      // ignored
-    }
-    window.setTimeout(() => {
-      try {
-        close();
-      } catch {
-        // ignored
-      }
-    }, 250);
-  }, delayMs);
 };
 
 const toHexMessage = (value: string) => {
@@ -167,7 +143,9 @@ export const useAuthPage = (): UseAuthPageState => {
   const privyRef = useRef<PrivyClient | null>(null);
   const currentEmailRef = useRef("");
   const walletIframeRef = useRef<HTMLIFrameElement>(null);
-  const messageHandlerInstalledRef = useRef(false);
+  const walletMessageHandlerRef = useRef<
+    ((event: MessageEvent) => void) | null
+  >(null);
 
   const setWalletMessagePoster = useCallback((privy: PrivyClient | null) => {
     if (!privy) return false;
@@ -278,10 +256,8 @@ export const useAuthPage = (): UseAuthPageState => {
             // Install a single message forwarder synchronously so it's
             // ready before getProvider() is called. React useEffect runs
             // after commit and may miss early messages from the iframe.
-            if (!messageHandlerInstalledRef.current) {
-              messageHandlerInstalledRef.current = true;
-              console.log("[AUTH] Installing message forwarder");
-              window.addEventListener("message", (event: MessageEvent) => {
+            if (!walletMessageHandlerRef.current) {
+              const messageHandler = (event: MessageEvent) => {
                 const currentIframe = walletIframeRef.current;
                 if (!currentIframe?.contentWindow) return;
                 if (event.source !== currentIframe.contentWindow) return;
@@ -292,7 +268,10 @@ export const useAuthPage = (): UseAuthPageState => {
                 } catch (err) {
                   console.warn("[AUTH] onMessage error:", err);
                 }
-              });
+              };
+              walletMessageHandlerRef.current = messageHandler;
+              console.log("[AUTH] Installing message forwarder");
+              window.addEventListener("message", messageHandler);
             }
 
             const handleLoad = () => {
@@ -438,12 +417,7 @@ export const useAuthPage = (): UseAuthPageState => {
 
         const deregTypedData = {
           types: {
-            EIP712Domain: [
-              { name: "name", type: "string" },
-              { name: "version", type: "string" },
-              { name: "chainId", type: "uint256" },
-              { name: "verifyingContract", type: "address" },
-            ],
+            EIP712Domain: EIP712_DOMAIN_FIELDS,
             ServerDeregistration: [
               { name: "ownerAddress", type: "address" },
               { name: "serverAddress", type: "address" },
@@ -451,12 +425,7 @@ export const useAuthPage = (): UseAuthPageState => {
               { name: "deadline", type: "uint256" },
             ],
           },
-          domain: {
-            name: "Vana Data Portability",
-            version: "1",
-            chainId: 14800,
-            verifyingContract: "0x1483B1F634DBA75AeaE60da7f01A679aabd5ee2c",
-          },
+          domain: VANA_TYPED_DATA_DOMAIN,
           primaryType: "ServerDeregistration",
           message: {
             ownerAddress: walletAddress,
@@ -511,12 +480,7 @@ export const useAuthPage = (): UseAuthPageState => {
 
       const typedData = {
         types: {
-          EIP712Domain: [
-            { name: "name", type: "string" },
-            { name: "version", type: "string" },
-            { name: "chainId", type: "uint256" },
-            { name: "verifyingContract", type: "address" },
-          ],
+          EIP712Domain: EIP712_DOMAIN_FIELDS,
           ServerRegistration: [
             { name: "ownerAddress", type: "address" },
             { name: "serverAddress", type: "address" },
@@ -524,12 +488,7 @@ export const useAuthPage = (): UseAuthPageState => {
             { name: "serverUrl", type: "string" },
           ],
         },
-        domain: {
-          name: "Vana Data Portability",
-          version: "1",
-          chainId: 14800,
-          verifyingContract: "0x1483B1F634DBA75AeaE60da7f01A679aabd5ee2c",
-        },
+        domain: VANA_TYPED_DATA_DOMAIN,
         primaryType: "ServerRegistration",
         message,
       };
@@ -991,6 +950,15 @@ export const useAuthPage = (): UseAuthPageState => {
   ]);
 
   useEffect(() => {
+    return () => {
+      if (walletMessageHandlerRef.current) {
+        window.removeEventListener("message", walletMessageHandlerRef.current);
+        walletMessageHandlerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (view !== "success") return;
 
     if (isDesktopHandoff) {
@@ -1010,9 +978,8 @@ export const useAuthPage = (): UseAuthPageState => {
     };
   }, [grantsUrl, isDesktopHandoff, view]);
 
-  // Message forwarding is handled by the single handler installed in
-  // setupWalletIframe (via messageHandlerInstalledRef) to avoid race
-  // conditions with React's async effect scheduling.
+  // Message forwarding is handled by one global handler installed in
+  // setupWalletIframe and cleaned up on unmount.
 
   return {
     view,
