@@ -27,8 +27,12 @@ The [Data Portability Protocol](https://docs.vana.org/docs/data-portability-1) d
 ## Installation
 
 ```bash
-npm install @opendatalabs/connect
+pnpm add @opendatalabs/connect
 ```
+
+## Package manager
+
+This repo is pnpm-only for local development and examples. Use `pnpm` commands, not `npm`.
 
 ## Prerequisites
 

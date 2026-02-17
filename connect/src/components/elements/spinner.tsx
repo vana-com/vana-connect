@@ -12,8 +12,10 @@ export const Spinner = ({
   className?: string;
 }) => (
   <svg
-    className={cn("animate-spin", className)}
+    className={cn("animate-spin size-attr", className)}
     fill="none"
+    aria-hidden="true"
+    focusable="false"
     height={boxSize}
     viewBox="0 0 21 21"
     width={boxSize}

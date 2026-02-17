@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/classes";
 import { motion } from "motion/react";
+import { cn } from "@/lib/classes";
 import { textVariants } from "../typography/text";
 
 interface Tab {

@@ -61,6 +61,9 @@
   /* Accent blue scale (anchor: #4141fc):  */
   /* Using: https://www.radix-ui.com/colors/custom */
   --vana-blue: oklch(51.7% 0.265 272); /* #4141fc */
+  --vana-blue-surface: color-mix(in oklch, var(--vana-blue) 18%, white);
+  --vana-blue-foreground: color-mix(in oklch, var(--vana-blue) 72%, black);
+
   --accent: oklch(0.4248 0.1505 290.12); /* experiment; unused! */
   --accent-1: oklch(99.4% 0.0021 272);
   --accent-2: oklch(98.3% 0.011 272);

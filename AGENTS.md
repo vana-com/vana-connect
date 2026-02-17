@@ -62,6 +62,7 @@ pnpm test:watch   # vitest in watch mode
 - **Error handling** via `ConnectError` with typed `ConnectErrorCode` constants
 - **Test framework**: vitest with `vi.stubGlobal("fetch", mockFetch)` pattern for HTTP mocking
 - **Commit messages**: conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`)
+- **Package manager**: pnpm only (`pnpm ...`); do not suggest `npm` commands in this repo
 
 ## Environment variables (for examples/nextjs-starter)
 

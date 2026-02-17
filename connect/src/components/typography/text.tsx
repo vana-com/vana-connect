@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 const eyebrowStyle =
   "subpixel-antialiased uppercase leading-none tracking-[0.05em]";
@@ -31,8 +31,7 @@ export const textVariants = cva(
         background: "text-background",
         foreground: "text-foreground",
         foregroundDim: "text-foreground-dim",
-        primary: "text-primary",
-        secondary: "text-secondary",
+        foregroundMuted: "text-foreground-muted",
         muted: "text-muted",
         mutedForeground: "text-muted-foreground",
         accent: "text-accent",
@@ -40,6 +39,8 @@ export const textVariants = cva(
         destructive: "text-destructive",
         success: "text-success",
         inherit: "text-inherit",
+        // extras
+        iris: "text-iris",
       },
       // Patterns: intentional design decisions
       // "I need a section label" (driven by size)

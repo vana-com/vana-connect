@@ -1,4 +1,7 @@
-import { Svg as SvgComponent, type SvgIconProps } from "@/components/utils";
+import {
+  Svg as SvgComponent,
+  type SvgIconProps,
+} from "@/components/elements/svg";
 
 export const VanaLogotype = (props: SvgIconProps) => {
   return (

@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment
+
+Copy `.env.local.example` to `.env.local` for local overrides.
+
+The grants page supports an optional launch override:
+
+- `NEXT_PUBLIC_GRANTS_TEST_DEEPLINK_URL` - deterministic deep-link used for local launch smoke tests.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

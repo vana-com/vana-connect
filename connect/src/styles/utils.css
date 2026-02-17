@@ -119,7 +119,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {
-    animation: none !important;
+    animation: none;
   }
 }
 

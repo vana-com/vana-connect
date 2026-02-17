@@ -11,6 +11,7 @@ const customTwMerge = extendTailwindMerge({
         "pill",
         "fine",
         "small",
+        "compact",
         "body",
         "button",
         "large",
