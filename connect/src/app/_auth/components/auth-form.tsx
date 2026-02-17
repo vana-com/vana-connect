@@ -121,7 +121,7 @@ export const App = () => {
               <Text as="p">
                 Sign-in or create your Vana Passport to grant data permissions.
               </Text>
-              {/* {ui.error && (
+              {ui.error && (
                 <Text
                   as="p"
                   intent="small"
@@ -130,7 +130,7 @@ export const App = () => {
                 >
                   {ui.error}
                 </Text>
-              )} */}
+              )}
             </div>
 
             {!ui.showCode && (

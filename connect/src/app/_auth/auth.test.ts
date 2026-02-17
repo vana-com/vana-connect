@@ -404,4 +404,167 @@ describe("useAuthPage", () => {
       iframe.contentWindow,
     );
   });
+
+  it("clears only auth-scoped localStorage keys on fresh auth load", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem("privy.session", "1");
+    window.localStorage.setItem("vana.config", "1");
+    window.localStorage.setItem("auth.state", "1");
+    window.localStorage.setItem("app.theme", "dark");
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    expect(window.localStorage.getItem("privy.session")).toBeNull();
+    expect(window.localStorage.getItem("vana.config")).toBeNull();
+    expect(window.localStorage.getItem("auth.state")).toBeNull();
+    expect(window.localStorage.getItem("app.theme")).toBe("dark");
+  });
+
+  it("encodes server address in check-server-url query", async () => {
+    mockPrivy.mockEmailLoginWithCode.mockResolvedValueOnce({
+      accessToken: "token-123",
+      user: {
+        id: "user-4",
+        email: { address: "user@example.com" },
+        linked_accounts: [
+          { type: "wallet", address: "0xabc", walletClientType: "privy" },
+        ],
+      },
+    });
+
+    const specialAddress = "abc+def/ghi?j=1";
+    const encodedAddress = encodeURIComponent(specialAddress);
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.includes("/auth-callback")) {
+        return { ok: true, status: 200 } as Response;
+      }
+      if (url.includes("/server-identity")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            identity: {
+              address: specialAddress,
+              publicKey: "pub-key",
+              serverId: "0xserver-id",
+            },
+          }),
+        } as Response;
+      }
+      if (url.includes("/check-server-url")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { serverUrl: "https://wrong.server" } }),
+        } as Response;
+      }
+      if (url.includes("/deregister-server")) {
+        return { ok: true, status: 200 } as Response;
+      }
+      if (url.includes("/register-server")) {
+        return { ok: true, status: 200 } as Response;
+      }
+      return { ok: true, status: 200 } as Response;
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    act(() => {
+      const iframe = {
+        contentWindow: {} as Window,
+        addEventListener: vi.fn(),
+      } as unknown as HTMLIFrameElement;
+      result.current.walletIframeRef.current = iframe;
+      result.current.handleEmailChange("user@example.com");
+    });
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    act(() => {
+      result.current.handleCodeChange("123456");
+    });
+
+    await act(async () => {
+      await result.current.handleVerifyCode();
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchSpy.mock.calls.some(([input]) =>
+          input
+            .toString()
+            .includes(`/check-server-url?address=${encodedAddress}`),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("does not log auth token during auth callback flow", async () => {
+    mockPrivy.mockEmbeddedWalletCreate.mockResolvedValueOnce({
+      user: { linked_accounts: [] },
+    });
+    mockPrivy.mockEmailLoginWithCode.mockResolvedValueOnce({
+      accessToken: "token-123",
+      user: {
+        id: "user-5",
+        email: { address: "user@example.com" },
+      },
+    });
+
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.includes("/auth-callback")) {
+        return { ok: true, status: 200 } as Response;
+      }
+      return { ok: true, status: 200 } as Response;
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useAuthPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("login");
+    });
+
+    act(() => {
+      const iframe = {
+        contentWindow: {} as Window,
+        addEventListener: vi.fn(),
+      } as unknown as HTMLIFrameElement;
+      result.current.walletIframeRef.current = iframe;
+      result.current.handleEmailChange("user@example.com");
+    });
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    act(() => {
+      result.current.handleCodeChange("123456");
+    });
+
+    await act(async () => {
+      await result.current.handleVerifyCode();
+    });
+
+    const logs = logSpy.mock.calls.map((args) => args.map(String).join(" "));
+    expect(logs.some((entry) => entry.includes("token-123"))).toBe(false);
+    expect(logs.some((entry) => entry.includes("Sending auth result:"))).toBe(
+      false,
+    );
+  });
 });

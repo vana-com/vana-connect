@@ -59,6 +59,14 @@ const GRANTS_PATH = "/grants";
 const GRANT_QUERY_KEYS = ["app", "appId", "appName"] as const;
 const ARRIVAL_MODE_QUERY_KEY = "mode";
 const ARRIVAL_MODE_DESKTOP_HANDOFF = "return_to_app";
+const AUTH_DEBUG = process.env.NODE_ENV !== "production";
+const AUTH_STORAGE_PREFIXES = ["privy", "vana", "auth"] as const;
+
+const authLog = (...args: unknown[]) => {
+  if (AUTH_DEBUG) {
+    console.log(...args);
+  }
+};
 
 const buildGrantsUrl = (searchParams: URLSearchParams) => {
   const grantParams = new URLSearchParams();
@@ -83,6 +91,14 @@ const requestCloseTabDefault = () => {
     void fetch("/close-tab", { method: "GET", keepalive: true });
   } catch {
     // ignored
+  }
+};
+
+const clearAuthStorage = () => {
+  for (const key of Object.keys(window.localStorage)) {
+    if (AUTH_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+      window.localStorage.removeItem(key);
+    }
   }
 };
 
@@ -215,14 +231,13 @@ export const useAuthPage = (): UseAuthPageState => {
   );
 
   const sendAuthResult = useCallback(async (result: AuthResult) => {
-    console.log("Sending auth result:", JSON.stringify(result));
     try {
       const resp = await fetch("/auth-callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(result),
       });
-      console.log("Auth callback response:", resp.status);
+      authLog("[AUTH] Auth callback response:", resp.status);
       return resp.ok;
     } catch (err) {
       console.error("Failed to send auth result:", err);
@@ -388,11 +403,11 @@ export const useAuthPage = (): UseAuthPageState => {
 
       console.log("[AUTH] Using derived tunnel URL:", tunnelPublicUrl);
 
-      if (serverId) {
+      if (serverId && serverAddress) {
         // Check if existing registration has the correct URL
         try {
           const checkResp = await fetch(
-            `/check-server-url?address=${serverAddress}`,
+            `/check-server-url?address=${encodeURIComponent(serverAddress)}`,
           );
           if (checkResp.ok) {
             const gatewayData = await checkResp.json();
@@ -904,7 +919,7 @@ export const useAuthPage = (): UseAuthPageState => {
         const oauthState = queryParams.get("privy_oauth_state");
 
         if (!oauthCode) {
-          localStorage.clear();
+          clearAuthStorage();
         }
 
         const privy = await createPrivyClient(config, !!oauthCode);

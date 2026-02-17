@@ -24,12 +24,20 @@ type AuthFormUiDebugScenario =
   | "loading"
   | "success";
 
+// Dev-only UI debug toggle.
+// Usage:
+// - /auth?authDebug=1
+// - /auth?mode=return_to_app&authDebug=1
+// Scenario is set below via `scenario`.
 export const AUTH_FORM_UI_DEBUG: {
   enabled: boolean;
   scenario: AuthFormUiDebugScenario;
 } = {
-  enabled: false,
-  scenario: "login-idle",
+  enabled:
+    process.env.NODE_ENV !== "production" &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("authDebug") === "1",
+  scenario: "success",
 };
 
 const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
