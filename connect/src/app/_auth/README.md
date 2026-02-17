@@ -16,44 +16,26 @@ Auth window for Connect. This module does more than sign-in: it authenticates wi
 - We support multiple response shape variants to avoid hard failures during SDK/runtime variations.
 - Auth and post-auth registration currently live together for simplicity of a single auth window flow.
 
-## Required runtime config
+## Required env vars
 
-`auth.ts` expects this global at runtime:
+`auth.ts` reads Privy credentials from Next.js build-time env vars:
 
-- `window.__AUTH_CONFIG__.privyAppId`
-- `window.__AUTH_CONFIG__.privyClientId`
+| Variable                      | Required | Description     |
+| ----------------------------- | -------- | --------------- |
+| `NEXT_PUBLIC_PRIVY_APP_ID`    | Yes      | Privy app ID    |
+| `NEXT_PUBLIC_PRIVY_CLIENT_ID` | Yes      | Privy client ID |
 
-If either is missing, the UI shows:
+Add them to `.env.local` (gitignored) for local development:
+
+```env
+NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
+NEXT_PUBLIC_PRIVY_CLIENT_ID=your-privy-client-id
+```
+
+If either is missing or empty, the UI shows:
 
 - `"Missing Privy app config."`
 - `"Missing Privy client config."`
-
-### Localhost quick check
-
-In browser devtools console, set:
-
-```js
-window.__AUTH_CONFIG__ = {
-  privyAppId: "your-privy-app-id",
-  privyClientId: "your-privy-client-id",
-};
-window.location.reload();
-```
-
-### Proper app wiring (recommended)
-
-Inject `window.__AUTH_CONFIG__` from your host app/bootstrap path before rendering the auth flow, sourced from your runtime env/config system.
-
-Example shape only:
-
-```ts
-window.__AUTH_CONFIG__ = {
-  privyAppId: runtimeConfig.privyAppId,
-  privyClientId: runtimeConfig.privyClientId,
-};
-```
-
-Current status in this repo: `_auth` consumes this global, but no dedicated injection module is wired yet.
 
 ## Files
 

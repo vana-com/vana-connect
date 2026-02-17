@@ -1,7 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-
-import { Badge } from "@/components/ui/badge";
 import { Text, type TextProps } from "@/components/typography/text";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type EyebrowBadgeProps = ComponentPropsWithoutRef<typeof Badge> & {

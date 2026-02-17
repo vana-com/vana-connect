@@ -21,9 +21,3 @@ export type AuthResult = {
   authToken: string | null;
   masterKeySignature: string | null;
 };
-
-declare global {
-  interface Window {
-    __AUTH_CONFIG__?: Partial<AuthConfig>;
-  }
-}

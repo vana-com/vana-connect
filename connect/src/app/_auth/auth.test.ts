@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as authModule from "./auth";
 
 const mockPrivy = vi.hoisted(() => ({
@@ -90,11 +90,8 @@ describe("useAuthPage", () => {
         ],
       },
     });
-    (window as typeof window & { __AUTH_CONFIG__?: unknown }).__AUTH_CONFIG__ =
-      {
-        privyAppId: "app-id",
-        privyClientId: "client-id",
-      };
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "app-id");
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_CLIENT_ID", "client-id");
   });
 
   afterEach(() => {
@@ -169,11 +166,8 @@ describe("useAuthPage", () => {
 
   it("shows missing app config error", async () => {
     window.history.pushState({}, "", "/?mode=return_to_app");
-    (window as typeof window & { __AUTH_CONFIG__?: unknown }).__AUTH_CONFIG__ =
-      {
-        privyAppId: "",
-        privyClientId: "client-id",
-      };
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "");
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_CLIENT_ID", "client-id");
 
     const { result } = renderHook(() => useAuthPage());
 

@@ -109,9 +109,8 @@ const toHexMessage = (value: string) => {
 };
 
 const parseAuthConfig = (): { error: string } | { config: AuthConfig } => {
-  const config = window.__AUTH_CONFIG__;
-  const privyAppId = (config?.privyAppId ?? "").trim();
-  const privyClientId = (config?.privyClientId ?? "").trim();
+  const privyAppId = (process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "").trim();
+  const privyClientId = (process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ?? "").trim();
   const hasPlaceholder = (value: string) => value.includes("%PRIVY_");
 
   if (!privyAppId || hasPlaceholder(privyAppId)) {
@@ -505,7 +504,7 @@ export const useAuthPage = (): UseAuthPageState => {
 
       console.log(
         "[AUTH] Server registration signed:",
-        signature?.substring(0, 20) + "...",
+        `${signature?.substring(0, 20)}...`,
       );
 
       const regResp = await fetch("/register-server", {
@@ -539,7 +538,7 @@ export const useAuthPage = (): UseAuthPageState => {
 
       const accounts = user.linked_accounts || user.linkedAccounts || [];
       console.log(
-        "[AUTH] linked_accounts (" + accounts.length + "):",
+        `[AUTH] linked_accounts (${accounts.length}):`,
         JSON.stringify(
           accounts.map((a) => ({
             type: a.type,
@@ -663,7 +662,7 @@ export const useAuthPage = (): UseAuthPageState => {
           });
           console.log(
             "[AUTH] Master key signed:",
-            masterKeySignature?.substring(0, 20) + "...",
+            `${masterKeySignature?.substring(0, 20)}...`,
           );
         } catch (err) {
           console.error("[AUTH] Master key signing failed:", err);
@@ -896,7 +895,7 @@ export const useAuthPage = (): UseAuthPageState => {
           showLoading("Finishing sign-in...");
           console.log(
             "[AUTH] OAuth callback detected, code:",
-            oauthCode.substring(0, 8) + "...",
+            `${oauthCode.substring(0, 8)}...`,
           );
           try {
             console.log("[AUTH] Calling loginWithCode...");
