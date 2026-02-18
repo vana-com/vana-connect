@@ -281,7 +281,7 @@ function AdminResultState({
 
       <div className="space-y-gap -mx-1.5">
         <div className="relative rounded-button bg-muted ring ring-border/70 overflow-hidden">
-          <div className="absolute top-1 right-1 z-10">
+          {/* <div className="absolute top-1 right-1 z-10">
             <Button
               type="button"
               variant="default"
@@ -306,15 +306,40 @@ function AdminResultState({
                 </>
               )}
             </Button>
-          </div>
+          </div> */}
           <Text
             as="pre"
             intent="small"
-            className="leading-[1.9] overflow-x-auto px-gap py-4"
+            className="leading-[1.9] overflow-x-auto px-gap py-3.5"
           >
             {envText}
           </Text>
         </div>
+        <Button
+          type="button"
+          variant="default"
+          fullWidth
+          size="sm"
+          className={cn(
+            // "font-normal",
+            "h-tab",
+            copied ? "bg-foreground" : "bg-iris",
+          )}
+          onClick={onCopy}
+          aria-live="polite"
+        >
+          {copied ? (
+            <>
+              <CheckIcon />
+              Copied
+            </>
+          ) : (
+            <>
+              <CopyIcon />
+              Copy env
+            </>
+          )}
+        </Button>
 
         {/* <Text intent="small" color="mutedForeground">
           This private key is only shown once. Make sure to copy it before
