@@ -12,7 +12,7 @@ Your App                         Vana Protocol
 
 1. connect({ scopes })
    → creates session
-   → returns deep link      ──▶  2. User opens dataConnect
+   → returns deep link      ──▶  2. User opens Data Connect
                                     reviews scopes, exports data,
                                     approves grant
 
@@ -36,7 +36,7 @@ This repo is pnpm-only for local development and examples. Use `pnpm` commands, 
 
 ## Prerequisites
 
-Register an app through dataConnect first. You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
+Register an app through Data Connect first. You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
 
 ## Quickstart
 
@@ -54,7 +54,7 @@ const session = await connect({
 
 // Return to your frontend:
 // session.sessionId   — used for polling
-// session.deepLinkUrl — opens the dataConnect Desktop App
+// session.deepLinkUrl — opens the Data Connect App
 // session.expiresAt   — ISO 8601 expiration
 ```
 
@@ -109,7 +109,7 @@ const conversations = data["chatgpt.conversations"];
 
 ### Web App Manifest
 
-The dataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
+The Data Connect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
 ```typescript
 import { signVanaManifest } from "@opendatalabs/connect/server";
