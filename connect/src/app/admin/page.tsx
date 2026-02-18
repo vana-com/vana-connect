@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowRightIcon,
-  BookOpenTextIcon,
-  CheckIcon,
-  CopyIcon,
-  ExternalLinkIcon,
-  GithubIcon,
-  type LucideIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArrowRightIcon, CheckIcon, CopyIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
@@ -20,13 +11,13 @@ import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/classes";
+import { AdminFooterLinks } from "./_components/admin-footer-links";
+import { RegisterAnotherAppButton } from "./_components/register-another-app-button";
 import { resolveAdminPageUiDebugState } from "./admin-page.ui-debug";
 
 type AdminState = "form" | "loading" | "result";
 
 const DEFAULT_APP_URL = "";
-const DOCS_URL = "https://docs.vana.org";
-const GITHUB_URL = "https://github.com/vana-com/vana-connect";
 const REGISTER_DELAY_MS = 900;
 
 function randomPrivateKey(): `0x${string}` {
@@ -44,6 +35,11 @@ export default function AdminPage() {
   const [privateKey, setPrivateKey] = useState<`0x${string}` | "">("");
   const [copied, setCopied] = useState(false);
 
+  // UI debug quick usage (dev only):
+  // - /admin?adminDebug=1&adminScenario=form
+  // - /admin?adminDebug=1&adminScenario=loading
+  // - /admin?adminDebug=1&adminScenario=result
+  // - No adminDebug/adminScenario => real state (no debug override).
   const ui = resolveAdminPageUiDebugState({
     state,
     appUrl,
@@ -92,34 +88,23 @@ export default function AdminPage() {
 
   return (
     <PageShell showBackButton={false} showLogoutButton showYourAppsButton>
-      <div className="w-full space-y-gap">
-        <PagePanel>
-          {ui.state !== "result" ? (
-            <AdminFormState
-              appUrl={ui.appUrl}
-              isLoading={ui.state === "loading"}
-              onAppUrlChange={setAppUrl}
-              onSubmit={handleRegister}
-            />
-          ) : (
-            <AdminResultState
-              copied={copied}
-              envText={envText}
-              onCopy={handleCopy}
-              onReset={handleReset}
-            />
-          )}
-        </PagePanel>
-
-        <div className="flex items-center justify-center gap-5">
-          <FooterExternalLink href={GITHUB_URL} icon={GithubIcon}>
-            GitHub
-          </FooterExternalLink>
-          <FooterExternalLink href={DOCS_URL} icon={BookOpenTextIcon}>
-            Documentation
-          </FooterExternalLink>
-        </div>
-      </div>
+      <PagePanel footer={<AdminFooterLinks />}>
+        {ui.state !== "result" ? (
+          <AdminFormState
+            appUrl={ui.appUrl}
+            isLoading={ui.state === "loading"}
+            onAppUrlChange={setAppUrl}
+            onSubmit={handleRegister}
+          />
+        ) : (
+          <AdminResultState
+            copied={copied}
+            envText={envText}
+            onCopy={handleCopy}
+            onReset={handleReset}
+          />
+        )}
+      </PagePanel>
     </PageShell>
   );
 }
@@ -277,44 +262,10 @@ function AdminResultState({
       </div>
 
       <div className="mt-auto flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onReset}
-          className="text-foreground-muted hover:text-foreground"
-        >
-          <div className="rounded-full border p-0.5 text-current group-hover:border-ring">
-            <PlusIcon className="size-em" />
-          </div>
+        <RegisterAnotherAppButton type="button" onClick={onReset}>
           Register another app
-        </Button>
+        </RegisterAnotherAppButton>
       </div>
     </div>
-  );
-}
-
-type FooterExternalLinkProps = {
-  href: string;
-  icon: LucideIcon;
-  children: React.ReactNode;
-};
-
-function FooterExternalLink({
-  href,
-  icon: Icon,
-  children,
-}: FooterExternalLinkProps) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1.5 text-small text-muted-foreground transition-colors hover:text-foreground"
-    >
-      <Icon className="size-4" aria-hidden />
-      {children}
-      <ExternalLinkIcon className="size-3.5" aria-hidden />
-    </a>
   );
 }
