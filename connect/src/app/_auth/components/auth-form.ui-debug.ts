@@ -1,3 +1,9 @@
+// UI debug usage (dev only):
+// - Enable: /auth?authDebug=1
+// - Enable: /auth?mode=return_to_app&authDebug=1
+// - No authDebug => no debug override (real state only).
+// - Current forced scenario in this file: "login-idle".
+
 type AuthFormView = "login" | "loading" | "success";
 
 type AuthFormUiState = {
@@ -23,25 +29,6 @@ type AuthFormUiDebugScenario =
   | "verify-loading"
   | "loading"
   | "success";
-
-// Dev-only UI debug toggle.
-// Usage:
-// - /auth?authDebug=1
-// - /auth?mode=return_to_app&authDebug=1
-// Scenario is set below via `scenario`.
-// NB!
-// - `mode=continue_to_grants` = default web behavior,
-// - `mode=return_to_app` = desktop-handoff behavior
-export const AUTH_FORM_UI_DEBUG: {
-  enabled: boolean;
-  scenario: AuthFormUiDebugScenario;
-} = {
-  enabled:
-    process.env.NODE_ENV !== "production" &&
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("authDebug") === "1",
-  scenario: "login-idle",
-};
 
 const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
   AuthFormUiDebugScenario,
@@ -99,13 +86,29 @@ const AUTH_FORM_UI_DEBUG_SCENARIOS: Record<
 export const resolveAuthFormUiDebugState = (
   state: AuthFormUiState,
 ): AuthFormUiState => {
-  if (!AUTH_FORM_UI_DEBUG.enabled) {
+  const debug = resolveAuthFormUiDebugConfig();
+  if (!debug.enabled) {
     return state;
   }
 
-  const debugState = AUTH_FORM_UI_DEBUG_SCENARIOS[AUTH_FORM_UI_DEBUG.scenario];
+  const debugState = AUTH_FORM_UI_DEBUG_SCENARIOS[debug.scenario];
   return {
     ...state,
     ...debugState,
   };
 };
+
+export function resolveAuthFormUiDebugConfig(): {
+  enabled: boolean;
+  scenario: AuthFormUiDebugScenario;
+} {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
+    return { enabled: false, scenario: "login-idle" };
+  }
+
+  const search = new URLSearchParams(window.location.search);
+  return {
+    enabled: search.get("authDebug") === "1",
+    scenario: "login-idle",
+  };
+}

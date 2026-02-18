@@ -1,3 +1,9 @@
+// UI debug usage (dev only):
+// - Enable: /admin?adminDebug=1&adminScenario=form
+// - Enable: /admin?adminDebug=1&adminScenario=loading
+// - Enable: /admin?adminDebug=1&adminScenario=result
+// - No adminDebug/adminScenario => no debug override (real state only).
+
 type AdminState = "form" | "loading" | "result";
 
 type AdminPageUiState = {
@@ -7,17 +13,6 @@ type AdminPageUiState = {
 };
 
 type AdminPageUiDebugScenario = "form" | "loading" | "result";
-
-export const ADMIN_PAGE_UI_DEBUG: {
-  enabled: boolean;
-  scenario: AdminPageUiDebugScenario;
-} = {
-  enabled:
-    process.env.NODE_ENV !== "production" &&
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("adminDebug") === "1",
-  scenario: resolveAdminDebugScenario(),
-};
 
 const ADMIN_PAGE_UI_DEBUG_SCENARIOS: Record<
   AdminPageUiDebugScenario,
@@ -44,23 +39,27 @@ const ADMIN_PAGE_UI_DEBUG_SCENARIOS: Record<
 export const resolveAdminPageUiDebugState = (
   state: AdminPageUiState,
 ): AdminPageUiState => {
-  if (!ADMIN_PAGE_UI_DEBUG.enabled) {
+  const scenario = resolveAdminDebugScenario();
+  if (!scenario) {
     return state;
   }
 
-  const debugState =
-    ADMIN_PAGE_UI_DEBUG_SCENARIOS[ADMIN_PAGE_UI_DEBUG.scenario];
+  const debugState = ADMIN_PAGE_UI_DEBUG_SCENARIOS[scenario];
   return {
     ...state,
     ...debugState,
   };
 };
 
-function resolveAdminDebugScenario(): AdminPageUiDebugScenario {
-  if (typeof window === "undefined") {
-    return "form";
+function resolveAdminDebugScenario(): AdminPageUiDebugScenario | null {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
+    return null;
   }
 
-  const raw = new URLSearchParams(window.location.search).get("adminScenario");
-  return raw === "loading" || raw === "result" || raw === "form" ? raw : "form";
+  const search = new URLSearchParams(window.location.search);
+  if (search.get("adminDebug") !== "1") {
+    return null;
+  }
+  const raw = search.get("adminScenario");
+  return raw === "loading" || raw === "result" || raw === "form" ? raw : null;
 }

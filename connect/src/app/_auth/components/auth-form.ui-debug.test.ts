@@ -13,7 +13,7 @@ const baseState = {
   isAppleLoading: false,
 };
 
-describe("AUTH_FORM_UI_DEBUG", () => {
+describe("resolveAuthFormUiDebugConfig", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     window.history.pushState({}, "", "/");
@@ -25,7 +25,7 @@ describe("AUTH_FORM_UI_DEBUG", () => {
     window.history.pushState({}, "", "/?authDebug=1");
 
     const module = await import("./auth-form.ui-debug");
-    expect(module.AUTH_FORM_UI_DEBUG.enabled).toBe(false);
+    expect(module.resolveAuthFormUiDebugConfig().enabled).toBe(false);
     expect(module.resolveAuthFormUiDebugState(baseState)).toEqual(baseState);
   });
 
@@ -34,7 +34,7 @@ describe("AUTH_FORM_UI_DEBUG", () => {
     window.history.pushState({}, "", "/");
 
     const module = await import("./auth-form.ui-debug");
-    expect(module.AUTH_FORM_UI_DEBUG.enabled).toBe(false);
+    expect(module.resolveAuthFormUiDebugConfig().enabled).toBe(false);
     expect(module.resolveAuthFormUiDebugState(baseState)).toEqual(baseState);
   });
 
@@ -43,6 +43,6 @@ describe("AUTH_FORM_UI_DEBUG", () => {
     window.history.pushState({}, "", "/?authDebug=1");
 
     const module = await import("./auth-form.ui-debug");
-    expect(module.AUTH_FORM_UI_DEBUG.enabled).toBe(true);
+    expect(module.resolveAuthFormUiDebugConfig().enabled).toBe(true);
   });
 });
