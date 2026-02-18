@@ -2,7 +2,7 @@
 
 Let your users customize your app with their own data.
 
-Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [dataConnect desktop app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
+Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Data Connect app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
 
 ## How it works
 
