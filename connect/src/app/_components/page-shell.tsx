@@ -1,6 +1,7 @@
-import { ArrowLeftIcon, LogOutIcon } from "lucide-react";
+import { ArrowLeftIcon, BoxIcon, LogOutIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
 
 type PageShellProps = {
@@ -15,6 +16,14 @@ type PageShellProps = {
 
 const DEFAULT_BACK_HREF = "/";
 const DEFAULT_LOGOUT_HREF = "/";
+const TOP_NAV_BUTTON_CLASS = buttonVariants({
+  variant: "ghost",
+  size: "sm",
+  className: cn(
+    "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
+    "hover:bg-iris/[0.07]! hover:text-iris",
+  ),
+});
 
 export function PageShell({
   children,
@@ -29,7 +38,7 @@ export function PageShell({
     <div
       className={cn(
         "relative min-h-screen bg-[#F0F4F8]",
-        "p-w8 pb-w32",
+        "p-w8 xl:pb-w32",
         "flex flex-col",
       )}
     >
@@ -37,7 +46,7 @@ export function PageShell({
         <Link
           href={backHref}
           className={cn(
-            "absolute top-3 left-0",
+            "absolute top-gap left-0",
             "inline-flex items-center gap-1.5 px-w8 h-[48px]",
             "text-muted-foreground",
             "transition-colors hover:text-foreground",
@@ -48,29 +57,16 @@ export function PageShell({
         </Link>
       )}
       {(showYourAppsButton || showLogoutButton) && (
-        <div className="absolute top-3 right-0 flex items-center">
+        <div className="absolute top-gap right-gap flex items-center gap-2">
           {showYourAppsButton && (
-            <Link
-              href={yourAppsHref}
-              className={cn(
-                "inline-flex items-center gap-1.5 h-[48px] px-4",
-                "text-muted-foreground",
-                "transition-colors hover:text-foreground",
-              )}
-            >
+            <Link href={yourAppsHref} className={TOP_NAV_BUTTON_CLASS}>
+              <BoxIcon aria-hidden="true" />
               Your apps
             </Link>
           )}
           {showLogoutButton && (
-            <Link
-              href={logoutHref}
-              className={cn(
-                "inline-flex items-center gap-1.5 h-[48px] px-w8",
-                "text-muted-foreground",
-                "transition-colors hover:text-foreground",
-              )}
-            >
-              <LogOutIcon aria-hidden="true" className="size-em" />
+            <Link href={logoutHref} className={TOP_NAV_BUTTON_CLASS}>
+              <LogOutIcon aria-hidden="true" />
               Logout
             </Link>
           )}
