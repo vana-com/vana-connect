@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/classes";
 import { AdminFooterLinks } from "./_components/admin-footer-links";
 import { RegisterAnotherAppButton } from "./_components/register-another-app-button";
+import { saveRegisteredAdminApp } from "./_lib/admin-apps-storage";
 import { resolveAdminPageUiDebugState } from "./admin-page.ui-debug";
 
 type AdminState = "form" | "loading" | "result";
 
 const DEFAULT_APP_URL = "";
 const REGISTER_DELAY_MS = 900;
+const SITE_METADATA_TIMEOUT_MS = 3500;
 
 function randomPrivateKey(): `0x${string}` {
   const bytes = new Uint8Array(32);
@@ -65,6 +67,13 @@ export default function AdminPage() {
       window.setTimeout(resolve, REGISTER_DELAY_MS);
     });
 
+    saveRegisteredAdminApp({
+      id: crypto.randomUUID(),
+      name: await resolveRegisteredAppName(trimmedUrl),
+      url: trimmedUrl,
+      createdAt: new Date().toISOString(),
+    });
+
     setPrivateKey(randomPrivateKey());
     setState("result");
   }
@@ -76,6 +85,58 @@ export default function AdminPage() {
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function resolveRegisteredAppName(url: string): Promise<string> {
+    const metadataName = await readSiteMetadataName(url);
+    if (metadataName) {
+      return metadataName;
+    }
+    return resolveHostFallbackName(url);
+  }
+
+  async function readSiteMetadataName(url: string): Promise<string | null> {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      SITE_METADATA_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(
+        `/api/site-metadata?url=${encodeURIComponent(url)}`,
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = (await response.json()) as { name?: string | null };
+      return typeof payload.name === "string" && payload.name.trim().length > 0
+        ? payload.name.trim()
+        : null;
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  function resolveHostFallbackName(url: string): string {
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, "");
+      const firstSegment = hostname.split(".")[0] ?? hostname;
+      return firstSegment
+        .split(/[-_]+/)
+        .filter(Boolean)
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" ");
+    } catch {
+      return url;
     }
   }
 

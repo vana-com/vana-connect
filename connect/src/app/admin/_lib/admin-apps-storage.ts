@@ -53,7 +53,26 @@ export function deleteRegisteredAdminApp(appId: string): void {
 }
 
 function normalizeUrl(value: string): string {
-  return value.trim().toLowerCase();
+  const trimmed = value.trim();
+
+  try {
+    const parsed = new URL(trimmed);
+    parsed.protocol = parsed.protocol.toLowerCase();
+    parsed.hostname = parsed.hostname.toLowerCase();
+    parsed.hash = "";
+
+    if (
+      (parsed.protocol === "https:" && parsed.port === "443") ||
+      (parsed.protocol === "http:" && parsed.port === "80")
+    ) {
+      parsed.port = "";
+    }
+
+    parsed.pathname = parsed.pathname.replace(/\/+$/g, "") || "/";
+    return parsed.toString();
+  } catch {
+    return trimmed.toLowerCase();
+  }
 }
 
 function isRegisteredAdminApp(value: unknown): value is RegisteredAdminApp {
