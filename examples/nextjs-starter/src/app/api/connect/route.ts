@@ -1,5 +1,5 @@
 // Creates a session to connect data from dataConnect into your app.
-// Returns a deep link for the user to approve in the dataConnect Desktop App.
+// Returns a connect URL for the user to approve the connection.
 
 import { NextResponse } from "next/server";
 import { connect } from "@opendatalabs/connect/server";

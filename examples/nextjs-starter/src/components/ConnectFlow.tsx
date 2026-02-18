@@ -35,7 +35,7 @@ export default function ConnectFlow() {
     grant,
     data,
     error,
-    deepLinkUrl,
+    connectUrl,
     initConnect,
     fetchData,
     isLoading,
@@ -50,7 +50,7 @@ export default function ConnectFlow() {
   }, [initConnect]);
 
   const display = STATUS_DISPLAY[status];
-  const sessionReady = !!deepLinkUrl;
+  const sessionReady = !!connectUrl;
 
   return (
     <div>
@@ -68,7 +68,9 @@ export default function ConnectFlow() {
 
           {sessionReady ? (
             <a
-              href={deepLinkUrl}
+              href={connectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-primary"
               style={{
                 display: "inline-block",
@@ -79,7 +81,7 @@ export default function ConnectFlow() {
                 width: "100%",
               }}
             >
-              Launch dataConnect
+              Connect with Vana
             </a>
           ) : (
             <button disabled className="btn-primary" style={{ width: "100%" }}>

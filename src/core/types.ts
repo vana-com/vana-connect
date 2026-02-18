@@ -22,8 +22,8 @@ export interface SessionInitParams {
 export interface SessionInitResult {
   /** Unique session identifier used for polling. */
   sessionId: string;
-  /** Deep link URL that opens the Vana Desktop App. */
-  deepLinkUrl: string;
+  /** URL to account.vana.org where the user signs in and launches Data Connect. */
+  connectUrl: string;
   /** ISO 8601 expiration timestamp for the session. */
   expiresAt: string;
 }

@@ -6,8 +6,8 @@ import { useVanaConnect } from "./useVanaConnect.js";
 export interface ConnectButtonProps {
   /** Session ID from the server-side `connect()` call. */
   sessionId: string;
-  /** Optional deep link URL override. */
-  deepLinkUrl?: string;
+  /** URL to account.vana.org/connect. */
+  connectUrl?: string;
   /** Called when the user approves the grant. */
   onComplete?: (grant: GrantPayload) => void;
   /** Called on polling errors. */
@@ -16,7 +16,7 @@ export interface ConnectButtonProps {
   onDenied?: (reason: string) => void;
   /** CSS class name for the wrapper element. */
   className?: string;
-  /** Label for the deep link anchor (default: `"Open Vana Desktop App"`). */
+  /** Label for the connect anchor (default: `"Connect with Vana"`). */
   label?: string;
 }
 
@@ -30,7 +30,7 @@ export interface ConnectButtonProps {
 export function ConnectButton(props: ConnectButtonProps) {
   const {
     sessionId,
-    deepLinkUrl: deepLinkUrlProp,
+    connectUrl: connectUrlProp,
     onComplete,
     onError,
     onDenied,
@@ -38,11 +38,11 @@ export function ConnectButton(props: ConnectButtonProps) {
     label,
   } = props;
 
-  const { connect, status, grant, error, deepLinkUrl } = useVanaConnect();
+  const { connect, status, grant, error, connectUrl } = useVanaConnect();
 
   useEffect(() => {
-    connect({ sessionId, deepLinkUrl: deepLinkUrlProp });
-  }, [sessionId, deepLinkUrlProp, connect]);
+    connect({ sessionId, connectUrl: connectUrlProp });
+  }, [sessionId, connectUrlProp, connect]);
 
   useEffect(() => {
     if (status === "approved" && grant && onComplete) {
@@ -69,8 +69,10 @@ export function ConnectButton(props: ConnectButtonProps) {
   return (
     <div className={className}>
       <p>{statusText[status] ?? status}</p>
-      {deepLinkUrl && status === "waiting" && (
-        <a href={deepLinkUrl}>{label ?? "Open dataConnect Desktop App"}</a>
+      {connectUrl && status === "waiting" && (
+        <a href={connectUrl} target="_blank" rel="noopener noreferrer">
+          {label ?? "Connect with Vana"}
+        </a>
       )}
     </div>
   );

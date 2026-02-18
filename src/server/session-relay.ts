@@ -2,10 +2,16 @@ import { ConnectError, ConnectErrorCode } from "../core/errors.js";
 import type {
   SessionRelayConfig,
   SessionInitParams,
-  SessionInitResult,
   SessionPollResult,
 } from "../core/types.js";
 import { createRequestSigner } from "./request-signer.js";
+
+/** Raw response from the Session Relay init endpoint. */
+export interface RelaySessionInitResult {
+  sessionId: string;
+  deepLinkUrl: string;
+  expiresAt: string;
+}
 
 /**
  * Low-level client for the Session Relay service.
@@ -13,8 +19,8 @@ import { createRequestSigner } from "./request-signer.js";
  * @see {@link createSessionRelay} to create an instance.
  */
 export interface SessionRelay {
-  /** Creates a new session and returns the session ID and deep link URL. */
-  initSession(params: SessionInitParams): Promise<SessionInitResult>;
+  /** Creates a new session and returns the raw relay response (sessionId, deepLinkUrl, expiresAt). */
+  initSession(params: SessionInitParams): Promise<RelaySessionInitResult>;
   /** Polls the session status once. */
   pollSession(sessionId: string): Promise<SessionPollResult>;
   /**
@@ -43,7 +49,9 @@ export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
   const signer = createRequestSigner({ privateKey: config.privateKey });
 
   return {
-    async initSession(params: SessionInitParams): Promise<SessionInitResult> {
+    async initSession(
+      params: SessionInitParams,
+    ): Promise<RelaySessionInitResult> {
       const body = JSON.stringify({
         granteeAddress: config.granteeAddress,
         scopes: params.scopes,
@@ -83,7 +91,7 @@ export function createSessionRelay(config: SessionRelayConfig): SessionRelay {
         );
       }
 
-      return (await res.json()) as SessionInitResult;
+      return (await res.json()) as RelaySessionInitResult;
     },
 
     async pollSession(sessionId: string): Promise<SessionPollResult> {

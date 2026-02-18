@@ -6,11 +6,12 @@ export const ENV_CONFIG = {
   dev: {
     sessionRelayUrl: "https://session-relay-git-dev-opendatalabs.vercel.app",
     gatewayUrl: "https://data-gateway-env-dev-opendatalabs.vercel.app",
+    accountUrl: "https://account-dev.vana.org",
   },
   prod: {
-    // TODO: Replace with actual production URLs
     sessionRelayUrl: "https://session-relay-git-dev-opendatalabs.vercel.app",
     gatewayUrl: "https://data-gateway-env-dev-opendatalabs.vercel.app",
+    accountUrl: "https://account.vana.org",
   },
 } as const;
 

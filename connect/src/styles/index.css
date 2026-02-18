@@ -247,6 +247,12 @@
     min-height: 0; /* Prevents overflow in flex layouts */
     scrollbar-width: thin;
   }
+  /* Restore min-height for Privy modal — the global * { min-height: 0 }
+     collapses Privy's flex-based modal layout */
+  #privy-dialog,
+  #privy-dialog * {
+    min-height: auto;
+  }
   ::selection {
     @apply bg-foreground text-background;
   }

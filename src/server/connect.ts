@@ -9,13 +9,13 @@ import { createSessionRelay } from "./session-relay.js";
 import { createDataClient } from "./data-client.js";
 
 /**
- * Creates a session on the Session Relay and returns the session ID and deep link URL.
+ * Creates a session on the Session Relay and returns the session ID, connect URL, and deep link URL.
  *
- * This is the entry point for the Vana Connect flow. The returned `deepLinkUrl`
- * should be presented to the user to open the Vana Desktop App.
+ * This is the entry point for the Vana Connect flow. The returned `connectUrl`
+ * should be presented to the user to sign in on account.vana.org and launch Data Connect.
  *
  * @param config - Connection configuration including private key and scopes.
- * @returns Session ID, deep link URL, and expiration timestamp.
+ * @returns Session ID, connect URL, and expiration timestamp.
  * @throws {@link ConnectError} with code `SESSION_INIT_FAILED` if the relay rejects the request.
  *
  * @example
@@ -24,13 +24,13 @@ import { createDataClient } from "./data-client.js";
  *   privateKey: process.env.VANA_PRIVATE_KEY as `0x${string}`,
  *   scopes: ["chatgpt.conversations"],
  * });
- * // session.sessionId, session.deepLinkUrl, session.expiresAt
+ * // session.sessionId, session.connectUrl, session.expiresAt
  * ```
  */
 export async function connect(
   config: ConnectConfig,
 ): Promise<SessionInitResult> {
-  const { sessionRelayUrl } = getEnvConfig(config.environment);
+  const { sessionRelayUrl, accountUrl } = getEnvConfig(config.environment);
   const signer = createRequestSigner({ privateKey: config.privateKey });
   const granteeAddress = signer.address;
 
@@ -40,11 +40,28 @@ export async function connect(
     sessionRelayUrl,
   });
 
-  return relay.initSession({
+  const relayResult = await relay.initSession({
     scopes: config.scopes,
     webhookUrl: config.webhookUrl,
     appUserId: config.appUserId,
   });
+
+  // Build the account.vana.org connect URL from the relay response
+  const connectUrl = new URL("/connect", accountUrl);
+  connectUrl.searchParams.set("sessionId", relayResult.sessionId);
+  try {
+    const deepLinkParams = new URL(relayResult.deepLinkUrl);
+    const secret = deepLinkParams.searchParams.get("secret");
+    if (secret) connectUrl.searchParams.set("secret", secret);
+  } catch {
+    // deepLinkUrl may not be a valid URL; proceed without secret
+  }
+
+  return {
+    sessionId: relayResult.sessionId,
+    connectUrl: connectUrl.toString(),
+    expiresAt: relayResult.expiresAt,
+  };
 }
 
 /**

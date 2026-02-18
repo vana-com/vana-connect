@@ -17,15 +17,15 @@ export interface UseVanaConnectConfig {
 /** Return value of the {@link useVanaConnect} hook. */
 export interface UseVanaConnectResult {
   /** Starts polling the Session Relay for the given session. */
-  connect: (params: { sessionId: string; deepLinkUrl?: string }) => void;
+  connect: (params: { sessionId: string; connectUrl?: string }) => void;
   /** Current connection status. */
   status: ConnectionStatus;
   /** Grant payload after user approval, or `null`. */
   grant: GrantPayload | null;
   /** Error message, or `null`. */
   error: string | null;
-  /** Deep link URL to open the Vana Desktop App, or `null`. */
-  deepLinkUrl: string | null;
+  /** URL to account.vana.org where the user signs in and launches Data Connect, or `null`. */
+  connectUrl: string | null;
   /** Resets all state back to idle and stops polling. */
   reset: () => void;
 }
@@ -55,14 +55,15 @@ export interface UseVanaConnectResult {
 export function useVanaConnect(
   config?: UseVanaConnectConfig,
 ): UseVanaConnectResult {
-  const { sessionRelayUrl } = getEnvConfig(config?.environment);
-  const baseUrl = sessionRelayUrl;
+  const envConfig = getEnvConfig(config?.environment);
+  const baseUrl = envConfig.sessionRelayUrl;
+  const accountUrl = envConfig.accountUrl;
   const interval = config?.pollingInterval ?? 2000;
 
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [grant, setGrant] = useState<GrantPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [deepLinkUrl, setDeepLinkUrl] = useState<string | null>(null);
+  const [connectUrl, setConnectUrl] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -77,17 +78,18 @@ export function useVanaConnect(
     setStatus("idle");
     setGrant(null);
     setError(null);
-    setDeepLinkUrl(null);
+    setConnectUrl(null);
   }, [stopPolling]);
 
   const connect = useCallback(
-    (params: { sessionId: string; deepLinkUrl?: string }) => {
+    (params: { sessionId: string; connectUrl?: string }) => {
       stopPolling();
       setStatus("connecting");
       setGrant(null);
       setError(null);
-      setDeepLinkUrl(
-        params.deepLinkUrl ?? `vana://connect?sessionId=${params.sessionId}`,
+      setConnectUrl(
+        params.connectUrl ??
+          `${accountUrl}/connect?sessionId=${params.sessionId}`,
       );
 
       const pollUrl = `${baseUrl}/v1/session/${params.sessionId}/poll`;
@@ -151,11 +153,11 @@ export function useVanaConnect(
       void poll();
       timerRef.current = setInterval(() => void poll(), interval);
     },
-    [baseUrl, interval, stopPolling],
+    [baseUrl, accountUrl, interval, stopPolling],
   );
 
   // Cleanup on unmount
   useEffect(() => stopPolling, [stopPolling]);
 
-  return { connect, status, grant, error, deepLinkUrl, reset };
+  return { connect, status, grant, error, connectUrl, reset };
 }
