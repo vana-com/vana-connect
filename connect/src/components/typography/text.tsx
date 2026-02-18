@@ -102,6 +102,8 @@ export const textVariants = cva(
         true: [
           "flex items-center gap-1.5",
           "[&_svg:not([class*=size-])]:size-[0.9em]",
+          // Spinner uses `size-attr`; include it in text icon sizing.
+          "[&_svg.size-attr]:size-[0.9em]",
           // "[&_svg]:transform [&_svg]:translate-y-[-0.1em]",
         ],
       },
