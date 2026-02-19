@@ -4,13 +4,12 @@ export type VanaEnvironment = "dev" | "prod";
 /** URL configuration for each SDK environment. */
 export const ENV_CONFIG = {
   dev: {
-    sessionRelayUrl: "https://session-relay-git-dev-opendatalabs.vercel.app",
-    gatewayUrl: "https://data-gateway-env-dev-opendatalabs.vercel.app",
+    sessionRelayUrl: "https://dev.session-relay.vana.org",
+    gatewayUrl: "https://dev.data-gateway.vana.org",
   },
   prod: {
-    // TODO: Replace with actual production URLs
-    sessionRelayUrl: "https://session-relay-git-dev-opendatalabs.vercel.app",
-    gatewayUrl: "https://data-gateway-env-dev-opendatalabs.vercel.app",
+    sessionRelayUrl: "https://session-relay.vana.org",
+    gatewayUrl: "https://data-gateway.vana.org",
   },
 } as const;
 
