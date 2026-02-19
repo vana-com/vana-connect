@@ -2,6 +2,7 @@
 
 import { ArrowUpRightIcon, GithubIcon, ImportIcon } from "lucide-react";
 import { useId, useState } from "react";
+import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -46,7 +47,7 @@ function DownloadDataConnectPageContent() {
             "px-small text-center space-y-small",
           )}
         >
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             <Text as="h2" intent="title" weight="semi">
               Download dataConnect.
             </Text>
@@ -83,38 +84,26 @@ function DownloadDataConnectPageContent() {
             </a>
           )}
 
-          {/* Legal acceptance */}
-          <div className=" text-left space-y-1.5">
-            <label
-              htmlFor={checkboxId}
-              className="flex cursor-pointer items-start gap-3"
-            >
-              <input
-                id={checkboxId}
-                type="checkbox"
-                checked={isFoundationLegalAccepted}
-                onChange={(event) =>
-                  setIsFoundationLegalAccepted(event.currentTarget.checked)
-                }
-                className="mt-0.5 size-3.5 shrink-0 accent-current"
-              />
-              <Text as="span" intent="small">
-                I agree to the dataConnect Terms (including Privacy and EULA).
-              </Text>
-            </label>
-            <Text as="p" intent="small" dim className="pl-[26px]">
-              Read the full terms:{" "}
-              <a
-                href={combinedTermsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="link hover:text-foreground"
-              >
-                dataConnect terms
-              </a>{" "}
-              ({lastUpdatedLabel}).
-            </Text>
-          </div>
+          <LegalAcceptance
+            checkboxId={checkboxId}
+            checked={isFoundationLegalAccepted}
+            onCheckedChange={setIsFoundationLegalAccepted}
+            label="I agree to the dataConnect Terms (including Privacy and EULA)."
+            details={
+              <>
+                Read the full terms:{" "}
+                <a
+                  href={combinedTermsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link hover:text-foreground"
+                >
+                  dataConnect terms
+                </a>{" "}
+                ({lastUpdatedLabel}).
+              </>
+            }
+          />
         </div>
       </PagePanel>
     </PageShell>

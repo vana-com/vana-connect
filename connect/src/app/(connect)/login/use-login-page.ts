@@ -7,8 +7,11 @@ import {
   useLoginWithOAuth,
 } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CONNECT_CONFIG } from "@/config/config";
+import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
 const STORAGE_KEY = "vana_connect_session";
+const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
 
 export type LoginPageView = "loading" | "email" | "code" | "completing";
 
@@ -44,6 +47,7 @@ export function useLoginPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { ready, authenticated } = usePrivy();
+  const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
   const [view, setView] = useState<LoginPageView>("loading");
   const [email, setEmail] = useState("");
@@ -182,7 +186,30 @@ export function useLoginPage() {
   const isGoogleLoading = oauthState.status === "loading";
   const isAppleLoading = oauthState.status === "loading";
 
-  return {
+  const recordPassportAgreementAcceptance = useCallback(() => {
+    try {
+      localStorage.setItem(
+        PASSPORT_AGREEMENT_STORAGE_KEY,
+        JSON.stringify({
+          acceptedAt: new Date().toISOString(),
+          documents: {
+            termsOfService: {
+              url: termsOfServiceUrl,
+              version: termsOfServiceUrl,
+            },
+            privacyPolicy: {
+              url: privacyPolicyUrl,
+              version: privacyPolicyUrl,
+            },
+          },
+        }),
+      );
+    } catch {
+      // localStorage may be unavailable in some browser contexts
+    }
+  }, [termsOfServiceUrl, privacyPolicyUrl]);
+
+  const ui = resolveLoginPageUiDebugState({
     view,
     error,
     email,
@@ -191,11 +218,23 @@ export function useLoginPage() {
     isVerifyingCode,
     isGoogleLoading,
     isAppleLoading,
+  });
+
+  return {
+    view: ui.view,
+    error: ui.error,
+    email: ui.email,
+    code: ui.code,
+    isSendingEmail: ui.isSendingEmail,
+    isVerifyingCode: ui.isVerifyingCode,
+    isGoogleLoading: ui.isGoogleLoading,
+    isAppleLoading: ui.isAppleLoading,
     handleEmailChange: setEmail,
     handleCodeChange: setCode,
     handleEmailSubmit,
     handleCodeSubmit,
     handleGoogleLogin,
     handleAppleLogin,
+    recordPassportAgreementAcceptance,
   };
 }
