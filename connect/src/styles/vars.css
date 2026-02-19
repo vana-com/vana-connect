@@ -28,6 +28,10 @@
   --radius: 9px;
   --spacing: 4px;
 
+  /* DC logo tints */
+  --logo-tint: #1e3a8a;
+  --logo-tint-strength: 10%;
+
   /* Gray scale (using Shadcn naming + radix step 11) */
   --background: oklch(1 0 0); /* step 1: white */
   --foreground: oklch(0.145 0 0); /* step 12: #0a0a0a */
