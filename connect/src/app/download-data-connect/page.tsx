@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRightIcon, GithubIcon, ImportIcon } from "lucide-react";
-import { type CSSProperties, useId, useState } from "react";
+import { useId, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -48,15 +48,10 @@ function DownloadDataConnectPageContent() {
         >
           <div className="space-y-1.5">
             <Text as="h2" intent="title" weight="semi">
-              Download dataConnect
+              Download dataConnect.
             </Text>
-            <Text
-              as="p"
-              intent="xlarge"
-              color="mutedForeground"
-              className="mt-0"
-            >
-              Install the app to connect your data everywhere.
+            <Text as="p" intent="subtitle" muted>
+              Install the app. Connect your data.
             </Text>
           </div>
 
@@ -78,6 +73,8 @@ function DownloadDataConnectPageContent() {
               className={cn(
                 downloadButtonStyle,
                 "px-w6 cursor-pointer hover:bg-muted",
+                // dupe ring on hover style
+                "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
               )}
             >
               <DownloadDataConnectCardContent
@@ -99,13 +96,13 @@ function DownloadDataConnectPageContent() {
                 onChange={(event) =>
                   setIsFoundationLegalAccepted(event.currentTarget.checked)
                 }
-                className="mt-0.5 size-4 shrink-0 accent-current"
+                className="mt-0.5 size-3.5 shrink-0 accent-current"
               />
-              <Text as="span" intent="small" dim>
+              <Text as="span" intent="small">
                 I agree to the dataConnect Terms (including Privacy and EULA).
               </Text>
             </label>
-            <Text as="p" intent="small" dim className="pl-7">
+            <Text as="p" intent="small" dim className="pl-[26px]">
               Read the full terms:{" "}
               <a
                 href={combinedTermsUrl}
@@ -141,15 +138,7 @@ function DownloadDataConnectCardContent({
 }) {
   return (
     <>
-      <div
-        className="flex flex-col items-center gap-3 py-gap"
-        style={
-          {
-            "--logo-tint": "#1e3a8a",
-            "--logo-tint-strength": "12%",
-          } as CSSProperties
-        }
-      >
+      <div className="flex flex-col items-center gap-3 py-gap">
         <div
           className={cn(
             "size-16 flex items-center justify-center",
@@ -160,7 +149,6 @@ function DownloadDataConnectCardContent({
         >
           <DcIcon className="size-16!" />
         </div>
-        {/* <DcIcon className="size-16!" /> */}
         <DcLogotype height={16} role="img" aria-label="dataConnect" />
       </div>
       <hr className="w-full border-ring/30" />
