@@ -16,14 +16,16 @@ import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
 
-const DEFAULT_DOWNLOAD_URL =
-  "https://github.com/vana-com/databridge/releases/latest";
 const DEFAULT_SCOPE_STUB = "read:chatgpt-conversations";
 const GRANTS_TEST_DEEPLINK_URL =
   process.env.NEXT_PUBLIC_GRANTS_TEST_DEEPLINK_URL;
 
 function GrantsPageContent() {
   const searchParams = useSearchParams();
+  const rawQuery = searchParams.toString();
+  const downloadDataConnectHref = rawQuery
+    ? `/download-data-connect?${rawQuery}`
+    : "/download-data-connect";
   const appRef = resolveGrantAppRef(searchParams);
   const app = resolveGrantApp(appRef);
 
@@ -101,35 +103,18 @@ function GrantsPageContent() {
           {/* Download Data Connect */}
           <Text as="p">
             Don’t have it?{" "}
-            <a
-              href={DEFAULT_DOWNLOAD_URL}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              href={downloadDataConnectHref}
               className="link hover:text-foreground"
             >
-              Download Data Connect
-            </a>
-            .
+              Download Data Connect&nbsp;
+              <ButtonArrow
+                icon={ArrowRightIcon}
+                className="size-em inline mt-[-0.125em]"
+              />
+            </Link>
           </Text>
         </div>
-
-        {/*
-            Intentionally hidden for now: this page currently routes users to install/launch Data Connect first. Re-enable this legal copy once web grant consent is active in this flow.
-           */}
-        {/* <div className="pt-2 lg:w-5/6 mx-auto">
-            <Text as="p" intent="small" align="center" muted>
-              To continue, you will share data with this app. Before using this
-              app, you can review its{" "}
-              <a className="link hover:text-foreground" href={privacyPolicyUrl}>
-                privacy policy
-              </a>{" "}
-              and{" "}
-              <a className="link hover:text-foreground" href={termsOfServiceUrl}>
-                terms of service
-              </a>
-              .
-            </Text>
-          </div> */}
       </PagePanel>
     </PageShell>
   );
