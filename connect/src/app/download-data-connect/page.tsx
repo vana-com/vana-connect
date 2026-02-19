@@ -1,10 +1,10 @@
 "use client";
 
 import { ArrowUpRightIcon, GithubIcon, ImportIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { type CSSProperties, useId, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
-import { DcIcon } from "@/components/icons/dc-icon";
+import { DcIcon } from "@/components/icons/dc-icon2";
 import { DcLogotype } from "@/components/icons/dc-logotype";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
@@ -141,16 +141,27 @@ function DownloadDataConnectCardContent({
 }) {
   return (
     <>
-      <div className="flex flex-col items-center gap-gap py-gap">
+      <div
+        className="flex flex-col items-center gap-3 py-gap"
+        style={
+          {
+            "--logo-tint": "#1e3a8a",
+            "--logo-tint-strength": "12%",
+          } as CSSProperties
+        }
+      >
         <div
           className={cn(
-            "size-16 flex items-center justify-center rounded-button",
+            "size-16 flex items-center justify-center",
+            "rounded-[30%] [corner-shape:squircle]",
             "bg-foreground shadow-sm",
+            "overflow-hidden",
           )}
         >
-          <DcIcon className="size-12!" />
+          <DcIcon className="size-16!" />
         </div>
-        <DcLogotype height={13} aria-hidden />
+        {/* <DcIcon className="size-16!" /> */}
+        <DcLogotype height={16} role="img" aria-label="dataConnect" />
       </div>
       <hr className="w-full border-ring/30" />
       <Text intent="button" weight="medium" withIcon className="h-12">
