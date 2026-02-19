@@ -131,16 +131,17 @@ function LoginPageContent() {
               checked={isPassportAgreementAccepted}
               onCheckedChange={setIsPassportAgreementAccepted}
               label="I have read and agree to the Vana Terms of Service and Privacy Policy."
+              detailsIntent="fine"
               details={
                 <>
-                  By creating a Vana Passport, you agree to our{" "}
+                  By creating a Vana Passport, you agree to the{" "}
                   <a
                     className="link hover:text-foreground"
                     href={termsOfServiceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Terms of Service
+                    Vana Terms of Service
                   </a>{" "}
                   and{" "}
                   <a
@@ -149,9 +150,13 @@ function LoginPageContent() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Privacy Policy
+                    Vana Privacy Policy
                   </a>
-                  .
+                  . These documents govern how information you provide in
+                  connection with your Passport may be processed for the
+                  purposes of enabling protocol identity, authentication,
+                  permissioning your data, and your use of applications or
+                  services that interact with the Vana protocol.
                 </>
               }
             />

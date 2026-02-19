@@ -1,7 +1,7 @@
 export const CONNECT_CONFIG = {
   legal: {
-    privacyPolicyUrl: "#",
-    termsOfServiceUrl: "#",
+    privacyPolicyUrl: "https://www.vana.org/privacy",
+    termsOfServiceUrl: "https://www.vana.org/terms",
     foundationSoftwareUse: {
       combinedTermsUrl:
         "https://github.com/vana-com/data-connect/blob/main/legal/dataconnect-terms-privacy-eula.md",

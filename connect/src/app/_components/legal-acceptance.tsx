@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { TextProps } from "@/components/typography/text";
 import { Text } from "@/components/typography/text";
 
 type LegalAcceptanceProps = {
@@ -7,6 +8,7 @@ type LegalAcceptanceProps = {
   onCheckedChange: (checked: boolean) => void;
   label: ReactNode;
   details: ReactNode;
+  detailsIntent?: NonNullable<TextProps<"p">["intent"]>;
 };
 
 export function LegalAcceptance({
@@ -15,6 +17,7 @@ export function LegalAcceptance({
   onCheckedChange,
   label,
   details,
+  detailsIntent = "small",
 }: LegalAcceptanceProps) {
   return (
     <div className="text-left space-y-1">
@@ -33,7 +36,7 @@ export function LegalAcceptance({
           {label}
         </Text>
       </label>
-      <Text as="p" intent="small" dim className="pl-[24px]">
+      <Text as="p" intent={detailsIntent} dim balance className="pl-[24px]">
         {details}
       </Text>
     </div>
