@@ -9,7 +9,7 @@ import { PageShell } from "@/app/_components/page-shell";
 import { resolveGrantAppRef } from "@/app/grants/app-query";
 import { resolveGrantApp } from "@/app/grants/app-registry";
 import { resolveGrantLaunchUrl } from "@/app/grants/launch-url";
-import { DcIcon } from "@/components/icons/dc-icon";
+import { DcIcon } from "@/components/icons/dc-icon2";
 import { PlatformIcon } from "@/components/icons/platform-icon";
 import { VanaV } from "@/components/icons/vana-v";
 import { Text } from "@/components/typography/text";
@@ -87,27 +87,40 @@ function GrantsPageContent() {
               You don't have any data.
             </Text>
             <Text as="h1" intent="xlarge" dim>
-              To connect your data, download Data Connect.
+              To connect your data, download dataConnect.
             </Text>
           </div>
         </div>
 
         {/* DEEP LINK LAUNCH into installed Data Connect app */}
         <div className="lg:w-3/4 mx-auto space-y-gap">
-          <Button size="xl" fullWidth onClick={handleLaunchClick}>
-            <DcIcon className="size-[1.5em]!" />
-            Launch Data Connect
+          <Button
+            size="xl"
+            fullWidth
+            onClick={handleLaunchClick}
+            className="ring-0 ring-transparent ring-offset-2 ring-offset-background transition-shadow duration-200 hover:ring-2 hover:ring-foreground"
+          >
+            <DcIcon
+              className="size-[2.25em]!"
+              style={
+                {
+                  "--logo-bg-stop-0": "transparent",
+                  "--logo-bg-stop-1": "transparent",
+                } as React.CSSProperties
+              }
+            />
+            Launch dataConnect
             <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
           </Button>
 
-          {/* Download Data Connect */}
+          {/* Download dataConnect */}
           <Text as="p">
             Don’t have it?{" "}
             <Link
               href={downloadDataConnectHref}
               className="link hover:text-foreground"
             >
-              Download Data Connect&nbsp;
+              Download dataConnect&nbsp;
               <ButtonArrow
                 icon={ArrowRightIcon}
                 className="size-em inline mt-[-0.125em]"
