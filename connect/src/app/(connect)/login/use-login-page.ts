@@ -51,6 +51,7 @@ export function useLoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const redirectedRef = useRef(false);
+  const oauthInitiatedRef = useRef(false);
 
   // Read session params from URL (preferred) or localStorage (OAuth return)
   const sessionId = searchParams.get("sessionId");
@@ -129,7 +130,18 @@ export function useLoginPage() {
   // Handle OAuth state transitions (covers the auto-processed callback on page load,
   // where the onComplete callback may not fire since the hook instance that called
   // initOAuth no longer exists after the full-page navigation to the OAuth provider).
+  // Guard: only react to oauthState after the user has initiated OAuth or when
+  // returning from an OAuth redirect (detected via session params in localStorage).
   useEffect(() => {
+    if (!oauthInitiatedRef.current) {
+      // Check if we're returning from an OAuth redirect by looking for saved session
+      // params in localStorage (set before navigating to the OAuth provider).
+      try {
+        if (!localStorage.getItem(STORAGE_KEY)) return;
+      } catch {
+        return;
+      }
+    }
     if (oauthState.status === "loading") {
       setView("completing");
     }
@@ -163,6 +175,7 @@ export function useLoginPage() {
 
   // OAuth handlers
   const handleGoogleLogin = useCallback(() => {
+    oauthInitiatedRef.current = true;
     // Belt-and-suspenders: save session before navigating away
     if (sessionId) {
       saveSession({ sessionId, secret });
@@ -171,6 +184,7 @@ export function useLoginPage() {
   }, [sessionId, secret, initOAuth]);
 
   const handleAppleLogin = useCallback(() => {
+    oauthInitiatedRef.current = true;
     if (sessionId) {
       saveSession({ sessionId, secret });
     }
