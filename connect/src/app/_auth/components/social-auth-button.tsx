@@ -29,7 +29,7 @@ export const SocialAuthButton = ({
       variant="outline"
       size="lg"
       fullWidth
-      className="justify-start gap-0 pl-0 pr-[5px] disabled:opacity-100"
+      className="justify-start gap-0 pl-0 pr-[5px] disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-100 disabled:hover:border-ring/30 disabled:hover:bg-background disabled:active:border-ring/30 disabled:active:ring-0"
       onClick={onClick}
       disabled={disabled}
       aria-busy={isLoading}

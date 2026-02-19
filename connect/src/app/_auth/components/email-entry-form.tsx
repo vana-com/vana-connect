@@ -30,12 +30,17 @@ export const EmailEntryForm = ({
         fieldVariants({ variant: "outline", size: "lg" }),
         "group items-center justify-start gap-3 pl-0 pr-[5px]",
         isLoading && "hover:border-ring/20",
-        !isLoading && stateFocusWithin,
+        stateFocusWithin,
+        "focus-within:border-iris focus-within:ring-iris/10",
+        disabled && "cursor-not-allowed hover:border-ring/30",
       )}
     >
       <label
         htmlFor="auth-email"
-        className="flex h-full w-full min-w-0 flex-1 items-center gap-0"
+        className={cn(
+          "flex h-full w-full min-w-0 flex-1 items-center gap-0",
+          disabled && "cursor-not-allowed",
+        )}
       >
         <div className="flex flex-none shrink-0 items-center justify-center size-tab [&_svg]:size-6!">
           <MailIcon
@@ -53,7 +58,7 @@ export const EmailEntryForm = ({
           value={email}
           onChange={(event) => onEmailChange(event.target.value)}
           placeholder="jane@example.com"
-          className="border-0 bg-transparent px-0 focus-visible:border-transparent focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100"
+          className="border-0 bg-transparent px-gap focus-visible:border-transparent focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100"
         />
       </label>
       <Button
@@ -61,7 +66,7 @@ export const EmailEntryForm = ({
         variant="ghost"
         size="icon"
         disabled={disabled}
-        className="disabled:opacity-100"
+        className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-100 disabled:hover:bg-transparent"
         aria-label="Send sign-in code"
       >
         {isLoading ? <Spinner boxSize={18} /> : <ArrowRightIcon />}
