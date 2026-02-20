@@ -79,7 +79,7 @@ export default function ConnectFlow() {
                 width: "100%",
               }}
             >
-              Launch dataConnect
+              Launch DataConnect
             </a>
           ) : (
             <button disabled className="btn-primary" style={{ width: "100%" }}>

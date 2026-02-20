@@ -70,20 +70,20 @@ function GrantsPageContent() {
               You don't have any data.
             </Text>
             <Text as="h1" intent="xlarge" dim>
-              To connect your data, download Data Connect.
+              To connect your data, download DataConnect.
             </Text>
           </div>
         </div>
 
-        {/* DEEP LINK LAUNCH into installed Data Connect app */}
+        {/* DEEP LINK LAUNCH into installed DataConnect app */}
         <div className="lg:w-3/4 mx-auto space-y-gap">
           <Button size="xl" fullWidth onClick={handleLaunchClick}>
             <DcIcon className="size-[1.5em]!" />
-            Launch Data Connect
+            Launch DataConnect
             <ButtonArrow icon={ArrowRightIcon} className="ms-0" />
           </Button>
 
-          {/* Download Data Connect */}
+          {/* Download DataConnect */}
           <Text as="p">
             Don’t have it?{" "}
             <a
@@ -92,14 +92,14 @@ function GrantsPageContent() {
               rel="noreferrer"
               className="link hover:text-foreground"
             >
-              Download Data Connect
+              Download DataConnect
             </a>
             .
           </Text>
         </div>
 
         {/*
-          Intentionally hidden for now: this page currently routes users to install/launch Data Connect first. Re-enable this legal copy once web grant consent is active in this flow.
+          Intentionally hidden for now: this page currently routes users to install/launch DataConnect first. Re-enable this legal copy once web grant consent is active in this flow.
          */}
         {/* <div className="pt-2 lg:w-5/6 mx-auto">
           <Text as="p" intent="small" align="center" muted>
