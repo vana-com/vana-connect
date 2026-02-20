@@ -43,7 +43,7 @@ pnpm install
 pnpm dev
 ```
 
-For local development, use the pre-registered dev key:
+For local development, use the pre-registered dev key in .env.local
 
 ```
 VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
