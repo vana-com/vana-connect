@@ -43,6 +43,13 @@ pnpm install
 pnpm dev
 ```
 
+For local development, use the pre-registered dev key:
+
+```
+VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
+APP_URL=http://localhost:3001
+```
+
 See [`examples/nextjs-starter`](./examples/nextjs-starter) for full details.
 
 ---
@@ -161,6 +168,18 @@ const manifest = {
 ```
 
 Make sure your HTML includes `<link rel="manifest" href="/manifest.json">`.
+
+## Connectors
+
+Available data connectors and their scopes (schema definitions):
+[`vana-com/data-connectors/schemas`](https://github.com/vana-com/data-connectors/tree/main/schemas)
+
+| Platform  | Scopes                                                                             |
+| --------- | ---------------------------------------------------------------------------------- |
+| ChatGPT   | `chatgpt.conversations`, `chatgpt.memories`                                        |
+| Instagram | `instagram.profile`, `instagram.posts`, `instagram.liked_posts`                    |
+| LinkedIn  | `linkedin.profile`, `linkedin.experience`, `linkedin.education`, `linkedin.skills` |
+| Spotify   | `spotify.savedTracks`, `spotify.playlists`                                         |
 
 ## API Reference
 
