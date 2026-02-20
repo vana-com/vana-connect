@@ -1,29 +1,46 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { PageShell } from "@/app/_components/page-shell";
 import { PagePanel } from "@/app/_components/page-panel";
-import { Spinner } from "@/components/elements/spinner";
-import { Text } from "@/components/typography/text";
-import { DcIcon } from "@/components/icons/dc-icon";
+import { PageShell } from "@/app/_components/page-shell";
+import { CONNECT_CONFIG } from "@/config/config";
+import { resolveConnectAppRef } from "./_shared/app-query";
+import { resolveConnectApp } from "./_shared/app-registry";
+import {
+  ConnectErrorState,
+  ConnectFooterSpacer,
+  ConnectLoadingState,
+  ConnectMissingSessionState,
+  ConnectPanelFooter,
+  ConnectReadyState,
+} from "./_shared/connect-page-ui";
 import { useConnectPage } from "./use-connect-page";
 
+// TODO(connect-query-contract): Query pass-through to `/download-data-connect`
+// is not finalized. Replace raw `searchParams.toString()` forwarding with an
+// explicit whitelist once the contract is frozen (keep only integration params,
+// strip debug/internal params like `authDebug` and `scenario`).
 function ConnectPageContent() {
+  const searchParams = useSearchParams();
   const { view, error, sessionId, deepLinkUrl } = useConnectPage();
+  const isDebugMode = searchParams.get("authDebug") === "1";
+  const rawQuery = searchParams.toString();
+  const downloadDataConnectHref = rawQuery
+    ? `/download-data-connect?${rawQuery}`
+    : "/download-data-connect";
+  const appRef = resolveConnectAppRef(searchParams);
+  const app = resolveConnectApp(appRef);
+  const supportHref = `mailto:${CONNECT_CONFIG.support.email}`;
 
   if (!sessionId) {
     return (
       <PageShell showBackButton={false}>
-        <PagePanel>
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Text as="h2" intent="title" color="destructive">
-              Missing session
-            </Text>
-            <Text dim>
-              This page requires a valid session. Please start from your
-              application.
-            </Text>
-          </div>
+        <PagePanel
+          className="text-center justify-center"
+          footer={<ConnectFooterSpacer />}
+        >
+          <ConnectMissingSessionState app={app} />
         </PagePanel>
       </PageShell>
     );
@@ -31,69 +48,32 @@ function ConnectPageContent() {
 
   return (
     <PageShell showBackButton={false}>
-      <PagePanel>
-        {/* Loading */}
-        {view === "loading" && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Spinner boxSize={32} className="text-iris" />
-            <Text intent="small" color="mutedForeground">
-              Preparing...
-            </Text>
-          </div>
-        )}
-
-        {/* Signing */}
-        {view === "signing" && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Spinner boxSize={32} className="text-iris" />
-            <Text intent="small" color="mutedForeground">
-              Signing your master key...
-            </Text>
-          </div>
+      <PagePanel
+        className="text-center justify-center"
+        footer={<ConnectPanelFooter />}
+      >
+        {/* Loading + Signing share one user-facing state */}
+        {(view === "loading" || view === "signing") && (
+          <ConnectLoadingState app={app} />
         )}
 
         {/* Ready — deep link to Data Connect */}
         {view === "ready" && deepLinkUrl && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <DcIcon className="size-12 text-iris" />
-            <Text as="h2" intent="title">
-              Ready to connect
-            </Text>
-            <a
-              href={deepLinkUrl}
-              className="inline-flex items-center gap-2 rounded-lg bg-iris px-6 py-3 font-medium text-white transition-colors hover:bg-iris/90"
-            >
-              Launch Data Connect
-            </a>
-            <Text intent="small" muted>
-              Don&apos;t have Data Connect?{" "}
-              <a
-                href="https://vana.org/download"
-                className="link hover:text-foreground"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Download it
-              </a>
-            </Text>
-          </div>
+          <ConnectReadyState
+            app={app}
+            deepLinkUrl={deepLinkUrl}
+            downloadDataConnectHref={downloadDataConnectHref}
+          />
         )}
 
-        {/* Error */}
+        {/* Error: prepare/signing failed; reload the page to try again */}
         {view === "error" && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Text as="h2" intent="title" color="destructive">
-              Something went wrong
-            </Text>
-            <Text dim>{error ?? "An unexpected error occurred."}</Text>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="rounded-lg border border-input px-4 py-2 text-sm transition-colors hover:bg-muted"
-            >
-              Try again
-            </button>
-          </div>
+          <ConnectErrorState
+            app={app}
+            isDebugMode={isDebugMode}
+            error={error}
+            supportHref={supportHref}
+          />
         )}
       </PagePanel>
     </PageShell>

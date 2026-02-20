@@ -15,4 +15,7 @@ export const CONNECT_CONFIG = {
     learnMoreUrl: "#",
     dataConnectGithubUrl: "https://github.com/vana-com/data-connect",
   },
+  support: {
+    email: "support@vana.org",
+  },
 } as const;
