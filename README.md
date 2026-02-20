@@ -1,14 +1,14 @@
 # Vana Connect SDK
 
-Let your users customize your app with their own data.
-
-Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Data Connect app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
+Let your users bring their own data to your app.
 
 ## What problem this solves
 
-Your users already have rich data in the platforms they use daily — ChatGPT conversations, Instagram activity, Gmail, purchase history — but getting access to it means manual file uploads (high friction), scraping (fragile and legally risky), or enterprise API deals (slow and expensive).
+Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.
 
-This SDK lets users bring that data to your app through Vana's [Data Portability Protocol](https://docs.vana.org/). Users export and approve access via the [Data Connect app](https://connect.vana.org); your app receives structured, consented data through a cryptographic grant. You can use it for faster onboarding, personalization, recommendations — any feature that benefits from knowing your user from day one.
+**Data portability** means users can export their data from these platforms and grant your app scoped access to it — with their explicit consent, cryptographic verification, and full control over what's shared and when to revoke it.
+
+Today, getting access to user data means asking for manual file uploads (high friction), scraping on their behalf (fragile and legally risky), or negotiating enterprise API deals (slow and expensive). This SDK gives you a standardized way to request and receive personal data through Vana's [Data Portability Protocol](https://docs.vana.org/), handling session creation, grant verification, and data fetching in three function calls.
 
 ## How it works
 
