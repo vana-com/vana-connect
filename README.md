@@ -30,23 +30,44 @@ Your App                         Vana Protocol
 
 The [Data Portability Protocol](https://docs.vana.org/) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
 
-## Installation
+## Getting started
+
+The fastest way to get up and running is with the **Next.js starter** — a complete working app with session creation, polling, data fetching, manifest signing, and webhook handling already wired up:
+
+```bash
+git clone https://github.com/vana-com/vana-connect.git
+cd vana-connect/examples/nextjs-starter
+cp .env.local.example .env.local
+# Edit .env.local with your private key and APP_URL
+pnpm install
+pnpm dev
+```
+
+See [`examples/nextjs-starter`](./examples/nextjs-starter) for full details.
+
+---
+
+## Manual integration
+
+If you prefer to integrate the SDK into an existing project, follow the steps below.
+
+### Installation
 
 ```bash
 pnpm add @opendatalabs/connect
 ```
 
-## Package manager
+### Package manager
 
 This repo is pnpm-only for local development and examples. Use `pnpm` commands, not `npm`.
 
-## Prerequisites
+### Prerequisites
 
 First, register your app in the [Developer Portal](https://vana-developers.replit.app/). You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
 
-## Quickstart
+### Quickstart
 
-### 1. Create a session (server)
+#### 1. Create a session (server)
 
 ```typescript
 import { connect } from "@opendatalabs/connect/server";
@@ -64,7 +85,7 @@ const session = await connect({
 // session.expiresAt   — ISO 8601 expiration
 ```
 
-### 2. Poll for user approval (client)
+#### 2. Poll for user approval (client)
 
 ```tsx
 import { useVanaConnect } from "@opendatalabs/connect/react";
@@ -99,7 +120,7 @@ import { ConnectButton } from "@opendatalabs/connect/react";
 />;
 ```
 
-### 3. Fetch user data (server)
+#### 3. Fetch user data (server)
 
 ```typescript
 import { getData } from "@opendatalabs/connect/server";
@@ -113,7 +134,7 @@ const data = await getData({
 const conversations = data["chatgpt.conversations"];
 ```
 
-### Web App Manifest
+#### Web App Manifest
 
 The DataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
@@ -207,10 +228,6 @@ import {
   createDataClient, // Data Gateway HTTP client
 } from "@opendatalabs/connect/server";
 ```
-
-## Examples
-
-See [`examples/nextjs-starter`](./examples/nextjs-starter) for a complete working integration with Next.js, including manifest signing, webhook handling, and the full connect-to-data-fetch flow.
 
 ## License
 
