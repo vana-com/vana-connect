@@ -56,11 +56,14 @@
 
   /* Destructive red scale */
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(1 0 0); /* white on red */
+  --destructive-foreground: color-mix(in oklch, var(--destructive) 90%, black);
+  --destructive-reversed: color-mix(in oklch, var(--destructive) 10%, white);
 
   /* Success green scale */
-  --success: oklch(0.7566 0.255886 142.6788); /* #00D50B */
-  --success-foreground: oklch(1 0 0); /* white on green */
+  /* --success: oklch(0.7566 0.255886 142.6788); */ /* #00D50B */
+  --success: oklch(0.7699 0.212 148.6); /* #20D760 */
+  --success-foreground: color-mix(in oklch, var(--success) 90%, black);
+  --success-reversed: color-mix(in oklch, var(--success) 10%, white);
 
   /* Accent blue scale (anchor: #4141fc):  */
   /* Using: https://www.radix-ui.com/colors/custom */

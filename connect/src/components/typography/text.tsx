@@ -36,8 +36,8 @@ export const textVariants = cva(
         mutedForeground: "text-muted-foreground",
         accent: "text-accent",
         accentForeground: "text-accent-foreground",
-        destructive: "text-destructive",
-        success: "text-success",
+        destructive: "text-destructive-foreground",
+        success: "text-success-foreground",
         inherit: "text-inherit",
         // extras
         iris: "text-iris",
@@ -102,8 +102,6 @@ export const textVariants = cva(
         true: [
           "flex items-center gap-1.5",
           "[&_svg:not([class*=size-])]:size-[0.9em]",
-          // Spinner uses `size-attr`; include it in text icon sizing.
-          "[&_svg.size-attr]:size-[0.9em]",
           // "[&_svg]:transform [&_svg]:translate-y-[-0.1em]",
         ],
       },
@@ -136,7 +134,7 @@ export const textVariants = cva(
       {
         withIcon: true,
         intent: ["heading", "title"],
-        className: "gap-2.5",
+        className: "gap-1 [&_svg:not([class*=size-])]:size-[1.1em]",
       },
       {
         withIcon: true,
