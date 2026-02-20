@@ -4,6 +4,12 @@ Let your users customize your app with their own data.
 
 Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [Data Connect app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
 
+## What problem this solves
+
+Your users already have rich data in the platforms they use daily — ChatGPT conversations, Instagram activity, Gmail, purchase history — but getting access to it means manual file uploads (high friction), scraping (fragile and legally risky), or enterprise API deals (slow and expensive).
+
+This SDK lets users bring that data to your app through Vana's [Data Portability Protocol](https://docs.vana.org/). Users export and approve access via the [Data Connect app](https://connect.vana.org); your app receives structured, consented data through a cryptographic grant. You can use it for faster onboarding, personalization, recommendations — any feature that benefits from knowing your user from day one.
+
 ## How it works
 
 ```
@@ -22,7 +28,7 @@ Your App                         Vana Protocol
    → structured JSON                 user data over TLS
 ```
 
-The [Data Portability Protocol](https://docs.vana.org/docs/data-portability-1) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
+The [Data Portability Protocol](https://docs.vana.org/) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
 
 ## Installation
 
