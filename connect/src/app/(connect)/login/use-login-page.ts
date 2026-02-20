@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  usePrivy,
   useLoginWithEmail,
   useLoginWithOAuth,
+  usePrivy,
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CONNECT_CONFIG } from "@/config/config";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
@@ -72,7 +72,7 @@ export function useLoginPage() {
       ? { sessionId, secret }
       : readAndClearSession();
 
-    const url = params ? buildConnectUrl(params) : "/connect";
+    const url = params ? buildConnectUrl(params) : "/download-data-connect";
     window.location.replace(url);
   }, [sessionId, secret]);
 
