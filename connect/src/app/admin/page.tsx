@@ -237,7 +237,11 @@ function AdminFormState({
             aria-label="Register app"
             disabled={isLoading}
           >
-            {isLoading ? <Spinner boxSize={18} /> : <ArrowRightIcon />}
+            {isLoading ? (
+              <Spinner className="size-[18px]" />
+            ) : (
+              <ArrowRightIcon />
+            )}
           </Button>
         </form>
 
