@@ -70,7 +70,7 @@ export function ConnectButton(props: ConnectButtonProps) {
     <div className={className}>
       <p>{statusText[status] ?? status}</p>
       {deepLinkUrl && status === "waiting" && (
-        <a href={deepLinkUrl}>{label ?? "Open dataConnect Desktop App"}</a>
+        <a href={deepLinkUrl}>{label ?? "Open DataConnect Desktop App"}</a>
       )}
     </div>
   );

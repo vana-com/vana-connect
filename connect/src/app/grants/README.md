@@ -1,6 +1,6 @@
 # Grants Page
 
-`/grants` is currently a UI-first integration stub for launching Data Connect while backend relay wiring is in progress.
+`/grants` is currently a UI-first integration stub for launching DataConnect while backend relay wiring is in progress.
 
 ## Launch URL Precedence
 

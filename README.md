@@ -18,7 +18,7 @@ Your App                         Vana Protocol
 
 1. connect({ scopes })
    → creates session
-   → returns deep link      ──▶  2. User opens Data Connect
+   → returns deep link      ──▶  2. User opens DataConnect
                                     reviews scopes, exports data,
                                     approves grant
 
@@ -60,7 +60,7 @@ const session = await connect({
 
 // Return to your frontend:
 // session.sessionId   — used for polling
-// session.deepLinkUrl — opens the Data Connect App
+// session.deepLinkUrl — opens the DataConnect App
 // session.expiresAt   — ISO 8601 expiration
 ```
 
@@ -115,7 +115,7 @@ const conversations = data["chatgpt.conversations"];
 
 ### Web App Manifest
 
-The Data Connect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
+The DataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
 ```typescript
 import { signVanaManifest } from "@opendatalabs/connect/server";

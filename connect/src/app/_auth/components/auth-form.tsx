@@ -87,7 +87,7 @@ export const App = () => {
             </Text>
             <Text dim className="pt-2">
               {isDesktopHandoff
-                ? "Return to the Data Connect app."
+                ? "Return to the DataConnect app."
                 : "Redirecting you to your data permissions…"}
             </Text>
             <Text dim>
