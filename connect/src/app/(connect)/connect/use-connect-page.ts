@@ -24,6 +24,7 @@ export function useConnectPage() {
 
   const signingRef = useRef(false);
   const signersAddedRef = useRef(false);
+  const signRetriesRef = useRef(0);
 
   const walletAddress = user?.wallet?.address;
 
@@ -79,11 +80,16 @@ export function useConnectPage() {
         setView("ready");
       })
       .catch((err) => {
+        signingRef.current = false;
+        // Retry once — the embedded wallet may not be ready immediately
+        if (signRetriesRef.current < 1) {
+          signRetriesRef.current += 1;
+          return;
+        }
         setError(
           err instanceof Error ? err.message : "Failed to sign master key",
         );
         setView("error");
-        signingRef.current = false;
       });
   }, [authenticated, walletAddress, masterKeySig, signMessage]);
 

@@ -6,7 +6,7 @@ import {
   useLoginWithEmail,
   useLoginWithOAuth,
 } from "@privy-io/react-auth";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CONNECT_CONFIG } from "@/config/config";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
@@ -45,7 +45,6 @@ function buildConnectUrl(params: SessionParams): string {
 
 export function useLoginPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { ready, authenticated } = usePrivy();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
@@ -55,12 +54,15 @@ export function useLoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const redirectedRef = useRef(false);
+  const oauthInitiatedRef = useRef(false);
 
   // Read session params from URL (preferred) or localStorage (OAuth return)
   const sessionId = searchParams.get("sessionId");
   const secret = searchParams.get("secret");
 
-  // Redirect helper — navigates to /connect with session params
+  // Redirect helper — navigates to /connect with session params.
+  // Uses window.location (not Next.js router) because router.replace can
+  // silently fail after full-page OAuth redirects.
   const handleLoginComplete = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
@@ -70,13 +72,9 @@ export function useLoginPage() {
       ? { sessionId, secret }
       : readAndClearSession();
 
-    if (params) {
-      router.replace(buildConnectUrl(params));
-    } else {
-      // No session params found — go to /connect without them (will show error)
-      router.replace("/connect");
-    }
-  }, [sessionId, secret, router]);
+    const url = params ? buildConnectUrl(params) : "/connect";
+    window.location.replace(url);
+  }, [sessionId, secret]);
 
   // Email OTP hooks
   const {
@@ -133,7 +131,18 @@ export function useLoginPage() {
   // Handle OAuth state transitions (covers the auto-processed callback on page load,
   // where the onComplete callback may not fire since the hook instance that called
   // initOAuth no longer exists after the full-page navigation to the OAuth provider).
+  // Guard: only react to oauthState after the user has initiated OAuth or when
+  // returning from an OAuth redirect (detected via session params in localStorage).
   useEffect(() => {
+    if (!oauthInitiatedRef.current) {
+      // Check if we're returning from an OAuth redirect by looking for saved session
+      // params in localStorage (set before navigating to the OAuth provider).
+      try {
+        if (!localStorage.getItem(STORAGE_KEY)) return;
+      } catch {
+        return;
+      }
+    }
     if (oauthState.status === "loading") {
       setView("completing");
     }
@@ -167,6 +176,7 @@ export function useLoginPage() {
 
   // OAuth handlers
   const handleGoogleLogin = useCallback(() => {
+    oauthInitiatedRef.current = true;
     // Belt-and-suspenders: save session before navigating away
     if (sessionId) {
       saveSession({ sessionId, secret });
@@ -175,6 +185,7 @@ export function useLoginPage() {
   }, [sessionId, secret, initOAuth]);
 
   const handleAppleLogin = useCallback(() => {
+    oauthInitiatedRef.current = true;
     if (sessionId) {
       saveSession({ sessionId, secret });
     }
