@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePrivy, useSignMessage, useSigners } from "@privy-io/react-auth";
+import { usePrivy, useSigners, useSignMessage } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveConnectLaunchUrl } from "./launch-url";
+import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
 
-const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID!;
+const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";
 
 export type ConnectPageView = "loading" | "signing" | "ready" | "error";
 
@@ -31,6 +33,7 @@ export function useConnectPage() {
   // Add signers after authentication
   const handleAddSigners = useCallback(
     async (address: string) => {
+      if (!KEY_QUORUM_ID) return;
       if (signersAddedRef.current) return;
       signersAddedRef.current = true;
       try {
@@ -93,16 +96,23 @@ export function useConnectPage() {
       });
   }, [authenticated, walletAddress, masterKeySig, signMessage]);
 
-  // Build the deep link URL
-  const deepLinkUrl =
-    masterKeySig && sessionId
-      ? `vana://connect?sessionId=${encodeURIComponent(sessionId)}${secret ? `&secret=${encodeURIComponent(secret)}` : ""}&masterKeySig=${encodeURIComponent(masterKeySig)}`
-      : null;
+  const deepLinkUrl = resolveConnectLaunchUrl({
+    sessionId,
+    secret,
+    masterKeySig,
+  });
 
-  return {
+  const ui = resolveConnectPageUiDebugState({
     view,
     error,
     sessionId,
     deepLinkUrl,
+  });
+
+  return {
+    view: ui.view,
+    error: ui.error,
+    sessionId: ui.sessionId,
+    deepLinkUrl: ui.deepLinkUrl,
   };
 }

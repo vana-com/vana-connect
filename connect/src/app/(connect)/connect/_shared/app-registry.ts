@@ -1,4 +1,4 @@
-export interface GrantAppMetadata {
+export interface ConnectAppMetadata {
   id: string;
   displayName: string;
   iconUrl?: string;
@@ -8,7 +8,7 @@ export interface GrantAppMetadata {
 
 const DEFAULT_APP_ID = "discover-me";
 
-const APP_REGISTRY: Record<string, GrantAppMetadata> = {
+const APP_REGISTRY: Record<string, ConnectAppMetadata> = {
   "discover-me": {
     id: "discover-me",
     displayName: "Discover Me",
@@ -24,7 +24,7 @@ function normalizeAppKey(value: string): string {
     .replace(/[\s_]+/g, "-");
 }
 
-export function resolveGrantApp(appRef?: string | null): GrantAppMetadata {
+export function resolveConnectApp(appRef?: string | null): ConnectAppMetadata {
   if (!appRef) {
     return APP_REGISTRY[DEFAULT_APP_ID];
   }

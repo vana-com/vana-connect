@@ -1,6 +1,6 @@
 type SearchParamReader = Pick<URLSearchParams, "get">;
 
-export function resolveGrantAppRef(
+export function resolveConnectAppRef(
   searchParams: SearchParamReader,
 ): string | null {
   return (
