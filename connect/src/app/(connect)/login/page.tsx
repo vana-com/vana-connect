@@ -1,19 +1,23 @@
 "use client";
 
-import { Suspense } from "react";
-import { PageShell } from "@/app/_components/page-shell";
+import { Suspense, useId, useState } from "react";
+import { CodeVerificationForm } from "@/app/_auth/components/code-verification-form";
+import { EmailEntryForm } from "@/app/_auth/components/email-entry-form";
+import { SocialAuthButton } from "@/app/_auth/components/social-auth-button";
+import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
+import { PageShell } from "@/app/_components/page-shell";
 import { Spinner } from "@/components/elements/spinner";
 import { VanaLogotype } from "@/components/icons/vana-logotype";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
-import { EmailEntryForm } from "@/app/_auth/components/email-entry-form";
-import { CodeVerificationForm } from "@/app/_auth/components/code-verification-form";
-import { SocialAuthButton } from "@/app/_auth/components/social-auth-button";
 import { useLoginPage } from "./use-login-page";
 
 function LoginPageContent() {
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
+  const checkboxId = useId();
+  const [isPassportAgreementAccepted, setIsPassportAgreementAccepted] =
+    useState(false);
   const {
     view,
     error,
@@ -29,10 +33,35 @@ function LoginPageContent() {
     handleCodeSubmit,
     handleGoogleLogin,
     handleAppleLogin,
+    recordPassportAgreementAcceptance,
   } = useLoginPage();
 
-  const isEmailDisabled = isSendingEmail || isGoogleLoading || isAppleLoading;
+  const isEmailDisabled =
+    isSendingEmail ||
+    isGoogleLoading ||
+    isAppleLoading ||
+    !isPassportAgreementAccepted;
   const isVerifyDisabled = isVerifyingCode || isGoogleLoading || isAppleLoading;
+  const isGoogleDisabled = isGoogleLoading || !isPassportAgreementAccepted;
+  const isAppleDisabled = isAppleLoading || !isPassportAgreementAccepted;
+
+  async function handleEmailSubmitWithPassportAgreement() {
+    if (!isPassportAgreementAccepted) return;
+    recordPassportAgreementAcceptance();
+    await handleEmailSubmit();
+  }
+
+  function handleGoogleLoginWithPassportAgreement() {
+    if (!isPassportAgreementAccepted) return;
+    recordPassportAgreementAcceptance();
+    handleGoogleLogin();
+  }
+
+  function handleAppleLoginWithPassportAgreement() {
+    if (!isPassportAgreementAccepted) return;
+    recordPassportAgreementAcceptance();
+    handleAppleLogin();
+  }
 
   return (
     <PageShell showBackButton={false}>
@@ -50,7 +79,7 @@ function LoginPageContent() {
         {/* Email entry */}
         {view === "email" && (
           <div className="space-y-small">
-            <div className="space-y-w6">
+            <div className="space-y-5">
               <div className="space-y-2.5">
                 <VanaLogotype height={13} className="text-iris" />
                 <Text as="h1" intent="title">
@@ -81,49 +110,56 @@ function LoginPageContent() {
                 isLoading={isSendingEmail}
                 disabled={isEmailDisabled}
                 onEmailChange={handleEmailChange}
-                onSubmit={handleEmailSubmit}
+                onSubmit={handleEmailSubmitWithPassportAgreement}
               />
               <SocialAuthButton
                 kind="google"
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleLoginWithPassportAgreement}
                 isLoading={isGoogleLoading}
-                disabled={isGoogleLoading}
+                disabled={isGoogleDisabled}
               />
               <SocialAuthButton
                 kind="apple"
-                onClick={handleAppleLogin}
+                onClick={handleAppleLoginWithPassportAgreement}
                 isLoading={isAppleLoading}
-                disabled={isAppleLoading}
+                disabled={isAppleDisabled}
               />
             </div>
 
-            <Text
-              intent="small"
-              muted
-              align="center"
-              className="mx-auto max-w-sm"
-            >
-              By creating an account, you agree to our
-              <br />
-              <a
-                className="link hover:text-foreground"
-                href={termsOfServiceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Terms of Service
-              </a>{" "}
-              and{" "}
-              <a
-                className="link hover:text-foreground"
-                href={privacyPolicyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Privacy Policy
-              </a>
-              .
-            </Text>
+            <LegalAcceptance
+              checkboxId={checkboxId}
+              checked={isPassportAgreementAccepted}
+              onCheckedChange={setIsPassportAgreementAccepted}
+              label="I have read and agree to the Vana Terms of Service and Privacy Policy."
+              detailsIntent="fine"
+              details={
+                <>
+                  By creating a Vana Passport, you agree to the{" "}
+                  <a
+                    className="link hover:text-foreground"
+                    href={termsOfServiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Vana Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    className="link hover:text-foreground"
+                    href={privacyPolicyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Vana Privacy Policy
+                  </a>
+                  . These documents govern how information you provide in
+                  connection with your Passport may be processed for the
+                  purposes of enabling protocol identity, authentication,
+                  permissioning your data, and your use of applications or
+                  services that interact with the Vana protocol.
+                </>
+              }
+            />
           </div>
         )}
 

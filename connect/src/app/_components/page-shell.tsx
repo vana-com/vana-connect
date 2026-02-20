@@ -38,7 +38,7 @@ export function PageShell({
     <div
       className={cn(
         "relative min-h-screen bg-[#F0F4F8]",
-        "p-w8 xl:pb-w32",
+        "p-w8 [@media(min-height:801px)]:pb-w32",
         "flex flex-col",
       )}
     >
