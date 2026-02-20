@@ -172,14 +172,7 @@ Make sure your HTML includes `<link rel="manifest" href="/manifest.json">`.
 ## Connectors
 
 Available data connectors and their scopes (schema definitions):
-[`vana-com/data-connectors/schemas`](https://github.com/vana-com/data-connectors/tree/main/schemas)
-
-| Platform  | Scopes                                                                             |
-| --------- | ---------------------------------------------------------------------------------- |
-| ChatGPT   | `chatgpt.conversations`, `chatgpt.memories`                                        |
-| Instagram | `instagram.profile`, `instagram.posts`, `instagram.liked_posts`                    |
-| LinkedIn  | `linkedin.profile`, `linkedin.experience`, `linkedin.education`, `linkedin.skills` |
-| Spotify   | `spotify.savedTracks`, `spotify.playlists`                                         |
+[`vana-com/data-connectors/schemas`](https://github.com/vana-com/data-connectors/tree/main/schemas)                                       |
 
 ## API Reference
 
