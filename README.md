@@ -42,7 +42,7 @@ This repo is pnpm-only for local development and examples. Use `pnpm` commands, 
 
 ## Prerequisites
 
-[Register an app](https://vana-developers.replit.app/) through Data Connect first. You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
+First, register your app in the [Developer Portal](https://vana-developers.replit.app/). You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
 
 ## Quickstart
 
