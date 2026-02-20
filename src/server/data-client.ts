@@ -53,6 +53,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
       const envelope = (await res.json()) as {
         data: { serverUrl: string };
       };
+      console.log("[data-client] resolved serverUrl:", envelope.data.serverUrl);
       return envelope.data.serverUrl;
     },
 
@@ -72,8 +73,17 @@ export function createDataClient(config: DataClientConfig): DataClient {
       });
 
       const url = `${base}${uri}`;
+      console.log("[data-client] fetching", {
+        url,
+        method: "GET",
+        hasAuth: !!authHeader,
+      });
       const res = await fetch(url, {
         headers: { Authorization: authHeader },
+      });
+      console.log("[data-client] response", {
+        status: res.status,
+        url: res.url,
       });
 
       if (!res.ok) {

@@ -1,0 +1,340 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: #09090b;
+  color: #e4e4e7;
+  min-height: 100vh;
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #71717a;
+  margin-bottom: 40px;
+  line-height: 1.5;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: #0f0f12;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.card-approved {
+  border-color: #22c55e33;
+}
+
+.card-error {
+  border-color: #ef444444;
+}
+
+/* ── Score ring ───────────────────────────────────────────────────────────── */
+
+.score-ring {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.score-circle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.score-circle svg {
+  transform: rotate(-90deg);
+}
+
+.score-track {
+  fill: none;
+  stroke: #27272a;
+  stroke-width: 6;
+}
+
+.score-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease;
+}
+
+.score-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #a1a1aa;
+  line-height: 1.5;
+}
+
+/* ── Progress bars ────────────────────────────────────────────────────────── */
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.breakdown-label {
+  width: 140px;
+  flex-shrink: 0;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.breakdown-bar {
+  flex: 1;
+  height: 6px;
+  background: #27272a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.breakdown-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+.breakdown-score {
+  width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #71717a;
+  font-size: 12px;
+}
+
+/* ── Insight cards ────────────────────────────────────────────────────────── */
+
+.insight {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  border-left: 3px solid;
+}
+
+.insight-strength {
+  background: #22c55e0a;
+  border-left-color: #22c55e;
+}
+
+.insight-improvement {
+  background: #f59e0b0a;
+  border-left-color: #f59e0b;
+}
+
+.insight-observation {
+  background: #3b82f60a;
+  border-left-color: #3b82f6;
+}
+
+.insight-area {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #71717a;
+  margin-bottom: 4px;
+}
+
+.insight-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.insight-detail {
+  font-size: 13px;
+  color: #a1a1aa;
+  line-height: 1.6;
+}
+
+/* ── Section headers ──────────────────────────────────────────────────────── */
+
+.section-header {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  margin-top: 8px;
+}
+
+/* ── Actions list ─────────────────────────────────────────────────────────── */
+
+.action-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #1a1a1f;
+  font-size: 13px;
+  color: #d4d4d8;
+  line-height: 1.5;
+}
+
+.action-item:last-child {
+  border-bottom: none;
+}
+
+.action-number {
+  font-weight: 600;
+  color: #22c55e;
+  flex-shrink: 0;
+  width: 20px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: #09090b;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  font-size: 12px;
+  padding: 8px 14px;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+}
+
+/* ── Status ───────────────────────────────────────────────────────────────── */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.analyzing-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #52525b;
+  margin-bottom: 6px;
+}
+
+.mono {
+  font-family: monospace;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.status-waiting { color: #eab308; }
+.status-approved { color: #22c55e; }
+.status-denied, .status-expired, .status-error { color: #ef4444; }
+.status-default { color: #71717a; }
+
+.text-error {
+  color: #ef4444;
+  font-size: 13px;
+}
+
+/* ── Steps ────────────────────────────────────────────────────────────────── */
+
+.steps {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.step {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: #27272a;
+  transition: background 0.3s;
+}
+
+.step-active {
+  background: #22c55e;
+}
+
+.step-done {
+  background: #22c55e66;
+}
