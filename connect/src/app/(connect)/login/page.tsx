@@ -1,9 +1,6 @@
 "use client";
 
 import { Suspense, useId, useState } from "react";
-import { CodeVerificationForm } from "@/app/_auth/components/code-verification-form";
-import { EmailEntryForm } from "@/app/_auth/components/email-entry-form";
-import { SocialAuthButton } from "@/app/_auth/components/social-auth-button";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
@@ -11,6 +8,9 @@ import { Spinner } from "@/components/elements/spinner";
 import { VanaLogotype } from "@/components/icons/vana-logotype";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
+import { CodeVerificationForm } from "./_components/code-verification-form";
+import { EmailEntryForm } from "./_components/email-entry-form";
+import { SocialAuthButton } from "./_components/social-auth-button";
 import { useLoginPage } from "./use-login-page";
 
 function LoginPageContent() {
@@ -69,7 +69,7 @@ function LoginPageContent() {
         {/* Loading / Completing */}
         {(view === "loading" || view === "completing") && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Spinner boxSize={32} className="text-iris" />
+            <Spinner className="size-8 text-iris" />
             <Text intent="small" color="mutedForeground">
               {view === "completing" ? "Signing you in..." : "Preparing..."}
             </Text>

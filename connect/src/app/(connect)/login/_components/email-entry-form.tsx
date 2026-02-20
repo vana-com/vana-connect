@@ -69,7 +69,7 @@ export const EmailEntryForm = ({
         className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-100 disabled:hover:bg-transparent"
         aria-label="Send sign-in code"
       >
-        {isLoading ? <Spinner boxSize={18} /> : <ArrowRightIcon />}
+        {isLoading ? <Spinner className="size-[18px]" /> : <ArrowRightIcon />}
       </Button>
     </form>
   );
