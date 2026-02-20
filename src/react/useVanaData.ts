@@ -32,6 +32,8 @@ export interface UseVanaDataResult {
   error: string | null;
   /** URL to account.vana.org where the user signs in and launches Data Connect, or `null`. */
   connectUrl: string | null;
+  /** Opens the connect URL in a new tab. Use this instead of rendering the URL directly to avoid navigating away from your app. */
+  openConnect: () => void;
   /** Starts the connect flow by calling the connect API route. */
   initConnect: () => Promise<void>;
   /** Manually fetches data using the current grant. */
@@ -169,6 +171,12 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     autoFetchedRef.current = false;
   }, [resetPoll]);
 
+  const openConnect = useCallback(() => {
+    if (connectUrl) {
+      window.open(connectUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [connectUrl]);
+
   const error = pollError ?? fetchError;
   const isLoading = initLoading || fetching || pollStatus === "connecting";
   const isConnected = pollStatus === "approved";
@@ -179,6 +187,7 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     data,
     error,
     connectUrl,
+    openConnect,
     initConnect,
     fetchData,
     reset,
