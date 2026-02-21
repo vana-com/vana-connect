@@ -7,7 +7,9 @@ Minimal Next.js app demonstrating the Vana Connect flow. Shows the server-side S
 - A builder address registered on-chain via the Vana Gateway
 - A running Personal Server with `VANA_MASTER_KEY_SIGNATURE` set
 
-## Setup
+## Setup (Development)
+
+The starter defaults to the **dev** environment, which uses the dev session relay and `account-dev.vana.org`. This lets you iterate locally without affecting production.
 
 ```bash
 cp .env.local.example .env.local
@@ -18,12 +20,17 @@ pnpm dev   # Opens on http://localhost:3001
 
 ## Environment Variables
 
-| Variable           | Required | Description                             |
-| ------------------ | -------- | --------------------------------------- |
-| `VANA_PRIVATE_KEY` | Yes      | Builder private key registered on-chain |
-| `APP_URL`          | Yes      | Public URL of your deployed app         |
+| Variable               | Required | Description                             |
+| ---------------------- | -------- | --------------------------------------- |
+| `VANA_PRIVATE_KEY`     | Yes      | Builder private key registered on-chain |
+| `APP_URL`              | Yes      | Public URL of your deployed app         |
+| `NEXT_PUBLIC_VANA_ENV` | No       | `dev` or `prod` (defaults to `prod`)    |
 
 > Scopes are configured in `src/config.ts`. Edit the `SCOPES` array to change which user data your app requests.
+
+## Switching to Production
+
+See [Switching to Production](../../README.md#switching-to-production) in the main README.
 
 ## Web App Manifest
 
