@@ -6,7 +6,13 @@
 
 import { useEffect, useRef } from "react";
 import { useVanaData } from "@opendatalabs/connect/react";
-import type { ConnectionStatus } from "@opendatalabs/connect/core";
+import type {
+  ConnectionStatus,
+  VanaEnvironment,
+} from "@opendatalabs/connect/core";
+
+const VANA_ENV = (process.env.NEXT_PUBLIC_VANA_ENV ??
+  "prod") as VanaEnvironment;
 
 const STATUS_DISPLAY: Record<
   ConnectionStatus,
@@ -39,7 +45,7 @@ export default function ConnectFlow() {
     initConnect,
     fetchData,
     isLoading,
-  } = useVanaData();
+  } = useVanaData({ environment: VANA_ENV });
 
   const initRef = useRef(false);
   useEffect(() => {

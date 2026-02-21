@@ -39,12 +39,16 @@ git clone https://github.com/vana-com/vana-connect.git
 cd vana-connect/examples/nextjs-starter
 cp .env.local.example .env.local
 ```
+
 Use the pre-registered dev key in .env.local. Note that this private key is ONLY for testing and works only with a testing Vana environment.
+
 ```
 VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
 APP_URL=http://localhost:3001
 ```
+
 Install and run
+
 ```
 pnpm install
 pnpm dev
@@ -52,15 +56,44 @@ pnpm dev
 
 Note that while testing this example app, you should have a development version of the [DataConnect app](https://github.com/vana-com/data-connect?tab=readme-ov-file#development).
 
-There is one caveat in development: the deep-link for DataConnect app doesn't open the dev version of the app. 
+There is one caveat in development: the deep-link for DataConnect app doesn't open the dev version of the app.
 This means that when testing your app from the end user perspective, once you see this screen:
 <img width="627" height="560" alt="Screenshot 2026-02-21 at 15 02 58" src="https://github.com/user-attachments/assets/477ae78f-d84d-4178-a1e9-48abedf36946" />
 
-Instead of clicking the "Launch DataConnect" button, you should right-click on it and copy its address. The address will be something like `vana://connect?sessionId`. 
+Instead of clicking the "Launch DataConnect" button, you should right-click on it and copy its address. The address will be something like `vana://connect?sessionId=...`.
 
 Then, in your dev version of DataConnect (likely built from the `main` branch) you will see a place to copy the link in the right-bottom corner of the app:
 
 <img width="348" height="258" alt="Screenshot 2026-02-21 at 15 09 18" src="https://github.com/user-attachments/assets/9f9d7a14-c92e-4185-bdc2-a2d93282c748" />
+
+---
+
+## Switching to Production
+
+The starter and SDK default to the **dev** environment for local development. When you're ready to go live:
+
+1. **Install the SDK from npm.** The starter uses `"workspace:*"` to link the local SDK source. For production, switch to the published package in `package.json`:
+
+   ```diff
+   -"@opendatalabs/connect": "workspace:*"
+   +"@opendatalabs/connect": "^0.6.0"
+   ```
+
+   Then run `pnpm install`.
+
+2. **Set the environment variable** in `.env.local`:
+
+   ```
+   NEXT_PUBLIC_VANA_ENV=prod
+   ```
+
+   This switches the SDK to use the production session relay (`session-relay.vana.org`) and `account.vana.org`.
+
+3. **Use the release build of Data Connect.** Dev sessions work with a locally-running Data Connect, but production sessions are handled by the release version of the [Data Connect desktop app](https://vana.org). Users will need this installed to complete the connect flow.
+
+4. **Register your app** at [account.vana.org/build](https://account.vana.org/build). Your `VANA_PRIVATE_KEY` must correspond to an address registered on the production Vana Gateway (the pre-registered dev key won't work).
+
+5. **Deploy your app** so that `APP_URL` points to a publicly-reachable URL. The Data Connect app fetches your `/manifest.json` to verify your identity — this won't work with `localhost` in production.
 
 ---
 
