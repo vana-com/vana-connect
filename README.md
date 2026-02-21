@@ -1,8 +1,14 @@
 # Vana Connect SDK
 
-Let your users customize your app with their own data.
+Let your users bring their own data to your app.
 
-Users connect platforms they already use — ChatGPT, Instagram, Gmail, and more — through the [dataConnect desktop app](https://connect.vana.org), which keeps them in control of what's shared. Your app receives structured, user-consented data through a cryptographically verified grant. No scraping, no OAuth token juggling, no compliance gray areas.
+## What problem this solves
+
+Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.
+
+**Data portability** means users can export their data from these platforms and grant your app scoped access to it — with their explicit consent, cryptographic verification, and full control over what's shared and when to revoke it.
+
+Today, getting access to user data means asking for manual file uploads (high friction), scraping on their behalf (fragile and legally risky), or negotiating enterprise API deals (slow and expensive). This SDK gives you a standardized way to request and receive personal data through Vana's [Data Portability Protocol](https://docs.vana.org/), handling session creation, grant verification, and data fetching in three function calls.
 
 ## How it works
 
@@ -12,7 +18,7 @@ Your App                         Vana Protocol
 
 1. connect({ scopes })
    → creates session
-   → returns deep link      ──▶  2. User opens dataConnect
+   → returns deep link      ──▶  2. User opens DataConnect
                                     reviews scopes, exports data,
                                     approves grant
 
@@ -22,25 +28,53 @@ Your App                         Vana Protocol
    → structured JSON                 user data over TLS
 ```
 
-The [Data Portability Protocol](https://docs.vana.org/docs/data-portability-1) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
+The [Data Portability Protocol](https://docs.vana.org/) defines how users collect data from platforms, store it under their control (on-device or hosted), and grant third-party apps scoped access. This SDK handles session creation, cryptographic request signing, polling, and data fetching. You write three function calls; the protocol handles the rest.
 
-## Installation
+## Getting started
+
+The fastest way to get up and running is with the **Next.js starter** — a complete working app with session creation, polling, data fetching, manifest signing, and webhook handling already wired up:
+
+```bash
+git clone https://github.com/vana-com/vana-connect.git
+cd vana-connect/examples/nextjs-starter
+cp .env.local.example .env.local
+# Edit .env.local with your private key and APP_URL
+pnpm install
+pnpm dev
+```
+
+For local development, use the pre-registered dev key in .env.local
+
+```
+VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
+APP_URL=http://localhost:3001
+```
+
+See [`examples/nextjs-starter`](./examples/nextjs-starter) for full details.
+
+---
+
+## Manual integration
+
+If you prefer to integrate the SDK into an existing project, follow the steps below.
+
+### Installation
 
 ```bash
 pnpm add @opendatalabs/connect
 ```
 
-## Package manager
+### Package manager
 
 This repo is pnpm-only for local development and examples. Use `pnpm` commands, not `npm`.
 
-## Prerequisites
+### Prerequisites
 
-Register an app through dataConnect first. You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
+First, register your app in the [Developer Portal](https://vana-developers.replit.app/). You will need to provide the URL where your app will be deployed, and then be given a private key after registration.
 
-## Quickstart
+### Quickstart
 
-### 1. Create a session (server)
+#### 1. Create a session (server)
 
 ```typescript
 import { connect } from "@opendatalabs/connect/server";
@@ -54,11 +88,11 @@ const session = await connect({
 
 // Return to your frontend:
 // session.sessionId   — used for polling
-// session.deepLinkUrl — opens the dataConnect Desktop App
+// session.deepLinkUrl — opens the DataConnect App
 // session.expiresAt   — ISO 8601 expiration
 ```
 
-### 2. Poll for user approval (client)
+#### 2. Poll for user approval (client)
 
 ```tsx
 import { useVanaConnect } from "@opendatalabs/connect/react";
@@ -93,7 +127,7 @@ import { ConnectButton } from "@opendatalabs/connect/react";
 />;
 ```
 
-### 3. Fetch user data (server)
+#### 3. Fetch user data (server)
 
 ```typescript
 import { getData } from "@opendatalabs/connect/server";
@@ -107,9 +141,9 @@ const data = await getData({
 const conversations = data["chatgpt.conversations"];
 ```
 
-### Web App Manifest
+#### Web App Manifest
 
-The dataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
+The DataConnect App verifies your identity by fetching your manifest. Use `signVanaManifest()` to generate it:
 
 ```typescript
 import { signVanaManifest } from "@opendatalabs/connect/server";
@@ -134,6 +168,11 @@ const manifest = {
 ```
 
 Make sure your HTML includes `<link rel="manifest" href="/manifest.json">`.
+
+## Connectors
+
+Available data connectors and their scopes (schema definitions):
+[`vana-com/data-connectors/schemas`](https://github.com/vana-com/data-connectors/tree/main/schemas)
 
 ## API Reference
 
@@ -201,10 +240,6 @@ import {
   createDataClient, // Data Gateway HTTP client
 } from "@opendatalabs/connect/server";
 ```
-
-## Examples
-
-See [`examples/nextjs-starter`](./examples/nextjs-starter) for a complete working integration with Next.js, including manifest signing, webhook handling, and the full connect-to-data-fetch flow.
 
 ## License
 

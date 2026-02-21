@@ -3,7 +3,7 @@
 This document defines the mental model and technical contract between:
 
 - `/` auth experience (Vana Passport sign-in)
-- `/grants` launch/download experience for Data Connect
+- `/grants` launch/download experience for DataConnect
 
 It exists to answer: _what page should happen next after auth success_, based on **arrival context**.
 
@@ -18,7 +18,7 @@ There are two user journeys entering auth:
    - Auth success should continue to `/grants` (or future permissions route).
 
 2. **Desktop-handoff journey**  
-   User arrived at auth from an installed Data Connect app handoff (OS-level app flow).
+   User arrived at auth from an installed DataConnect app handoff (OS-level app flow).
    - Auth success should _not_ continue into grants page UX.
    - Success message should instruct return to app.
    - Auth should remain on success state (no redirect, no auto-close).
@@ -85,10 +85,10 @@ Without this decision, downstream integrations can silently break after OAuth re
 
 ## Success Behavior Matrix
 
-| Arrival context | Auth success copy                                 | Auth success action                       |
-| --------------- | ------------------------------------------------- | ----------------------------------------- |
-| Web-first       | "Redirecting you to your data permissions..."     | Redirect to `/grants` after delay         |
-| Desktop-handoff | "Return to Data Connect. You may close this tab." | Stay on auth success screen (no redirect) |
+| Arrival context | Auth success copy                                | Auth success action                       |
+| --------------- | ------------------------------------------------ | ----------------------------------------- |
+| Web-first       | "Redirecting you to your data permissions..."    | Redirect to `/grants` after delay         |
+| Desktop-handoff | "Return to DataConnect. You may close this tab." | Stay on auth success screen (no redirect) |
 
 ## Current vs Target
 
@@ -126,7 +126,7 @@ Current implementation notes:
 
 Purpose:
 
-- Explain "you need Data Connect to proceed".
+- Explain "you need DataConnect to proceed".
 - Let user launch installed app via deep link.
 - Offer fallback download link for app install.
 

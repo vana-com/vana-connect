@@ -40,8 +40,8 @@ const gtAmericaMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Data Connect",
-  description: "Data Connect",
+  title: "DataConnect",
+  description: "DataConnect",
 };
 
 export default function RootLayout({
