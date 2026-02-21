@@ -39,12 +39,16 @@ git clone https://github.com/vana-com/vana-connect.git
 cd vana-connect/examples/nextjs-starter
 cp .env.local.example .env.local
 ```
+
 Use the pre-registered dev key in .env.local. Note that this private key is ONLY for testing and works only with a testing Vana environment.
+
 ```
 VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
 APP_URL=http://localhost:3001
 ```
+
 Install and run
+
 ```
 pnpm install
 pnpm dev
@@ -52,11 +56,11 @@ pnpm dev
 
 Note that while testing this example app, you should have a development version of the [DataConnect app](https://github.com/vana-com/data-connect?tab=readme-ov-file#development).
 
-There is one caveat in development: the deep-link for DataConnect app doesn't open the dev version of the app. 
+There is one caveat in development: the deep-link for DataConnect app doesn't open the dev version of the app.
 This means that when testing your app from the end user perspective, once you see this screen:
 <img width="627" height="560" alt="Screenshot 2026-02-21 at 15 02 58" src="https://github.com/user-attachments/assets/477ae78f-d84d-4178-a1e9-48abedf36946" />
 
-Instead of clicking the "Launch DataConnect" button, you should right-click on it and copy its address. The address will be something like `vana://connect?sessionId`. 
+Instead of clicking the "Launch DataConnect" button, you should right-click on it and copy its address. The address will be something like `vana://connect?sessionId=...`.
 
 Then, in your dev version of DataConnect (likely built from the `main` branch) you will see a place to copy the link in the right-bottom corner of the app:
 
@@ -93,13 +97,13 @@ const session = await connect({
   privateKey: process.env.VANA_APP_PRIVATE_KEY as `0x${string}`,
   scopes: ["chatgpt.conversations"],
   webhookUrl: "https://yourapp.com/api/webhook", // optional, data can be pushed to a web hook after a grant is approved
-  appUserId: "yourapp-user-42", // optional: this is used to corelate your app user with the data they provided
+  appUserId: "yourapp-user-42", // optional: correlate your app user with the data they provided
 });
 
 // Return to your frontend:
-// session.sessionId   — used for polling
-// session.deepLinkUrl — opens the DataConnect App
-// session.expiresAt   — ISO 8601 expiration
+// session.sessionId  — used for polling
+// session.connectUrl — opens the Vana account page → launches DataConnect
+// session.expiresAt  — ISO 8601 expiration
 ```
 
 #### 2. Poll for user approval (client)
@@ -108,14 +112,14 @@ const session = await connect({
 import { useVanaConnect } from "@opendatalabs/connect/react";
 
 function ConnectData({ sessionId }: { sessionId: string }) {
-  const { connect, status, grant, deepLinkUrl } = useVanaConnect();
+  const { connect, status, grant, connectUrl } = useVanaConnect();
 
   useEffect(() => {
     connect({ sessionId });
   }, [sessionId]);
 
-  if (status === "waiting" && deepLinkUrl) {
-    return <a href={deepLinkUrl}>Connect your data</a>;
+  if (status === "waiting" && connectUrl) {
+    return <a href={connectUrl}>Connect your data</a>;
   }
   if (status === "approved" && grant) {
     // grant.grantId, grant.userAddress, grant.scopes are available
@@ -196,7 +200,7 @@ Available data connectors and their scopes (schema definitions):
 
 ### `connect(config): Promise<SessionInitResult>`
 
-Creates a session on the Session Relay. Returns `sessionId`, `deepLinkUrl`, and `expiresAt`.
+Creates a session on the Session Relay. Returns `sessionId`, `connectUrl`, and `expiresAt`.
 
 | Param        | Type                | Required | Description                                                            |
 | ------------ | ------------------- | -------- | ---------------------------------------------------------------------- |
@@ -219,7 +223,7 @@ Fetches user data from their Personal Server using a signed grant.
 React hook that polls the Session Relay and manages connection state.
 
 ```typescript
-const { connect, status, grant, error, deepLinkUrl, reset } = useVanaConnect();
+const { connect, status, grant, error, connectUrl, reset } = useVanaConnect();
 ```
 
 `status` transitions: `idle` &rarr; `connecting` &rarr; `waiting` &rarr; `approved` | `denied` | `expired` | `error`

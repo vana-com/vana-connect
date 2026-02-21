@@ -42,13 +42,13 @@ export interface UseVanaConnectResult {
  *
  * @example
  * ```tsx
- * const { connect, status, grant, deepLinkUrl } = useVanaConnect();
+ * const { connect, status, grant, connectUrl } = useVanaConnect();
  *
  * useEffect(() => {
  *   connect({ sessionId: "sess-123" });
  * }, []);
  *
- * if (status === "waiting") return <a href={deepLinkUrl!}>Open Vana</a>;
+ * if (status === "waiting") return <a href={connectUrl!}>Open Vana</a>;
  * if (status === "approved") return <p>Connected! Grant: {grant!.grantId}</p>;
  * ```
  */
