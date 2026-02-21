@@ -32,25 +32,35 @@ The [Data Portability Protocol](https://docs.vana.org/) defines how users collec
 
 ## Getting started
 
-The fastest way to get up and running is with the **Next.js starter** — a complete working app with session creation, polling, data fetching, manifest signing, and webhook handling already wired up:
+The fastest way to get up and running is with the `examples/nextjs-starter` — a complete working app which uses the development environment and has full flow of data portability wired up:
 
 ```bash
 git clone https://github.com/vana-com/vana-connect.git
 cd vana-connect/examples/nextjs-starter
 cp .env.local.example .env.local
-# Edit .env.local with your private key and APP_URL
-pnpm install
-pnpm dev
 ```
-
-For local development, use the pre-registered dev key in .env.local
-
+Use the pre-registered dev key in .env.local. Note that this private key is ONLY for testing and works only with a testing Vana environment.
 ```
 VANA_PRIVATE_KEY=0x3c05ac1a00546bc0b1b8d3a11fb908409005fac3f26d25f70711e4f632e720d3
 APP_URL=http://localhost:3001
 ```
+Install and run
+```
+pnpm install
+pnpm dev
+```
 
-See [`examples/nextjs-starter`](./examples/nextjs-starter) for full details.
+Note that while testing this example app, you should have a development version of the [DataConnect app](https://github.com/vana-com/data-connect?tab=readme-ov-file#development).
+
+There is one caveat in development: the deep-link for DataConnect app doesn't open the dev version of the app. 
+This means that when testing your app from the end user perspective, once you see this screen:
+<img width="627" height="560" alt="Screenshot 2026-02-21 at 15 02 58" src="https://github.com/user-attachments/assets/477ae78f-d84d-4178-a1e9-48abedf36946" />
+
+Instead of clicking the "Launch DataConnect" button, you should right-click on it and copy its address. The address will be something like `vana://connect?sessionId`. 
+
+Then, in your dev version of DataConnect (likely built from the `main` branch) you will see a place to copy the link in the right-bottom corner of the app:
+
+<img width="348" height="258" alt="Screenshot 2026-02-21 at 15 09 18" src="https://github.com/user-attachments/assets/9f9d7a14-c92e-4185-bdc2-a2d93282c748" />
 
 ---
 
