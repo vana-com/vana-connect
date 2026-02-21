@@ -1,3 +1,58 @@
+import type { DetectedOS } from "@/lib/platform";
+
+export type DownloadAsset = {
+  label: string;
+  filename: string;
+  description: string;
+  isDefault?: boolean;
+};
+
+const DOWNLOAD_VERSION = "0.7.17";
+
+const downloadAssets: Record<
+  Exclude<DetectedOS, "unknown">,
+  DownloadAsset[]
+> = {
+  macOS: [
+    {
+      label: "macOS (Apple Silicon)",
+      filename: `DataConnect_${DOWNLOAD_VERSION}_aarch64.dmg`,
+      description: "For M1, M2, M3, M4 Macs",
+      isDefault: true,
+    },
+    {
+      label: "macOS (Intel)",
+      filename: `DataConnect_${DOWNLOAD_VERSION}_x64.dmg`,
+      description: "For older Intel Macs",
+    },
+  ],
+  Windows: [
+    {
+      label: "Windows",
+      filename: `DataConnect_${DOWNLOAD_VERSION}_x64-setup.exe`,
+      description: "64-bit installer",
+      isDefault: true,
+    },
+  ],
+  Linux: [
+    {
+      label: "Linux (.deb)",
+      filename: `DataConnect_${DOWNLOAD_VERSION}_amd64.deb`,
+      description: "Debian / Ubuntu",
+      isDefault: true,
+    },
+    {
+      label: "Linux (AppImage)",
+      filename: `DataConnect_${DOWNLOAD_VERSION}_amd64.AppImage`,
+      description: "Portable, any distro",
+    },
+  ],
+};
+
+export function getAssetUrl(filename: string): string {
+  return `https://github.com/vana-com/data-connect/releases/download/v${DOWNLOAD_VERSION}/${filename}`;
+}
+
 export const CONNECT_CONFIG = {
   legal: {
     privacyPolicyUrl: "https://www.vana.org/privacy",
@@ -9,7 +64,9 @@ export const CONNECT_CONFIG = {
     },
   },
   downloads: {
-    dataConnectUrl: "https://github.com/vana-com/databridge/releases/latest",
+    version: DOWNLOAD_VERSION,
+    githubReleasesUrl: "https://github.com/vana-com/data-connect/releases",
+    assets: downloadAssets,
   },
   docs: {
     learnMoreUrl: "#",
