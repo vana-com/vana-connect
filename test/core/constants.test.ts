@@ -11,11 +11,13 @@ describe("getEnvConfig", () => {
     expect(config).toBe(ENV_CONFIG.dev);
     expect(config.sessionRelayUrl).toContain("session-relay");
     expect(config.gatewayUrl).toContain("data-gateway");
+    expect(config.accountUrl).toBe("https://account-dev.vana.org");
   });
 
   it("returns prod config for 'prod'", () => {
     const config = getEnvConfig("prod");
     expect(config).toBe(ENV_CONFIG.prod);
+    expect(config.accountUrl).toBe("https://account.vana.org");
   });
 
   it("defaults to prod when no environment is specified", () => {

@@ -1,19 +1,29 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { App as AuthForm } from "@/app/_auth/components/auth-form";
-import { PageShell } from "@/app/_components/page-shell";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 
 function PageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const isDesktopHandoff = searchParams.get("mode") === "return_to_app";
+  const sessionId = searchParams.get("sessionId");
+  const secret = searchParams.get("secret");
 
-  return (
-    <PageShell showBackButton={!isDesktopHandoff}>
-      <AuthForm />
-    </PageShell>
-  );
+  useEffect(() => {
+    // Entry routing policy:
+    // 1) External app handoff includes session params -> continue connect flow.
+    // 2) Direct visits without a session -> go to download page until index/home ships.
+    if (sessionId) {
+      const qs = new URLSearchParams();
+      qs.set("sessionId", sessionId);
+      if (secret) qs.set("secret", secret);
+      router.replace(`/connect?${qs.toString()}`);
+      return;
+    }
+    router.replace("/download-data-connect");
+  }, [router, sessionId, secret]);
+
+  return null;
 }
 
 export default function Page() {

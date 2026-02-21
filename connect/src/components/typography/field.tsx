@@ -3,24 +3,27 @@ import { cva } from "class-variance-authority";
 export const stateInvalid =
   "aria-invalid:border-destructive dark:aria-invalid:ring-destructive/40";
 
-const focusStateBaseTokens = [
+// focus-visible: style the control itself when focus indicator should be shown.
+export const stateFocus = [
   "outline-none",
-  "border-ring",
-  "ring-ring/50",
-  "ring-[3px]",
-  "ring-offset-0",
-  "ring-offset-background",
-] as const;
+  "focus-visible:outline-none",
+  "focus-visible:border-ring",
+  "focus-visible:ring-ring/50",
+  "focus-visible:ring-[3px]",
+  "focus-visible:ring-offset-0",
+  "focus-visible:ring-offset-background",
+];
 
-const createFocusState = (prefix: "focus-visible" | "focus-within") => {
-  return [
-    "outline-none",
-    ...focusStateBaseTokens.map((token) => `${prefix}:${token}`),
-  ];
-};
-
-export const stateFocus = createFocusState("focus-visible");
-export const stateFocusWithin = createFocusState("focus-within");
+// focus-within: style a wrapper when any descendant control is focused.
+export const stateFocusWithin = [
+  "outline-none",
+  "focus-within:outline-none",
+  "focus-within:border-ring",
+  "focus-within:ring-ring/50",
+  "focus-within:ring-[3px]",
+  "focus-within:ring-offset-0",
+  "focus-within:ring-offset-background",
+];
 
 export const fieldHeight = {
   xs: "h-button-xs", // 25px
@@ -37,7 +40,7 @@ export const fieldVariants = cva(
     "flex w-full",
     "rounded-button px-3 py-1",
     // typography
-    "text-body placeholder:text-foreground-dim",
+    "text-body placeholder:text-foreground-muted",
     // transitions
     "transition-[color,box-shadow]",
     // focus & validation states

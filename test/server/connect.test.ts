@@ -82,7 +82,7 @@ describe("connect", () => {
     expect(initUrl).toBe(`${sessionRelayUrl}/v1/session/init`);
   });
 
-  it("returns session init result", async () => {
+  it("returns session init result with connectUrl", async () => {
     mockInitSession();
 
     const result = await connect({
@@ -91,10 +91,51 @@ describe("connect", () => {
     });
 
     expect(result.sessionId).toBe("sess-123");
-    expect(result.deepLinkUrl).toBe(
-      "vana://connect?sessionId=sess-123&secret=abc",
-    );
     expect(result.expiresAt).toBe("2026-02-09T12:00:00Z");
+
+    // connectUrl points to account.vana.org with sessionId and secret
+    const { accountUrl } = getEnvConfig();
+    const url = new URL(result.connectUrl);
+    expect(url.origin).toBe(accountUrl);
+    expect(url.pathname).toBe("/connect");
+    expect(url.searchParams.get("sessionId")).toBe("sess-123");
+    expect(url.searchParams.get("secret")).toBe("abc");
+  });
+
+  it("returns connectUrl with dev accountUrl when environment is dev", async () => {
+    mockInitSession();
+
+    const result = await connect({
+      privateKey: TEST_PRIVATE_KEY,
+      scopes: ["instagram.dpv1"],
+      environment: "dev",
+    });
+
+    const { accountUrl } = getEnvConfig("dev");
+    const url = new URL(result.connectUrl);
+    expect(url.origin).toBe(accountUrl);
+    expect(url.searchParams.get("sessionId")).toBe("sess-123");
+    expect(url.searchParams.get("secret")).toBe("abc");
+  });
+
+  it("returns connectUrl without secret when deepLinkUrl has no secret", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        sessionId: "sess-456",
+        deepLinkUrl: "vana://connect?sessionId=sess-456",
+        expiresAt: "2026-02-09T12:00:00Z",
+      }),
+    });
+
+    const result = await connect({
+      privateKey: TEST_PRIVATE_KEY,
+      scopes: ["instagram.dpv1"],
+    });
+
+    const url = new URL(result.connectUrl);
+    expect(url.searchParams.get("sessionId")).toBe("sess-456");
+    expect(url.searchParams.has("secret")).toBe(false);
   });
 
   it("passes through webhookUrl and appUserId", async () => {

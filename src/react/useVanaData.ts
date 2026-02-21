@@ -30,8 +30,10 @@ export interface UseVanaDataResult {
   data: unknown;
   /** Error message, or `null`. */
   error: string | null;
-  /** Deep link URL to open the Vana Desktop App, or `null`. */
-  deepLinkUrl: string | null;
+  /** URL to account.vana.org where the user signs in and launches Data Connect, or `null`. */
+  connectUrl: string | null;
+  /** Opens the connect URL in a new tab. Use this instead of rendering the URL directly to avoid navigating away from your app. */
+  openConnect: () => void;
   /** Starts the connect flow by calling the connect API route. */
   initConnect: () => Promise<void>;
   /** Manually fetches data using the current grant. */
@@ -69,7 +71,7 @@ export interface UseVanaDataResult {
  * ```
  */
 export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
-  const connectUrl = config?.connectUrl ?? "/api/connect";
+  const connectApiUrl = config?.connectUrl ?? "/api/connect";
   const dataUrl = config?.dataUrl ?? "/api/data";
   const autoFetch = config?.autoFetch ?? true;
 
@@ -78,7 +80,7 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     status: pollStatus,
     grant: pollGrant,
     error: pollError,
-    deepLinkUrl,
+    connectUrl,
     reset: resetPoll,
   } = useVanaConnect({
     pollingInterval: config?.pollingInterval,
@@ -139,7 +141,7 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     autoFetchedRef.current = false;
     setInitLoading(true);
     try {
-      const res = await fetch(connectUrl, { method: "POST" });
+      const res = await fetch(connectApiUrl, { method: "POST" });
       const json = (await res.json()) as Record<string, unknown>;
       if (!res.ok) {
         setFetchError(
@@ -149,7 +151,7 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
       }
       connect({
         sessionId: json.sessionId as string,
-        deepLinkUrl: json.deepLinkUrl as string,
+        connectUrl: (json.connectUrl as string) || undefined,
       });
     } catch (err) {
       setFetchError(
@@ -158,7 +160,7 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     } finally {
       setInitLoading(false);
     }
-  }, [connectUrl, connect]);
+  }, [connectApiUrl, connect]);
 
   const reset = useCallback(() => {
     resetPoll();
@@ -169,6 +171,12 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     autoFetchedRef.current = false;
   }, [resetPoll]);
 
+  const openConnect = useCallback(() => {
+    if (connectUrl) {
+      window.open(connectUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [connectUrl]);
+
   const error = pollError ?? fetchError;
   const isLoading = initLoading || fetching || pollStatus === "connecting";
   const isConnected = pollStatus === "approved";
@@ -178,7 +186,8 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     grant: pollGrant,
     data,
     error,
-    deepLinkUrl,
+    connectUrl,
+    openConnect,
     initConnect,
     fetchData,
     reset,

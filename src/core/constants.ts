@@ -6,10 +6,12 @@ export const ENV_CONFIG = {
   dev: {
     sessionRelayUrl: "https://dev.session-relay.vana.org",
     gatewayUrl: "https://dev.data-gateway.vana.org",
+    accountUrl: "https://account-dev.vana.org",
   },
   prod: {
     sessionRelayUrl: "https://session-relay.vana.org",
     gatewayUrl: "https://data-gateway.vana.org",
+    accountUrl: "https://account.vana.org",
   },
 } as const;
 
