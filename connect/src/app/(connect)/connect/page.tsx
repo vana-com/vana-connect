@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { CONNECT_CONFIG } from "@/config/config";
 import { resolveConnectAppRef } from "./_shared/app-query";
 import { resolveConnectApp } from "./_shared/app-registry";
@@ -35,7 +36,7 @@ function ConnectPageContent() {
 
   if (!sessionId) {
     return (
-      <PageShell showBackButton={false}>
+      <PageShell>
         <PagePanel
           className="text-center justify-center"
           footer={<ConnectFooterSpacer />}
@@ -47,7 +48,7 @@ function ConnectPageContent() {
   }
 
   return (
-    <PageShell showBackButton={false}>
+    <PageShell>
       <PagePanel
         className="text-center justify-center"
         footer={<ConnectPanelFooter />}
@@ -82,7 +83,7 @@ function ConnectPageContent() {
 
 export default function ConnectPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoadingState />}>
       <ConnectPageContent />
     </Suspense>
   );

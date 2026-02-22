@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowRightIcon, CheckIcon, CopyIcon } from "lucide-react";
+import { BoxIcon, CheckIcon, CopyIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
-import { PageShell } from "@/app/_components/page-shell";
-import { Spinner } from "@/components/elements/spinner";
-import { VanaLogotype } from "@/components/icons/vana-logotype";
-import { fieldVariants, stateFocusWithin } from "@/components/typography/field";
+import { NavLink, PageShell } from "@/app/_components/page-shell";
+import { PageHeader } from "@/components/elements/page-header";
+import { PageLoadingState } from "@/components/elements/page-loading-state";
+import { SingleFieldIconForm } from "@/components/elements/single-field-icon-form";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/classes";
 import { AdminFooterLinks } from "./_components/admin-footer-links";
 import { RegisterAnotherAppButton } from "./_components/register-another-app-button";
@@ -148,12 +147,26 @@ export default function AdminPage() {
   }
 
   return (
-    <PageShell showBackButton={false} showLogoutButton showYourAppsButton>
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
-        {ui.state !== "result" ? (
+        {ui.state !== "loading" && (
+          <div className="absolute right-3 top-3">
+            <NavLink
+              href="/admin/apps"
+              icon={<BoxIcon aria-hidden="true" />}
+              className="bg-transparent"
+            >
+              Your apps
+            </NavLink>
+          </div>
+        )}
+
+        {ui.state === "loading" ? (
+          <PageLoadingState message="Generating keys and registering with gateway…" />
+        ) : ui.state !== "result" ? (
           <AdminFormState
             appUrl={ui.appUrl}
-            isLoading={ui.state === "loading"}
+            isLoading={false}
             onAppUrlChange={setAppUrl}
             onSubmit={handleRegister}
           />
@@ -185,65 +198,34 @@ function AdminFormState({
 }: AdminFormStateProps) {
   return (
     <div className="space-y-small">
-      <div className="space-y-5">
-        <div className="space-y-2.5">
-          <VanaLogotype height={13} className="text-iris" />
-          <Text as="h1" intent="title" color="iris" className="-ml-px">
-            Register your app
+      <PageHeader
+        showVanaLogotype
+        heading="Register your app"
+        color="iris"
+        description={
+          <Text>
+            Register a new builder application with the Vana Gateway. You will
+            receive credentials to integrate with the data portability network.
           </Text>
-        </div>
-        <Text>
-          Register a new builder application with the Vana Gateway. You will
-          receive credentials to integrate with the data portability network.
-        </Text>
-      </div>
+        }
+      />
 
       <div className="space-y-gap -mx-1.5">
-        <form
+        <SingleFieldIconForm
+          id="admin-app-url"
+          name="app-url"
+          type="url"
+          placeholder="https://your-app.com"
+          autoComplete="url"
+          inputMode="url"
+          required
+          autoFocus
+          value={appUrl}
+          onChange={onAppUrlChange}
           onSubmit={onSubmit}
-          className={cn(
-            fieldVariants({ variant: "outline", size: "lg" }),
-            "group items-center justify-start gap-3 pl-0 pr-[5px]",
-            stateFocusWithin,
-            "focus-within:border-iris focus-within:ring-iris/10",
-          )}
-          aria-busy={isLoading}
-        >
-          <label
-            htmlFor="admin-app-url"
-            className="peer flex h-full w-full min-w-0 flex-1 items-center gap-0"
-          >
-            <Input
-              id="admin-app-url"
-              name="app-url"
-              type="url"
-              autoFocus
-              autoComplete="url"
-              spellCheck={false}
-              value={appUrl}
-              onChange={(event) => onAppUrlChange(event.target.value)}
-              placeholder="https://your-app.com"
-              className="border-0 bg-transparent px-gap focus-visible:border-transparent focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100"
-              inputMode="url"
-              required
-              disabled={isLoading}
-            />
-          </label>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="icon"
-            className="disabled:opacity-100 peer-focus-within:text-iris hover:text-iris"
-            aria-label="Register app"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Spinner className="size-[18px]" />
-            ) : (
-              <ArrowRightIcon />
-            )}
-          </Button>
-        </form>
+          isLoading={isLoading}
+          submitAriaLabel="Register app"
+        />
 
         {isLoading && (
           <Text intent="small" muted>
@@ -270,18 +252,17 @@ function AdminResultState({
 }: AdminResultStateProps) {
   return (
     <div className="space-y-small flex-1 flex flex-col">
-      <div className="space-y-5">
-        <div className="space-y-2.5">
-          <VanaLogotype height={13} className="text-iris" />
-          <Text as="h1" intent="title" color="iris" className="-ml-px">
-            Your app is registered
+      <PageHeader
+        showVanaLogotype
+        heading="Your app is registered"
+        color="iris"
+        description={
+          <Text>
+            Add these values to your app&apos;s .env file. This private key is
+            only shown once. Make sure to copy it before leaving this page.
           </Text>
-        </div>
-        <Text as="p">
-          Add these values to your app&apos;s .env file. This private key is
-          only shown once. Make sure to copy it before leaving this page.
-        </Text>
-      </div>
+        }
+      />
 
       <div className="space-y-gap -mx-1.5">
         <div className="relative rounded-button bg-muted ring ring-border/70 overflow-hidden">

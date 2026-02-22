@@ -24,7 +24,7 @@ function DownloadDataConnectPageContent() {
   const isLegacyDownloadCardDisabled = !isFoundationLegalAccepted;
 
   return (
-    <PageShell showLogoutButton>
+    <PageShell showBackButton actions={["yourApps", "logout"]}>
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={
