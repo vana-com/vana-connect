@@ -84,7 +84,7 @@ export function ConnectLoadingState({ app }: { app: ConnectApp }) {
       app={app}
       title={
         <Text as="h1" intent="title" withIcon align="center">
-          <Spinner className="size-[0.75em]" />
+          <Spinner />
           Preparing...
         </Text>
       }
