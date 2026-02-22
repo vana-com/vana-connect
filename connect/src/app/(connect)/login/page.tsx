@@ -80,7 +80,7 @@ function LoginPageContent() {
   }
 
   return (
-    <PageShell showBackButton={false}>
+    <PageShell>
       <PagePanel className="md:min-h-[563px]">
         {/* Loading / Completing */}
         {LOGIN_PAGE_SPINNER_VIEWS.includes(view) && (

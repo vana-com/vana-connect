@@ -36,7 +36,7 @@ function ConnectPageContent() {
 
   if (!sessionId) {
     return (
-      <PageShell showBackButton={false}>
+      <PageShell>
         <PagePanel
           className="text-center justify-center"
           footer={<ConnectFooterSpacer />}
@@ -48,7 +48,7 @@ function ConnectPageContent() {
   }
 
   return (
-    <PageShell showBackButton={false}>
+    <PageShell>
       <PagePanel
         className="text-center justify-center"
         footer={<ConnectPanelFooter />}
