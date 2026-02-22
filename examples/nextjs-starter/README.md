@@ -37,8 +37,12 @@ The app serves a W3C Web App Manifest at `/manifest.json` containing a signed `v
 
 1. **Terminal 1** — Start your Personal Server (`pnpm dev`)
 2. **Terminal 2** — Start this app (`pnpm dev`)
-3. **Browser Tab 1** — Open `http://localhost:3001`, click "Connect Your Data"
+3. **Browser Tab 1** — Open `http://localhost:3001`, click "Connect with Vana"
 4. Click "Open in DataConnect" to launch the deep link in the DataConnect app
 5. Alternatively, copy the deep link URL and paste it into the Personal Server Dev UI → Connect tab
 6. Click "Auto-Approve All" (or step through manually)
 7. Tab 1 updates from "Waiting..." to "Approved!" with grant details
+
+## Personal Server
+
+This app does not configure the Personal Server — it resolves the user's server URL at runtime via the Data Gateway. The Personal Server is a separate protocol participant (desktop-bundled, ODL Cloud, or self-hosted). See [Personal servers](https://docs.vana.org/protocol-reference/personal-servers) for details.
