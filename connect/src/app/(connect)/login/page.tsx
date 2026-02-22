@@ -91,7 +91,7 @@ function LoginPageContent() {
         )}
 
         {/* Email entry */}
-        {view === "email" && (
+        {view === "entry" && (
           <div className="space-y-small">
             <PageHeader
               showVanaLogotype
@@ -148,6 +148,7 @@ function LoginPageContent() {
                   intent="small"
                   color="destructive"
                   className="pt-2"
+                  aria-live="polite"
                 >
                   {error}
                 </Text>
@@ -215,7 +216,11 @@ function LoginPageContent() {
                   aria-hidden={!error}
                   className={cn(!error && "opacity-0 pointer-events-none")}
                 >
-                  <Text as="p" color="destructive">
+                  <Text
+                    as="p"
+                    color="destructive"
+                    aria-live={error ? "polite" : undefined}
+                  >
                     {error ? (
                       <>
                         {error} Or{" "}
