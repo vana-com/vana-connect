@@ -16,7 +16,7 @@ export function PagePanel({
   ...props
 }: PagePanelProps) {
   return (
-    <div className="flex flex-col flex-1 gap-5">
+    <div data-slot="page-panel" className="flex flex-col flex-1 gap-5">
       <div
         className={cn(
           "container bg-background rounded-squish",
@@ -24,6 +24,8 @@ export function PagePanel({
           "min-h-mobile-width",
           "flex flex-col",
           "ring ring-input/20",
+          // to anchor inner navs
+          "relative",
           className,
         )}
         {...props}
@@ -32,6 +34,7 @@ export function PagePanel({
       </div>
       {(reserveFooterSpace || footer) && (
         <div
+          data-slot="page-panel-footer"
           className={cn(
             "flex items-center justify-center",
             "min-h-5",
