@@ -16,6 +16,7 @@ export function Spinner({ clipPathId, className, ...props }: SpinnerProps) {
 
   return (
     <svg
+      data-slot="spinner"
       className={cn(
         "size-em animate-spin motion-reduce:animate-none",
         className,

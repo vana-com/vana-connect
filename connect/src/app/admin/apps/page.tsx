@@ -4,19 +4,9 @@ import { ArrowUpRightIcon, BoxIcon } from "lucide-react";
 import { useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
-import { VanaLogotype } from "@/components/icons/vana-logotype";
+import { SettingsConfirmAction } from "@/components/elements/confirm-action";
+import { PageHeader } from "@/components/elements/page-header";
 import { Text } from "@/components/typography/text";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminFooterLinks } from "../_components/admin-footer-links";
@@ -46,20 +36,21 @@ export default function AdminAppsPage() {
   }
 
   return (
-    <PageShell showBackButton={false} showLogoutButton>
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <div className="flex flex-1 flex-col space-y-small">
-          <div className="space-y-5">
-            <div className="space-y-2.5">
-              <VanaLogotype height={13} className="text-iris" />
-              <Text as="h1" intent="title">
-                <span className="text-iris">Your apps</span>
+          <PageHeader
+            showVanaLogotype
+            heading="Your apps"
+            color="iris"
+            description={
+              <Text>
+                {apps.length === 0
+                  ? "Your registered apps will appear here."
+                  : "Your registered apps."}
               </Text>
-            </div>
-            <Text>
-              Registered builder apps for this account will appear here.
-            </Text>
-          </div>
+            }
+          />
 
           {/* -mx-1.5 */}
           <div className="flex min-h-0 flex-1 flex-col space-y-gap">
@@ -109,8 +100,12 @@ export default function AdminAppsPage() {
                           />
                         </Text>
                       </a>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                      <SettingsConfirmAction
+                        title={`Delete ${app.name}?`}
+                        description="This only removes the app from your account list so you can register it again later."
+                        actionLabel="Delete app"
+                        onAction={() => handleDelete(app)}
+                        trigger={
                           <Button
                             type="button"
                             variant="outline"
@@ -124,28 +119,8 @@ export default function AdminAppsPage() {
                           >
                             Delete
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete {app.name}?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This only removes the app from your account list
-                              so you can register it again later.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => handleDelete(app)}
-                            >
-                              Delete app
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        }
+                      />
                     </div>
                   ))}
                 </div>

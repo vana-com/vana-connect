@@ -8,34 +8,40 @@ type PageShellProps = {
   children: ReactNode;
   backHref?: string;
   showBackButton?: boolean;
-  logoutHref?: string;
-  showLogoutButton?: boolean;
-  yourAppsHref?: string;
-  showYourAppsButton?: boolean;
+  actions?: PageShellActionInput[];
 };
 
+type PageShellAction = {
+  href: string;
+  icon: ReactNode;
+  label: ReactNode;
+  className?: string;
+};
+type PageShellActionPreset = "logout" | "yourApps" | "dataConnect";
+type PageShellActionInput = PageShellActionPreset | PageShellAction;
+
 const DEFAULT_BACK_HREF = "/";
-const DEFAULT_LOGOUT_HREF = "/";
-const TOP_NAV_BUTTON_CLASS = buttonVariants({
-  variant: "ghost",
-  size: "sm",
-  className: cn(
-    "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
-    "hover:bg-iris/[0.07]! hover:text-iris",
-  ),
-});
+const DEFAULT_LOGOUT_HREF = "/logout";
+const DEFAULT_YOUR_APPS_HREF = "/admin";
+const DEFAULT_DOWNLOAD_DATA_CONNECT_HREF = "/download-data-connect";
 
 export function PageShell({
   children,
   backHref = DEFAULT_BACK_HREF,
-  showBackButton = true,
-  logoutHref = DEFAULT_LOGOUT_HREF,
-  showLogoutButton = false,
-  yourAppsHref = "/admin/apps",
-  showYourAppsButton = false,
+  showBackButton = false,
+  actions = [],
 }: PageShellProps) {
+  const resolvedActions = actions.map((action) =>
+    resolvePageShellAction(action, {
+      logoutHref: DEFAULT_LOGOUT_HREF,
+      yourAppsHref: DEFAULT_YOUR_APPS_HREF,
+      downloadDataConnectHref: DEFAULT_DOWNLOAD_DATA_CONNECT_HREF,
+    }),
+  );
+
   return (
     <div
+      data-slot="page-shell"
       className={cn(
         "relative min-h-screen bg-[#F0F4F8]",
         "p-w8 [@media(min-height:801px)]:pb-w32",
@@ -56,24 +62,86 @@ export function PageShell({
           Back
         </Link>
       )}
-      {(showYourAppsButton || showLogoutButton) && (
+      {resolvedActions.length > 0 && (
         <div className="absolute top-gap right-gap flex items-center gap-2">
-          {showYourAppsButton && (
-            <Link href={yourAppsHref} className={TOP_NAV_BUTTON_CLASS}>
-              <BoxIcon aria-hidden="true" />
-              Your apps
-            </Link>
-          )}
-          {showLogoutButton && (
-            <Link href={logoutHref} className={TOP_NAV_BUTTON_CLASS}>
-              <LogOutIcon aria-hidden="true" />
-              Logout
-            </Link>
-          )}
+          {resolvedActions.map((action, index) => (
+            <NavLink
+              key={`${action.href}-${index}`}
+              href={action.href}
+              icon={action.icon}
+              className={action.className}
+            >
+              {action.label}
+            </NavLink>
+          ))}
         </div>
       )}
 
-      <div className="flex flex-1 items-center justify-center">{children}</div>
+      <div
+        data-slot="page-shell-content"
+        className="flex flex-1 items-center justify-center"
+      >
+        {children}
+      </div>
     </div>
   );
+}
+
+export function NavLink({
+  href,
+  icon,
+  children,
+  className,
+}: {
+  href: string;
+  icon: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  const buttonClassName = buttonVariants({
+    variant: "ghost",
+    size: "sm",
+    className: cn(
+      "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
+      "hover:bg-iris/[0.07]! hover:text-iris",
+      className,
+    ),
+  });
+  return (
+    <Link href={href} className={buttonClassName}>
+      {icon}
+      {children}
+    </Link>
+  );
+}
+
+function resolvePageShellAction(
+  action: PageShellActionInput,
+  hrefs: {
+    logoutHref: string;
+    yourAppsHref: string;
+    downloadDataConnectHref: string;
+  },
+): PageShellAction {
+  if (typeof action !== "string") return action;
+
+  if (action === "dataConnect") {
+    return {
+      href: hrefs.downloadDataConnectHref,
+      icon: <BoxIcon aria-hidden="true" />,
+      label: "DataConnect",
+    };
+  }
+  if (action === "yourApps") {
+    return {
+      href: hrefs.yourAppsHref,
+      icon: <BoxIcon aria-hidden="true" />,
+      label: "Your apps",
+    };
+  }
+  return {
+    href: hrefs.logoutHref,
+    icon: <LogOutIcon aria-hidden="true" />,
+    label: "Logout",
+  };
 }

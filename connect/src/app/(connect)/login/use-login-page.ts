@@ -13,7 +13,13 @@ import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 const STORAGE_KEY = "vana_connect_session";
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
 
-export type LoginPageView = "loading" | "email" | "code" | "completing";
+export type LoginPageView = "loading" | "entry" | "code" | "completing";
+
+/** Views that render the full-page spinner (Preparing... / Signing you in...). */
+export const LOGIN_PAGE_SPINNER_VIEWS: readonly LoginPageView[] = [
+  "loading",
+  "completing",
+];
 
 type SessionParams = { sessionId: string; secret: string | null };
 
@@ -52,6 +58,9 @@ export function useLoginPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [pendingOAuthProvider, setPendingOAuthProvider] = useState<
+    "google" | "apple" | null
+  >(null);
 
   const redirectedRef = useRef(false);
   const oauthInitiatedRef = useRef(false);
@@ -101,10 +110,11 @@ export function useLoginPage() {
       handleLoginComplete();
     },
     onError: (err) => {
+      setPendingOAuthProvider(null);
       setError(
         typeof err === "string" ? err : "Login failed. Please try again.",
       );
-      setView("email");
+      setView("entry");
     },
   });
 
@@ -122,9 +132,9 @@ export function useLoginPage() {
       handleLoginComplete();
       return;
     }
-    // Privy is ready and user is not authenticated — show email form
+    // Privy is ready and user is not authenticated — show entry form
     if (view === "loading") {
-      setView("email");
+      setView("entry");
     }
   }, [ready, authenticated, view, handleLoginComplete]);
 
@@ -134,16 +144,17 @@ export function useLoginPage() {
   // Guard: only react to oauthState after the user has initiated OAuth or when
   // returning from an OAuth redirect (detected via session params in localStorage).
   useEffect(() => {
-    if (!oauthInitiatedRef.current) {
-      // Check if we're returning from an OAuth redirect by looking for saved session
-      // params in localStorage (set before navigating to the OAuth provider).
+    const isOAuthReturn = !oauthInitiatedRef.current;
+    if (isOAuthReturn) {
       try {
         if (!localStorage.getItem(STORAGE_KEY)) return;
       } catch {
         return;
       }
     }
-    if (oauthState.status === "loading") {
+    // On the return path, show the completing spinner while Privy processes.
+    // On the click path, stay on the entry screen so button-level spinners show.
+    if (oauthState.status === "loading" && isOAuthReturn) {
       setView("completing");
     }
     if (oauthState.status === "done") {
@@ -174,10 +185,24 @@ export function useLoginPage() {
     }
   }, [code, privyLoginWithCode]);
 
+  const handleResendCode = useCallback(async () => {
+    setError(null);
+    try {
+      await privySendCode({ email });
+    } catch {
+      setError("Failed to send code. Please try again.");
+    }
+  }, [email, privySendCode]);
+
+  const handleBackToEmail = useCallback(() => {
+    setError(null);
+    setView("entry");
+  }, []);
+
   // OAuth handlers
   const handleGoogleLogin = useCallback(() => {
     oauthInitiatedRef.current = true;
-    // Belt-and-suspenders: save session before navigating away
+    setPendingOAuthProvider("google");
     if (sessionId) {
       saveSession({ sessionId, secret });
     }
@@ -186,6 +211,7 @@ export function useLoginPage() {
 
   const handleAppleLogin = useCallback(() => {
     oauthInitiatedRef.current = true;
+    setPendingOAuthProvider("apple");
     if (sessionId) {
       saveSession({ sessionId, secret });
     }
@@ -194,8 +220,9 @@ export function useLoginPage() {
 
   const isSendingEmail = emailState.status === "sending-code";
   const isVerifyingCode = emailState.status === "submitting-code";
-  const isGoogleLoading = oauthState.status === "loading";
-  const isAppleLoading = oauthState.status === "loading";
+  const isOAuthLoading = oauthState.status === "loading";
+  const isGoogleLoading = isOAuthLoading && pendingOAuthProvider === "google";
+  const isAppleLoading = isOAuthLoading && pendingOAuthProvider === "apple";
 
   const recordPassportAgreementAcceptance = useCallback(() => {
     try {
@@ -244,6 +271,8 @@ export function useLoginPage() {
     handleCodeChange: setCode,
     handleEmailSubmit,
     handleCodeSubmit,
+    handleResendCode,
+    handleBackToEmail,
     handleGoogleLogin,
     handleAppleLogin,
     recordPassportAgreementAcceptance,

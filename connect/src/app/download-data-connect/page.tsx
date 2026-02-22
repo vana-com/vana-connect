@@ -54,7 +54,7 @@ function DownloadDataConnectPageContent() {
   const primaryHref = primaryAsset ? getAssetUrl(primaryAsset.filename) : "#";
 
   return (
-    <PageShell showLogoutButton>
+    <PageShell showBackButton actions={["yourApps", "logout"]}>
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={

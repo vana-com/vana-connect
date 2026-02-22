@@ -26,7 +26,8 @@ const buttonVariants = cva(
     stateFocus,
     // svg
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
-    "[&_svg:not([class*='size-'])]:size-em",
+    "[&_svg:not([class*='size-']):not([data-slot=spinner])]:size-em",
+    "[&_svg[data-slot=spinner]]:size-[0.8em]",
     "[&_svg]:translate-y-[-0.025em]",
     // transitions
     "transition-all",
@@ -99,7 +100,7 @@ const buttonVariants = cva(
     compoundVariants: [
       {
         size: ["pill", "xs", "sm"],
-        className: "[&_svg]:translate-y-[-0.05em]",
+        className: "[&_svg:not([data-slot=spinner])]:translate-y-[-0.05em]",
       },
     ],
     defaultVariants: {
