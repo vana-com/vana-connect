@@ -43,7 +43,7 @@ export function PageShell({
     <div
       data-slot="page-shell"
       className={cn(
-        "relative min-h-screen bg-[#F0F4F8]",
+        "relative min-h-screen bg-canvas",
         "p-w8 [@media(min-height:801px)]:pb-w32",
         "flex flex-col",
       )}

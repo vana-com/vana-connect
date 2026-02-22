@@ -32,6 +32,15 @@
   --logo-tint: #1e3a8a;
   --logo-tint-strength: 10%;
 
+  /* Canvas */
+  --canvas: #f0f4f8; /* page-shell / viewport background */
+  --canvas-accent-25: color-mix(in oklch, var(--canvas) 75%, var(--accent-5));
+  --canvas-accent-25-black-5: color-mix(
+    in oklch,
+    var(--canvas-accent-25) 92%,
+    black
+  );
+
   /* Gray scale (using Shadcn naming + radix step 11) */
   --background: oklch(1 0 0); /* step 1: white */
   --foreground: oklch(0.145 0 0); /* step 12: #0a0a0a */
@@ -128,6 +137,7 @@
 }
 
 .dark {
+  --canvas: oklch(0.18 0 0); /* darker viewport for dark mode */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
