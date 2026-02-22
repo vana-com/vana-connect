@@ -21,12 +21,29 @@ All page routes in `src/app` follow the same outer structure:
 Canonical structure:
 
 ```tsx
-<PageShell showBackButton={false}>
+<PageShell>
   <PagePanel>{/* loading | success | error | form */}</PagePanel>
 </PageShell>
 ```
 
-Use `showBackButton={false}` for flow-owned pages (`/grants`, `/connect`, `/login`, `/connect-preview`) and enable only where backward navigation is explicitly part of UX.
+`PageShell` now defaults to `showBackButton={false}`.
+Only pass `showBackButton` when backward navigation is explicitly part of UX.
+
+Top-right nav actions are now configured via `actions`:
+
+```tsx
+<PageShell actions={["dataConnect", "logout"]}>
+  <PagePanel>{/* ... */}</PagePanel>
+</PageShell>
+```
+
+Built-in action presets:
+
+- `"dataConnect"` -> `/download-data-connect`
+- `"yourApps"` -> `/admin`
+- `"logout"` -> `/logout`
+
+Use custom action objects only when preset behavior is insufficient.
 
 ## State-Driven Rendering Pattern
 
@@ -40,6 +57,10 @@ Routes use explicit view states and render per-state sections inline.
   - `flex flex-1 flex-col items-center justify-center gap-4 text-center`
   - `<Spinner className="size-8 text-iris" />`
   - `<Text intent="small" color="mutedForeground">...`
+
+For route-level Suspense wrappers, do not use `fallback={null}`.
+Use `PageLoadingState` (or an explicit approved loading fallback) so transitions
+remain visually consistent.
 
 ## Form Row Pattern (Used in Auth)
 
@@ -88,6 +109,8 @@ Use shared button primitives:
 
 Do not introduce raw `<button>` styles when `Button` already covers the behavior.
 
+For PageShell top-nav actions, prefer `actions` presets over per-page icon/label/href duplication.
+
 ## Practical Do / Don’t
 
 Do:
@@ -123,3 +146,18 @@ When building a new route:
 2. Reuse primitives proven in those routes
 3. Only introduce additional primitives when there is a concrete repeated need
 4. If introducing a new pattern, add one focused doc in `connect/docs` with rationale
+
+## Route Process Rules (from recent refactors)
+
+- **Side-effect-only routes still use page composition**:
+  even redirect/loading pages (for example, `/logout`) should render
+  `PageShell` + `PagePanel` and place loading content inside the panel.
+- **Extraction flow for shared UI**:
+  extract primitive first (for example `PageHeader`, `PageLoadingState`,
+  `SingleFieldIconForm`, `SettingsConfirmAction`), then migrate routes in follow-up commits.
+- **Refactor commit shape**:
+  use atomic sequence when possible:
+  1. feature/addition, 2) API refactor + callers, 3) cleanup/removal of redundant props.
+- **Doc-drift check after API changes**:
+  after changing shared route APIs (`PageShell`, loading primitives), re-check this doc
+  before finishing to keep examples aligned with real usage.
