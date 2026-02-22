@@ -51,6 +51,7 @@ function DownloadDataConnectPageContent() {
   const [isFoundationLegalAccepted, setIsFoundationLegalAccepted] =
     useState(false);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [isCheckboxChecked, setIsCheckboxChecked] = useState(false);
   const [pendingDownloadHref, setPendingDownloadHref] = useState<string | null>(
     null,
   );
@@ -97,7 +98,10 @@ function DownloadDataConnectPageContent() {
 
   function handleLegalDialogOpenChange(open: boolean) {
     setIsLegalModalOpen(open);
-    if (!open) setPendingDownloadHref(null);
+    if (!open) {
+      setPendingDownloadHref(null);
+      setIsCheckboxChecked(false);
+    }
   }
 
   return (
@@ -209,8 +213,8 @@ function DownloadDataConnectPageContent() {
           <hr />
           <LegalAcceptance
             checkboxId={checkboxId}
-            checked={isFoundationLegalAccepted}
-            onCheckedChange={setIsFoundationLegalAccepted}
+            checked={isCheckboxChecked}
+            onCheckedChange={setIsCheckboxChecked}
             label="I agree to the DataConnect Terms (including Privacy and EULA)"
             details={
               <>
@@ -226,7 +230,6 @@ function DownloadDataConnectPageContent() {
                 ({lastUpdatedLabel})
               </>
             }
-            // detailsIntent="fine"
           />
 
           <AlertDialogFooter className="pt-gap">
@@ -234,7 +237,7 @@ function DownloadDataConnectPageContent() {
             <AlertDialogAction
               size="sm"
               onClick={handleAgreeAndDownload}
-              disabled={!isFoundationLegalAccepted}
+              disabled={!isCheckboxChecked}
             >
               Agree and download
             </AlertDialogAction>
@@ -275,7 +278,7 @@ function DownloadDataConnectCardContent({
         >
           <DcIcon className="size-16!" />
         </div>
-        <DcLogotype height={16} role="img" aria-label="dataConnect" />
+        <DcLogotype height={16} role="img" aria-label="DataConnect" />
       </div>
       <hr className="w-full border-ring/30" />
       <Text intent="button" weight="medium" withIcon className="h-12">
