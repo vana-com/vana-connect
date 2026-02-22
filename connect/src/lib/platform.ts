@@ -1,6 +1,15 @@
-const DEFAULT_DOWNLOAD_PLATFORM_LABEL = "macOS";
+export type DetectedOS = "macOS" | "Windows" | "Linux" | "unknown";
 
-export function getDownloadPlatformLabel() {
-  // TODO: Replace with runtime OS detection when browser sniffing is enabled.
-  return DEFAULT_DOWNLOAD_PLATFORM_LABEL;
+export function detectOS(): DetectedOS {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent;
+  if (/Macintosh|Mac OS X/.test(ua)) return "macOS";
+  if (/Windows/.test(ua)) return "Windows";
+  if (/Linux/.test(ua) && !/Android/.test(ua)) return "Linux";
+  return "unknown";
+}
+
+export function getDownloadPlatformLabel(): string {
+  const os = detectOS();
+  return os === "unknown" ? "your OS" : os;
 }

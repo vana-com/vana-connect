@@ -173,6 +173,7 @@
   --spacing-super: var(--spacing-w48);
 
   /* colors */
+  --color-canvas: var(--canvas);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-foreground-dim: var(--foreground-11);

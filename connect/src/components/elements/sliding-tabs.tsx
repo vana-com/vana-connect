@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "motion/react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/classes";
-import { textVariants } from "../typography/text";
 
 interface Tab {
   value: string;
-  label: string;
+  label: ReactNode;
 }
 
 interface SlidingTabsProps {
@@ -14,8 +14,14 @@ interface SlidingTabsProps {
   value: string;
   onValueChange: (value: string) => void;
   className?: string;
-  ulClassName?: string;
+  listClassName?: string;
+  listItemClassName?: string;
+  tabClassName?: string;
+  activeTabClassName?: string;
+  inactiveTabClassName?: string;
+  indicatorClassName?: string;
   disabled?: boolean;
+  indicatorLayoutId?: string;
 }
 
 export function SlidingTabs({
@@ -23,31 +29,31 @@ export function SlidingTabs({
   value,
   onValueChange,
   className,
-  ulClassName,
+  listClassName,
+  listItemClassName,
+  tabClassName,
+  activeTabClassName,
+  inactiveTabClassName,
+  indicatorClassName,
   disabled,
+  indicatorLayoutId = "selected-indicator",
 }: SlidingTabsProps) {
   return (
     <nav className={cn("relative", className)}>
-      <ul className={cn("flex gap-5", ulClassName)}>
+      <ul className={cn("flex", listClassName)}>
         {tabs.map((tab) => {
           const isSelected = value === tab.value;
 
           return (
-            <li key={tab.value} className="relative">
+            <li key={tab.value} className={cn("relative", listItemClassName)}>
               {isSelected && (
                 <motion.div
-                  layoutId="selected-indicator"
-                  className={cn(
-                    "absolute z-0 rounded-button",
-                    // "inset-0",
-                    "bg-foreground h-[1px] inset-x-0 bottom-[-0.8em]",
-                    // "bg-foreground/[0.05]"
-                    // "border border-ring"
-                  )}
+                  layoutId={indicatorLayoutId}
+                  className={cn("absolute z-0", indicatorClassName)}
                   transition={{
                     type: "spring",
-                    stiffness: 420, // speed
-                    damping: 37, // resistance/bounce
+                    stiffness: 420,
+                    damping: 37,
                   }}
                 />
               )}
@@ -59,18 +65,9 @@ export function SlidingTabs({
                 onClick={() => onValueChange(tab.value)}
                 whileTap={disabled ? undefined : { scale: 0.97 }}
                 className={cn(
-                  "cursor-pointer relative z-10",
-                  // "px-2.5 py-1.5",
-                  // "text-xlarge font-medium",
-                  // "px-2 py-1",
-                  textVariants({ intent: "title" }),
-                  "transition-colors disabled:cursor-not-allowed",
-                  isSelected
-                    ? "text-accent"
-                    : "text-foreground-muted/50 hover:text-accent",
-                  isSelected
-                    ? "text-foreground"
-                    : "text-foreground-muted/50 hover:text-foreground-muted",
+                  "relative z-10 cursor-pointer transition-colors disabled:cursor-not-allowed",
+                  tabClassName,
+                  isSelected ? activeTabClassName : inactiveTabClassName,
                 )}
               >
                 {tab.label}
