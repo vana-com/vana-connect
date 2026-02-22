@@ -49,26 +49,26 @@ const LOGIN_PAGE_UI_DEBUG_SCENARIOS: Record<
   Partial<LoginPageUiState>
 > = {
   "login-idle": {
-    view: "email",
+    view: "entry",
     email: "jane@example.com",
   },
   "login-email-loading": {
-    view: "email",
+    view: "entry",
     email: "jane@example.com",
     isSendingEmail: true,
   },
   "login-google-loading": {
-    view: "email",
+    view: "entry",
     email: "jane@example.com",
     isGoogleLoading: true,
   },
   "login-apple-loading": {
-    view: "email",
+    view: "entry",
     email: "jane@example.com",
     isAppleLoading: true,
   },
   "login-error": {
-    view: "email",
+    view: "entry",
     email: "jane@example.com",
     error: "Unable to sign in. Please try again.",
   },

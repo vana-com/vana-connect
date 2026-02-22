@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const baseState = {
-  view: "email" as const,
+  view: "entry" as const,
   error: null as string | null,
   email: "",
   code: "",
@@ -45,7 +45,7 @@ describe("resolveLoginPageUiDebugState", () => {
     const module = await import("./use-login-page.ui-debug");
     expect(module.resolveLoginPageUiDebugState(baseState)).toEqual({
       ...baseState,
-      view: "email",
+      view: "entry",
       email: "jane@example.com",
     });
   });
@@ -61,7 +61,7 @@ describe("resolveLoginPageUiDebugState", () => {
     const module = await import("./use-login-page.ui-debug");
     expect(module.resolveLoginPageUiDebugState(baseState)).toEqual({
       ...baseState,
-      view: "email",
+      view: "entry",
       email: "jane@example.com",
       isSendingEmail: true,
     });
