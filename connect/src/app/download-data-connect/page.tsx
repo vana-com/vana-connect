@@ -1,23 +1,30 @@
 "use client";
 
-import {
-  ArrowUpRightIcon,
-  ChevronDownIcon,
-  DownloadIcon,
-  GithubIcon,
-  ImportIcon,
-} from "lucide-react";
+import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { ExternalLink } from "@/components/elements/external-link";
+import { SlidingTabs } from "@/components/elements/sliding-tabs";
 import { DcIcon } from "@/components/icons/dc-icon2";
 import { DcLogotype } from "@/components/icons/dc-logotype";
 import { Text } from "@/components/typography/text";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import {
   CONNECT_CONFIG,
-  getAssetUrl,
   type DownloadAsset,
+  getAssetUrl,
 } from "@/config/config";
 import { cn } from "@/lib/classes";
 import { detectOS, getDownloadPlatformLabel } from "@/lib/platform";
@@ -28,52 +35,85 @@ type OSGroup = (typeof OS_GROUPS)[number];
 function useDownloadState() {
   const os = useMemo(() => detectOS(), []);
   const isUnknown = os === "unknown";
-  const [showAll, setShowAll] = useState(isUnknown);
   const { assets } = CONNECT_CONFIG.downloads;
 
   const primaryAsset: DownloadAsset | null = isUnknown
     ? null
     : (assets[os].find((a) => a.isDefault) ?? assets[os][0]);
 
-  return { os, isUnknown, showAll, setShowAll, primaryAsset, assets };
+  const initialGroup: OSGroup = isUnknown ? "macOS" : (os as OSGroup);
+
+  return { os, isUnknown, primaryAsset, assets, initialGroup };
 }
 
 function DownloadDataConnectPageContent() {
   const checkboxId = useId();
   const [isFoundationLegalAccepted, setIsFoundationLegalAccepted] =
     useState(false);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [pendingDownloadHref, setPendingDownloadHref] = useState<string | null>(
+    null,
+  );
   const { combinedTermsUrl, lastUpdatedLabel } =
     CONNECT_CONFIG.legal.foundationSoftwareUse;
   const { dataConnectGithubUrl } = CONNECT_CONFIG.docs;
   const downloadPlatformLabel = getDownloadPlatformLabel();
-  const isDisabled = !isFoundationLegalAccepted;
 
-  const { os, isUnknown, showAll, setShowAll, primaryAsset, assets } =
-    useDownloadState();
+  const { isUnknown, primaryAsset, assets, initialGroup } = useDownloadState();
+  const [selectedGroup, setSelectedGroup] = useState<OSGroup>(initialGroup);
+  const osTabs = useMemo(
+    () =>
+      OS_GROUPS.map((group) => ({
+        value: group,
+        label: (
+          <Text as="span" intent="small" weight="medium" color="inherit">
+            {group}
+          </Text>
+        ),
+      })),
+    [],
+  );
 
   const primaryHref = primaryAsset ? getAssetUrl(primaryAsset.filename) : "#";
+  const canPrimaryDownload = !isUnknown && primaryAsset !== null;
+
+  function handleDownloadIntent(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) {
+    if (isFoundationLegalAccepted) return;
+    event.preventDefault();
+    setPendingDownloadHref(href);
+    setIsLegalModalOpen(true);
+  }
+
+  function handleAgreeAndDownload() {
+    if (!pendingDownloadHref) return;
+    setIsFoundationLegalAccepted(true);
+    setIsLegalModalOpen(false);
+    window.location.assign(pendingDownloadHref);
+    setPendingDownloadHref(null);
+  }
+
+  function handleLegalDialogOpenChange(open: boolean) {
+    setIsLegalModalOpen(open);
+    if (!open) setPendingDownloadHref(null);
+  }
 
   return (
     <PageShell showBackButton actions={["yourApps", "logout"]}>
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={
-          <a
-            href={dataConnectGithubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-small text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <GithubIcon className="size-em" aria-hidden />
-            View dataConnect on GitHub
-            <ArrowUpRightIcon className="size-[0.9em] -ml-px" aria-hidden />
-          </a>
+          <ExternalLink href={dataConnectGithubUrl} leadingIcon={GithubIcon}>
+            DataConnect on GitHub
+          </ExternalLink>
         }
       >
         <div className="px-small text-center space-y-small">
           <div className="space-y-0.5">
             <Text as="h2" intent="title" weight="semi">
-              Download dataConnect.
+              Download DataConnect.
             </Text>
             <Text as="p" intent="subtitle" muted>
               Install the app. Connect your data.
@@ -81,92 +121,136 @@ function DownloadDataConnectPageContent() {
           </div>
 
           {/* Primary download card */}
-          {!isUnknown &&
-            (isDisabled ? (
-              <div
-                aria-disabled
-                className={cn(downloadButtonStyle, "cursor-not-allowed")}
-              >
-                <DownloadDataConnectCardContent
-                  downloadPlatformLabel={downloadPlatformLabel}
-                />
-              </div>
-            ) : (
-              <a
-                href={primaryHref}
-                className={cn(
-                  downloadButtonStyle,
-                  "cursor-pointer hover:bg-muted",
-                  "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
-                )}
-              >
-                <DownloadDataConnectCardContent
-                  downloadPlatformLabel={downloadPlatformLabel}
-                />
-              </a>
-            ))}
+          {canPrimaryDownload ? (
+            <a
+              href={primaryHref}
+              onClick={(event) => handleDownloadIntent(event, primaryHref)}
+              className={cn(
+                contentStyle,
+                "flex flex-col items-center rounded-card px-w6",
+                downloadButtonStyle,
+              )}
+            >
+              <DownloadDataConnectCardContent
+                downloadPlatformLabel={downloadPlatformLabel}
+              />
+            </a>
+          ) : (
+            <div className="h-[173px]" aria-hidden />
+          )}
 
+          {/* Other downloads */}
+          <div className={cn(contentStyle, "text-left space-y-2")}>
+            <Text
+              as="p"
+              intent="small"
+              dim
+              withIcon
+              align="center"
+              className="pb-2"
+            >
+              <LaptopIcon aria-hidden />
+              Other downloads
+            </Text>
+
+            <SlidingTabs
+              tabs={osTabs}
+              value={selectedGroup}
+              onValueChange={(value) => setSelectedGroup(value as OSGroup)}
+              listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
+              listItemClassName="flex-1 min-w-0"
+              tabClassName={cn(
+                // Layout
+                "w-full flex justify-center rounded-sm px-2.5",
+                // Tab height (--tab-h drives both h and label leading)
+                "[--tab-h:2rem] h-[var(--tab-h)]",
+                // Vertical-center label via line-height = tab height
+                "[&>*]:leading-[var(--tab-h)]",
+              )}
+              indicatorClassName={cn(
+                "inset-0 rounded-sm",
+                "bg-(--canvas-accent-25-black-5)",
+              )}
+              indicatorLayoutId="download-os-selected-indicator"
+            />
+
+            <div className="min-h-[92px] overflow-auto">
+              <AllDownloadsGroup
+                groupAssets={assets[selectedGroup]}
+                onDownloadIntent={handleDownloadIntent}
+              />
+            </div>
+          </div>
+        </div>
+      </PagePanel>
+
+      <AlertDialog
+        open={isLegalModalOpen}
+        onOpenChange={handleLegalDialogOpenChange}
+      >
+        <AlertDialogContent
+          size="sm"
+          className={cn(
+            "rounded-squish text-left max-w-[380px]!",
+            // spacing
+            "p-w6 space-y-1",
+          )}
+        >
+          <AlertDialogHeader className="place-items-start text-left">
+            <AlertDialogTitle>
+              <Text as="span" intent="subtitle" weight="semi">
+                One quick step
+              </Text>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-body text-foreground">
+              Accept terms once to download DataConnect.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <hr />
           <LegalAcceptance
             checkboxId={checkboxId}
             checked={isFoundationLegalAccepted}
             onCheckedChange={setIsFoundationLegalAccepted}
-            label="I agree to the dataConnect Terms (including Privacy and EULA)."
+            label="I agree to the DataConnect Terms (including Privacy and EULA)"
             details={
               <>
-                Read the full terms:{" "}
+                Read the{" "}
                 <a
                   href={combinedTermsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="link hover:text-foreground"
                 >
-                  dataConnect terms
+                  DataConnect terms
                 </a>{" "}
-                ({lastUpdatedLabel}).
+                ({lastUpdatedLabel})
               </>
             }
+            // detailsIntent="fine"
           />
 
-          {/* Show all downloads toggle */}
-          <button
-            type="button"
-            onClick={() => setShowAll((prev) => !prev)}
-            className="inline-flex items-center gap-1 text-small text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Show all downloads
-            <ChevronDownIcon
-              className={cn(
-                "size-[1em] transition-transform duration-200",
-                showAll && "rotate-180",
-              )}
-              aria-hidden
-            />
-          </button>
-
-          {/* Expanded downloads section */}
-          {showAll && (
-            <div className="mx-auto w-full lg:w-3/4 text-left space-y-4">
-              {OS_GROUPS.map((group) => (
-                <AllDownloadsGroup
-                  key={group}
-                  group={group}
-                  groupAssets={assets[group]}
-                  isDetected={os === group}
-                  isDisabled={isDisabled}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </PagePanel>
+          <AlertDialogFooter className="pt-gap">
+            <AlertDialogCancel size="sm">Not now</AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              onClick={handleAgreeAndDownload}
+              disabled={!isFoundationLegalAccepted}
+            >
+              Agree and download
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   );
 }
 
+const contentStyle = "mx-auto w-full lg:w-5/6";
+
 const downloadButtonStyle = [
-  "mx-auto w-full lg:w-3/4",
-  "flex flex-col items-center rounded-card border border-foreground",
-  "px-w6",
+  "border border-foreground",
+  "cursor-pointer hover:bg-muted",
+  "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
 ];
 
 export default function DownloadDataConnectPage() {
@@ -203,94 +287,72 @@ function DownloadDataConnectCardContent({
 }
 
 function AllDownloadsGroup({
-  group,
   groupAssets,
-  isDetected,
-  isDisabled,
+  onDownloadIntent,
 }: {
-  group: OSGroup;
   groupAssets: readonly DownloadAsset[];
-  isDetected: boolean;
-  isDisabled: boolean;
+  onDownloadIntent: (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => void;
 }) {
   return (
-    <div>
-      <Text
-        as="h3"
-        intent="small"
-        weight="medium"
-        className={cn("mb-1.5", isDetected && "text-accent-foreground")}
-      >
-        {group}
-        {isDetected && (
-          <span className="ml-1.5 text-muted-foreground font-normal">
-            (detected)
-          </span>
-        )}
-      </Text>
-      <div className="space-y-1">
-        {groupAssets.map((asset) => (
-          <AssetRow
-            key={asset.filename}
-            asset={asset}
-            isDisabled={isDisabled}
-          />
-        ))}
-      </div>
+    <div className="space-y-px">
+      {groupAssets.map((asset) => (
+        <AssetRow
+          key={asset.filename}
+          asset={asset}
+          onDownloadIntent={onDownloadIntent}
+        />
+      ))}
     </div>
   );
 }
 
 function AssetRow({
   asset,
-  isDisabled,
+  onDownloadIntent,
 }: {
   asset: DownloadAsset;
-  isDisabled: boolean;
+  onDownloadIntent: (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => void;
 }) {
   const href = getAssetUrl(asset.filename);
 
-  return isDisabled ? (
-    <div
-      aria-disabled
-      className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-3 py-2",
-        "opacity-50 cursor-not-allowed",
-      )}
-    >
-      <div>
-        <Text as="span" intent="small" weight="medium">
-          {asset.label}
-        </Text>
-        <Text as="span" intent="fine" muted className="ml-2">
-          {asset.description}
-        </Text>
-      </div>
-      <DownloadIcon
-        className="size-3.5 text-muted-foreground shrink-0"
-        aria-hidden
-      />
-    </div>
-  ) : (
+  return (
     <a
       href={href}
+      onClick={(event) => onDownloadIntent(event, href)}
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-3 py-2",
-        "transition-colors hover:bg-muted hover:border-foreground/20",
+        "group",
+        "flex items-center justify-between gap-2 px-2 py-2.5",
+        "rounded-button",
+        "hover:bg-(--canvas-accent-25-black-5)/40",
+        // "border-b",
+        // "transition-colors hover:bg-muted hover:border-foreground/20",
+        // downloadButtonStyle,
       )}
     >
-      <div>
+      <div className="pl-1 flex-1">
         <Text as="span" intent="small" weight="medium">
           {asset.label}
         </Text>
-        <Text as="span" intent="fine" muted className="ml-2">
-          {asset.description}
-        </Text>
+        {/* {asset.description && (
+          <Text as="span" intent="fine" muted className="ml-2">
+            {asset.description}
+          </Text>
+        )} */}
       </div>
-      <DownloadIcon
-        className="size-3.5 text-muted-foreground shrink-0"
-        aria-hidden
-      />
+      <div
+        className={cn(
+          buttonVariants({ variant: "outline", size: "xs" }),
+          "group-hover:bg-background group-hover:border-foreground",
+        )}
+      >
+        Download
+      </div>
     </a>
   );
 }
