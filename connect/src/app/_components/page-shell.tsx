@@ -12,18 +12,14 @@ type PageShellProps = {
   showLogoutButton?: boolean;
   yourAppsHref?: string;
   showYourAppsButton?: boolean;
+  downloadDataConnectHref?: string;
+  showDownloadDataConnectButton?: boolean;
 };
 
 const DEFAULT_BACK_HREF = "/";
 const DEFAULT_LOGOUT_HREF = "/";
-const TOP_NAV_BUTTON_CLASS = buttonVariants({
-  variant: "ghost",
-  size: "sm",
-  className: cn(
-    "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
-    "hover:bg-iris/[0.07]! hover:text-iris",
-  ),
-});
+const DEFAULT_YOUR_APPS_HREF = "/admin";
+const DEFAULT_DOWNLOAD_DATA_CONNECT_HREF = "/download-data-connect";
 
 export function PageShell({
   children,
@@ -31,11 +27,14 @@ export function PageShell({
   showBackButton = true,
   logoutHref = DEFAULT_LOGOUT_HREF,
   showLogoutButton = false,
-  yourAppsHref = "/admin/apps",
+  yourAppsHref = DEFAULT_YOUR_APPS_HREF,
   showYourAppsButton = false,
+  downloadDataConnectHref = DEFAULT_DOWNLOAD_DATA_CONNECT_HREF,
+  showDownloadDataConnectButton = false,
 }: PageShellProps) {
   return (
     <div
+      data-slot="page-shell"
       className={cn(
         "relative min-h-screen bg-[#F0F4F8]",
         "p-w8 [@media(min-height:801px)]:pb-w32",
@@ -56,24 +55,65 @@ export function PageShell({
           Back
         </Link>
       )}
-      {(showYourAppsButton || showLogoutButton) && (
+      {(showYourAppsButton ||
+        showDownloadDataConnectButton ||
+        showLogoutButton) && (
         <div className="absolute top-gap right-gap flex items-center gap-2">
+          {showDownloadDataConnectButton && (
+            <NavLink
+              href={downloadDataConnectHref}
+              icon={<BoxIcon aria-hidden="true" />}
+            >
+              DataConnect
+            </NavLink>
+          )}
           {showYourAppsButton && (
-            <Link href={yourAppsHref} className={TOP_NAV_BUTTON_CLASS}>
-              <BoxIcon aria-hidden="true" />
+            <NavLink href={yourAppsHref} icon={<BoxIcon aria-hidden="true" />}>
               Your apps
-            </Link>
+            </NavLink>
           )}
           {showLogoutButton && (
-            <Link href={logoutHref} className={TOP_NAV_BUTTON_CLASS}>
-              <LogOutIcon aria-hidden="true" />
+            <NavLink href={logoutHref} icon={<LogOutIcon aria-hidden="true" />}>
               Logout
-            </Link>
+            </NavLink>
           )}
         </div>
       )}
 
-      <div className="flex flex-1 items-center justify-center">{children}</div>
+      <div
+        data-slot="page-shell-content"
+        className="flex flex-1 items-center justify-center"
+      >
+        {children}
+      </div>
     </div>
+  );
+}
+
+export function NavLink({
+  href,
+  icon,
+  children,
+  className,
+}: {
+  href: string;
+  icon: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  const buttonClassName = buttonVariants({
+    variant: "ghost",
+    size: "sm",
+    className: cn(
+      "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
+      "hover:bg-iris/[0.07]! hover:text-iris",
+      className,
+    ),
+  });
+  return (
+    <Link href={href} className={buttonClassName}>
+      {icon}
+      {children}
+    </Link>
   );
 }
