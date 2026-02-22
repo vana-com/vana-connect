@@ -15,6 +15,12 @@ const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
 
 export type LoginPageView = "loading" | "email" | "code" | "completing";
 
+/** Views that render the full-page spinner (Preparing... / Signing you in...). */
+export const LOGIN_PAGE_SPINNER_VIEWS: readonly LoginPageView[] = [
+  "loading",
+  "completing",
+];
+
 type SessionParams = { sessionId: string; secret: string | null };
 
 function saveSession(params: SessionParams) {
@@ -174,6 +180,20 @@ export function useLoginPage() {
     }
   }, [code, privyLoginWithCode]);
 
+  const handleResendCode = useCallback(async () => {
+    setError(null);
+    try {
+      await privySendCode({ email });
+    } catch {
+      setError("Failed to send code. Please try again.");
+    }
+  }, [email, privySendCode]);
+
+  const handleBackToEmail = useCallback(() => {
+    setError(null);
+    setView("email");
+  }, []);
+
   // OAuth handlers
   const handleGoogleLogin = useCallback(() => {
     oauthInitiatedRef.current = true;
@@ -244,6 +264,8 @@ export function useLoginPage() {
     handleCodeChange: setCode,
     handleEmailSubmit,
     handleCodeSubmit,
+    handleResendCode,
+    handleBackToEmail,
     handleGoogleLogin,
     handleAppleLogin,
     recordPassportAgreementAcceptance,

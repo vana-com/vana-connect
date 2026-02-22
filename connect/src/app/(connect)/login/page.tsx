@@ -1,19 +1,24 @@
 "use client";
 
+import { MailIcon } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useId, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
-import { Spinner } from "@/components/elements/spinner";
-import { VanaLogotype } from "@/components/icons/vana-logotype";
+import { PageHeader } from "@/components/elements/page-header";
+import { PageLoadingState } from "@/components/elements/page-loading-state";
+import { SingleFieldIconForm } from "@/components/elements/single-field-icon-form";
 import { Text } from "@/components/typography/text";
 import { CONNECT_CONFIG } from "@/config/config";
+import { cn } from "@/lib/classes";
 import { CodeVerificationForm } from "./_components/code-verification-form";
-import { EmailEntryForm } from "./_components/email-entry-form";
 import { SocialAuthButton } from "./_components/social-auth-button";
-import { useLoginPage } from "./use-login-page";
+import { LOGIN_PAGE_SPINNER_VIEWS, useLoginPage } from "./use-login-page";
 
 function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
   const checkboxId = useId();
   const [isPassportAgreementAccepted, setIsPassportAgreementAccepted] =
@@ -31,6 +36,7 @@ function LoginPageContent() {
     handleCodeChange,
     handleEmailSubmit,
     handleCodeSubmit,
+    handleBackToEmail,
     handleGoogleLogin,
     handleAppleLogin,
     recordPassportAgreementAcceptance,
@@ -51,6 +57,16 @@ function LoginPageContent() {
     await handleEmailSubmit();
   }
 
+  function handleBackFromCode() {
+    if (searchParams.get("authDebug") === "1") {
+      const next = new URLSearchParams(searchParams);
+      next.set("scenario", "login-idle");
+      router.replace(`/login?${next}`);
+    } else {
+      handleBackToEmail();
+    }
+  }
+
   function handleGoogleLoginWithPassportAgreement() {
     if (!isPassportAgreementAccepted) return;
     recordPassportAgreementAcceptance();
@@ -65,52 +81,54 @@ function LoginPageContent() {
 
   return (
     <PageShell showBackButton={false}>
-      <PagePanel>
+      <PagePanel className="md:min-h-[563px]">
         {/* Loading / Completing */}
-        {(view === "loading" || view === "completing") && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-            <Spinner className="size-8 text-iris" />
-            <Text intent="small" color="mutedForeground">
-              {view === "completing" ? "Signing you in..." : "Preparing..."}
-            </Text>
-          </div>
+        {LOGIN_PAGE_SPINNER_VIEWS.includes(view) && (
+          <PageLoadingState
+            showVanaLogotype
+            message={view === "completing" ? "Signing you in…" : "Preparing…"}
+          />
         )}
 
         {/* Email entry */}
         {view === "email" && (
           <div className="space-y-small">
-            <div className="space-y-5">
-              <div className="space-y-2.5">
-                <VanaLogotype height={13} className="text-iris" />
-                <Text as="h1" intent="title">
+            <PageHeader
+              showVanaLogotype
+              color="foreground"
+              heading={
+                <>
                   <span className="text-iris">Sign in to Vana</span>
                   <br />
                   to connect your data
+                </>
+              }
+              description={
+                <Text>
+                  Sign in to authorize and share your data everywhere.
                 </Text>
-              </div>
-              <Text as="p">
-                Sign in to authorize Data Connect and bring your data
-                everywhere.
-              </Text>
-              {error && (
-                <Text
-                  as="p"
-                  intent="small"
-                  color="destructive"
-                  className="pt-2"
-                >
-                  {error}
-                </Text>
-              )}
-            </div>
+              }
+            />
 
             <div className="space-y-3">
-              <EmailEntryForm
-                email={email}
+              <SingleFieldIconForm
+                id="auth-email"
+                name="email"
+                type="email"
+                placeholder="jane@example.com"
+                autoComplete="email"
+                value={email}
+                onChange={handleEmailChange}
+                onSubmit={() => handleEmailSubmitWithPassportAgreement()}
                 isLoading={isSendingEmail}
                 disabled={isEmailDisabled}
-                onEmailChange={handleEmailChange}
-                onSubmit={handleEmailSubmitWithPassportAgreement}
+                submitAriaLabel="Send sign-in code"
+                leading={
+                  <MailIcon
+                    className="text-muted-foreground group-focus-within:text-foreground"
+                    aria-hidden="true"
+                  />
+                }
               />
               <SocialAuthButton
                 kind="google"
@@ -124,6 +142,16 @@ function LoginPageContent() {
                 isLoading={isAppleLoading}
                 disabled={isAppleDisabled}
               />
+              {error && (
+                <Text
+                  as="p"
+                  intent="small"
+                  color="destructive"
+                  className="pt-2"
+                >
+                  {error}
+                </Text>
+              )}
             </div>
 
             <LegalAcceptance
@@ -165,25 +193,15 @@ function LoginPageContent() {
 
         {/* Code verification */}
         {view === "code" && (
-          <div className="space-y-small">
-            <div className="space-y-w6">
-              <div className="space-y-2.5">
-                <VanaLogotype height={13} className="text-iris" />
-                <Text as="h1" intent="title">
-                  Check your email
-                </Text>
-              </div>
-              {error && (
-                <Text
-                  as="p"
-                  intent="small"
-                  color="destructive"
-                  className="pt-2"
-                >
-                  {error}
-                </Text>
-              )}
-            </div>
+          <div className="flex flex-col flex-1 space-y-small">
+            <PageHeader
+              showVanaLogotype
+              heading="Enter the code we emailed"
+              color="iris"
+              description={
+                <Text>Please check your email for the code we just sent.</Text>
+              }
+            />
 
             <CodeVerificationForm
               code={code}
@@ -191,6 +209,31 @@ function LoginPageContent() {
               isVerifying={isVerifyingCode}
               onCodeChange={handleCodeChange}
               onSubmit={handleCodeSubmit}
+              className="flex-1 flex flex-col justify-center"
+              errorSlot={
+                <div
+                  aria-hidden={!error}
+                  className={cn(!error && "opacity-0 pointer-events-none")}
+                >
+                  <Text as="p" color="destructive">
+                    {error ? (
+                      <>
+                        {error} Or{" "}
+                        <button
+                          type="button"
+                          onClick={handleBackFromCode}
+                          className="link text-destructive-foreground cursor-pointer"
+                        >
+                          try signing in again
+                        </button>
+                        .
+                      </>
+                    ) : (
+                      "\u00A0"
+                    )}
+                  </Text>
+                </div>
+              }
             />
           </div>
         )}
@@ -201,7 +244,7 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageLoadingState showVanaLogotype />}>
       <LoginPageContent />
     </Suspense>
   );

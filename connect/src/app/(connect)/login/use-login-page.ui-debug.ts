@@ -21,9 +21,29 @@ type LoginPageUiDebugScenario =
   | "login-error"
   | "verify-idle"
   | "verify-loading"
+  | "verify-error"
   | "loading"
   | "completing";
 
+/**
+ * UI debug scenarios for development. Add to the login URL:
+ *
+ *   ?authDebug=1&scenario=<scenario>
+ *
+ * Examples:
+ *   ?authDebug=1&scenario=login-idle          → email entry, filled
+ *   ?authDebug=1&scenario=login-email-loading → email entry, sending
+ *   ?authDebug=1&scenario=login-google-loading
+ *   ?authDebug=1&scenario=login-apple-loading
+ *   ?authDebug=1&scenario=login-error         → email entry, error state
+ *   ?authDebug=1&scenario=verify-idle         → code verification, filled
+ *   ?authDebug=1&scenario=verify-loading      → code verification, verifying
+ *   ?authDebug=1&scenario=verify-error        → code verification, error state
+ *   ?authDebug=1&scenario=loading             → preparing spinner
+ *   ?authDebug=1&scenario=completing          → signing in spinner
+ *
+ * Disabled in production.
+ */
 const LOGIN_PAGE_UI_DEBUG_SCENARIOS: Record<
   LoginPageUiDebugScenario,
   Partial<LoginPageUiState>
@@ -60,6 +80,11 @@ const LOGIN_PAGE_UI_DEBUG_SCENARIOS: Record<
     view: "code",
     code: "123456",
     isVerifyingCode: true,
+  },
+  "verify-error": {
+    view: "code",
+    code: "123456",
+    error: "Invalid code. Please try again.",
   },
   loading: {
     view: "loading",
