@@ -333,9 +333,6 @@ function AssetRow({
         "flex items-center justify-between gap-2 px-2 py-2.5",
         "rounded-button",
         "hover:bg-(--canvas-accent-25-black-5)/40",
-        // "border-b",
-        // "transition-colors hover:bg-muted hover:border-foreground/20",
-        // downloadButtonStyle,
       )}
     >
       <div className="pl-1 flex-1">
