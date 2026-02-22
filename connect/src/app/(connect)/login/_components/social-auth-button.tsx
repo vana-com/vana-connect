@@ -43,7 +43,7 @@ export const SocialAuthButton = ({
           className="ms-auto inline-flex size-button shrink-0 items-center justify-center rounded-button"
           aria-hidden="true"
         >
-          <Spinner className="size-[18px]" />
+          <Spinner className="size-[21px]!" />
         </span>
       )}
     </Button>

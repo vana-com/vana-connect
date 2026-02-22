@@ -101,7 +101,8 @@ export const textVariants = cva(
       withIcon: {
         true: [
           "flex items-center gap-1.5",
-          "[&_svg:not([class*=size-])]:size-[0.9em]",
+          "[&_svg:not([class*=size-]):not([data-slot=spinner])]:size-[0.9em]",
+          "[&_svg[data-slot=spinner]]:size-[0.8em]",
           // "[&_svg]:transform [&_svg]:translate-y-[-0.1em]",
         ],
       },
@@ -134,7 +135,12 @@ export const textVariants = cva(
       {
         withIcon: true,
         intent: ["heading", "title"],
-        className: "gap-1 [&_svg:not([class*=size-])]:size-[1.1em]",
+        className: [
+          "gap-1",
+          "[&:has([data-slot=spinner])]:gap-2.5",
+          "[&_svg:not([class*=size-]):not([data-slot=spinner])]:size-[1.1em]",
+          "[&_svg[data-slot=spinner]]:size-[0.75em]",
+        ],
       },
       {
         withIcon: true,

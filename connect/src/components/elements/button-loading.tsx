@@ -22,7 +22,7 @@ export function LoadingButton({
     <Button type={type} disabled={disabled || isLoading} {...props}>
       {isLoading ? (
         <>
-          <Spinner className={cn("size-[18px] shrink-0", spinnerClassName)} />
+          <Spinner className={cn("shrink-0", spinnerClassName)} />
           {loadingLabel ?? children ?? "Loading…"}
         </>
       ) : (
