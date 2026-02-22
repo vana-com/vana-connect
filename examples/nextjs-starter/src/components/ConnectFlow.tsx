@@ -4,9 +4,9 @@
 // initConnect() starts a session, the hook polls until approved, then
 // fetchData() calls /api/data with the grant to retrieve user data.
 
-import { useEffect, useRef } from "react";
-import { useVanaData } from "@opendatalabs/connect/react";
 import type { ConnectionStatus } from "@opendatalabs/connect/core";
+import { useVanaData } from "@opendatalabs/connect/react";
+import { useEffect, useRef } from "react";
 
 const STATUS_DISPLAY: Record<
   ConnectionStatus,
@@ -84,7 +84,12 @@ export default function ConnectFlow() {
               Connect with Vana
             </a>
           ) : (
-            <button disabled className="btn-primary" style={{ width: "100%" }}>
+            <button
+              type="button"
+              disabled
+              className="btn-primary"
+              style={{ width: "100%" }}
+            >
               <span className="spinner" /> Creating session...
             </button>
           )}
@@ -107,6 +112,7 @@ export default function ConnectFlow() {
           <pre className="pre-block">{JSON.stringify(grant, null, 2)}</pre>
 
           <button
+            type="button"
             onClick={fetchData}
             disabled={isLoading}
             className="btn-primary"
@@ -139,6 +145,7 @@ export default function ConnectFlow() {
       {/* Reset — reloads the page to start a fresh session */}
       {status !== "idle" && status !== "connecting" && (
         <button
+          type="button"
           onClick={() => window.location.reload()}
           className="btn-ghost"
           style={{ marginTop: 12 }}
