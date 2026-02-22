@@ -83,7 +83,18 @@ function ConnectPageContent() {
 
 export default function ConnectPage() {
   return (
-    <Suspense fallback={<PageLoadingState />}>
+    <Suspense
+      fallback={
+        <PageShell>
+          <PagePanel
+            className="text-center justify-center"
+            footer={<ConnectPanelFooter />}
+          >
+            <PageLoadingState message="Preparing…" />
+          </PagePanel>
+        </PageShell>
+      }
+    >
       <ConnectPageContent />
     </Suspense>
   );

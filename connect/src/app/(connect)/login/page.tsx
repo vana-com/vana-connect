@@ -249,7 +249,15 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<PageLoadingState showVanaLogotype />}>
+    <Suspense
+      fallback={
+        <PageShell>
+          <PagePanel className="md:min-h-[563px]">
+            <PageLoadingState showVanaLogotype message="Preparing…" />
+          </PagePanel>
+        </PageShell>
+      }
+    >
       <LoginPageContent />
     </Suspense>
   );
