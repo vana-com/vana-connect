@@ -28,7 +28,7 @@ const downloadAssets: Record<
   ],
   Windows: [
     {
-      label: "Windows",
+      label: "Windows (x64)",
       filename: `DataConnect_${DOWNLOAD_VERSION}_x64-setup.exe`,
       description: "64-bit installer",
       isDefault: true,
@@ -60,7 +60,7 @@ export const CONNECT_CONFIG = {
     foundationSoftwareUse: {
       combinedTermsUrl:
         "https://github.com/vana-com/data-connect/blob/main/legal/dataconnect-terms-privacy-eula.md",
-      lastUpdatedLabel: "6 February 2026",
+      lastUpdatedLabel: "6 Feb, 2026",
     },
   },
   downloads: {
