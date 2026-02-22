@@ -34,9 +34,11 @@ Routes use explicit view states and render per-state sections inline.
 
 - Prefer explicit union states, e.g. `"form" | "result"` or `"loading" | "ready" | "error"`
 - Keep each state block visually self-contained
-- Use shared skeleton for loading/error states:
+- Use shared skeleton for loading/error states: `ConnectLoadingState` from
+  `@/app/(connect)/connect/_shared/connect-page-ui` (accepts `app` and optional
+  `message`), or the same pattern inline:
   - `flex flex-1 flex-col items-center justify-center gap-4 text-center`
-  - `<Spinner boxSize={32} className="text-iris" />`
+  - `<Spinner className="size-8 text-iris" />`
   - `<Text intent="small" color="mutedForeground">...`
 
 ## Form Row Pattern (Used in Auth)
