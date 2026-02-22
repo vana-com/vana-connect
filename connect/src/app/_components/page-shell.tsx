@@ -8,30 +8,37 @@ type PageShellProps = {
   children: ReactNode;
   backHref?: string;
   showBackButton?: boolean;
-  logoutHref?: string;
-  showLogoutButton?: boolean;
-  yourAppsHref?: string;
-  showYourAppsButton?: boolean;
-  downloadDataConnectHref?: string;
-  showDownloadDataConnectButton?: boolean;
+  actions?: PageShellActionInput[];
 };
 
+type PageShellAction = {
+  href: string;
+  icon: ReactNode;
+  label: ReactNode;
+  className?: string;
+};
+type PageShellActionPreset = "logout" | "yourApps" | "dataConnect";
+type PageShellActionInput = PageShellActionPreset | PageShellAction;
+
 const DEFAULT_BACK_HREF = "/";
-const DEFAULT_LOGOUT_HREF = "/";
+const DEFAULT_LOGOUT_HREF = "/logout";
 const DEFAULT_YOUR_APPS_HREF = "/admin";
 const DEFAULT_DOWNLOAD_DATA_CONNECT_HREF = "/download-data-connect";
 
 export function PageShell({
   children,
   backHref = DEFAULT_BACK_HREF,
-  showBackButton = true,
-  logoutHref = DEFAULT_LOGOUT_HREF,
-  showLogoutButton = false,
-  yourAppsHref = DEFAULT_YOUR_APPS_HREF,
-  showYourAppsButton = false,
-  downloadDataConnectHref = DEFAULT_DOWNLOAD_DATA_CONNECT_HREF,
-  showDownloadDataConnectButton = false,
+  showBackButton = false,
+  actions = [],
 }: PageShellProps) {
+  const resolvedActions = actions.map((action) =>
+    resolvePageShellAction(action, {
+      logoutHref: DEFAULT_LOGOUT_HREF,
+      yourAppsHref: DEFAULT_YOUR_APPS_HREF,
+      downloadDataConnectHref: DEFAULT_DOWNLOAD_DATA_CONNECT_HREF,
+    }),
+  );
+
   return (
     <div
       data-slot="page-shell"
@@ -55,28 +62,18 @@ export function PageShell({
           Back
         </Link>
       )}
-      {(showYourAppsButton ||
-        showDownloadDataConnectButton ||
-        showLogoutButton) && (
+      {resolvedActions.length > 0 && (
         <div className="absolute top-gap right-gap flex items-center gap-2">
-          {showDownloadDataConnectButton && (
+          {resolvedActions.map((action, index) => (
             <NavLink
-              href={downloadDataConnectHref}
-              icon={<BoxIcon aria-hidden="true" />}
+              key={`${action.href}-${index}`}
+              href={action.href}
+              icon={action.icon}
+              className={action.className}
             >
-              DataConnect
+              {action.label}
             </NavLink>
-          )}
-          {showYourAppsButton && (
-            <NavLink href={yourAppsHref} icon={<BoxIcon aria-hidden="true" />}>
-              Your apps
-            </NavLink>
-          )}
-          {showLogoutButton && (
-            <NavLink href={logoutHref} icon={<LogOutIcon aria-hidden="true" />}>
-              Logout
-            </NavLink>
-          )}
+          ))}
         </div>
       )}
 
@@ -116,4 +113,35 @@ export function NavLink({
       {children}
     </Link>
   );
+}
+
+function resolvePageShellAction(
+  action: PageShellActionInput,
+  hrefs: {
+    logoutHref: string;
+    yourAppsHref: string;
+    downloadDataConnectHref: string;
+  },
+): PageShellAction {
+  if (typeof action !== "string") return action;
+
+  if (action === "dataConnect") {
+    return {
+      href: hrefs.downloadDataConnectHref,
+      icon: <BoxIcon aria-hidden="true" />,
+      label: "DataConnect",
+    };
+  }
+  if (action === "yourApps") {
+    return {
+      href: hrefs.yourAppsHref,
+      icon: <BoxIcon aria-hidden="true" />,
+      label: "Your apps",
+    };
+  }
+  return {
+    href: hrefs.logoutHref,
+    icon: <LogOutIcon aria-hidden="true" />,
+    label: "Logout",
+  };
 }

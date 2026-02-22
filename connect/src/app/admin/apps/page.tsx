@@ -36,11 +36,7 @@ export default function AdminAppsPage() {
   }
 
   return (
-    <PageShell
-      showBackButton={false}
-      showDownloadDataConnectButton
-      showLogoutButton
-    >
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <div className="flex flex-1 flex-col space-y-small">
           <PageHeader

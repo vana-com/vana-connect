@@ -147,11 +147,7 @@ export default function AdminPage() {
   }
 
   return (
-    <PageShell
-      showBackButton={false}
-      showLogoutButton
-      showDownloadDataConnectButton
-    >
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         {ui.state !== "loading" && (
           <div className="absolute right-3 top-3">
