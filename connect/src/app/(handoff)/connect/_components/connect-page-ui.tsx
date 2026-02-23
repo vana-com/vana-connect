@@ -269,7 +269,7 @@ function ConnectStateHeader({
     <div className="space-y-gap">
       <div className="flex items-center justify-center gap-3">
         <ConnectSourceAppIcon
-          key={`${app.displayName}-${app.iconUrl ?? "no-icon"}`}
+          key={`${app.displayName}-${app.iconUrls.join("|")}`}
           app={app}
         />
         <ArrowRightLeftIcon className="size-5.5" />
@@ -290,19 +290,20 @@ function ConnectStateHeader({
 }
 
 function ConnectSourceAppIcon({ app }: { app: ConnectApp }) {
-  const [isIconBroken, setIsIconBroken] = useState(false);
+  const [iconIndex, setIconIndex] = useState(0);
+  const activeIconUrl = app.iconUrls.at(iconIndex);
 
   return (
     <PlatformIcon
       iconName={app.displayName}
-      imageSrc={isIconBroken ? undefined : (app.iconUrl ?? undefined)}
+      imageSrc={activeIconUrl}
       imageAlt={`${app.displayName} icon`}
       fallbackLabel={app.fallbackLabel}
       size={44}
-      inset={4}
+      inset={0}
       style={{ backgroundColor: app.iconBg, color: app.iconFg }}
       onImageError={() => {
-        setIsIconBroken(true);
+        setIconIndex((current) => current + 1);
       }}
     />
   );

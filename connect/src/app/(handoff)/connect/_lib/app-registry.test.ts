@@ -7,27 +7,35 @@ describe("resolveConnectApp", () => {
     const app = resolveConnectApp();
     expect(app).toEqual({
       displayName: "App",
-      iconUrl: null,
+      iconUrls: [],
       fallbackLabel: "A",
       iconBg: "#E8EBF0",
       iconFg: "#101114",
     });
   });
 
-  it("derives favicon URL and display name from appUrl hostname", () => {
+  it("derives icon URL candidates and display name from appUrl hostname", () => {
     const app = resolveConnectApp({ appUrl: "https://www.foo-bar.com/path" });
-    expect(app.iconUrl).toBe("https://www.foo-bar.com/favicon.ico");
+    expect(app.iconUrls).toEqual([
+      "https://www.foo-bar.com/icon.svg",
+      "https://www.foo-bar.com/icon.png",
+      "https://www.foo-bar.com/favicon.ico",
+    ]);
     expect(app.displayName).toBe("Foo Bar");
     expect(app.fallbackLabel).toBe("F");
   });
 
-  it("prefers appName for display label while keeping favicon source from appUrl", () => {
+  it("prefers appName for display label while keeping icon source from appUrl", () => {
     const app = resolveConnectApp({
       appUrl: "https://vana.ai",
       appName: "Discover Me",
     });
     expect(app.displayName).toBe("Discover Me");
-    expect(app.iconUrl).toBe("https://vana.ai/favicon.ico");
+    expect(app.iconUrls).toEqual([
+      "https://vana.ai/icon.svg",
+      "https://vana.ai/icon.png",
+      "https://vana.ai/favicon.ico",
+    ]);
     expect(app.fallbackLabel).toBe("D");
   });
 
@@ -38,7 +46,7 @@ describe("resolveConnectApp", () => {
 
   it("ignores invalid appUrl values", () => {
     const app = resolveConnectApp({ appUrl: "not-a-url" });
-    expect(app.iconUrl).toBeNull();
+    expect(app.iconUrls).toEqual([]);
     expect(app.displayName).toBe("App");
   });
 });

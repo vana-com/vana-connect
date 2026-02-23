@@ -1,6 +1,6 @@
 export interface ConnectAppMetadata {
   displayName: string;
-  iconUrl: string | null;
+  iconUrls: string[];
   fallbackLabel: string;
   iconBg: string;
   iconFg: string;
@@ -47,12 +47,14 @@ function deriveDisplayNameFromAppUrl(appUrl: string | null): string | null {
   }
 }
 
-function deriveIconUrl(appUrl: string | null): string | null {
-  if (!appUrl) return null;
+function deriveIconUrls(appUrl: string | null): string[] {
+  if (!appUrl) return [];
   try {
-    return new URL("/favicon.ico", appUrl).toString();
+    return ["/icon.svg", "/icon.png", "/favicon.ico"].map((path) =>
+      new URL(path, appUrl).toString(),
+    );
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -72,7 +74,7 @@ export function resolveConnectApp(
     appName ?? deriveDisplayNameFromAppUrl(appUrl) ?? DEFAULT_DISPLAY_NAME;
   return {
     displayName,
-    iconUrl: deriveIconUrl(appUrl),
+    iconUrls: deriveIconUrls(appUrl),
     fallbackLabel: resolveFallbackLabel(displayName),
     iconBg: DEFAULT_ICON_BG,
     iconFg: DEFAULT_ICON_FG,
