@@ -1,22 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { HANDOFF_URL_PARAM_KEYS } from "@/app/(connect)/_shared/handoff-contract";
+import {
+  parseFromSearchParams,
+  toConnectUrl,
+} from "@/app/(connect)/_shared/handoff-contract";
 import { APP_ROUTES } from "@/app/routes";
 
 function buildCanonicalConnectUrl(requestUrl: URL): URL | null {
-  const sessionId = requestUrl.searchParams.get("sessionId");
-  if (!sessionId) return null;
-
-  const targetUrl = new URL(APP_ROUTES.connect, requestUrl);
-
-  for (const key of HANDOFF_URL_PARAM_KEYS) {
-    const value = requestUrl.searchParams.get(key);
-    if (value) {
-      targetUrl.searchParams.set(key, value);
-    }
-  }
-
-  return targetUrl;
+  const handoffContext = parseFromSearchParams(requestUrl.searchParams);
+  if (!handoffContext) return null;
+  return new URL(toConnectUrl(handoffContext), requestUrl);
 }
 
 export function middleware(request: NextRequest) {
