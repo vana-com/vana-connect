@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
 import { DcIcon } from "@/components/icons/dc-icon2";
 import { PlatformIcon } from "@/components/icons/platform-icon";
@@ -42,7 +43,7 @@ export function ConnectPanelFooter() {
     <div className="flex flex-col items-center">
       <Text as="p" intent="small" align="center" muted>
         Interested in building apps on Vana?{" "}
-        <Link href="/admin" className="link hover:text-foreground">
+        <Link href={APP_ROUTES.admin} className="link hover:text-foreground">
           Learn more
           <ArrowRightIcon aria-hidden className="inline size-[0.9em] ml-px" />
         </Link>
@@ -292,7 +293,7 @@ function ConnectLaunchSection({
         <Text as="p">
           Don&apos;t have it?{" "}
           <Link
-            href={downloadDataConnectHref ?? "/download-data-connect"}
+            href={downloadDataConnectHref ?? APP_ROUTES.downloadDataConnect}
             className="link hover:text-foreground"
           >
             Download DataConnect&nbsp;

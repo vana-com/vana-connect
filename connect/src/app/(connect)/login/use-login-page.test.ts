@@ -86,6 +86,9 @@ describe("useLoginPage oauth loading behavior", () => {
       "vana_connect_session",
       JSON.stringify({ sessionId: "session-123", secret: "secret-abc" }),
     );
+    mocks.searchParams = new URLSearchParams(
+      "code=oauth-code&state=oauth-state",
+    );
     mocks.oauthState.status = "loading";
 
     const { result } = renderHook(() => useLoginPage());
@@ -96,5 +99,19 @@ describe("useLoginPage oauth loading behavior", () => {
 
     expect(result.current.isGoogleLoading).toBe(false);
     expect(result.current.isAppleLoading).toBe(false);
+  });
+
+  it("does not enter completing view from stale storage without oauth callback params", async () => {
+    localStorage.setItem(
+      "vana_connect_session",
+      JSON.stringify({ sessionId: "session-123", secret: "secret-abc" }),
+    );
+    mocks.oauthState.status = "loading";
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("entry");
+    });
   });
 });

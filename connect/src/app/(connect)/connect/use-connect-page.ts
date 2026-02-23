@@ -2,24 +2,19 @@
 
 import { usePrivy, useSigners, useSignMessage } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  clearHandoffContext,
+  persistHandoffContext,
+  resolveHandoffContextFromClient,
+  toDownloadDataConnectUrl,
+  toLoginUrl,
+} from "../_shared/handoff-contract";
 import { resolveConnectLaunchUrl } from "./launch-url";
 import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
 
 const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";
-const SESSION_STORAGE_KEY = "vana_connect_session";
 const WALLET_READY_TIMEOUT_MS = 10_000;
-
-function saveSession(sessionId: string, secret: string | null) {
-  try {
-    localStorage.setItem(
-      SESSION_STORAGE_KEY,
-      JSON.stringify({ sessionId, secret }),
-    );
-  } catch {
-    // localStorage may be unavailable in some browser contexts
-  }
-}
 
 function getWalletAddress(
   user: ReturnType<typeof usePrivy>["user"],
@@ -41,12 +36,28 @@ function getWalletAddress(
 }
 
 export type ConnectPageView = "loading" | "signing" | "ready" | "error";
+type ConnectFlowPhase =
+  | "missing-session"
+  | "boot"
+  | "auth-required"
+  | "wallet-wait"
+  | "signing-ready"
+  | "ready";
 
 export function useConnectPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const sessionId = searchParams.get("sessionId");
-  const secret = searchParams.get("secret");
+  const handoffResolvedAtRef = useRef(Date.now());
+  const handoffContext = useMemo(
+    () =>
+      resolveHandoffContextFromClient(
+        searchParams,
+        handoffResolvedAtRef.current,
+      ),
+    [searchParams],
+  );
+  const sessionId = handoffContext?.sessionId ?? null;
+  const secret = handoffContext?.secret ?? null;
 
   const { ready, authenticated, user } = usePrivy();
   const { signMessage } = useSignMessage();
@@ -62,6 +73,14 @@ export function useConnectPage() {
   const walletReadyTimeoutRef = useRef<number | null>(null);
 
   const walletAddress = getWalletAddress(user);
+  const phase: ConnectFlowPhase = useMemo(() => {
+    if (!sessionId) return "missing-session";
+    if (!ready) return "boot";
+    if (!authenticated) return "auth-required";
+    if (masterKeySig) return "ready";
+    if (!walletAddress) return "wallet-wait";
+    return "signing-ready";
+  }, [sessionId, ready, authenticated, masterKeySig, walletAddress]);
 
   // Add signers after authentication
   const handleAddSigners = useCallback(
@@ -83,20 +102,23 @@ export function useConnectPage() {
 
   // Redirect to /login when not authenticated
   useEffect(() => {
-    if (!ready || !sessionId) return;
-    if (!authenticated && view !== "error") {
-      const qs = new URLSearchParams();
-      qs.set("sessionId", sessionId);
-      if (secret) qs.set("secret", secret);
-      router.replace(`/login?${qs.toString()}`);
+    if (!handoffContext) return;
+    if (phase === "auth-required" && view !== "error") {
+      router.replace(toLoginUrl(handoffContext));
     }
-  }, [ready, authenticated, sessionId, secret, view, router]);
+  }, [phase, handoffContext, view, router]);
 
-  // Persist session params in case auth redirects lose query params.
+  // Persist handoff context in case auth redirects lose query params.
   useEffect(() => {
-    if (!sessionId) return;
-    saveSession(sessionId, secret);
-  }, [sessionId, secret]);
+    if (!handoffContext) return;
+    persistHandoffContext(handoffContext);
+  }, [handoffContext]);
+
+  // Clear stored handoff context once connect is fully ready.
+  useEffect(() => {
+    if (view !== "ready") return;
+    clearHandoffContext();
+  }, [view]);
 
   // Avoid infinite "Preparing..." if auth is true but wallet never appears.
   useEffect(() => {
@@ -104,13 +126,7 @@ export function useConnectPage() {
       window.clearTimeout(walletReadyTimeoutRef.current);
       walletReadyTimeoutRef.current = null;
     }
-    if (
-      !ready ||
-      !authenticated ||
-      walletAddress ||
-      masterKeySig ||
-      view === "error"
-    ) {
+    if (phase !== "wallet-wait" || view === "error") {
       return;
     }
     walletReadyTimeoutRef.current = window.setTimeout(() => {
@@ -119,7 +135,7 @@ export function useConnectPage() {
       );
       setView("error");
     }, WALLET_READY_TIMEOUT_MS);
-  }, [ready, authenticated, walletAddress, masterKeySig, view]);
+  }, [phase, view]);
 
   useEffect(() => {
     return () => {
@@ -139,8 +155,7 @@ export function useConnectPage() {
   // Sign the master key after authentication
   useEffect(() => {
     if (view === "error" || view === "ready") return;
-    if (!authenticated || !walletAddress || masterKeySig || signingRef.current)
-      return;
+    if (phase !== "signing-ready" || signingRef.current) return;
 
     signingRef.current = true;
     setView("signing");
@@ -166,7 +181,7 @@ export function useConnectPage() {
         );
         setView("error");
       });
-  }, [authenticated, walletAddress, masterKeySig, signMessage, view]);
+  }, [phase, signMessage, view]);
 
   const deepLinkUrl = resolveConnectLaunchUrl({
     sessionId,
@@ -186,5 +201,13 @@ export function useConnectPage() {
     error: ui.error,
     sessionId: ui.sessionId,
     deepLinkUrl: ui.deepLinkUrl,
+    appContext: handoffContext
+      ? {
+          app: handoffContext.app,
+          appId: handoffContext.appId,
+          appName: handoffContext.appName,
+        }
+      : null,
+    downloadDataConnectHref: toDownloadDataConnectUrl(handoffContext),
   };
 }

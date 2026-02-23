@@ -1,6 +1,7 @@
 import { ArrowLeftIcon, BoxIcon, LogOutIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { APP_ROUTES } from "@/app/routes";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
 
@@ -20,22 +21,17 @@ type PageShellAction = {
 type PageShellActionPreset = "logout" | "yourApps" | "dataConnect";
 type PageShellActionInput = PageShellActionPreset | PageShellAction;
 
-const DEFAULT_BACK_HREF = "/";
-const DEFAULT_LOGOUT_HREF = "/logout";
-const DEFAULT_YOUR_APPS_HREF = "/admin";
-const DEFAULT_DOWNLOAD_DATA_CONNECT_HREF = "/download-data-connect";
-
 export function PageShell({
   children,
-  backHref = DEFAULT_BACK_HREF,
+  backHref = APP_ROUTES.root,
   showBackButton = false,
   actions = [],
 }: PageShellProps) {
   const resolvedActions = actions.map((action) =>
     resolvePageShellAction(action, {
-      logoutHref: DEFAULT_LOGOUT_HREF,
-      yourAppsHref: DEFAULT_YOUR_APPS_HREF,
-      downloadDataConnectHref: DEFAULT_DOWNLOAD_DATA_CONNECT_HREF,
+      logoutHref: APP_ROUTES.logout,
+      yourAppsHref: APP_ROUTES.admin,
+      downloadDataConnectHref: APP_ROUTES.downloadDataConnect,
     }),
   );
 

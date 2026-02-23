@@ -18,19 +18,40 @@ import {
 } from "./_shared/connect-page-ui";
 import { useConnectPage } from "./use-connect-page";
 
-// TODO(connect-query-contract): Query pass-through to `/download-data-connect`
-// is not finalized. Replace raw `searchParams.toString()` forwarding with an
-// explicit whitelist once the contract is frozen (keep only integration params,
-// strip debug/internal params like `authDebug` and `scenario`).
+function createAppQueryReader(
+  appContext: {
+    app: string | null;
+    appId: string | null;
+    appName: string | null;
+  } | null,
+  fallback: URLSearchParams,
+) {
+  return {
+    get(name: string): string | null {
+      if (appContext) {
+        if (name === "app") return appContext.app;
+        if (name === "appId") return appContext.appId;
+        if (name === "appName") return appContext.appName;
+      }
+      return fallback.get(name);
+    },
+  };
+}
+
 function ConnectPageContent() {
   const searchParams = useSearchParams();
-  const { view, error, sessionId, deepLinkUrl } = useConnectPage();
+  const {
+    view,
+    error,
+    sessionId,
+    deepLinkUrl,
+    appContext,
+    downloadDataConnectHref,
+  } = useConnectPage();
   const isDebugMode = searchParams.get("authDebug") === "1";
-  const rawQuery = searchParams.toString();
-  const downloadDataConnectHref = rawQuery
-    ? `/download-data-connect?${rawQuery}`
-    : "/download-data-connect";
-  const appRef = resolveConnectAppRef(searchParams);
+  const appRef = resolveConnectAppRef(
+    createAppQueryReader(appContext, searchParams),
+  );
   const app = resolveConnectApp(appRef);
   const supportHref = `mailto:${CONNECT_CONFIG.support.email}`;
 
