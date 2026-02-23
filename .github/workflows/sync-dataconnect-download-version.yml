@@ -1,0 +1,53 @@
+name: Sync DataConnect Download Version
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve latest DataConnect release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_tag="$(gh api repos/vana-com/data-connect/releases/latest --jq .tag_name)"
+          if [ -z "$latest_tag" ]; then
+            echo "Failed to resolve latest tag"
+            exit 1
+          fi
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Update DOWNLOAD_VERSION in config
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          version="${LATEST_TAG#v}"
+          perl -0777 -i -pe 's/const DOWNLOAD_VERSION = "[^"]+";/const DOWNLOAD_VERSION = "'"$version"'";/' connect/src/config/config.ts
+
+      - name: Create pull request when version changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/sync-dataconnect-download-version
+          delete-branch: true
+          commit-message: "ci(connect): sync DataConnect download version"
+          title: "ci(connect): sync DataConnect download version"
+          body: |
+            ## Summary
+            - sync `DOWNLOAD_VERSION` in `connect/src/config/config.ts` to the latest `vana-com/data-connect` release tag
+            - keep `/download-data-connect` asset links current without manual edits
+
+            ## Test plan
+            - [ ] Run this workflow via workflow_dispatch
+            - [ ] Confirm PR is created only when latest tag differs
+            - [ ] Verify generated URLs on `/download-data-connect` point to the new release
