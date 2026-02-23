@@ -1,4 +1,4 @@
-import { clearHandoffContext } from "@/app/(connect)/_shared/handoff-contract";
+import { clearHandoffContext } from "@/app/_lib/handoff-contract";
 import { APP_ROUTES } from "@/app/routes";
 
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";

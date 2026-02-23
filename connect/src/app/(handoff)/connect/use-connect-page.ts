@@ -9,8 +9,8 @@ import {
   resolveHandoffContextFromClient,
   toDownloadDataConnectUrl,
   toLoginUrl,
-} from "../_shared/handoff-contract";
-import { resolveConnectLaunchUrl } from "./launch-url";
+} from "@/app/_lib/handoff-contract";
+import { resolveConnectLaunchUrl } from "./_lib/launch-url";
 import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
 
 const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";

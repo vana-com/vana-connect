@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   parseFromSearchParams,
   toConnectUrl,
-} from "@/app/(connect)/_shared/handoff-contract";
+} from "@/app/_lib/handoff-contract";
 import { APP_ROUTES } from "@/app/routes";
 
 function buildCanonicalConnectUrl(requestUrl: URL): URL | null {

@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  parseFromSearchParams,
-  toConnectUrl,
-} from "./(connect)/_shared/handoff-contract";
+import { parseFromSearchParams, toConnectUrl } from "./_lib/handoff-contract";
 import { APP_ROUTES } from "./routes";
 
 type PageProps = {

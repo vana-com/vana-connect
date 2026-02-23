@@ -2,7 +2,6 @@
 
 import { BoxIcon, CheckIcon, CopyIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useAuthGuard } from "@/app/_auth/use-auth-guard";
 import { PagePanel } from "@/app/_components/page-panel";
 import { NavLink, PageShell } from "@/app/_components/page-shell";
 import { PageHeader } from "@/components/elements/page-header";
@@ -32,7 +31,6 @@ function randomPrivateKey(): `0x${string}` {
 }
 
 export default function AdminPage() {
-  const { isChecking } = useAuthGuard();
   const [state, setState] = useState<AdminState>("form");
   const [appUrl, setAppUrl] = useState(DEFAULT_APP_URL);
   const [privateKey, setPrivateKey] = useState<`0x${string}` | "">("");
@@ -52,16 +50,6 @@ export default function AdminPage() {
   const envText = useMemo(() => {
     return `VANA_APP_PRIVATE_KEY=${ui.privateKey}\nAPP_URL=${ui.appUrl}`;
   }, [ui.appUrl, ui.privateKey]);
-
-  if (isChecking) {
-    return (
-      <PageShell>
-        <PagePanel>
-          <PageLoadingState showVanaLogotype message="Checking session…" />
-        </PagePanel>
-      </PageShell>
-    );
-  }
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

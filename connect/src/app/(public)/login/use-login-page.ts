@@ -13,7 +13,7 @@ import {
   persistHandoffContext,
   resolveHandoffContextFromClient,
   resolvePostAuthDestination,
-} from "../_shared/handoff-contract";
+} from "@/app/_lib/handoff-contract";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
