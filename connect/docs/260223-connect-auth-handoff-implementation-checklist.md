@@ -1,5 +1,59 @@
 # Connect auth handoff: implementation checklist
 
+## Post-implementation notes
+
+Implementation outcome so far:
+
+- Contract module + resolver flow is in place and wired through `/`, `/connect`, `/login`, `/logout`.
+- Root canonicalization + URL whitelist behavior is implemented.
+- Handoff continuity tests and route tests were added and are passing.
+- Build now passes (`pnpm --dir connect build`).
+
+Contract metadata semantics (documented + implemented):
+
+- `version`: serialized schema version used to keep parser compatibility explicit.
+- `createdAt`: unix timestamp (ms) used for TTL checks.
+- `returnTo`: validated internal path with default `/connect`.
+
+Source of truth:
+
+- `src/app/(connect)/_shared/handoff-contract.ts` (`ConnectHandoffContext`, parsers, URL builders)
+
+### Repro checklist status (original report)
+
+| Step                                                      | Expected                                            | Status            | Why                                                                   |
+| --------------------------------------------------------- | --------------------------------------------------- | ----------------- | --------------------------------------------------------------------- |
+| Open deep link flow (`/connect?sessionId=...&secret=...`) | Flow starts in panelized loading state              | ✅ Pass           | Suspense fallback wrapped in `PageShell + PagePanel` on connect/login |
+| Initial loading visual containment                        | No bare page-level `Loading...`                     | ✅ Pass           | Both `/connect` and `/login` fallback are panel-contained             |
+| `Preparing...` during auth/sign prep                      | Should not hang forever                             | ✅ Pass (guarded) | Explicit `wallet-wait` phase + timeout -> error                       |
+| Auth required branch                                      | Redirect to `/login` with handoff context preserved | ✅ Pass           | Central resolver + `toLoginUrl()`                                     |
+| OAuth return with dropped query                           | Recover session context and resume                  | ✅ Pass           | Resolution precedence: URL > cookie > storage                         |
+| Post-login destination after valid handoff                | Return to `/connect?...` (not download)             | ✅ Pass           | `resolvePostAuthDestination()` centralized                            |
+| Download fallback                                         | Only when no valid context exists                   | ✅ Pass           | Explicit fallback policy + tests                                      |
+| Debug/internal query leakage to download URL              | Should be filtered                                  | ✅ Pass           | Raw passthrough removed, whitelist-based URL building                 |
+| Root route with handoff query                             | Canonicalize to `/connect?...`                      | ✅ Pass           | Root route + middleware normalization                                 |
+| Logout hygiene                                            | Clear handoff context                               | ✅ Pass           | `logout` now calls `clearHandoffContext()`                            |
+
+### Residual real-world risk
+
+- **Privy/wallet runtime edge behavior** still needs live browser sanity checks (timeouts are guarded, but UX timing is runtime-dependent).
+- **No full automated browser E2E** yet; coverage is strong at unit/integration level.
+
+### Confidence
+
+- **High**: routing + handoff contract correctness.
+- **Medium-high**: wallet runtime behavior.
+
+## Follow-up TODOs
+
+- [ ] Run the human post-fix checklist in `260223-connect-auth-handoff-post-fix-human-checklist.md` on staging/prod.
+- [ ] Migrate Next 16 `middleware` file convention to `proxy` (build warning currently expected).
+- [ ] Add one browser E2E flow (Playwright/Cypress) for deep-link -> login -> connect resume.
+- [ ] Decide whether `secret` should be excluded entirely from client persistence (currently cookie-redacted, storage-kept).
+- [ ] Add explicit callback-marker contract docs for OAuth-return detection keys.
+
+## Implementation
+
 Use this with `260223-connect-auth-handoff-best-fix.md`.
 
 ## Phase 0: lock contract (no behavior change)
@@ -144,55 +198,3 @@ Suggested commits:
 - `chore(connect): remove obsolete handoff helpers`
 - `docs(connect): finalize handoff contract reference`
 - `refactor(connect): align sign-in route naming` (separate PR)
-
-## Post-implementation note
-
-Implementation outcome so far:
-
-- Contract module + resolver flow is in place and wired through `/`, `/connect`, `/login`, `/logout`.
-- Root canonicalization + URL whitelist behavior is implemented.
-- Handoff continuity tests and route tests were added and are passing.
-- Build now passes (`pnpm --dir connect build`).
-
-Contract metadata semantics (documented + implemented):
-
-- `version`: serialized schema version used to keep parser compatibility explicit.
-- `createdAt`: unix timestamp (ms) used for TTL checks.
-- `returnTo`: validated internal path with default `/connect`.
-
-Source of truth:
-
-- `src/app/(connect)/_shared/handoff-contract.ts` (`ConnectHandoffContext`, parsers, URL builders)
-
-### Repro checklist status (original report)
-
-| Step                                                      | Expected                                            | Status            | Why                                                                   |
-| --------------------------------------------------------- | --------------------------------------------------- | ----------------- | --------------------------------------------------------------------- |
-| Open deep link flow (`/connect?sessionId=...&secret=...`) | Flow starts in panelized loading state              | ✅ Pass           | Suspense fallback wrapped in `PageShell + PagePanel` on connect/login |
-| Initial loading visual containment                        | No bare page-level `Loading...`                     | ✅ Pass           | Both `/connect` and `/login` fallback are panel-contained             |
-| `Preparing...` during auth/sign prep                      | Should not hang forever                             | ✅ Pass (guarded) | Explicit `wallet-wait` phase + timeout -> error                       |
-| Auth required branch                                      | Redirect to `/login` with handoff context preserved | ✅ Pass           | Central resolver + `toLoginUrl()`                                     |
-| OAuth return with dropped query                           | Recover session context and resume                  | ✅ Pass           | Resolution precedence: URL > cookie > storage                         |
-| Post-login destination after valid handoff                | Return to `/connect?...` (not download)             | ✅ Pass           | `resolvePostAuthDestination()` centralized                            |
-| Download fallback                                         | Only when no valid context exists                   | ✅ Pass           | Explicit fallback policy + tests                                      |
-| Debug/internal query leakage to download URL              | Should be filtered                                  | ✅ Pass           | Raw passthrough removed, whitelist-based URL building                 |
-| Root route with handoff query                             | Canonicalize to `/connect?...`                      | ✅ Pass           | Root route + middleware normalization                                 |
-| Logout hygiene                                            | Clear handoff context                               | ✅ Pass           | `logout` now calls `clearHandoffContext()`                            |
-
-### Residual real-world risk
-
-- **Privy/wallet runtime edge behavior** still needs live browser sanity checks (timeouts are guarded, but UX timing is runtime-dependent).
-- **No full automated browser E2E** yet; coverage is strong at unit/integration level.
-
-### Confidence
-
-- **High**: routing + handoff contract correctness.
-- **Medium-high**: wallet runtime behavior.
-
-## Follow-up TODOs
-
-- [ ] Run the human post-fix checklist in `260223-connect-auth-handoff-post-fix-human-checklist.md` on staging/prod.
-- [ ] Migrate Next 16 `middleware` file convention to `proxy` (build warning currently expected).
-- [ ] Add one browser E2E flow (Playwright/Cypress) for deep-link -> login -> connect resume.
-- [ ] Decide whether `secret` should be excluded entirely from client persistence (currently cookie-redacted, storage-kept).
-- [ ] Add explicit callback-marker contract docs for OAuth-return detection keys.
