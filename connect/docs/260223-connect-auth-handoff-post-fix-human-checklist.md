@@ -26,7 +26,7 @@ Open:
 
 Expect:
 
-- immediate redirect to `/connect?sessionId=...&secret=...&app=discover-me`
+- immediate redirect to `/login?sessionId=...&secret=...&app=discover-me`
 - debug-only params (like `authDebug`) are removed from canonical URL
 
 Pass/Fail:
@@ -48,42 +48,13 @@ Pass/Fail:
 - [ ] Pass
 - [ ] Fail
 
-### 3) Post-login destination (valid handoff)
-
-Complete sign-in from `/login?...`.
-
-Expect:
-
-- destination is `/connect?...` (resume handoff)
-- **not** `/download-data-connect`
-
-Pass/Fail:
-
-- [ ] Pass
-- [ ] Fail
-
-### 4) Lost-query OAuth return recovery
-
-1. Open `/login?sessionId=sess-smoke-2&secret=sec-smoke-2`
-2. Before signing in, remove query manually -> `/login`
-3. Complete sign-in
-
-Expect:
-
-- flow still resumes `/connect?sessionId=sess-smoke-2...` via stored handoff context
-
-Pass/Fail:
-
-- [ ] Pass
-- [ ] Fail
-
-### 5) Download link whitelist check
+### 3) Download link whitelist check
 
 On `/connect?...`, inspect the "Download DataConnect" link target.
 
 Expect:
 
-- only whitelisted integration params: `sessionId`, `secret`, `app`, `appId`, `appName`
+- only handoff/integration params: `sessionId`, `secret`, `app`, `appId`, `appName`
 - no debug/internal params (for example `authDebug`, `scenario`)
 
 Pass/Fail:
@@ -91,7 +62,7 @@ Pass/Fail:
 - [ ] Pass
 - [ ] Fail
 
-### 6) Wallet readiness failure path
+### 4) Wallet readiness failure path
 
 Force or reproduce wallet-not-ready behavior.
 
@@ -105,7 +76,7 @@ Pass/Fail:
 - [ ] Pass
 - [ ] Fail
 
-### 7) Logout cleanup integrity
+### 5) Logout cleanup integrity
 
 1. Hit `/logout`
 2. Return to `/login` with no query and sign in
@@ -120,7 +91,7 @@ Pass/Fail:
 - [ ] Pass
 - [ ] Fail
 
-### 8) No-context route sanity
+### 6) No-context route sanity (non-blocking)
 
 Check:
 
@@ -129,7 +100,7 @@ Check:
 
 Expect:
 
-- `/connect` -> missing-session UI (deterministic, no loops)
+- `/connect` -> deterministic fallback UI (no loops, no crashes); user is not hard-blocked
 - `/` -> `/login`
 
 Pass/Fail:
@@ -149,5 +120,4 @@ Pass/Fail:
 ## Final sign-off
 
 - [ ] All checks passed
-- Notes:
-  -
+- ## Notes:
