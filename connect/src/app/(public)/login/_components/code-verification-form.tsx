@@ -54,6 +54,7 @@ export const CodeVerificationForm = ({
         value={code}
         onChange={handleChange}
         disabled={disabled}
+        autoFocus={!disabled}
         autoComplete="one-time-code"
         className="w-max"
         containerClassName="inline-flex w-max items-center gap-2"
