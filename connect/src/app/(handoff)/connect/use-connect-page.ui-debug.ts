@@ -6,7 +6,7 @@ import type { ConnectPageView } from "./use-connect-page";
 // - Enable: /connect?authDebug=1
 // - Pick a state: /connect?authDebug=1&scenario=<name>
 // - Scenarios:
-//   - missing-session
+//   - missing-session — no sessionId; shows ConnectMissingSessionState (logged out) or ConnectNoSessionFallbackState (logged in). To hit the fallback: you must be logged in, then visit: /connect?authDebug=1&scenario=missing-session
 //   - loading (also used when signing)
 //   - ready
 //   - error
@@ -64,18 +64,21 @@ function isConnectPageUiDebugScenario(
 
 function resolveConnectPageUiDebugConfig(): {
   enabled: boolean;
-  scenario: ConnectPageUiDebugScenario;
+  scenario: ConnectPageUiDebugScenario | null;
 } {
   if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
-    return { enabled: false, scenario: "loading" };
+    return { enabled: false, scenario: null };
   }
 
   const search = new URLSearchParams(window.location.search);
   const scenario = search.get("scenario");
+  const resolvedScenario = isConnectPageUiDebugScenario(scenario)
+    ? scenario
+    : null;
 
   return {
     enabled: search.get("authDebug") === "1",
-    scenario: isConnectPageUiDebugScenario(scenario) ? scenario : "loading",
+    scenario: resolvedScenario,
   };
 }
 
@@ -84,6 +87,7 @@ export function resolveConnectPageUiDebugState(
 ): ConnectPageUiState {
   const debug = resolveConnectPageUiDebugConfig();
   if (!debug.enabled) return state;
+  if (!debug.scenario) return state;
   return {
     ...state,
     ...CONNECT_PAGE_UI_DEBUG_SCENARIOS[debug.scenario],

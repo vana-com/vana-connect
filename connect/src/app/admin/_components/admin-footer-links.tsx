@@ -8,7 +8,10 @@ const GITHUB_URL = "https://github.com/vana-com/vana-connect";
 
 export function AdminFooterLinks() {
   return (
-    <div className="flex items-center justify-center gap-5">
+    <div
+      data-slot="admin-footer-links"
+      className="flex items-center justify-center gap-5"
+    >
       <ExternalLink href={GITHUB_URL} leadingIcon={GithubIcon}>
         GitHub
       </ExternalLink>

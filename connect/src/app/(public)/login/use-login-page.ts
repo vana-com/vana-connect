@@ -7,10 +7,16 @@ import {
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_ROUTES } from "@/app/routes";
 import { CONNECT_CONFIG } from "@/config/config";
+import {
+  clearHandoffContext,
+  persistHandoffContext,
+  resolvePostAuthDestination,
+} from "@/app/_lib/handoff-contract";
+import { useHandoffResolution } from "@/app/_lib/use-handoff-resolution";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
-const STORAGE_KEY = "vana_connect_session";
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
 
 export type LoginPageView = "loading" | "entry" | "code" | "completing";
@@ -21,36 +27,38 @@ export const LOGIN_PAGE_SPINNER_VIEWS: readonly LoginPageView[] = [
   "completing",
 ];
 
-type SessionParams = { sessionId: string; secret: string | null };
-
-function saveSession(params: SessionParams) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(params));
-  } catch {
-    // localStorage may be unavailable (e.g. incognito in some browsers)
-  }
+function isOtpVerificationPhase(status: string): boolean {
+  return status === "awaiting-code" || status === "submitting-code";
 }
 
-function readAndClearSession(): SessionParams | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    localStorage.removeItem(STORAGE_KEY);
-    return JSON.parse(raw) as SessionParams;
-  } catch {
-    return null;
-  }
-}
-
-function buildConnectUrl(params: SessionParams): string {
-  const qs = new URLSearchParams();
-  qs.set("sessionId", params.sessionId);
-  if (params.secret) qs.set("secret", params.secret);
-  return `/connect?${qs.toString()}`;
+function hasOAuthCallbackParams(searchParams: URLSearchParams): boolean {
+  const callbackKeys = [
+    "code",
+    "state",
+    "error",
+    "error_description",
+    "oauth_token",
+    "oauth_verifier",
+    "id_token",
+    "privy_oauth_code",
+  ] as const;
+  return callbackKeys.some((key) => Boolean(searchParams.get(key)));
 }
 
 export function useLoginPage() {
   const searchParams = useSearchParams();
+  const hasSessionIdInUrl = Boolean(searchParams.get("sessionId"));
+  const isOAuthReturn = hasOAuthCallbackParams(searchParams);
+  const handoffResolvedAtRef = useRef(Date.now());
+  const { handoffContext, hasClearHandoffFlag } = useHandoffResolution({
+    searchParams,
+    resolvedAtMs: handoffResolvedAtRef.current,
+    restoreFromPersistence: hasSessionIdInUrl || isOAuthReturn,
+    clearRedirectPath: APP_ROUTES.login,
+    navigate: (href) => {
+      window.location.replace(href);
+    },
+  });
   const { ready, authenticated } = usePrivy();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
@@ -65,25 +73,23 @@ export function useLoginPage() {
   const redirectedRef = useRef(false);
   const oauthInitiatedRef = useRef(false);
 
-  // Read session params from URL (preferred) or localStorage (OAuth return)
-  const sessionId = searchParams.get("sessionId");
-  const secret = searchParams.get("secret");
+  useEffect(() => {
+    if (hasClearHandoffFlag) return;
+    if (hasSessionIdInUrl || isOAuthReturn) return;
+    clearHandoffContext();
+  }, [hasClearHandoffFlag, hasSessionIdInUrl, isOAuthReturn]);
 
-  // Redirect helper — navigates to /connect with session params.
+  // Redirect helper — navigates to connect or fallback based on handoff context.
   // Uses window.location (not Next.js router) because router.replace can
   // silently fail after full-page OAuth redirects.
   const handleLoginComplete = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
 
-    // Try URL params first, fall back to localStorage (OAuth return case)
-    const params: SessionParams | null = sessionId
-      ? { sessionId, secret }
-      : readAndClearSession();
-
-    const url = params ? buildConnectUrl(params) : "/download-data-connect";
+    const url = resolvePostAuthDestination(handoffContext);
+    clearHandoffContext();
     window.location.replace(url);
-  }, [sessionId, secret]);
+  }, [handoffContext]);
 
   // Email OTP hooks
   const {
@@ -99,7 +105,7 @@ export function useLoginPage() {
       setError(
         typeof err === "string" ? err : "Login failed. Please try again.",
       );
-      // Stay on current view so user can retry
+      setView("code");
     },
   });
 
@@ -118,12 +124,11 @@ export function useLoginPage() {
     },
   });
 
-  // Persist session params to localStorage on mount
+  // Persist handoff context to survive auth/OAuth redirects.
   useEffect(() => {
-    if (sessionId) {
-      saveSession({ sessionId, secret });
-    }
-  }, [sessionId, secret]);
+    if (!handoffContext) return;
+    persistHandoffContext(handoffContext);
+  }, [handoffContext]);
 
   // If already authenticated on mount, redirect immediately
   useEffect(() => {
@@ -134,40 +139,38 @@ export function useLoginPage() {
     }
     // Privy is ready and user is not authenticated — show entry form
     if (view === "loading") {
-      setView("entry");
+      setView(isOtpVerificationPhase(emailState.status) ? "code" : "entry");
     }
-  }, [ready, authenticated, view, handleLoginComplete]);
+  }, [ready, authenticated, view, handleLoginComplete, emailState.status]);
 
   // Handle OAuth state transitions (covers the auto-processed callback on page load,
   // where the onComplete callback may not fire since the hook instance that called
   // initOAuth no longer exists after the full-page navigation to the OAuth provider).
   // Guard: only react to oauthState after the user has initiated OAuth or when
-  // returning from an OAuth redirect (detected via session params in localStorage).
+  // the URL includes OAuth callback markers on return.
   useEffect(() => {
-    const isOAuthReturn = !oauthInitiatedRef.current;
-    if (isOAuthReturn) {
-      try {
-        if (!localStorage.getItem(STORAGE_KEY)) return;
-      } catch {
-        return;
-      }
+    const isOAuthReturnPath =
+      !oauthInitiatedRef.current && hasOAuthCallbackParams(searchParams);
+    if (isOAuthReturnPath) {
+      if (!handoffContext) return;
     }
     // On the return path, show the completing spinner while Privy processes.
     // On the click path, stay on the entry screen so button-level spinners show.
-    if (oauthState.status === "loading" && isOAuthReturn) {
+    if (oauthState.status === "loading" && isOAuthReturnPath) {
       setView("completing");
     }
     if (oauthState.status === "done") {
       setView("completing");
       handleLoginComplete();
     }
-  }, [oauthState.status, handleLoginComplete]);
+  }, [oauthState.status, handoffContext, handleLoginComplete, searchParams]);
 
   // Email submit — send OTP
   const handleEmailSubmit = useCallback(async () => {
     setError(null);
     try {
       await privySendCode({ email });
+      setCode("");
       setView("code");
     } catch {
       setError("Failed to send code. Please try again.");
@@ -175,15 +178,22 @@ export function useLoginPage() {
   }, [email, privySendCode]);
 
   // Code submit — verify OTP
-  const handleCodeSubmit = useCallback(async () => {
-    setError(null);
-    try {
-      await privyLoginWithCode({ code });
-      // onComplete callback handles redirect
-    } catch {
-      setError("Invalid code. Please try again.");
-    }
-  }, [code, privyLoginWithCode]);
+  const handleCodeSubmit = useCallback(
+    async (codeOverride?: string) => {
+      const codeToSubmit = codeOverride ?? code;
+      if (!codeToSubmit) return;
+
+      setError(null);
+      try {
+        await privyLoginWithCode({ code: codeToSubmit });
+        // onComplete callback handles redirect
+      } catch {
+        setError("Invalid code. Please try again.");
+        setView("code");
+      }
+    },
+    [code, privyLoginWithCode],
+  );
 
   const handleResendCode = useCallback(async () => {
     setError(null);
@@ -196,6 +206,7 @@ export function useLoginPage() {
 
   const handleBackToEmail = useCallback(() => {
     setError(null);
+    setCode("");
     setView("entry");
   }, []);
 
@@ -203,20 +214,20 @@ export function useLoginPage() {
   const handleGoogleLogin = useCallback(() => {
     oauthInitiatedRef.current = true;
     setPendingOAuthProvider("google");
-    if (sessionId) {
-      saveSession({ sessionId, secret });
+    if (handoffContext) {
+      persistHandoffContext(handoffContext);
     }
     initOAuth({ provider: "google" });
-  }, [sessionId, secret, initOAuth]);
+  }, [handoffContext, initOAuth]);
 
   const handleAppleLogin = useCallback(() => {
     oauthInitiatedRef.current = true;
     setPendingOAuthProvider("apple");
-    if (sessionId) {
-      saveSession({ sessionId, secret });
+    if (handoffContext) {
+      persistHandoffContext(handoffContext);
     }
     initOAuth({ provider: "apple" });
-  }, [sessionId, secret, initOAuth]);
+  }, [handoffContext, initOAuth]);
 
   const isSendingEmail = emailState.status === "sending-code";
   const isVerifyingCode = emailState.status === "submitting-code";

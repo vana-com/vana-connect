@@ -9,13 +9,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
 import { DcIcon } from "@/components/icons/dc-icon2";
 import { PlatformIcon } from "@/components/icons/platform-icon";
 import { VanaV } from "@/components/icons/vana-v";
 import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
-import type { resolveConnectApp } from "./app-registry";
+import type { resolveConnectApp } from "../_lib/app-registry";
 
 type ConnectApp = ReturnType<typeof resolveConnectApp>;
 
@@ -42,7 +43,7 @@ export function ConnectPanelFooter() {
     <div className="flex flex-col items-center">
       <Text as="p" intent="small" align="center" muted>
         Interested in building apps on Vana?{" "}
-        <Link href="/admin" className="link hover:text-foreground">
+        <Link href={APP_ROUTES.admin} className="link hover:text-foreground">
           Learn more
           <ArrowRightIcon aria-hidden className="inline size-[0.9em] ml-px" />
         </Link>
@@ -73,6 +74,39 @@ export function ConnectMissingSessionState({ app }: { app: ConnectApp }) {
           This page requires a valid session. Please start from your
           application.
         </Text>
+      }
+    />
+  );
+}
+
+export function ConnectNoSessionFallbackState({ app }: { app: ConnectApp }) {
+  return (
+    <ConnectStateFrame
+      app={app}
+      title={
+        <Text as="h1" intent="title" align="center">
+          Continue in DataConnect
+        </Text>
+      }
+      subtitle={
+        <Text as="h1" intent="xlarge" dim balance>
+          No active handoff session found. You can still open DataConnect and
+          start from there.
+        </Text>
+      }
+      content={
+        <ConnectLaunchSection
+          buttonLabel="Open DataConnect downloads"
+          onButtonClick={() => {
+            window.location.assign(APP_ROUTES.downloadDataConnect);
+          }}
+          secondaryContent={
+            <Text as="p" intent="small" muted>
+              If another app initiated Connect, relaunch from that app to resume
+              with a session.
+            </Text>
+          }
+        />
       }
     />
   );
@@ -160,7 +194,7 @@ export function ConnectErrorState({
         <Text as="h1" intent="xlarge" dim>
           {isDebugMode
             ? (error ?? "Failed during the authorization phase.")
-            : "We couldn't finish preparing your connection."}
+            : (error ?? "We couldn't configure your connection.")}
         </Text>
       }
       content={
@@ -292,7 +326,7 @@ function ConnectLaunchSection({
         <Text as="p">
           Don&apos;t have it?{" "}
           <Link
-            href={downloadDataConnectHref ?? "/download-data-connect"}
+            href={downloadDataConnectHref ?? APP_ROUTES.downloadDataConnect}
             className="link hover:text-foreground"
           >
             Download DataConnect&nbsp;

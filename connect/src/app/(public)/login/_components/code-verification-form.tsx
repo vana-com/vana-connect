@@ -13,7 +13,7 @@ type CodeVerificationFormProps = {
   disabled: boolean;
   isVerifying: boolean;
   onCodeChange: (code: string) => void;
-  onSubmit: () => void;
+  onSubmit: (codeOverride?: string) => void;
   className?: string;
   errorSlot?: React.ReactNode;
 };
@@ -34,7 +34,8 @@ export const CodeVerificationForm = ({
   const handleChange = (value: string) => {
     onCodeChange(value);
     if (value.length === 6 && !disabled && !isVerifying) {
-      queueMicrotask(() => onSubmit());
+      // Use the value from the change event to avoid stale-state submits on paste.
+      queueMicrotask(() => onSubmit(value));
     }
   };
 
@@ -42,7 +43,7 @@ export const CodeVerificationForm = ({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+        onSubmit(code);
       }}
       className={cn("mx-auto flex w-max flex-col gap-3", className)}
     >
@@ -53,6 +54,7 @@ export const CodeVerificationForm = ({
         value={code}
         onChange={handleChange}
         disabled={disabled}
+        autoFocus={!disabled}
         autoComplete="one-time-code"
         className="w-max"
         containerClassName="inline-flex w-max items-center gap-2"

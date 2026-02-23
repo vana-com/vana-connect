@@ -30,16 +30,12 @@ describe("resolveConnectPageUiDebugState", () => {
     expect(module.resolveConnectPageUiDebugState(baseState)).toEqual(baseState);
   });
 
-  it("uses loading scenario when authDebug=1 and scenario is omitted", async () => {
+  it("keeps real state when authDebug=1 and scenario is omitted", async () => {
     vi.stubEnv("NODE_ENV", "development");
     window.history.pushState({}, "", "/connect?authDebug=1");
 
     const module = await import("./use-connect-page.ui-debug");
-    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual({
-      ...baseState,
-      sessionId: "sess-debug",
-      view: "loading",
-    });
+    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual(baseState);
   });
 
   it("uses scenario from query when authDebug=1", async () => {

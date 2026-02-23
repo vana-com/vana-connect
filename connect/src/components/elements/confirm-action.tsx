@@ -41,19 +41,21 @@ export function SettingsConfirmAction({
           </Button>
         )}
       </AlertDialogTrigger>
-      <AlertDialogContent size="sm">
+      <AlertDialogContent size="sm" className="max-w-[380px]! rounded-card">
         <AlertDialogHeader>
           {media ? (
             <AlertDialogMedia className="bg-transparent">
               {media}
             </AlertDialogMedia>
           ) : null}
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-small text-foreground-dim">
+          <AlertDialogTitle className="w-fulltext-left text-large">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-left text-small text-foreground-dim">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="pt-gap">
           <AlertDialogCancel size="sm">Cancel</AlertDialogCancel>
           <AlertDialogAction size="sm" variant="destructive" onClick={onAction}>
             {actionLabel}

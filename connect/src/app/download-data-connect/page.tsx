@@ -1,10 +1,12 @@
 "use client";
 
+import { usePrivy } from "@privy-io/react-auth";
 import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { APP_ROUTES } from "@/app/routes";
 import { ExternalLink } from "@/components/elements/external-link";
 import { SlidingTabs } from "@/components/elements/sliding-tabs";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -47,6 +49,7 @@ function useDownloadState() {
 }
 
 function DownloadDataConnectPageContent() {
+  const { authenticated } = usePrivy();
   const checkboxId = useId();
   const [isFoundationLegalAccepted, setIsFoundationLegalAccepted] =
     useState(false);
@@ -77,6 +80,10 @@ function DownloadDataConnectPageContent() {
 
   const primaryHref = primaryAsset ? getAssetUrl(primaryAsset.filename) : "#";
   const canPrimaryDownload = !isUnknown && primaryAsset !== null;
+  const shellActions = authenticated
+    ? (["yourApps", "logout"] as const)
+    : (["yourApps"] as const);
+  const backHref = authenticated ? APP_ROUTES.admin : APP_ROUTES.login;
 
   function handleDownloadIntent(
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -105,7 +112,7 @@ function DownloadDataConnectPageContent() {
   }
 
   return (
-    <PageShell showBackButton actions={["yourApps", "logout"]}>
+    <PageShell showBackButton backHref={backHref} actions={[...shellActions]}>
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={
@@ -144,45 +151,43 @@ function DownloadDataConnectPageContent() {
           )}
 
           {/* Other downloads */}
-          <div className={cn(contentStyle, "text-left space-y-2")}>
-            <Text
-              as="p"
-              intent="small"
-              dim
-              withIcon
-              align="center"
-              className="pb-2"
-            >
+          <div className={cn(contentStyle, "text-left space-y-4")}>
+            <Text as="p" intent="small" dim withIcon align="center">
               <LaptopIcon aria-hidden />
               Other downloads
             </Text>
 
-            <SlidingTabs
-              tabs={osTabs}
-              value={selectedGroup}
-              onValueChange={(value) => setSelectedGroup(value as OSGroup)}
-              listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
-              listItemClassName="flex-1 min-w-0"
-              tabClassName={cn(
-                // Layout
-                "w-full flex justify-center rounded-sm px-2.5",
-                // Tab height (--tab-h drives both h and label leading)
-                "[--tab-h:2rem] h-[var(--tab-h)]",
-                // Vertical-center label via line-height = tab height
-                "[&>*]:leading-[var(--tab-h)]",
-              )}
-              indicatorClassName={cn(
-                "inset-0 rounded-sm",
-                "bg-(--canvas-accent-25-black-5)",
-              )}
-              indicatorLayoutId="download-os-selected-indicator"
-            />
-
-            <div className="min-h-[92px] overflow-auto">
-              <AllDownloadsGroup
-                groupAssets={assets[selectedGroup]}
-                onDownloadIntent={handleDownloadIntent}
+            <div>
+              <SlidingTabs
+                tabs={osTabs}
+                value={selectedGroup}
+                onValueChange={(value) => setSelectedGroup(value as OSGroup)}
+                listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
+                listItemClassName="flex-1 min-w-0"
+                tabClassName={cn(
+                  // Layout
+                  "w-full flex justify-center rounded-sm px-2.5",
+                  // Tab height (--tab-h drives both h and label leading)
+                  "[--tab-h:2rem] h-[var(--tab-h)]",
+                  // Vertical-center label via line-height = tab height
+                  "[&>*]:leading-[var(--tab-h)]",
+                )}
+                indicatorClassName={cn(
+                  "inset-0 rounded-sm",
+                  "bg-(--canvas-accent-25-black-5)",
+                )}
+                indicatorLayoutId="download-os-selected-indicator"
               />
+
+              <div className="min-h-[112px] overflow-auto pt-5 -mt-3 border rounded-b-card">
+                {assets[selectedGroup].map((asset) => (
+                  <AssetRow
+                    key={asset.filename}
+                    asset={asset}
+                    onDownloadIntent={handleDownloadIntent}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -196,7 +201,6 @@ function DownloadDataConnectPageContent() {
           size="sm"
           className={cn(
             "rounded-squish text-left max-w-[380px]!",
-            // spacing
             "p-w6 space-y-1",
           )}
         >
@@ -289,29 +293,6 @@ function DownloadDataConnectCardContent({
   );
 }
 
-function AllDownloadsGroup({
-  groupAssets,
-  onDownloadIntent,
-}: {
-  groupAssets: readonly DownloadAsset[];
-  onDownloadIntent: (
-    event: React.MouseEvent<HTMLAnchorElement>,
-    href: string,
-  ) => void;
-}) {
-  return (
-    <div className="space-y-px">
-      {groupAssets.map((asset) => (
-        <AssetRow
-          key={asset.filename}
-          asset={asset}
-          onDownloadIntent={onDownloadIntent}
-        />
-      ))}
-    </div>
-  );
-}
-
 function AssetRow({
   asset,
   onDownloadIntent,
@@ -331,7 +312,7 @@ function AssetRow({
       className={cn(
         "group",
         "flex items-center justify-between gap-2 px-2 py-2.5",
-        "rounded-button",
+        // "rounded-button",
         "hover:bg-(--canvas-accent-25-black-5)/40",
       )}
     >

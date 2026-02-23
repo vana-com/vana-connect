@@ -6,31 +6,54 @@ import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { CONNECT_CONFIG } from "@/config/config";
-import { resolveConnectAppRef } from "./_shared/app-query";
-import { resolveConnectApp } from "./_shared/app-registry";
 import {
   ConnectErrorState,
   ConnectFooterSpacer,
   ConnectLoadingState,
+  ConnectNoSessionFallbackState,
   ConnectMissingSessionState,
   ConnectPanelFooter,
   ConnectReadyState,
-} from "./_shared/connect-page-ui";
+} from "./_components/connect-page-ui";
+import { resolveConnectAppRef } from "./_lib/app-query";
+import { resolveConnectApp } from "./_lib/app-registry";
 import { useConnectPage } from "./use-connect-page";
 
-// TODO(connect-query-contract): Query pass-through to `/download-data-connect`
-// is not finalized. Replace raw `searchParams.toString()` forwarding with an
-// explicit whitelist once the contract is frozen (keep only integration params,
-// strip debug/internal params like `authDebug` and `scenario`).
+function createAppQueryReader(
+  appContext: {
+    app: string | null;
+    appId: string | null;
+    appName: string | null;
+  } | null,
+  fallback: URLSearchParams,
+) {
+  return {
+    get(name: string): string | null {
+      if (appContext) {
+        if (name === "app") return appContext.app;
+        if (name === "appId") return appContext.appId;
+        if (name === "appName") return appContext.appName;
+      }
+      return fallback.get(name);
+    },
+  };
+}
+
 function ConnectPageContent() {
   const searchParams = useSearchParams();
-  const { view, error, sessionId, deepLinkUrl } = useConnectPage();
+  const {
+    view,
+    error,
+    sessionId,
+    isAuthenticated,
+    deepLinkUrl,
+    appContext,
+    downloadDataConnectHref,
+  } = useConnectPage();
   const isDebugMode = searchParams.get("authDebug") === "1";
-  const rawQuery = searchParams.toString();
-  const downloadDataConnectHref = rawQuery
-    ? `/download-data-connect?${rawQuery}`
-    : "/download-data-connect";
-  const appRef = resolveConnectAppRef(searchParams);
+  const appRef = resolveConnectAppRef(
+    createAppQueryReader(appContext, searchParams),
+  );
   const app = resolveConnectApp(appRef);
   const supportHref = `mailto:${CONNECT_CONFIG.support.email}`;
 
@@ -41,7 +64,11 @@ function ConnectPageContent() {
           className="text-center justify-center"
           footer={<ConnectFooterSpacer />}
         >
-          <ConnectMissingSessionState app={app} />
+          {isAuthenticated ? (
+            <ConnectNoSessionFallbackState app={app} />
+          ) : (
+            <ConnectMissingSessionState app={app} />
+          )}
         </PagePanel>
       </PageShell>
     );

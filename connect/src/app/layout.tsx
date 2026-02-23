@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { AppProviders } from "@/app/_components/app-providers";
 import "../styles/index.css";
 
 const inter = localFont({
@@ -51,7 +52,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${gtAmericaMono.variable}`}>
-      <body className="">{children}</body>
+      <body className="">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
