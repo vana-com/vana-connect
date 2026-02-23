@@ -16,7 +16,7 @@ import { PlatformIcon } from "@/components/icons/platform-icon";
 import { VanaV } from "@/components/icons/vana-v";
 import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
-import type { resolveConnectApp } from "./app-registry";
+import type { resolveConnectApp } from "../_lib/app-registry";
 
 type ConnectApp = ReturnType<typeof resolveConnectApp>;
 
@@ -74,6 +74,39 @@ export function ConnectMissingSessionState({ app }: { app: ConnectApp }) {
           This page requires a valid session. Please start from your
           application.
         </Text>
+      }
+    />
+  );
+}
+
+export function ConnectNoSessionFallbackState({ app }: { app: ConnectApp }) {
+  return (
+    <ConnectStateFrame
+      app={app}
+      title={
+        <Text as="h1" intent="title" align="center">
+          Continue in DataConnect
+        </Text>
+      }
+      subtitle={
+        <Text as="h1" intent="xlarge" dim balance>
+          No active handoff session found. You can still open DataConnect and
+          start from there.
+        </Text>
+      }
+      content={
+        <ConnectLaunchSection
+          buttonLabel="Open DataConnect downloads"
+          onButtonClick={() => {
+            window.location.assign(APP_ROUTES.downloadDataConnect);
+          }}
+          secondaryContent={
+            <Text as="p" intent="small" muted>
+              If another app initiated Connect, relaunch from that app to resume
+              with a session.
+            </Text>
+          }
+        />
       }
     />
   );
@@ -161,7 +194,7 @@ export function ConnectErrorState({
         <Text as="h1" intent="xlarge" dim>
           {isDebugMode
             ? (error ?? "Failed during the authorization phase.")
-            : "We couldn't finish preparing your connection."}
+            : (error ?? "We couldn't configure your connection.")}
         </Text>
       }
       content={

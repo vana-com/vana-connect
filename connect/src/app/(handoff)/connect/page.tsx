@@ -10,6 +10,7 @@ import {
   ConnectErrorState,
   ConnectFooterSpacer,
   ConnectLoadingState,
+  ConnectNoSessionFallbackState,
   ConnectMissingSessionState,
   ConnectPanelFooter,
   ConnectReadyState,
@@ -44,6 +45,7 @@ function ConnectPageContent() {
     view,
     error,
     sessionId,
+    isAuthenticated,
     deepLinkUrl,
     appContext,
     downloadDataConnectHref,
@@ -62,7 +64,11 @@ function ConnectPageContent() {
           className="text-center justify-center"
           footer={<ConnectFooterSpacer />}
         >
-          <ConnectMissingSessionState app={app} />
+          {isAuthenticated ? (
+            <ConnectNoSessionFallbackState app={app} />
+          ) : (
+            <ConnectMissingSessionState app={app} />
+          )}
         </PagePanel>
       </PageShell>
     );
