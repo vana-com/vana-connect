@@ -6,14 +6,15 @@ import {
   usePrivy,
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { APP_ROUTES } from "@/app/routes";
 import { CONNECT_CONFIG } from "@/config/config";
 import {
   clearHandoffContext,
   persistHandoffContext,
-  resolveHandoffContextFromClient,
   resolvePostAuthDestination,
 } from "@/app/_lib/handoff-contract";
+import { useHandoffResolution } from "@/app/_lib/use-handoff-resolution";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
@@ -46,15 +47,18 @@ function hasOAuthCallbackParams(searchParams: URLSearchParams): boolean {
 
 export function useLoginPage() {
   const searchParams = useSearchParams();
+  const hasSessionIdInUrl = Boolean(searchParams.get("sessionId"));
+  const isOAuthReturn = hasOAuthCallbackParams(searchParams);
   const handoffResolvedAtRef = useRef(Date.now());
-  const handoffContext = useMemo(
-    () =>
-      resolveHandoffContextFromClient(
-        searchParams,
-        handoffResolvedAtRef.current,
-      ),
-    [searchParams],
-  );
+  const { handoffContext, hasClearHandoffFlag } = useHandoffResolution({
+    searchParams,
+    resolvedAtMs: handoffResolvedAtRef.current,
+    restoreFromPersistence: hasSessionIdInUrl || isOAuthReturn,
+    clearRedirectPath: APP_ROUTES.login,
+    navigate: (href) => {
+      window.location.replace(href);
+    },
+  });
   const { ready, authenticated } = usePrivy();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
@@ -68,6 +72,12 @@ export function useLoginPage() {
 
   const redirectedRef = useRef(false);
   const oauthInitiatedRef = useRef(false);
+
+  useEffect(() => {
+    if (hasClearHandoffFlag) return;
+    if (hasSessionIdInUrl || isOAuthReturn) return;
+    clearHandoffContext();
+  }, [hasClearHandoffFlag, hasSessionIdInUrl, isOAuthReturn]);
 
   // Redirect helper — navigates to connect or fallback based on handoff context.
   // Uses window.location (not Next.js router) because router.replace can
@@ -139,14 +149,14 @@ export function useLoginPage() {
   // Guard: only react to oauthState after the user has initiated OAuth or when
   // the URL includes OAuth callback markers on return.
   useEffect(() => {
-    const isOAuthReturn =
+    const isOAuthReturnPath =
       !oauthInitiatedRef.current && hasOAuthCallbackParams(searchParams);
-    if (isOAuthReturn) {
+    if (isOAuthReturnPath) {
       if (!handoffContext) return;
     }
     // On the return path, show the completing spinner while Privy processes.
     // On the click path, stay on the entry screen so button-level spinners show.
-    if (oauthState.status === "loading" && isOAuthReturn) {
+    if (oauthState.status === "loading" && isOAuthReturnPath) {
       setView("completing");
     }
     if (oauthState.status === "done") {

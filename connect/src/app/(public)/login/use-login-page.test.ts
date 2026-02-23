@@ -84,7 +84,16 @@ describe("useLoginPage oauth loading behavior", () => {
   it("shows completing view on OAuth return loading when session is persisted", async () => {
     localStorage.setItem(
       "vana_connect_session",
-      JSON.stringify({ sessionId: "session-123", secret: "secret-abc" }),
+      JSON.stringify({
+        version: 1,
+        sessionId: "session-123",
+        secret: "secret-abc",
+        app: null,
+        appId: null,
+        appName: null,
+        returnTo: "/connect",
+        createdAt: Date.now(),
+      }),
     );
     mocks.searchParams = new URLSearchParams(
       "code=oauth-code&state=oauth-state",
@@ -104,7 +113,16 @@ describe("useLoginPage oauth loading behavior", () => {
   it("does not enter completing view from stale storage without oauth callback params", async () => {
     localStorage.setItem(
       "vana_connect_session",
-      JSON.stringify({ sessionId: "session-123", secret: "secret-abc" }),
+      JSON.stringify({
+        version: 1,
+        sessionId: "session-123",
+        secret: "secret-abc",
+        app: null,
+        appId: null,
+        appName: null,
+        returnTo: "/connect",
+        createdAt: Date.now(),
+      }),
     );
     mocks.oauthState.status = "loading";
 
