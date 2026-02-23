@@ -49,6 +49,9 @@ export async function connect(
   // Build the account.vana.org connect URL from the relay response
   const connectUrl = new URL("/connect", accountUrl);
   connectUrl.searchParams.set("sessionId", relayResult.sessionId);
+  if (typeof config.appUrl === "string" && config.appUrl.trim().length > 0) {
+    connectUrl.searchParams.set("appUrl", config.appUrl.trim());
+  }
   try {
     const deepLinkParams = new URL(relayResult.deepLinkUrl);
     const secret = deepLinkParams.searchParams.get("secret");

@@ -15,12 +15,13 @@ import {
   ConnectPanelFooter,
   ConnectReadyState,
 } from "./_components/connect-page-ui";
-import { resolveConnectAppRef } from "./_lib/app-query";
+import { resolveConnectAppQuery } from "./_lib/app-query";
 import { resolveConnectApp } from "./_lib/app-registry";
 import { useConnectPage } from "./use-connect-page";
 
 function createAppQueryReader(
   appContext: {
+    appUrl: string | null;
     app: string | null;
     appId: string | null;
     appName: string | null;
@@ -30,6 +31,7 @@ function createAppQueryReader(
   return {
     get(name: string): string | null {
       if (appContext) {
+        if (name === "appUrl") return appContext.appUrl;
         if (name === "app") return appContext.app;
         if (name === "appId") return appContext.appId;
         if (name === "appName") return appContext.appName;
@@ -51,10 +53,13 @@ function ConnectPageContent() {
     downloadDataConnectHref,
   } = useConnectPage();
   const isDebugMode = searchParams.get("authDebug") === "1";
-  const appRef = resolveConnectAppRef(
+  const appQuery = resolveConnectAppQuery(
     createAppQueryReader(appContext, searchParams),
   );
-  const app = resolveConnectApp(appRef);
+  const app = resolveConnectApp({
+    appUrl: appQuery.appUrl,
+    appName: appQuery.appName,
+  });
   const supportHref = `mailto:${CONNECT_CONFIG.support.email}`;
 
   if (!sessionId) {

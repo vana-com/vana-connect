@@ -5,13 +5,13 @@ import { middleware } from "./middleware";
 describe("middleware root handoff canonicalization", () => {
   it("redirects root handoff URLs to canonical /login with whitelisted params", () => {
     const request = new NextRequest(
-      "https://account.vana.org/?sessionId=sess-1&secret=sec-1&app=discover-me&authDebug=1",
+      "https://account.vana.org/?sessionId=sess-1&secret=sec-1&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me&authDebug=1",
     );
 
     const response = middleware(request);
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://account.vana.org/login?sessionId=sess-1&secret=sec-1&app=discover-me",
+      "https://account.vana.org/login?sessionId=sess-1&secret=sec-1&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me",
     );
   });
 

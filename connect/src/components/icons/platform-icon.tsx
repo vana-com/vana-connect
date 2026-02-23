@@ -20,6 +20,7 @@ interface PlatformIconProps extends Omit<ComponentProps<"div">, "children"> {
   inset?: number;
   fallbackLabel?: string;
   fallbackScale?: number;
+  onImageError?: () => void;
   ariaHidden?: boolean;
 }
 
@@ -40,6 +41,7 @@ export function PlatformIcon({
   style,
   fallbackLabel,
   fallbackScale = 0.75,
+  onImageError,
   ariaHidden,
   "aria-hidden": ariaHiddenProp,
   ...props
@@ -68,6 +70,9 @@ export function PlatformIcon({
           height={innerSize}
           className="rounded-full object-cover"
           unoptimized
+          onError={() => {
+            onImageError?.();
+          }}
         />
       </div>
     );

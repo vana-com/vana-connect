@@ -8,7 +8,7 @@ import {
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -268,14 +268,9 @@ function ConnectStateHeader({
   return (
     <div className="space-y-gap">
       <div className="flex items-center justify-center gap-3">
-        <PlatformIcon
-          iconName={app.displayName}
-          imageSrc={app.iconUrl}
-          imageAlt={`${app.displayName} icon`}
-          fallbackLabel={app.displayName.charAt(0)}
-          size={44}
-          inset={4}
-          style={{ backgroundColor: app.iconBg, color: app.iconFg }}
+        <ConnectSourceAppIcon
+          key={`${app.displayName}-${app.iconUrl ?? "no-icon"}`}
+          app={app}
         />
         <ArrowRightLeftIcon className="size-5.5" />
         <PlatformIcon
@@ -291,6 +286,25 @@ function ConnectStateHeader({
         {subtitle}
       </div>
     </div>
+  );
+}
+
+function ConnectSourceAppIcon({ app }: { app: ConnectApp }) {
+  const [isIconBroken, setIsIconBroken] = useState(false);
+
+  return (
+    <PlatformIcon
+      iconName={app.displayName}
+      imageSrc={isIconBroken ? undefined : (app.iconUrl ?? undefined)}
+      imageAlt={`${app.displayName} icon`}
+      fallbackLabel={app.fallbackLabel}
+      size={44}
+      inset={4}
+      style={{ backgroundColor: app.iconBg, color: app.iconFg }}
+      onImageError={() => {
+        setIsIconBroken(true);
+      }}
+    />
   );
 }
 

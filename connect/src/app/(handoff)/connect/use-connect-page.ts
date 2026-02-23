@@ -302,6 +302,7 @@ export function useConnectPage() {
     deepLinkUrl: ui.deepLinkUrl,
     appContext: handoffContext
       ? {
+          appUrl: handoffContext.appUrl,
           app: handoffContext.app,
           appId: handoffContext.appId,
           appName: handoffContext.appName,

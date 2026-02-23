@@ -1,11 +1,15 @@
 type SearchParamReader = Pick<URLSearchParams, "get">;
 
-export function resolveConnectAppRef(
+export type ConnectAppQuery = {
+  appUrl: string | null;
+  appName: string | null;
+};
+
+export function resolveConnectAppQuery(
   searchParams: SearchParamReader,
-): string | null {
-  return (
-    searchParams.get("app") ||
-    searchParams.get("appId") ||
-    searchParams.get("appName")
-  );
+): ConnectAppQuery {
+  return {
+    appUrl: searchParams.get("appUrl"),
+    appName: searchParams.get("appName"),
+  };
 }

@@ -24,11 +24,12 @@ describe("root page routing", () => {
         searchParams: Promise.resolve({
           sessionId: "sess-123",
           secret: "sec-abc",
+          appUrl: "https://foo-bar.com",
           app: "discover-me",
         }),
       }),
     ).rejects.toThrow(
-      "REDIRECT:/login?sessionId=sess-123&secret=sec-abc&app=discover-me",
+      "REDIRECT:/login?sessionId=sess-123&secret=sec-abc&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me",
     );
   });
 
