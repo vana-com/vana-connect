@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: sync-dataconnect-download-version
+  cancel-in-progress: true
+
 jobs:
   sync-version:
     runs-on: ubuntu-latest
@@ -32,12 +36,28 @@ jobs:
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
         run: |
-          version="${LATEST_TAG#v}"
-          perl -0777 -i -pe 's/const DOWNLOAD_VERSION = "[^"]+";/const DOWNLOAD_VERSION = "'"$version"'";/' connect/src/config/config.ts
-          if ! grep -q "const DOWNLOAD_VERSION = \"$version\";" connect/src/config/config.ts; then
-            echo "Failed to update DOWNLOAD_VERSION to $version"
-            exit 1
-          fi
+          python - <<'PY'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          version = os.environ["LATEST_TAG"].removeprefix("v")
+          path = Path("connect/src/config/config.ts")
+          text = path.read_text()
+          updated, count = re.subn(
+              r'const DOWNLOAD_VERSION = "[^"]+";',
+              f'const DOWNLOAD_VERSION = "{version}";',
+              text,
+              count=1,
+          )
+          if count != 1:
+              print(
+                  f"Failed to update DOWNLOAD_VERSION in {path}: expected 1 replacement, got {count}"
+              )
+              sys.exit(1)
+          path.write_text(updated)
+          PY
 
       - name: Create pull request when version changed
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
