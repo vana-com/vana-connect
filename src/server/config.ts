@@ -1,5 +1,5 @@
-import { ConnectError, ConnectErrorCode } from "../core/errors.js";
 import type { VanaEnvironment } from "../core/constants.js";
+import { ConnectError, ConnectErrorCode } from "../core/errors.js";
 
 export interface VanaConfig {
   privateKey: `0x${string}`;
