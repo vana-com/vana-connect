@@ -20,6 +20,7 @@ export type ConnectHandoffContext = {
   version: typeof HANDOFF_CONTEXT_VERSION;
   sessionId: string;
   secret: string | null;
+  appUrl: string | null;
   app: string | null;
   appId: string | null;
   appName: string | null;
@@ -32,6 +33,7 @@ type SearchParamReader = {
 type NormalizableInput = {
   sessionId: unknown;
   secret: unknown;
+  appUrl: unknown;
   app: unknown;
   appId: unknown;
   appName: unknown;
@@ -71,6 +73,7 @@ function normalizeContext(
   if (!sessionId) return null;
 
   const secret = readNonEmptyString(input.secret);
+  const appUrl = readNonEmptyString(input.appUrl);
   const app = readNonEmptyString(input.app);
   const appId = readNonEmptyString(input.appId);
   const appName = readNonEmptyString(input.appName);
@@ -79,6 +82,7 @@ function normalizeContext(
     version: HANDOFF_CONTEXT_VERSION,
     sessionId,
     secret,
+    appUrl,
     app,
     appId,
     appName,
@@ -95,6 +99,7 @@ export function parseFromSearchParams(
     {
       sessionId: searchParams.get("sessionId"),
       secret: searchParams.get("secret"),
+      appUrl: searchParams.get("appUrl"),
       app: searchParams.get("app"),
       appId: searchParams.get("appId"),
       appName: searchParams.get("appName"),
@@ -115,6 +120,7 @@ function parseContextJsonPayload(
       {
         sessionId: parsed.sessionId,
         secret: parsed.secret,
+        appUrl: parsed.appUrl,
         app: parsed.app,
         appId: parsed.appId,
         appName: parsed.appName,
@@ -382,13 +388,16 @@ export function resolvePostAuthDestination(
 function createHandoffQueryParams(
   context: Pick<
     ConnectHandoffContext,
-    "sessionId" | "secret" | "app" | "appId" | "appName"
+    "sessionId" | "secret" | "appUrl" | "app" | "appId" | "appName"
   >,
 ): URLSearchParams {
   const params = new URLSearchParams();
   params.set("sessionId", context.sessionId);
   if (context.secret) {
     params.set("secret", context.secret);
+  }
+  if (context.appUrl) {
+    params.set("appUrl", context.appUrl);
   }
   if (context.app) {
     params.set("app", context.app);

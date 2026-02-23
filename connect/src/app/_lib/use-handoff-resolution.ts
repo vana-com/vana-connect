@@ -12,6 +12,7 @@ const HANDOFF_QUERY_KEYS = [
   "handoff",
   "sessionId",
   "secret",
+  "appUrl",
   "app",
   "appId",
   "appName",

@@ -98,6 +98,8 @@ export interface ConnectConfig {
   privateKey: `0x${string}`;
   /** Data scopes to request. */
   scopes: string[];
+  /** Public app URL used by Connect UI to resolve favicon branding. */
+  appUrl?: string;
   /** Public HTTPS URL for grant event notifications. */
   webhookUrl?: string;
   /** Your app's user ID for correlation. */

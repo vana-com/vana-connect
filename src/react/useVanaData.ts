@@ -1,6 +1,18 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import type { GrantPayload, ConnectionStatus } from "../core/types.js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ConnectionStatus, GrantPayload } from "../core/types.js";
 import { useVanaConnect } from "./useVanaConnect.js";
+
+async function parseResponseBody(
+  response: Response,
+): Promise<Record<string, unknown> | null> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { raw: text };
+  }
+}
 
 /**
  * Configuration for the {@link useVanaData} hook.
@@ -103,16 +115,14 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grant: pollGrant }),
       });
-      const json = await res.json();
+      const json = await parseResponseBody(res);
       if (!res.ok) {
         setFetchError(
-          (json as Record<string, unknown>).error
-            ? String((json as Record<string, unknown>).error)
-            : `Data fetch failed: ${res.status}`,
+          json?.error ? String(json.error) : `Data fetch failed: ${res.status}`,
         );
         return;
       }
-      setData(json);
+      setData(json ?? {});
     } catch (err) {
       setFetchError(
         err instanceof Error ? err.message : "Unknown data fetch error",
@@ -142,16 +152,20 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     setInitLoading(true);
     try {
       const res = await fetch(connectApiUrl, { method: "POST" });
-      const json = (await res.json()) as Record<string, unknown>;
+      const json = await parseResponseBody(res);
       if (!res.ok) {
         setFetchError(
-          json.error ? String(json.error) : `Connect failed: ${res.status}`,
+          json?.error ? String(json.error) : `Connect failed: ${res.status}`,
         );
         return;
       }
+      if (!json?.sessionId || typeof json.sessionId !== "string") {
+        setFetchError("Connect failed: missing sessionId in response");
+        return;
+      }
       connect({
-        sessionId: json.sessionId as string,
-        connectUrl: (json.connectUrl as string) || undefined,
+        sessionId: json.sessionId,
+        connectUrl: (json?.connectUrl as string) || undefined,
       });
     } catch (err) {
       setFetchError(

@@ -51,6 +51,7 @@ export default function ConnectFlow() {
 
   const display = STATUS_DISPLAY[status];
   const sessionReady = !!connectUrl;
+  const hasConnectFailure = !sessionReady && !!error;
 
   return (
     <div>
@@ -86,11 +87,22 @@ export default function ConnectFlow() {
           ) : (
             <button
               type="button"
-              disabled
+              onClick={() => {
+                void initConnect();
+              }}
+              disabled={isLoading}
               className="btn-primary"
               style={{ width: "100%" }}
             >
-              <span className="spinner" /> Creating session...
+              {isLoading ? (
+                <>
+                  <span className="spinner" /> Creating session...
+                </>
+              ) : hasConnectFailure ? (
+                "Retry session"
+              ) : (
+                "Create session"
+              )}
             </button>
           )}
         </div>
@@ -133,14 +145,13 @@ export default function ConnectFlow() {
       )}
 
       {/* Errors */}
-      {(status === "error" || status === "denied" || status === "expired") &&
-        error && (
-          <div className="card card-error">
-            <p className="text-error" style={{ margin: 0 }}>
-              {error}
-            </p>
-          </div>
-        )}
+      {error && (
+        <div className="card card-error">
+          <p className="text-error" style={{ margin: 0 }}>
+            {error}
+          </p>
+        </div>
+      )}
 
       {/* Reset — reloads the page to start a fresh session */}
       {status !== "idle" && status !== "connecting" && (
