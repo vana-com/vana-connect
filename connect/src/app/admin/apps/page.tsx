@@ -2,10 +2,12 @@
 
 import { ArrowUpRightIcon, BoxIcon } from "lucide-react";
 import { useState } from "react";
+import { useAuthGuard } from "@/app/_auth/use-auth-guard";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { SettingsConfirmAction } from "@/components/elements/confirm-action";
 import { PageHeader } from "@/components/elements/page-header";
+import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +21,8 @@ import {
 import { resolveAdminAppsPageUiDebugState } from "./apps-page.ui-debug";
 
 export default function AdminAppsPage() {
+  const { isChecking } = useAuthGuard();
+
   // UI debug quick usage (dev only):
   // - /admin/apps?appsDebug=1&appsScenario=empty
   // - /admin/apps?appsDebug=1&appsScenario=seven
@@ -29,6 +33,16 @@ export default function AdminAppsPage() {
         apps: readRegisteredAdminApps(),
       }).apps,
   );
+
+  if (isChecking) {
+    return (
+      <PageShell>
+        <PagePanel>
+          <PageLoadingState showVanaLogotype message="Checking session…" />
+        </PagePanel>
+      </PageShell>
+    );
+  }
 
   function handleDelete(app: RegisteredAdminApp) {
     deleteRegisteredAdminApp(app.id);
