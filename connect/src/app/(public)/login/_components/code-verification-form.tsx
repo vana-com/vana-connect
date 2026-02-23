@@ -43,7 +43,7 @@ export const CodeVerificationForm = ({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+        onSubmit(code);
       }}
       className={cn("mx-auto flex w-max flex-col gap-3", className)}
     >
