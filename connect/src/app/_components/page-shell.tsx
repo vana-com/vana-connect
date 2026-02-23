@@ -1,8 +1,9 @@
 import { ArrowLeftIcon, BoxIcon, LogOutIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LogoutActionButton } from "@/app/_components/logout-action-button";
+import { getPageShellActionButtonClassName } from "@/app/_components/page-shell-action-button-class";
 import { APP_ROUTES } from "@/app/routes";
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
 
 type PageShellProps = {
@@ -17,6 +18,7 @@ type PageShellAction = {
   icon: ReactNode;
   label: ReactNode;
   className?: string;
+  kind?: PageShellActionPreset;
 };
 type PageShellActionPreset = "logout" | "yourApps" | "dataConnect";
 type PageShellActionInput = PageShellActionPreset | PageShellAction;
@@ -60,16 +62,26 @@ export function PageShell({
       )}
       {resolvedActions.length > 0 && (
         <div className="absolute top-gap right-gap flex items-center gap-2">
-          {resolvedActions.map((action, index) => (
-            <NavLink
-              key={`${action.href}-${index}`}
-              href={action.href}
-              icon={action.icon}
-              className={action.className}
-            >
-              {action.label}
-            </NavLink>
-          ))}
+          {resolvedActions.map((action, index) =>
+            action.kind === "logout" ? (
+              <LogoutActionButton
+                key={`${action.href}-${index}`}
+                href={action.href}
+                className={action.className}
+              >
+                {action.label}
+              </LogoutActionButton>
+            ) : (
+              <NavLink
+                key={`${action.href}-${index}`}
+                href={action.href}
+                icon={action.icon}
+                className={action.className}
+              >
+                {action.label}
+              </NavLink>
+            ),
+          )}
         </div>
       )}
 
@@ -94,15 +106,7 @@ export function NavLink({
   children: ReactNode;
   className?: string;
 }) {
-  const buttonClassName = buttonVariants({
-    variant: "ghost",
-    size: "sm",
-    className: cn(
-      "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
-      "hover:bg-iris/[0.07]! hover:text-iris",
-      className,
-    ),
-  });
+  const buttonClassName = getPageShellActionButtonClassName(className);
   return (
     <Link href={href} className={buttonClassName}>
       {icon}
@@ -126,6 +130,7 @@ function resolvePageShellAction(
       href: hrefs.downloadDataConnectHref,
       icon: <BoxIcon aria-hidden="true" />,
       label: "DataConnect",
+      kind: "dataConnect",
     };
   }
   if (action === "yourApps") {
@@ -133,11 +138,13 @@ function resolvePageShellAction(
       href: hrefs.yourAppsHref,
       icon: <BoxIcon aria-hidden="true" />,
       label: "Your apps",
+      kind: "yourApps",
     };
   }
   return {
     href: hrefs.logoutHref,
     icon: <LogOutIcon aria-hidden="true" />,
     label: "Logout",
+    kind: "logout",
   };
 }
