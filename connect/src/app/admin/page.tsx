@@ -13,38 +13,32 @@ import { cn } from "@/lib/classes";
 import { AdminFooterLinks } from "./_components/admin-footer-links";
 import { RegisterAnotherAppButton } from "./_components/register-another-app-button";
 import { saveRegisteredAdminApp } from "./_lib/admin-apps-storage";
+import { registerBuilder } from "./_lib/register-builder";
 import { resolveAdminPageUiDebugState } from "./admin-page.ui-debug";
 
-type AdminState = "form" | "loading" | "result";
+type AdminState = "form" | "loading" | "result" | "error";
 
 const DEFAULT_APP_URL = "";
-const REGISTER_DELAY_MS = 900;
 const SITE_METADATA_TIMEOUT_MS = 3500;
-
-function randomPrivateKey(): `0x${string}` {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return `0x${hex}`;
-}
 
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>("form");
   const [appUrl, setAppUrl] = useState(DEFAULT_APP_URL);
   const [privateKey, setPrivateKey] = useState<`0x${string}` | "">("");
   const [copied, setCopied] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // UI debug quick usage (dev only):
   // - /admin?adminDebug=1&adminScenario=form
   // - /admin?adminDebug=1&adminScenario=loading
   // - /admin?adminDebug=1&adminScenario=result
+  // - /admin?adminDebug=1&adminScenario=error
   // - No adminDebug/adminScenario => real state (no debug override).
   const ui = resolveAdminPageUiDebugState({
     state,
     appUrl,
     privateKey,
+    errorMessage,
   });
 
   const envText = useMemo(() => {
@@ -60,20 +54,30 @@ export default function AdminPage() {
 
     setAppUrl(trimmedUrl);
     setCopied(false);
+    setErrorMessage("");
     setState("loading");
 
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, REGISTER_DELAY_MS);
-    });
+    const [result, appName] = await Promise.all([
+      registerBuilder(trimmedUrl),
+      resolveRegisteredAppName(trimmedUrl),
+    ]);
+
+    if (!result.ok) {
+      setErrorMessage(result.error.message);
+      setState("error");
+      return;
+    }
 
     saveRegisteredAdminApp({
       id: crypto.randomUUID(),
-      name: await resolveRegisteredAppName(trimmedUrl),
+      name: appName,
       url: trimmedUrl,
       createdAt: new Date().toISOString(),
+      builderId: result.data.builderId,
+      ownerAddress: result.data.ownerAddress,
     });
 
-    setPrivateKey(randomPrivateKey());
+    setPrivateKey(result.data.privateKey);
     setState("result");
   }
 
@@ -143,6 +147,12 @@ export default function AdminPage() {
     setCopied(false);
     setAppUrl(DEFAULT_APP_URL);
     setPrivateKey("");
+    setErrorMessage("");
+    setState("form");
+  }
+
+  function handleRetry() {
+    setErrorMessage("");
     setState("form");
   }
 
@@ -163,6 +173,12 @@ export default function AdminPage() {
 
         {ui.state === "loading" ? (
           <PageLoadingState message="Generating keys and registering with gateway…" />
+        ) : ui.state === "error" ? (
+          <AdminErrorState
+            errorMessage={ui.errorMessage}
+            onRetry={handleRetry}
+            onReset={handleReset}
+          />
         ) : ui.state !== "result" ? (
           <AdminFormState
             appUrl={ui.appUrl}
@@ -232,6 +248,53 @@ function AdminFormState({
             Generating keys and registering with gateway…
           </Text>
         )}
+      </div>
+    </div>
+  );
+}
+
+type AdminErrorStateProps = {
+  errorMessage: string;
+  onRetry: () => void;
+  onReset: () => void;
+};
+
+function AdminErrorState({
+  errorMessage,
+  onRetry,
+  onReset,
+}: AdminErrorStateProps) {
+  return (
+    <div className="space-y-small flex-1 flex flex-col">
+      <PageHeader
+        showVanaLogotype
+        heading="Registration failed"
+        color="iris"
+        description={
+          <Text>
+            {errorMessage ||
+              "Something went wrong while registering your app. Please try again."}
+          </Text>
+        }
+      />
+
+      <div className="space-y-gap -mx-1.5">
+        <Button
+          type="button"
+          variant="default"
+          fullWidth
+          size="sm"
+          className="h-tab bg-iris"
+          onClick={onRetry}
+        >
+          Try again
+        </Button>
+      </div>
+
+      <div className="mt-auto flex justify-end">
+        <RegisterAnotherAppButton type="button" onClick={onReset}>
+          Start over
+        </RegisterAnotherAppButton>
       </div>
     </div>
   );
