@@ -28,7 +28,7 @@ export default function AdminPage() {
   });
 
   const envText = useMemo(() => {
-    return `VANA_APP_PRIVATE_KEY=${ui.privateKey}\nAPP_URL=${ui.appUrl}`;
+    return `VANA_PRIVATE_KEY=${ui.privateKey}\nAPP_URL=${ui.appUrl}`;
   }, [ui.appUrl, ui.privateKey]);
 
   return (
