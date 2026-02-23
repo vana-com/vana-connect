@@ -38,6 +38,22 @@ class SyncDataConnectVersionTests(unittest.TestCase):
                 'const DOWNLOAD_VERSION = "0.7.21";\n',
             )
 
+    def test_update_replaces_export_const_single_quote_declaration(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.ts"
+            config_path.write_text(
+                "export const DOWNLOAD_VERSION = '0.7.20';\n",
+                encoding="utf-8",
+            )
+
+            changed = update_download_version(config_path, "0.7.21")
+
+            self.assertTrue(changed)
+            self.assertEqual(
+                config_path.read_text(encoding="utf-8"),
+                'const DOWNLOAD_VERSION = "0.7.21";\n',
+            )
+
     def test_update_noop_when_already_current(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             config_path = Path(tmp_dir) / "config.ts"

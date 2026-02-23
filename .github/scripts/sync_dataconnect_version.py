@@ -7,7 +7,9 @@ import sys
 from pathlib import Path
 
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
-DOWNLOAD_VERSION_PATTERN = re.compile(r'const DOWNLOAD_VERSION = "([^"]+)";')
+DOWNLOAD_VERSION_PATTERN = re.compile(
+    r"""(?:export\s+)?const\s+DOWNLOAD_VERSION\s*=\s*['"]([^'"]+)['"];"""
+)
 
 
 def normalize_version_tag(tag: str) -> str:
