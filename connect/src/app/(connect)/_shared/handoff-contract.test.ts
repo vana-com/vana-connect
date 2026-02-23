@@ -16,6 +16,7 @@ import {
   toLoginUrl,
   type ConnectHandoffContext,
 } from "./handoff-contract";
+import { APP_ROUTES } from "@/app/routes";
 
 const NOW = 1_700_000_000_000;
 
@@ -59,6 +60,14 @@ describe("handoff-contract", () => {
       NOW,
     );
     expect(parsed).toBeNull();
+  });
+
+  it("falls back to default returnTo when protocol-relative returnTo is provided", () => {
+    const parsed = parseFromSearchParams(
+      new URLSearchParams("sessionId=sess-123&returnTo=%2F%2Fevil.test"),
+      NOW,
+    );
+    expect(parsed?.returnTo).toBe(HANDOFF_RETURN_TO_DEFAULT);
   });
 
   it("parses handoff context from cookie header", () => {
@@ -214,6 +223,22 @@ describe("handoff-contract", () => {
   it("resolves post-auth fallback when no context", () => {
     expect(resolvePostAuthDestination(null)).toBe("/download-data-connect");
     expect(resolvePostAuthDestination(createContext())).toContain("/connect?");
+  });
+
+  it("resolves post-auth destination to download route when requested", () => {
+    const destination = resolvePostAuthDestination(
+      createContext({ returnTo: APP_ROUTES.downloadDataConnect, secret: null }),
+    );
+    expect(destination).toBe(
+      "/download-data-connect?sessionId=sess-1&app=discover-me&appId=app-1&appName=Discover+Me",
+    );
+  });
+
+  it("resolves post-auth destination to custom internal path", () => {
+    const destination = resolvePostAuthDestination(
+      createContext({ returnTo: "/custom-destination" }),
+    );
+    expect(destination).toBe("/custom-destination");
   });
 
   it("builds canonical download URL from context", () => {

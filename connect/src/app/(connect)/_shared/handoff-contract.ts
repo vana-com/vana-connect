@@ -6,13 +6,6 @@ export const HANDOFF_RETURN_TO_DEFAULT = APP_ROUTES.connect;
 export const HANDOFF_CONTEXT_VERSION = 1;
 export const HANDOFF_CONTEXT_TTL_MS = 10 * 60 * 1000;
 export const HANDOFF_SOURCE_PRECEDENCE = ["url", "cookie", "storage"] as const;
-export const HANDOFF_URL_PARAM_KEYS = [
-  "sessionId",
-  "secret",
-  "app",
-  "appId",
-  "appName",
-] as const;
 
 export type HandoffSource = (typeof HANDOFF_SOURCE_PRECEDENCE)[number];
 
@@ -62,7 +55,7 @@ function readNonEmptyString(value: unknown): string | null {
 
 function normalizeReturnTo(value: unknown): string {
   const path = readNonEmptyString(value);
-  if (!path || !path.startsWith("/")) {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) {
     return HANDOFF_RETURN_TO_DEFAULT;
   }
   return path;
@@ -384,7 +377,16 @@ export function resolvePostAuthDestination(
   fallbackHref = APP_ROUTES.downloadDataConnect,
 ): string {
   if (!context) return fallbackHref;
-  return toConnectUrl(context);
+  if (context.returnTo === APP_ROUTES.downloadDataConnect) {
+    return toDownloadDataConnectUrl(context);
+  }
+  if (context.returnTo === APP_ROUTES.login) {
+    return toLoginUrl(context);
+  }
+  if (context.returnTo === APP_ROUTES.connect) {
+    return toConnectUrl(context);
+  }
+  return context.returnTo;
 }
 
 function createHandoffQueryParams(
