@@ -3,23 +3,23 @@ import { PageHeader } from "@/components/elements/page-header";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
-import { RegisterAnotherAppButton } from "./register-another-app-button";
 
 type AdminResultViewProps = {
   copied: boolean;
   envText: string;
   onCopy: () => Promise<void>;
-  onReset: () => void;
 };
 
 export function AdminResultView({
   copied,
   envText,
   onCopy,
-  onReset,
 }: AdminResultViewProps) {
   return (
-    <div className="space-y-small flex-1 flex flex-col">
+    <div
+      data-slot="admin-result-view"
+      className="space-y-small flex-1 flex flex-col"
+    >
       <PageHeader
         showVanaLogotype
         heading="Your app is registered"
@@ -63,12 +63,6 @@ export function AdminResultView({
             </>
           )}
         </Button>
-      </div>
-
-      <div className="mt-auto flex justify-end">
-        <RegisterAnotherAppButton type="button" onClick={onReset}>
-          Register another app
-        </RegisterAnotherAppButton>
       </div>
     </div>
   );

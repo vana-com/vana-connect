@@ -24,7 +24,7 @@ export function RegisterAnotherAppButton({
   const content = (
     <>
       <div className="rounded-full border p-0.5 text-current group-hover:border-ring">
-        <PlusIcon className="size-em" />
+        <PlusIcon className="size-[0.95em]" />
       </div>
       {children}
     </>
@@ -36,7 +36,7 @@ export function RegisterAnotherAppButton({
         asChild
         size="sm"
         variant="outline"
-        className={cn("text-foreground-muted hover:text-foreground", className)}
+        className={cn("text-foreground-dim hover:text-foreground", className)}
         {...props}
       >
         <Link href={href}>{content}</Link>
@@ -49,7 +49,7 @@ export function RegisterAnotherAppButton({
       type={type ?? "button"}
       size="sm"
       variant="outline"
-      className={cn("text-foreground-muted hover:text-foreground", className)}
+      className={cn("text-foreground-dim hover:text-foreground", className)}
       {...props}
     >
       {content}

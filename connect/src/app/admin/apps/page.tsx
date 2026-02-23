@@ -10,7 +10,7 @@ import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminFooterLinks } from "../_components/admin-footer-links";
-import { RegisterAnotherAppButton } from "../_components/register-another-app-button";
+import { AdminHeaderLinks } from "../_components/admin-header-links";
 import {
   deleteRegisteredAdminApp,
   type RegisteredAdminApp,
@@ -38,22 +38,24 @@ export default function AdminAppsPage() {
   return (
     <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
-        <div className="flex flex-1 flex-col space-y-small">
+        <AdminHeaderLinks showYourApps={false} />
+        {/* purposely not space-y-small to avoid extra space between list and button; header to list is actually -small via pt-gap on the list. */}
+        <div className="flex flex-1 flex-col space-y-gap">
           <PageHeader
             showVanaLogotype
             heading="Your apps"
             color="iris"
-            description={
-              <Text>
-                {apps.length === 0
-                  ? "Your registered apps will appear here."
-                  : "Your registered apps."}
-              </Text>
-            }
+            // description={
+            //   <Text>
+            //     {apps.length === 0
+            //       ? "Your registered apps will appear here."
+            //       : "Your registered apps."}
+            //   </Text>
+            // }
           />
 
           {/* -mx-1.5 */}
-          <div className="flex min-h-0 flex-1 flex-col space-y-gap">
+          <div className="flex min-h-0 flex-1 flex-col space-y-gap pt-gap">
             <div className="rounded-button border flex-1">
               {apps.length === 0 ? (
                 <Text intent="small" muted withIcon className="p-gap">
@@ -67,7 +69,7 @@ export default function AdminAppsPage() {
                       key={app.id}
                       className={cn(
                         "group flex h-tab items-center gap-2",
-                        "px-3 py-2.5 border-b last:border-b-0",
+                        "px-3 py-2.5 border-b",
                         "transition-colors hover:bg-muted/40",
                       )}
                     >
@@ -82,7 +84,8 @@ export default function AdminAppsPage() {
                           color="foreground"
                           weight="medium"
                           withIcon
-                          className="shrink-0 group-hover:text-iris"
+                          truncate
+                          className="max-w-[120px] group-hover:text-iris"
                         >
                           <BoxIcon className="size-[1.1em]" />
                           {app.name}
@@ -91,7 +94,8 @@ export default function AdminAppsPage() {
                           intent="fine"
                           muted
                           withIcon
-                          className="min-w-0 truncate group-hover:text-foreground"
+                          truncate
+                          className="max-w-[160px] group-hover:text-foreground"
                         >
                           {app.url}
                           <ArrowUpRightIcon
@@ -126,10 +130,6 @@ export default function AdminAppsPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="mt-auto flex justify-end">
-            <RegisterAnotherAppButton href="/admin" />
           </div>
         </div>
       </PagePanel>

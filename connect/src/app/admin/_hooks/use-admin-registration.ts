@@ -13,6 +13,12 @@ export function useAdminRegistration() {
   const [appUrl, setAppUrl] = useState(DEFAULT_APP_URL);
   const [privateKey, setPrivateKey] = useState<`0x${string}` | "">("");
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleAppUrlChange(value: string) {
+    setError(null);
+    setAppUrl(value);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,14 +29,19 @@ export function useAdminRegistration() {
 
     setAppUrl(trimmedUrl);
     setCopied(false);
+    setError(null);
     setState("loading");
 
-    const { privateKey: nextPrivateKey } = await registerAdminApp({
-      appUrl: trimmedUrl,
-    });
-
-    setPrivateKey(nextPrivateKey);
-    setState("result");
+    try {
+      const { privateKey: nextPrivateKey } = await registerAdminApp({
+        appUrl: trimmedUrl,
+      });
+      setPrivateKey(nextPrivateKey);
+      setState("result");
+    } catch {
+      setState("form");
+      setError("Could not register app. Please try again.");
+    }
   }
 
   async function copy(value: string) {
@@ -45,6 +56,7 @@ export function useAdminRegistration() {
 
   function reset() {
     setCopied(false);
+    setError(null);
     setAppUrl(DEFAULT_APP_URL);
     setPrivateKey("");
     setState("form");
@@ -55,7 +67,8 @@ export function useAdminRegistration() {
     appUrl,
     privateKey,
     copied,
-    setAppUrl,
+    error,
+    setAppUrl: handleAppUrlChange,
     submit,
     copy,
     reset,

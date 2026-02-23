@@ -71,6 +71,8 @@ export const CONNECT_CONFIG = {
   docs: {
     learnMoreUrl: "#",
     dataConnectGithubUrl: "https://github.com/vana-com/data-connect",
+    exampleAppUrl:
+      "https://github.com/vana-com/vana-connect/tree/main/examples/nextjs-starter",
   },
   support: {
     email: "support@vana.org",

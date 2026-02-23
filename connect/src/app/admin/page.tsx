@@ -1,29 +1,30 @@
 "use client";
 
-import { BoxIcon } from "lucide-react";
 import { useMemo } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
-import { NavLink, PageShell } from "@/app/_components/page-shell";
+import { PageShell } from "@/app/_components/page-shell";
 import { AdminFooterLinks } from "./_components/admin-footer-links";
+import { AdminHeaderLinks } from "./_components/admin-header-links";
 import { AdminFormView } from "./_components/admin-form-view";
-import { AdminLoadingView } from "./_components/admin-loading-view";
 import { AdminResultView } from "./_components/admin-result-view";
 import { useAdminRegistration } from "./_hooks/use-admin-registration";
 import { resolveAdminPageUiDebugState } from "./admin-page.ui-debug";
 
 export default function AdminPage() {
-  const { state, appUrl, privateKey, copied, setAppUrl, submit, copy, reset } =
+  const { state, appUrl, privateKey, copied, error, setAppUrl, submit, copy } =
     useAdminRegistration();
 
   // UI debug quick usage (dev only):
   // - /admin?adminDebug=1&adminScenario=form
   // - /admin?adminDebug=1&adminScenario=loading
+  // - /admin?adminDebug=1&adminScenario=error
   // - /admin?adminDebug=1&adminScenario=result
   // - No adminDebug/adminScenario => real state (no debug override).
   const ui = resolveAdminPageUiDebugState({
     state,
     appUrl,
     privateKey,
+    error,
   });
 
   const envText = useMemo(() => {
@@ -33,23 +34,13 @@ export default function AdminPage() {
   return (
     <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
-        {ui.state !== "loading" && (
-          <div className="absolute right-3 top-3">
-            <NavLink
-              href="/admin/apps"
-              icon={<BoxIcon aria-hidden="true" />}
-              className="bg-transparent"
-            >
-              Your apps
-            </NavLink>
-          </div>
-        )}
+        <AdminHeaderLinks />
 
-        {ui.state === "loading" ? (
-          <AdminLoadingView />
-        ) : ui.state !== "result" ? (
+        {ui.state !== "result" ? (
           <AdminFormView
             appUrl={ui.appUrl}
+            isLoading={ui.state === "loading"}
+            error={ui.error}
             onAppUrlChange={setAppUrl}
             onSubmit={submit}
           />
@@ -58,7 +49,6 @@ export default function AdminPage() {
             copied={copied}
             envText={envText}
             onCopy={() => copy(envText)}
-            onReset={reset}
           />
         )}
       </PagePanel>

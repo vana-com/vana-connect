@@ -5,17 +5,21 @@ import { Text } from "@/components/typography/text";
 
 type AdminFormViewProps = {
   appUrl: string;
+  isLoading: boolean;
+  error: string | null;
   onAppUrlChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 export function AdminFormView({
   appUrl,
+  isLoading,
+  error,
   onAppUrlChange,
   onSubmit,
 }: AdminFormViewProps) {
   return (
-    <div className="space-y-small">
+    <div data-slot="admin-form-view" className="space-y-small">
       <PageHeader
         showVanaLogotype
         heading="Register your app"
@@ -41,9 +45,19 @@ export function AdminFormView({
           value={appUrl}
           onChange={onAppUrlChange}
           onSubmit={onSubmit}
-          isLoading={false}
+          isLoading={isLoading}
           submitAriaLabel="Register app"
         />
+        {error && (
+          <Text
+            as="p"
+            color="destructive"
+            aria-live="polite"
+            className="px-1.5"
+          >
+            {error}
+          </Text>
+        )}
       </div>
     </div>
   );
