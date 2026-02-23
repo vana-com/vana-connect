@@ -10,9 +10,6 @@ importers:
       "@base-ui/react":
         specifier: ^1.1.0
         version: 1.2.0(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      "@privy-io/js-sdk-core":
-        specifier: ^0.60.0
-        version: 0.60.0(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       "@privy-io/node":
         specifier: ^0.9.0
         version: 0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
@@ -1699,12 +1696,6 @@ packages:
         integrity: sha512-pEvZ73GnC2OB/w35MGCPhqZ8mnApXgUpXxM0t9qZmNzvDNoMKBLPgysUXouAx7E4jO8REJPuwX70Y1AqJ/51kg==,
       }
 
-  "@privy-io/api-types@0.4.0":
-    resolution:
-      {
-        integrity: sha512-XNA0rotkMkYhcmByNUyzmge6riESkOLtBvJWlwAy1QsflN+7eLkD51DegVjweBDSwEtB75rbWOaKmoikItaEiw==,
-      }
-
   "@privy-io/api-types@0.5.0":
     resolution:
       {
@@ -1717,25 +1708,11 @@ packages:
         integrity: sha512-iygs3VfFtB0RvX0HRGzJB//sm8V1j+qMvCxntIpTHEJRcUewbTAlYgTiOa2xx/dcV+Y6OML0C8STKpMqKG122w==,
       }
 
-  "@privy-io/chains@0.0.6":
-    resolution:
-      {
-        integrity: sha512-tcDYv2r4HJBQkEzGS3hau01WmZ4zLmEgaitPUorKvW4IC6qOzxcIXJIqeX6HT6JJjoV8I6xNey0pCsF+VS59ew==,
-      }
-
   "@privy-io/chains@0.1.0":
     resolution:
       {
         integrity: sha512-mzZsinPc0qJUTI+0qZkRZ2ftLI3f2pAUuKYQnixst6kNlhNb7wacAHPcvsXTeTbS+UYiskcdRHvtMMW0MAobZg==,
       }
-
-  "@privy-io/ethereum@0.0.7":
-    resolution:
-      {
-        integrity: sha512-8eRl2Nk34r16gMft4r1WkQvB4w+TKtmo/EB/lrqVcGpD9jc5Hqq2+SPlZ+PJr2NClioiuhYHq6BItM95l86VGA==,
-      }
-    peerDependencies:
-      viem: ^2.44.2
 
   "@privy-io/ethereum@0.0.8":
     resolution:
@@ -1744,20 +1721,6 @@ packages:
       }
     peerDependencies:
       viem: ^2.46.1
-
-  "@privy-io/js-sdk-core@0.60.0":
-    resolution:
-      {
-        integrity: sha512-oqD39f1Gd2Eakjxv7tBGuFmEutfm34Zc4IvRirAnKPNcGuvwQJjAepVt4QeVIM2eLWUFiPNMHj2rH0oOTEN+3w==,
-      }
-    peerDependencies:
-      permissionless: ^0.2.47
-      viem: ^2.44.2
-    peerDependenciesMeta:
-      permissionless:
-        optional: true
-      viem:
-        optional: true
 
   "@privy-io/js-sdk-core@0.60.1":
     resolution:
@@ -1829,12 +1792,6 @@ packages:
         optional: true
       permissionless:
         optional: true
-
-  "@privy-io/routes@0.0.6":
-    resolution:
-      {
-        integrity: sha512-7km0gKxp9yCaA5r3OatICgmMSVCIlS+zomiF5FUtPynmHzrNPbxxN8QYnISCPioHlljE91fopoDIj23KbFWyvg==,
-      }
 
   "@privy-io/routes@0.0.7":
     resolution:
@@ -10460,8 +10417,6 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  "@privy-io/api-types@0.4.0": {}
-
   "@privy-io/api-types@0.5.0": {}
 
   "@privy-io/are-addresses-equal@0.0.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)":
@@ -10473,34 +10428,10 @@ snapshots:
       - utf-8-validate
       - zod
 
-  "@privy-io/chains@0.0.6": {}
-
   "@privy-io/chains@0.1.0": {}
-
-  "@privy-io/ethereum@0.0.7(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))":
-    dependencies:
-      viem: 2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
 
   "@privy-io/ethereum@0.0.8(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))":
     dependencies:
-      viem: 2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
-
-  "@privy-io/js-sdk-core@0.60.0(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))":
-    dependencies:
-      "@privy-io/api-base": 1.8.2
-      "@privy-io/api-types": 0.4.0
-      "@privy-io/chains": 0.0.6
-      "@privy-io/ethereum": 0.0.7(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
-      "@privy-io/routes": 0.0.6
-      canonicalize: 2.1.0
-      eventemitter3: 5.0.4
-      fetch-retry: 6.0.0
-      jose: 4.15.9
-      js-cookie: 3.0.5
-      libphonenumber-js: 1.12.36
-      set-cookie-parser: 2.7.2
-      uuid: 9.0.1
-    optionalDependencies:
       viem: 2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
 
   "@privy-io/js-sdk-core@0.60.1(viem@2.46.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))":
@@ -10624,10 +10555,6 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
       - zod
-
-  "@privy-io/routes@0.0.6":
-    dependencies:
-      "@privy-io/api-types": 0.4.0
 
   "@privy-io/routes@0.0.7":
     dependencies:
