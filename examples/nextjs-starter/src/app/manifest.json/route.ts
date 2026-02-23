@@ -1,9 +1,9 @@
 // Serves a signed web app manifest.
 // The DataConnect Desktop App reads this to verify your app's identity.
 
-import { NextResponse } from "next/server";
-import { signVanaManifest } from "@opendatalabs/connect/server";
 import { ConnectError } from "@opendatalabs/connect/core";
+import { signVanaManifest } from "@opendatalabs/connect/server";
+import { NextResponse } from "next/server";
 import { config } from "@/config";
 
 export async function GET() {
@@ -26,7 +26,7 @@ export async function GET() {
       theme_color: "#09090b",
       icons: [
         {
-          src: "/icon.png",
+          src: "/icon",
           sizes: "192x192",
           type: "image/png",
         },

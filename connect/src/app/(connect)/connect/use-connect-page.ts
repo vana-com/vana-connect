@@ -7,6 +7,38 @@ import { resolveConnectLaunchUrl } from "./launch-url";
 import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
 
 const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";
+const SESSION_STORAGE_KEY = "vana_connect_session";
+const WALLET_READY_TIMEOUT_MS = 10_000;
+
+function saveSession(sessionId: string, secret: string | null) {
+  try {
+    localStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({ sessionId, secret }),
+    );
+  } catch {
+    // localStorage may be unavailable in some browser contexts
+  }
+}
+
+function getWalletAddress(
+  user: ReturnType<typeof usePrivy>["user"],
+): string | null {
+  if (user?.wallet?.address) return user.wallet.address;
+  if (!user?.linkedAccounts) return null;
+
+  for (const account of user.linkedAccounts) {
+    if (
+      account.type === "wallet" &&
+      "address" in account &&
+      typeof account.address === "string"
+    ) {
+      return account.address;
+    }
+  }
+
+  return null;
+}
 
 export type ConnectPageView = "loading" | "signing" | "ready" | "error";
 
@@ -27,8 +59,9 @@ export function useConnectPage() {
   const signingRef = useRef(false);
   const signersAddedRef = useRef(false);
   const signRetriesRef = useRef(0);
+  const walletReadyTimeoutRef = useRef<number | null>(null);
 
-  const walletAddress = user?.wallet?.address;
+  const walletAddress = getWalletAddress(user);
 
   // Add signers after authentication
   const handleAddSigners = useCallback(
@@ -59,6 +92,43 @@ export function useConnectPage() {
     }
   }, [ready, authenticated, sessionId, secret, view, router]);
 
+  // Persist session params in case auth redirects lose query params.
+  useEffect(() => {
+    if (!sessionId) return;
+    saveSession(sessionId, secret);
+  }, [sessionId, secret]);
+
+  // Avoid infinite "Preparing..." if auth is true but wallet never appears.
+  useEffect(() => {
+    if (walletReadyTimeoutRef.current !== null) {
+      window.clearTimeout(walletReadyTimeoutRef.current);
+      walletReadyTimeoutRef.current = null;
+    }
+    if (
+      !ready ||
+      !authenticated ||
+      walletAddress ||
+      masterKeySig ||
+      view === "error"
+    ) {
+      return;
+    }
+    walletReadyTimeoutRef.current = window.setTimeout(() => {
+      setError(
+        "Wallet initialization timed out. Please reload and sign in again.",
+      );
+      setView("error");
+    }, WALLET_READY_TIMEOUT_MS);
+  }, [ready, authenticated, walletAddress, masterKeySig, view]);
+
+  useEffect(() => {
+    return () => {
+      if (walletReadyTimeoutRef.current !== null) {
+        window.clearTimeout(walletReadyTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Add signers when authenticated with a wallet
   useEffect(() => {
     if (authenticated && walletAddress) {
@@ -68,6 +138,7 @@ export function useConnectPage() {
 
   // Sign the master key after authentication
   useEffect(() => {
+    if (view === "error" || view === "ready") return;
     if (!authenticated || !walletAddress || masterKeySig || signingRef.current)
       return;
 
@@ -87,6 +158,7 @@ export function useConnectPage() {
         // Retry once — the embedded wallet may not be ready immediately
         if (signRetriesRef.current < 1) {
           signRetriesRef.current += 1;
+          window.setTimeout(() => setView("loading"), 300);
           return;
         }
         setError(
@@ -94,7 +166,7 @@ export function useConnectPage() {
         );
         setView("error");
       });
-  }, [authenticated, walletAddress, masterKeySig, signMessage]);
+  }, [authenticated, walletAddress, masterKeySig, signMessage, view]);
 
   const deepLinkUrl = resolveConnectLaunchUrl({
     sessionId,
