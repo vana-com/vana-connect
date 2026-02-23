@@ -32,32 +32,14 @@ jobs:
           fi
           echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
 
+      - name: Validate DataConnect sync logic
+        run: python .github/scripts/test_sync_dataconnect_version.py
+
       - name: Update DOWNLOAD_VERSION in config
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
         run: |
-          python - <<'PY'
-          import os
-          import re
-          import sys
-          from pathlib import Path
-
-          version = os.environ["LATEST_TAG"].removeprefix("v")
-          path = Path("connect/src/config/config.ts")
-          text = path.read_text()
-          updated, count = re.subn(
-              r'const DOWNLOAD_VERSION = "[^"]+";',
-              f'const DOWNLOAD_VERSION = "{version}";',
-              text,
-              count=1,
-          )
-          if count != 1:
-              print(
-                  f"Failed to update DOWNLOAD_VERSION in {path}: expected 1 replacement, got {count}"
-              )
-              sys.exit(1)
-          path.write_text(updated)
-          PY
+          python .github/scripts/sync_dataconnect_version.py --latest-tag "$LATEST_TAG"
 
       - name: Create pull request when version changed
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
