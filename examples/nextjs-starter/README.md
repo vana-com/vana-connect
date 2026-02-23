@@ -33,6 +33,10 @@ The app serves a W3C Web App Manifest at `/manifest.json` containing a signed `v
 
 `POST /api/webhook` is a stub endpoint for receiving grant notifications from the Desktop App. Extend it with signature verification and grant processing for production use.
 
+## App Icon
+
+Connect resolves your app icon from `APP_URL` in this order: `/icon.svg`, `/icon.png`, `/favicon.ico`. Expose at least one of those routes publicly. In this starter, `src/app/icon.svg` serves `/icon.svg`.
+
 ## E2E Testing Workflow
 
 1. **Terminal 1** — Start your Personal Server (`pnpm dev`)

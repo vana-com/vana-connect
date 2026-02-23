@@ -26,9 +26,9 @@ export async function GET() {
       theme_color: "#09090b",
       icons: [
         {
-          src: "/icon",
-          sizes: "192x192",
-          type: "image/png",
+          src: "/icon.svg",
+          sizes: "any",
+          type: "image/svg+xml",
         },
       ],
       vana: vanaBlock,
