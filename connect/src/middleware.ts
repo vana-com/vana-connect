@@ -1,15 +1,12 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import {
-  parseFromSearchParams,
-  toConnectUrl,
-} from "@/app/_lib/handoff-contract";
+import { parseFromSearchParams, toLoginUrl } from "@/app/_lib/handoff-contract";
 import { APP_ROUTES } from "@/app/routes";
 
-function buildCanonicalConnectUrl(requestUrl: URL): URL | null {
+function buildCanonicalLoginUrl(requestUrl: URL): URL | null {
   const handoffContext = parseFromSearchParams(requestUrl.searchParams);
   if (!handoffContext) return null;
-  return new URL(toConnectUrl(handoffContext), requestUrl);
+  return new URL(toLoginUrl(handoffContext), requestUrl);
 }
 
 export function middleware(request: NextRequest) {
@@ -17,7 +14,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const targetUrl = buildCanonicalConnectUrl(request.nextUrl);
+  const targetUrl = buildCanonicalLoginUrl(request.nextUrl);
   if (!targetUrl) {
     return NextResponse.next();
   }

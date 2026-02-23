@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { parseFromSearchParams, toConnectUrl } from "./_lib/handoff-contract";
+import { parseFromSearchParams, toLoginUrl } from "./_lib/handoff-contract";
 import { APP_ROUTES } from "./routes";
 
 type PageProps = {
@@ -24,10 +24,11 @@ export default async function Page({ searchParams }: PageProps) {
   const handoffContext = parseFromSearchParams(params);
 
   // Entry routing policy:
-  // 1) External app handoff includes session params -> continue connect flow.
+  // 1) External app handoff includes session params -> canonicalize to login handoff.
+  //    Login will route to /connect post-auth without root -> connect -> login bounce.
   // 2) Direct visits without a session -> go to login.
   if (handoffContext) {
-    redirect(toConnectUrl(handoffContext));
+    redirect(toLoginUrl(handoffContext));
   }
 
   redirect(APP_ROUTES.login);

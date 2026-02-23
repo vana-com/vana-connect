@@ -18,7 +18,7 @@ describe("root page routing", () => {
     });
   });
 
-  it("redirects to canonical connect URL when session params are present", async () => {
+  it("redirects to canonical login URL when session params are present", async () => {
     await expect(
       Page({
         searchParams: Promise.resolve({
@@ -28,7 +28,7 @@ describe("root page routing", () => {
         }),
       }),
     ).rejects.toThrow(
-      "REDIRECT:/connect?sessionId=sess-123&secret=sec-abc&app=discover-me",
+      "REDIRECT:/login?sessionId=sess-123&secret=sec-abc&app=discover-me",
     );
   });
 
