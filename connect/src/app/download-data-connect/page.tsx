@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useId, useMemo, useState } from "react";
+import { Suspense, useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
@@ -278,7 +278,11 @@ const downloadButtonStyle = [
 ];
 
 export default function DownloadDataConnectPage() {
-  return <DownloadDataConnectPageContent />;
+  return (
+    <Suspense fallback={null}>
+      <DownloadDataConnectPageContent />
+    </Suspense>
+  );
 }
 
 function DownloadDataConnectCardContent({
