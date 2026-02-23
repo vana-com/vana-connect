@@ -179,11 +179,14 @@ function DownloadDataConnectPageContent() {
                 indicatorLayoutId="download-os-selected-indicator"
               />
 
-              <div className="min-h-[92px] overflow-auto pt-5 -mt-3 border rounded-b-card">
-                <AllDownloadsGroup
-                  groupAssets={assets[selectedGroup]}
-                  onDownloadIntent={handleDownloadIntent}
-                />
+              <div className="min-h-[112px] overflow-auto pt-5 -mt-3 border rounded-b-card">
+                {assets[selectedGroup].map((asset) => (
+                  <AssetRow
+                    key={asset.filename}
+                    asset={asset}
+                    onDownloadIntent={handleDownloadIntent}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -198,7 +201,6 @@ function DownloadDataConnectPageContent() {
           size="sm"
           className={cn(
             "rounded-squish text-left max-w-[380px]!",
-            // spacing
             "p-w6 space-y-1",
           )}
         >
@@ -291,29 +293,6 @@ function DownloadDataConnectCardContent({
   );
 }
 
-function AllDownloadsGroup({
-  groupAssets,
-  onDownloadIntent,
-}: {
-  groupAssets: readonly DownloadAsset[];
-  onDownloadIntent: (
-    event: React.MouseEvent<HTMLAnchorElement>,
-    href: string,
-  ) => void;
-}) {
-  return (
-    <div className="space-y-px">
-      {groupAssets.map((asset) => (
-        <AssetRow
-          key={asset.filename}
-          asset={asset}
-          onDownloadIntent={onDownloadIntent}
-        />
-      ))}
-    </div>
-  );
-}
-
 function AssetRow({
   asset,
   onDownloadIntent,
@@ -333,7 +312,7 @@ function AssetRow({
       className={cn(
         "group",
         "flex items-center justify-between gap-2 px-2 py-2.5",
-        "rounded-button",
+        // "rounded-button",
         "hover:bg-(--canvas-accent-25-black-5)/40",
       )}
     >
