@@ -5,6 +5,8 @@ export type RegisteredAdminApp = {
   name: string;
   url: string;
   createdAt: string;
+  builderId?: string;
+  ownerAddress?: string;
 };
 
 const ADMIN_APPS_STORAGE_KEY = "vana.connect.admin.apps";
