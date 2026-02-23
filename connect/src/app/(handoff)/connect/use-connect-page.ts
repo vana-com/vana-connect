@@ -1,6 +1,12 @@
 "use client";
 
-import { usePrivy, useSigners, useSignMessage } from "@privy-io/react-auth";
+import {
+  useCreateWallet,
+  usePrivy,
+  useSigners,
+  useSignMessage,
+  useWallets,
+} from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -16,6 +22,7 @@ import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
 
 const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";
 const SIGN_MESSAGE_TIMEOUT_MS = 15_000;
+const WALLET_READY_TIMEOUT_MS = 10_000;
 const IS_DEV = process.env.NODE_ENV === "development";
 
 function resolveConnectErrorMessage(error: unknown): string {
@@ -38,23 +45,10 @@ function resolveConnectErrorMessage(error: unknown): string {
   return message;
 }
 
-function getWalletAddress(
-  user: ReturnType<typeof usePrivy>["user"],
-): string | null {
-  if (user?.wallet?.address) return user.wallet.address;
-  if (!user?.linkedAccounts) return null;
-
-  for (const account of user.linkedAccounts) {
-    if (
-      account.type === "wallet" &&
-      "address" in account &&
-      typeof account.address === "string"
-    ) {
-      return account.address;
-    }
-  }
-
-  return null;
+function isEmbeddedWalletClientType(
+  walletClientType: string | undefined,
+): boolean {
+  return walletClientType === "privy" || walletClientType === "privy-v2";
 }
 
 export type ConnectPageView = "loading" | "signing" | "ready" | "error";
@@ -62,6 +56,7 @@ type ConnectFlowPhase =
   | "missing-session"
   | "boot"
   | "auth-required"
+  | "wallet-wait"
   | "signing-ready"
   | "ready";
 
@@ -82,9 +77,11 @@ export function useConnectPage() {
   const sessionId = handoffContext?.sessionId ?? null;
   const secret = handoffContext?.secret ?? null;
 
-  const { ready, authenticated, user } = usePrivy();
+  const { ready, authenticated } = usePrivy();
   const { signMessage } = useSignMessage();
   const { addSigners } = useSigners();
+  const { wallets, ready: walletsReady } = useWallets();
+  const { createWallet } = useCreateWallet();
 
   const [view, setView] = useState<ConnectPageView>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -93,14 +90,35 @@ export function useConnectPage() {
   const signingRef = useRef(false);
   const signersAddedRef = useRef(false);
   const signRetriesRef = useRef(0);
-  const walletAddress = getWalletAddress(user);
+  const walletReadyTimeoutRef = useRef<number | null>(null);
+  const createWalletAttemptedRef = useRef(false);
+  const [creatingEmbeddedWallet, setCreatingEmbeddedWallet] = useState(false);
+  const embeddedWalletAddress = useMemo(() => {
+    for (const wallet of wallets) {
+      if (!isEmbeddedWalletClientType(wallet.walletClientType)) continue;
+      if (typeof wallet.address === "string" && wallet.address.length > 0) {
+        return wallet.address;
+      }
+    }
+    return null;
+  }, [wallets]);
   const phase: ConnectFlowPhase = useMemo(() => {
     if (!sessionId) return "missing-session";
     if (!ready) return "boot";
     if (!authenticated) return "auth-required";
+    if (!walletsReady || creatingEmbeddedWallet) return "wallet-wait";
     if (masterKeySig) return "ready";
+    if (!embeddedWalletAddress) return "wallet-wait";
     return "signing-ready";
-  }, [sessionId, ready, authenticated, masterKeySig]);
+  }, [
+    sessionId,
+    ready,
+    authenticated,
+    walletsReady,
+    creatingEmbeddedWallet,
+    masterKeySig,
+    embeddedWalletAddress,
+  ]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -152,10 +170,60 @@ export function useConnectPage() {
 
   // Add signers when authenticated with a wallet
   useEffect(() => {
-    if (authenticated && walletAddress) {
-      handleAddSigners(walletAddress);
+    if (authenticated && embeddedWalletAddress) {
+      handleAddSigners(embeddedWalletAddress);
     }
-  }, [authenticated, walletAddress, handleAddSigners]);
+  }, [authenticated, embeddedWalletAddress, handleAddSigners]);
+
+  // Ensure a Privy embedded wallet exists for signing.
+  useEffect(() => {
+    if (!authenticated || !walletsReady) return;
+    if (view === "error" || view === "ready") return;
+    if (embeddedWalletAddress) return;
+    if (createWalletAttemptedRef.current) return;
+
+    createWalletAttemptedRef.current = true;
+    setCreatingEmbeddedWallet(true);
+
+    createWallet()
+      .catch((err) => {
+        const message = String(
+          err instanceof Error ? err.message : (err ?? ""),
+        ).toLowerCase();
+        if (message.includes("already exists")) return;
+        setError(resolveConnectErrorMessage(err));
+        setView("error");
+      })
+      .finally(() => {
+        setCreatingEmbeddedWallet(false);
+      });
+  }, [authenticated, walletsReady, view, embeddedWalletAddress, createWallet]);
+
+  // Avoid infinite loading when auth succeeds but wallet never initializes.
+  useEffect(() => {
+    if (walletReadyTimeoutRef.current !== null) {
+      window.clearTimeout(walletReadyTimeoutRef.current);
+      walletReadyTimeoutRef.current = null;
+    }
+
+    if (view === "error" || view === "ready") return;
+    if (phase !== "wallet-wait") return;
+
+    walletReadyTimeoutRef.current = window.setTimeout(() => {
+      setError(
+        "Wallet initialization timed out. Please reload and sign in again from the same handoff link.",
+      );
+      setView("error");
+    }, WALLET_READY_TIMEOUT_MS);
+  }, [phase, view]);
+
+  useEffect(() => {
+    return () => {
+      if (walletReadyTimeoutRef.current !== null) {
+        window.clearTimeout(walletReadyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Sign the master key after authentication
   useEffect(() => {
@@ -181,7 +249,10 @@ export function useConnectPage() {
 
     signMessage(
       { message: "vana-master-key-v1" },
-      { uiOptions: { showWalletUIs } },
+      {
+        uiOptions: { showWalletUIs },
+        address: embeddedWalletAddress ?? undefined,
+      },
     )
       .then(({ signature }) => {
         if (didTimeout) return;
@@ -208,7 +279,7 @@ export function useConnectPage() {
         setError(resolveConnectErrorMessage(err));
         setView("error");
       });
-  }, [phase, signMessage, view]);
+  }, [phase, signMessage, view, embeddedWalletAddress]);
 
   const deepLinkUrl = resolveConnectLaunchUrl({
     sessionId,
