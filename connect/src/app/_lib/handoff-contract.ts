@@ -29,11 +29,6 @@ export type ConnectHandoffContext = {
 type SearchParamReader = {
   get(name: string): string | null;
 };
-
-type LegacyStoragePayload = {
-  sessionId?: unknown;
-  secret?: unknown;
-};
 type NormalizableInput = {
   sessionId: unknown;
   secret: unknown;
@@ -133,6 +128,21 @@ function parseContextJsonPayload(
   }
 }
 
+function parsePersistedContextJsonPayload(
+  rawPayload: string,
+  now: number,
+): ConnectHandoffContext | null {
+  try {
+    const parsed = JSON.parse(rawPayload) as Record<string, unknown>;
+    if (parsed.version !== HANDOFF_CONTEXT_VERSION) {
+      return null;
+    }
+    return parseContextJsonPayload(rawPayload, now);
+  } catch {
+    return null;
+  }
+}
+
 function parseCookieMap(cookieHeader: string): Map<string, string> {
   const map = new Map<string, string>();
   const segments = cookieHeader.split(";");
@@ -161,7 +171,10 @@ export function parseFromCookie(
   if (!encodedPayload) return null;
 
   try {
-    return parseContextJsonPayload(decodeURIComponent(encodedPayload), now);
+    return parsePersistedContextJsonPayload(
+      decodeURIComponent(encodedPayload),
+      now,
+    );
   } catch {
     return null;
   }
@@ -172,49 +185,7 @@ export function parseFromStorage(
   now = Date.now(),
 ): ConnectHandoffContext | null {
   if (!rawStorageValue) return null;
-
-  try {
-    const parsed = JSON.parse(rawStorageValue) as
-      | Partial<ConnectHandoffContext>
-      | LegacyStoragePayload;
-    if (
-      "version" in parsed ||
-      "returnTo" in parsed ||
-      "createdAt" in parsed ||
-      "app" in parsed ||
-      "appId" in parsed ||
-      "appName" in parsed
-    ) {
-      const record = parsed as Record<string, unknown>;
-      return normalizeContext(
-        {
-          sessionId: record.sessionId,
-          secret: record.secret,
-          app: record.app,
-          appId: record.appId,
-          appName: record.appName,
-          returnTo: record.returnTo,
-          createdAt: record.createdAt,
-        },
-        now,
-      );
-    }
-
-    return normalizeContext(
-      {
-        sessionId: parsed.sessionId,
-        secret: parsed.secret ?? null,
-        app: null,
-        appId: null,
-        appName: null,
-        returnTo: HANDOFF_RETURN_TO_DEFAULT,
-        createdAt: now,
-      },
-      now,
-    );
-  } catch {
-    return null;
-  }
+  return parsePersistedContextJsonPayload(rawStorageValue, now);
 }
 
 export function isValidHandoffContext(
@@ -289,14 +260,25 @@ export function resolveHandoffContext(options: {
   searchParams?: SearchParamReader | null;
   cookieHeader?: string | null;
   rawStorageValue?: string | null;
+  includeUrl?: boolean;
+  includeCookie?: boolean;
+  includeStorage?: boolean;
   now?: number;
 }): ConnectHandoffContext | null {
   const now = options.now ?? Date.now();
-  const fromUrl = options.searchParams
-    ? parseFromSearchParams(options.searchParams, now)
+  const includeUrl = options.includeUrl ?? true;
+  const includeCookie = options.includeCookie ?? true;
+  const includeStorage = options.includeStorage ?? true;
+  const fromUrl =
+    includeUrl && options.searchParams
+      ? parseFromSearchParams(options.searchParams, now)
+      : null;
+  const fromCookie = includeCookie
+    ? parseFromCookie(options.cookieHeader, now)
     : null;
-  const fromCookie = parseFromCookie(options.cookieHeader, now);
-  const fromStorage = parseFromStorage(options.rawStorageValue ?? null, now);
+  const fromStorage = includeStorage
+    ? parseFromStorage(options.rawStorageValue ?? null, now)
+    : null;
   const resolved = resolveByPrecedence(
     { url: fromUrl, cookie: fromCookie, storage: fromStorage },
     now,
@@ -316,6 +298,11 @@ export function resolveHandoffContext(options: {
 export function resolveHandoffContextFromClient(
   searchParams: SearchParamReader,
   now = Date.now(),
+  options?: {
+    includeUrl?: boolean;
+    includeCookie?: boolean;
+    includeStorage?: boolean;
+  },
 ): ConnectHandoffContext | null {
   const cookieHeader =
     typeof document !== "undefined" ? document.cookie : undefined;
@@ -331,6 +318,9 @@ export function resolveHandoffContextFromClient(
     searchParams,
     cookieHeader,
     rawStorageValue,
+    includeUrl: options?.includeUrl,
+    includeCookie: options?.includeCookie,
+    includeStorage: options?.includeStorage,
     now,
   });
 }

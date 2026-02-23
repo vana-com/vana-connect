@@ -81,26 +81,15 @@ describe("handoff-contract", () => {
     expect(parsed).toEqual(createContext());
   });
 
-  it("parses legacy storage payload with defaults", () => {
-    const legacyPayload = JSON.stringify({
-      sessionId: "sess-legacy",
-      secret: null,
-    });
-    const parsed = parseFromStorage(legacyPayload, NOW);
-
-    expect(parsed).toEqual(
-      createContext({
-        sessionId: "sess-legacy",
-        secret: null,
-        app: null,
-        appId: null,
-        appName: null,
-        returnTo: HANDOFF_RETURN_TO_DEFAULT,
-      }),
+  it("returns null for unversioned storage payloads", () => {
+    const parsed = parseFromStorage(
+      JSON.stringify({ sessionId: "sess-legacy", secret: null }),
+      NOW,
     );
+    expect(parsed).toBeNull();
   });
 
-  it("exposes storage key used by legacy/current flow", () => {
+  it("exposes storage key used by handoff flow", () => {
     expect(HANDOFF_STORAGE_KEY).toBe("vana_connect_session");
   });
 
@@ -157,14 +146,40 @@ describe("handoff-contract", () => {
     const selected = resolveHandoffContext({
       searchParams: new URLSearchParams("sessionId=sess-url"),
       cookieHeader: `${HANDOFF_COOKIE_KEY}=${encodeURIComponent(serializeHandoffContext(createContext({ sessionId: "sess-cookie" })))}`,
-      rawStorageValue: JSON.stringify({
-        sessionId: "sess-storage",
-        secret: null,
-      }),
+      rawStorageValue: serializeHandoffContext(
+        createContext({ sessionId: "sess-storage", secret: null }),
+      ),
       now: NOW,
     });
 
     expect(selected?.sessionId).toBe("sess-url");
+  });
+
+  it("can ignore cookie/storage fallbacks when query is missing", () => {
+    const cookieContext = createContext({ sessionId: "sess-cookie" });
+    const storageContext = createContext({ sessionId: "sess-storage" });
+    const selected = resolveHandoffContext({
+      searchParams: new URLSearchParams(""),
+      cookieHeader: `${HANDOFF_COOKIE_KEY}=${encodeURIComponent(serializeHandoffContext(cookieContext))}`,
+      rawStorageValue: serializeHandoffContext(storageContext),
+      includeCookie: false,
+      includeStorage: false,
+      now: NOW,
+    });
+
+    expect(selected).toBeNull();
+  });
+
+  it("can ignore URL context when escape hatch requests a hard reset", () => {
+    const selected = resolveHandoffContext({
+      searchParams: new URLSearchParams("sessionId=sess-url&secret=sec-url"),
+      includeUrl: false,
+      includeCookie: false,
+      includeStorage: false,
+      now: NOW,
+    });
+
+    expect(selected).toBeNull();
   });
 
   it("recovers context from storage when query is missing (oauth return)", () => {
