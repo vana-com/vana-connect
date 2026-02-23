@@ -2,7 +2,8 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
@@ -52,6 +53,7 @@ function useDownloadState() {
 }
 
 function DownloadDataConnectPageContent() {
+  const searchParams = useSearchParams();
   const { authenticated } = usePrivy();
   const checkboxId = useId();
   const [isFoundationLegalAccepted, setIsFoundationLegalAccepted] =
@@ -86,19 +88,15 @@ function DownloadDataConnectPageContent() {
   const shellActions = authenticated
     ? (["yourApps", "logout"] as const)
     : (["yourApps"] as const);
-  const [backHref, setBackHref] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handoffContext = resolveHandoffContextFromClient(
-      new URLSearchParams(window.location.search),
-      Date.now(),
-      {
+  const handoffContext = useMemo(
+    () =>
+      resolveHandoffContextFromClient(searchParams, Date.now(), {
         includeCookie: false,
         includeStorage: false,
-      },
-    );
-    setBackHref(handoffContext ? toConnectUrl(handoffContext) : null);
-  }, []);
+      }),
+    [searchParams],
+  );
+  const backHref = handoffContext ? toConnectUrl(handoffContext) : null;
 
   function handleDownloadIntent(
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -280,7 +278,11 @@ const downloadButtonStyle = [
 ];
 
 export default function DownloadDataConnectPage() {
-  return <DownloadDataConnectPageContent />;
+  return (
+    <Suspense fallback={null}>
+      <DownloadDataConnectPageContent />
+    </Suspense>
+  );
 }
 
 function DownloadDataConnectCardContent({
