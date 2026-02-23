@@ -1,125 +1,88 @@
-# Connect app branding discovery strategy
+# Connect app icon strategy (minimal contract)
 
-## Why this exists
+## Decision
 
-Current connect UI branding uses local registry fallback (`app-registry.ts`), which does not scale and creates maintenance friction.
+This replaces the previous overbuilt branding proposal.
 
-Goal: make branding work for builders by default with minimal setup.
+For connect handoff, treat `sessionId` and `secret` as the only required auth fields.
+For app identity in UI, use `appUrl` as the source of truth.
 
-## Problem
+We will not depend on `app`, `appId`, or `appName` for correctness.
+Those fields are legacy hints and may be absent or inconsistent.
 
-We need `displayName`, `iconUrl`, and visual colors (`iconBg`, `iconFg`) for the connect UI.
+## Goal
 
-Today this is sourced from:
+Render the app icon in the connect header block (app icon ↔ Vana icon) with minimal builder setup and no local per-app registry edits.
 
-- query hints (`app`, `appId`, `appName`)
-- static local registry mapping in connect app
-- hardcoded fallback
+## Contract
 
-This requires manual registry upkeep and does not auto-discover new apps.
+Required for handoff/auth:
 
-## Desired builder experience
+- `sessionId`
+- `secret` (when provided by relay flow)
 
-Builder can do one of:
+Required for reliable app icon resolution:
 
-1. pass only `appName` (minimum)
-2. pass typed branding hints in launch params (optional)
-3. pass nothing and still get reasonable branding via app metadata discovery
+- `appUrl`
 
-No per-app registry edit should be required for normal flows.
+Optional legacy hints (best-effort only):
 
-## Proposed source precedence (branding)
+- `app`
+- `appId`
+- `appName`
 
-Resolve branding in this order:
+## Branding resolution (v1)
 
-1. **Explicit launch hints** (query/session metadata)  
-   Example: `appName`, optional `iconUrl`, optional `themeColor`.
-2. **Session-derived app origin metadata** (server fetched)  
-   Fetch app manifest/metadata from origin associated with launch context.
-3. **Static registry fallback** (legacy safety net)
-4. **Default generic branding**
+Resolve header display metadata in this order:
 
-This keeps existing reliability while removing registry dependency for new apps.
+1. `appUrl` provided
+   - `iconUrl = new URL("/favicon.ico", appUrl)`
+   - `displayName` fallback derived from hostname (`www.foo-bar.com` -> `Foo Bar`)
+2. If `appName` exists, use it for display label (does not override icon source)
+3. If favicon is missing/broken, show first-letter avatar fallback
+   - first letter of resolved display name
+   - fallback letter `"A"` if no usable name
+4. Keep neutral default colors (no dynamic color extraction in v1)
 
-## Architecture
+## Builder experience
 
-## Shared contract
+Builder should not pass custom branding hints.
 
-Introduce shared branding hint types/constants (in shared package or shared module):
+Expected path:
 
-- `ConnectAppBrandingHint`
-- query key constants and parser
-- validation helpers
+- Builder config already contains `APP_URL`
+- SDK `connect()` includes `appUrl` in generated account connect URL
+- account connect page forwards `appUrl` through handoff flow
+- connect UI derives favicon from `appUrl`
 
-Purpose: builders and connect app speak one typed query contract.
+No extra builder action is needed beyond setting `APP_URL` (already required by starter config).
 
-## Connect server endpoint
+## Implementation scope
 
-Add server route:
+In scope now:
 
-- `GET /api/app-branding`
+- Thread `appUrl` through SDK URL generation and handoff context
+- Resolve icon from `/favicon.ico` at `appUrl` origin
+- Use first-letter fallback when icon cannot load
+- Keep existing auth/session behavior unchanged
 
-Input:
+Out of scope now:
 
-- launch context (`sessionId`, optional `secret`) or resolved app origin
+- New `/api/app-branding` endpoint
+- manifest scraping / OG metadata enrichment
+- theme color extraction
+- typed branding hint schema
 
-Behavior:
+## Rationale
 
-- resolve app origin from launch/session metadata
-- fetch manifest/metadata server-side (avoid browser CORS issues)
-- normalize result into connect branding shape:
-  - `displayName`
-  - `iconUrl`
-  - `iconBg`
-  - `iconFg`
-- short TTL cache by app origin
-
-## Connect client flow
-
-In connect page hook:
-
-- resolve immediate branding from hints/fallback (fast first paint)
-- fetch enriched branding async from `/api/app-branding`
-- update UI when enriched data arrives
-
-This avoids blocking critical handoff/auth flow on metadata fetch latency.
-
-## Metadata extraction strategy
-
-Preferred extraction order:
-
-1. Web app manifest (`/manifest.json`)
-2. HTML metadata (`<meta property="og:...">`, `<title>`, icon links)
-3. `/favicon.ico` fallback
-
-Color strategy:
-
-- if explicit theme/color token exists -> use it
-- else derive from icon dominant colors (optional phase 2)
-- else fallback neutral palette
-
-## Security and trust boundaries
-
-- Treat branding as presentation-only; never use it for auth/security decisions.
-- Keep auth/session verification separate from branding fetch.
-- Validate and sanitize remote metadata before rendering.
-
-## Rollout plan
-
-1. Keep current registry behavior as fallback (no breakage).
-2. Add typed hints + parsing path.
-3. Add server branding endpoint and caching.
-4. Switch connect UI resolver to dynamic-first with fallback chain.
-5. Measure unknown-app fallback rate and remove most registry entries over time.
+- Matches what starter config can reliably provide today (`appUrl`)
+- Removes dependence on unstable hint fields (`app`, `appId`, `appName`)
+- Avoids introducing new server complexity for a simple UI requirement
+- Keeps connect flow deterministic even when branding fails
 
 ## Success criteria
 
-- New apps render correct name/icon without registry edits.
-- Connect flow remains deterministic under metadata fetch failures.
-- No auth regressions introduced by branding discovery logic.
-
-## Non-goals
-
-- Replacing auth handoff contract.
-- Blocking connect flow on branding network calls.
-- Perfect visual brand matching for all edge-case sites in v1.
+- App icon renders in connect header for apps with valid `appUrl`
+- When favicon cannot be fetched, UI falls back to first-letter avatar without breaking flow
+- No registry edit needed for new apps
+- No auth/handoff regression
