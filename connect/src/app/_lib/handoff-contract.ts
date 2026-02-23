@@ -374,7 +374,7 @@ export function clearHandoffContext(): void {
 
 export function resolvePostAuthDestination(
   context: ConnectHandoffContext | null,
-  fallbackHref = APP_ROUTES.downloadDataConnect,
+  fallbackHref = APP_ROUTES.admin,
 ): string {
   if (!context) return fallbackHref;
   if (context.returnTo === APP_ROUTES.downloadDataConnect) {

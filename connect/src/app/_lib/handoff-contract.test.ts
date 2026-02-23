@@ -221,7 +221,7 @@ describe("handoff-contract", () => {
   });
 
   it("resolves post-auth fallback when no context", () => {
-    expect(resolvePostAuthDestination(null)).toBe("/download-data-connect");
+    expect(resolvePostAuthDestination(null)).toBe("/admin");
     expect(resolvePostAuthDestination(createContext())).toContain("/connect?");
   });
 
