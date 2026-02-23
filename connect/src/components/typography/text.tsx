@@ -1,6 +1,13 @@
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import {
+  Children,
+  type ComponentPropsWithoutRef,
+  cloneElement,
+  type ElementType,
+  isValidElement,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 
 const eyebrowStyle =
@@ -94,9 +101,11 @@ export const textVariants = cva(
       truncate: {
         // For text truncation to work properly, the element needs a constrained width (explicit or from its container):
         // 1. min-w-0 prevents overflow in flex/grid parents
-        // 2. max-w-full works in non-flex contexts
-        // 3. w-full guarantees a defined width; flex-1 is intentionally omitted because it can interfere with ellipsis in nested flex-columns
-        true: "truncate min-w-0 max-w-full w-full",
+        // 2. max-w-full prevents overflow beyond the parent in non-flex contexts
+        // Callers supply the width ceiling (e.g. max-w-[160px] or a constrained flex parent).
+        // w-max sizes to content so short text shrink-wraps; max-w-full (or caller's max-w-*) caps it and provides the definite width that text-overflow: ellipsis needs.
+        // w-full was avoided because it stretches short text to fill the parent; flex-1 is omitted because it interferes with ellipsis in nested flex-columns.
+        true: "truncate min-w-0 max-w-full w-max",
       },
       withIcon: {
         true: [
@@ -150,7 +159,7 @@ export const textVariants = cva(
       {
         withIcon: true,
         intent: ["pill", "fine"],
-        className: "gap-1",
+        className: "gap-0.5",
       },
       {
         withIcon: true,
@@ -209,6 +218,28 @@ export const Text = <T extends ElementType = "div">({
   const formattedChildren: React.ReactNode =
     typeof children === "string" ? formatText(children) : children;
 
+  // text-overflow: ellipsis doesn't work on flex containers, so when both
+  // withIcon (flex) and truncate are active, we wrap text children in a
+  // <span class="truncate"> and only apply overflow-hidden on the outer.
+  const needsTruncateWrap = !!(withIcon && truncate);
+
+  let renderedChildren: React.ReactNode = formattedChildren;
+  if (needsTruncateWrap) {
+    renderedChildren = Children.map(formattedChildren, (child) => {
+      if (isValidElement(child)) {
+        const existing =
+          (child.props as { className?: string }).className ?? "";
+        if (!existing.includes("shrink-0")) {
+          return cloneElement(child, {
+            className: cn(existing, "shrink-0"),
+          } as Record<string, unknown>);
+        }
+        return child;
+      }
+      return <span className="truncate min-w-0">{child}</span>;
+    });
+  }
+
   return (
     <ResolvedComponent
       data-component="text"
@@ -223,7 +254,7 @@ export const Text = <T extends ElementType = "div">({
           mono,
           balance,
           optical: resolvedOptical,
-          truncate,
+          truncate: needsTruncateWrap ? undefined : truncate,
           pre: preProp,
           bullet: bulletProp,
           link,
@@ -232,11 +263,11 @@ export const Text = <T extends ElementType = "div">({
           muted,
           className,
         }),
-        // Component === "ul" ? "pl-bullet" : ""
+        needsTruncateWrap && "overflow-hidden min-w-0 max-w-full w-max",
       )}
       {...props}
     >
-      {formattedChildren}
+      {renderedChildren}
     </ResolvedComponent>
   );
 };
