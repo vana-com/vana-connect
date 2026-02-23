@@ -114,4 +114,100 @@ describe("useLoginPage oauth loading behavior", () => {
       expect(result.current.view).toBe("entry");
     });
   });
+
+  it("starts on code view when otp verification is already in progress", async () => {
+    mocks.searchParams = new URLSearchParams(
+      "sessionId=session-123&secret=secret-abc",
+    );
+    mocks.emailState.status = "awaiting-code";
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("code");
+    });
+  });
+
+  it("keeps code view and shows error for invalid code", async () => {
+    mocks.searchParams = new URLSearchParams(
+      "sessionId=session-123&secret=secret-abc",
+    );
+    mocks.emailState.status = "awaiting-code";
+    mocks.loginWithCode.mockRejectedValueOnce(new Error("bad code"));
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("code");
+    });
+
+    act(() => {
+      result.current.handleCodeChange("123456");
+    });
+
+    await act(async () => {
+      await result.current.handleCodeSubmit();
+    });
+
+    expect(result.current.view).toBe("code");
+    expect(result.current.error).toBe("Invalid code. Please try again.");
+  });
+
+  it("clears otp when user goes back to email and requests a new code", async () => {
+    mocks.searchParams = new URLSearchParams(
+      "sessionId=session-123&secret=secret-abc",
+    );
+    mocks.sendCode.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("entry");
+    });
+
+    act(() => {
+      result.current.handleEmailChange("jane@example.com");
+    });
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    expect(result.current.view).toBe("code");
+
+    act(() => {
+      result.current.handleCodeChange("123456");
+      result.current.handleBackToEmail();
+    });
+
+    expect(result.current.view).toBe("entry");
+    expect(result.current.code).toBe("");
+
+    await act(async () => {
+      await result.current.handleEmailSubmit();
+    });
+
+    expect(result.current.view).toBe("code");
+    expect(result.current.code).toBe("");
+  });
+
+  it("submits explicit code override (paste/autosubmit path) instead of stale state", async () => {
+    mocks.searchParams = new URLSearchParams(
+      "sessionId=session-123&secret=secret-abc",
+    );
+    mocks.emailState.status = "awaiting-code";
+    mocks.loginWithCode.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("code");
+    });
+
+    await act(async () => {
+      await result.current.handleCodeSubmit("025433");
+    });
+
+    expect(mocks.loginWithCode).toHaveBeenCalledWith({ code: "025433" });
+  });
 });

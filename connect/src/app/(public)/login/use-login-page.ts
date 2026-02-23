@@ -26,6 +26,10 @@ export const LOGIN_PAGE_SPINNER_VIEWS: readonly LoginPageView[] = [
   "completing",
 ];
 
+function isOtpVerificationPhase(status: string): boolean {
+  return status === "awaiting-code" || status === "submitting-code";
+}
+
 function hasOAuthCallbackParams(searchParams: URLSearchParams): boolean {
   const callbackKeys = [
     "code",
@@ -91,7 +95,7 @@ export function useLoginPage() {
       setError(
         typeof err === "string" ? err : "Login failed. Please try again.",
       );
-      // Stay on current view so user can retry
+      setView("code");
     },
   });
 
@@ -125,9 +129,9 @@ export function useLoginPage() {
     }
     // Privy is ready and user is not authenticated — show entry form
     if (view === "loading") {
-      setView("entry");
+      setView(isOtpVerificationPhase(emailState.status) ? "code" : "entry");
     }
-  }, [ready, authenticated, view, handleLoginComplete]);
+  }, [ready, authenticated, view, handleLoginComplete, emailState.status]);
 
   // Handle OAuth state transitions (covers the auto-processed callback on page load,
   // where the onComplete callback may not fire since the hook instance that called
@@ -156,6 +160,7 @@ export function useLoginPage() {
     setError(null);
     try {
       await privySendCode({ email });
+      setCode("");
       setView("code");
     } catch {
       setError("Failed to send code. Please try again.");
@@ -163,15 +168,22 @@ export function useLoginPage() {
   }, [email, privySendCode]);
 
   // Code submit — verify OTP
-  const handleCodeSubmit = useCallback(async () => {
-    setError(null);
-    try {
-      await privyLoginWithCode({ code });
-      // onComplete callback handles redirect
-    } catch {
-      setError("Invalid code. Please try again.");
-    }
-  }, [code, privyLoginWithCode]);
+  const handleCodeSubmit = useCallback(
+    async (codeOverride?: string) => {
+      const codeToSubmit = codeOverride ?? code;
+      if (!codeToSubmit) return;
+
+      setError(null);
+      try {
+        await privyLoginWithCode({ code: codeToSubmit });
+        // onComplete callback handles redirect
+      } catch {
+        setError("Invalid code. Please try again.");
+        setView("code");
+      }
+    },
+    [code, privyLoginWithCode],
+  );
 
   const handleResendCode = useCallback(async () => {
     setError(null);
@@ -184,6 +196,7 @@ export function useLoginPage() {
 
   const handleBackToEmail = useCallback(() => {
     setError(null);
+    setCode("");
     setView("entry");
   }, []);
 
