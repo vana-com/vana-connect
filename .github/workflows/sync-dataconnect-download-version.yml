@@ -1,0 +1,61 @@
+name: Sync DataConnect Download Version
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-dataconnect-download-version
+  cancel-in-progress: true
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Resolve latest DataConnect release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_tag="$(gh api repos/vana-com/data-connect/releases/latest --jq .tag_name)"
+          if [ -z "$latest_tag" ]; then
+            echo "Failed to resolve latest tag"
+            exit 1
+          fi
+          echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Validate DataConnect sync logic
+        env:
+          PYTHONPATH: .github/scripts
+        run: python3 .github/scripts/test_sync_dataconnect_version.py
+
+      - name: Update DOWNLOAD_VERSION in config
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          python3 .github/scripts/sync_dataconnect_version.py --latest-tag "$LATEST_TAG"
+
+      - name: Create pull request when version changed
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          branch: chore/sync-dataconnect-download-version
+          delete-branch: true
+          commit-message: "ci(connect): sync DataConnect download version"
+          title: "ci(connect): sync DataConnect download version"
+          body: |
+            ## Summary
+            - sync `DOWNLOAD_VERSION` in `connect/src/config/config.ts` to the latest `vana-com/data-connect` release tag
+            - keep `/download-data-connect` asset links current without manual edits
+
+            ## Test plan
+            - [ ] Run this workflow via workflow_dispatch
+            - [ ] Confirm PR is created only when latest tag differs
+            - [ ] Verify generated URLs on `/download-data-connect` point to the new release
