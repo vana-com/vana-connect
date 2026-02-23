@@ -61,7 +61,7 @@ export function PageShell({
         </Link>
       )}
       {resolvedActions.length > 0 && (
-        <div className="absolute top-gap right-gap flex items-center gap-2">
+        <div className="absolute top-gap right-gap flex items-center gap-1">
           {resolvedActions.map((action, index) =>
             action.kind === "logout" ? (
               <LogoutActionButton

@@ -6,7 +6,7 @@ export function getPageShellActionButtonClassName(className?: string) {
     variant: "ghost",
     size: "sm",
     className: cn(
-      "px-w6 bg-foreground/[0.03] text-foreground-dim font-normal",
+      "bg-foreground/[0.03] text-foreground-dim font-normal",
       "hover:bg-iris/[0.07]! hover:text-iris",
       className,
     ),

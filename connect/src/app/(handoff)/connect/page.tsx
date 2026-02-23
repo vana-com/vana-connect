@@ -6,8 +6,6 @@ import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { CONNECT_CONFIG } from "@/config/config";
-import { resolveConnectAppRef } from "./_lib/app-query";
-import { resolveConnectApp } from "./_lib/app-registry";
 import {
   ConnectErrorState,
   ConnectFooterSpacer,
@@ -16,6 +14,8 @@ import {
   ConnectPanelFooter,
   ConnectReadyState,
 } from "./_components/connect-page-ui";
+import { resolveConnectAppRef } from "./_lib/app-query";
+import { resolveConnectApp } from "./_lib/app-registry";
 import { useConnectPage } from "./use-connect-page";
 
 function createAppQueryReader(
