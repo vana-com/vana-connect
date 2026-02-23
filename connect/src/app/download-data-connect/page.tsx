@@ -1,10 +1,12 @@
 "use client";
 
+import { usePrivy } from "@privy-io/react-auth";
 import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { APP_ROUTES } from "@/app/routes";
 import { ExternalLink } from "@/components/elements/external-link";
 import { SlidingTabs } from "@/components/elements/sliding-tabs";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -47,6 +49,7 @@ function useDownloadState() {
 }
 
 function DownloadDataConnectPageContent() {
+  const { authenticated } = usePrivy();
   const checkboxId = useId();
   const [isFoundationLegalAccepted, setIsFoundationLegalAccepted] =
     useState(false);
@@ -77,6 +80,10 @@ function DownloadDataConnectPageContent() {
 
   const primaryHref = primaryAsset ? getAssetUrl(primaryAsset.filename) : "#";
   const canPrimaryDownload = !isUnknown && primaryAsset !== null;
+  const shellActions = authenticated
+    ? (["yourApps", "logout"] as const)
+    : (["yourApps"] as const);
+  const backHref = authenticated ? APP_ROUTES.admin : APP_ROUTES.login;
 
   function handleDownloadIntent(
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -105,7 +112,7 @@ function DownloadDataConnectPageContent() {
   }
 
   return (
-    <PageShell showBackButton actions={["yourApps", "logout"]}>
+    <PageShell showBackButton backHref={backHref} actions={[...shellActions]}>
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={
