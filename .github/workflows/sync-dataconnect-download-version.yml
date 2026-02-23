@@ -33,6 +33,8 @@ jobs:
           echo "tag=$latest_tag" >> "$GITHUB_OUTPUT"
 
       - name: Validate DataConnect sync logic
+        env:
+          PYTHONPATH: .github/scripts
         run: python3 .github/scripts/test_sync_dataconnect_version.py
 
       - name: Update DOWNLOAD_VERSION in config

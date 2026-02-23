@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 import tempfile
+import sys
 import unittest
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
 from sync_dataconnect_version import normalize_version_tag, update_download_version
 
