@@ -151,45 +151,40 @@ function DownloadDataConnectPageContent() {
           )}
 
           {/* Other downloads */}
-          <div className={cn(contentStyle, "text-left space-y-2")}>
-            <Text
-              as="p"
-              intent="small"
-              dim
-              withIcon
-              align="center"
-              className="pb-2"
-            >
+          <div className={cn(contentStyle, "text-left space-y-4")}>
+            <Text as="p" intent="small" dim withIcon align="center">
               <LaptopIcon aria-hidden />
               Other downloads
             </Text>
 
-            <SlidingTabs
-              tabs={osTabs}
-              value={selectedGroup}
-              onValueChange={(value) => setSelectedGroup(value as OSGroup)}
-              listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
-              listItemClassName="flex-1 min-w-0"
-              tabClassName={cn(
-                // Layout
-                "w-full flex justify-center rounded-sm px-2.5",
-                // Tab height (--tab-h drives both h and label leading)
-                "[--tab-h:2rem] h-[var(--tab-h)]",
-                // Vertical-center label via line-height = tab height
-                "[&>*]:leading-[var(--tab-h)]",
-              )}
-              indicatorClassName={cn(
-                "inset-0 rounded-sm",
-                "bg-(--canvas-accent-25-black-5)",
-              )}
-              indicatorLayoutId="download-os-selected-indicator"
-            />
-
-            <div className="min-h-[92px] overflow-auto">
-              <AllDownloadsGroup
-                groupAssets={assets[selectedGroup]}
-                onDownloadIntent={handleDownloadIntent}
+            <div>
+              <SlidingTabs
+                tabs={osTabs}
+                value={selectedGroup}
+                onValueChange={(value) => setSelectedGroup(value as OSGroup)}
+                listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
+                listItemClassName="flex-1 min-w-0"
+                tabClassName={cn(
+                  // Layout
+                  "w-full flex justify-center rounded-sm px-2.5",
+                  // Tab height (--tab-h drives both h and label leading)
+                  "[--tab-h:2rem] h-[var(--tab-h)]",
+                  // Vertical-center label via line-height = tab height
+                  "[&>*]:leading-[var(--tab-h)]",
+                )}
+                indicatorClassName={cn(
+                  "inset-0 rounded-sm",
+                  "bg-(--canvas-accent-25-black-5)",
+                )}
+                indicatorLayoutId="download-os-selected-indicator"
               />
+
+              <div className="min-h-[92px] overflow-auto pt-5 -mt-3 border rounded-b-card">
+                <AllDownloadsGroup
+                  groupAssets={assets[selectedGroup]}
+                  onDownloadIntent={handleDownloadIntent}
+                />
+              </div>
             </div>
           </div>
         </div>

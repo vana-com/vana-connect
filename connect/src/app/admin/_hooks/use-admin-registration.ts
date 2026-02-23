@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { registerAdminApp } from "../_lib/register-admin-app";
 
-type AdminState = "form" | "loading" | "result";
+type AdminState = "form" | "loading" | "result" | "error";
 
 const DEFAULT_APP_URL = "";
 
@@ -17,6 +17,9 @@ export function useAdminRegistration() {
 
   function handleAppUrlChange(value: string) {
     setError(null);
+    if (state === "error") {
+      setState("form");
+    }
     setAppUrl(value);
   }
 
@@ -32,16 +35,17 @@ export function useAdminRegistration() {
     setError(null);
     setState("loading");
 
-    try {
-      const { privateKey: nextPrivateKey } = await registerAdminApp({
-        appUrl: trimmedUrl,
-      });
-      setPrivateKey(nextPrivateKey);
-      setState("result");
-    } catch {
-      setState("form");
-      setError("Could not register app. Please try again.");
+    const result = await registerAdminApp({
+      appUrl: trimmedUrl,
+    });
+    if (!result.ok) {
+      setState("error");
+      setError(result.error.message);
+      return;
     }
+
+    setPrivateKey(result.data.privateKey);
+    setState("result");
   }
 
   async function copy(value: string) {

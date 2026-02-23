@@ -5,7 +5,7 @@
 // - Enable: /admin?adminDebug=1&adminScenario=result
 // - No adminDebug/adminScenario => no debug override (real state only).
 
-type AdminState = "form" | "loading" | "result";
+type AdminState = "form" | "loading" | "result" | "error";
 
 type AdminPageUiState = {
   state: AdminState;
@@ -16,9 +16,14 @@ type AdminPageUiState = {
 
 type AdminPageUiDebugScenario = "form" | "loading" | "error" | "result";
 
+type AdminPageUiDebugOverride = Partial<AdminPageUiState> & {
+  // Compatibility with main's debug shape.
+  errorMessage?: string;
+};
+
 const ADMIN_PAGE_UI_DEBUG_SCENARIOS: Record<
   AdminPageUiDebugScenario,
-  Partial<AdminPageUiState>
+  AdminPageUiDebugOverride
 > = {
   form: {
     state: "form",
@@ -33,10 +38,11 @@ const ADMIN_PAGE_UI_DEBUG_SCENARIOS: Record<
     error: null,
   },
   error: {
-    state: "form",
+    state: "error",
     appUrl: "https://promptgallery.org",
     privateKey: "",
-    error: "Could not register app. Please try again.",
+    errorMessage:
+      "A builder is already registered for this URL. A new key pair was generated - try again to register with the new key.",
   },
   result: {
     state: "result",
@@ -56,9 +62,11 @@ export const resolveAdminPageUiDebugState = (
   }
 
   const debugState = ADMIN_PAGE_UI_DEBUG_SCENARIOS[scenario];
+  const { errorMessage, ...rest } = debugState;
   return {
     ...state,
-    ...debugState,
+    ...rest,
+    error: rest.error ?? errorMessage ?? state.error,
   };
 };
 
