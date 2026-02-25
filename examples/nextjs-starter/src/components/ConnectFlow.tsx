@@ -39,9 +39,7 @@ export default function ConnectFlow() {
     initConnect,
     fetchData,
     isLoading,
-  } = useVanaData({
-    environment: (process.env.NEXT_PUBLIC_VANA_ENV as "dev" | "prod") ?? "dev",
-  });
+  } = useVanaData();
 
   const initRef = useRef(false);
   useEffect(() => {

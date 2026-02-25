@@ -1,11 +1,6 @@
 export { ConnectError, ConnectErrorCode } from "./errors.js";
 export { isValidGrant } from "./grants.js";
-export {
-  getEnvConfig,
-  ENV_CONFIG,
-  DEFAULT_ENVIRONMENT,
-  type VanaEnvironment,
-} from "./constants.js";
+export { getEnvConfig, ENV_CONFIG } from "./constants.js";
 export type {
   ConnectionStatus,
   SessionInitParams,

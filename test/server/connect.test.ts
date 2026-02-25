@@ -102,22 +102,6 @@ describe("connect", () => {
     expect(url.searchParams.get("secret")).toBe("abc");
   });
 
-  it("returns connectUrl with dev accountUrl when environment is dev", async () => {
-    mockInitSession();
-
-    const result = await connect({
-      privateKey: TEST_PRIVATE_KEY,
-      scopes: ["instagram.dpv1"],
-      environment: "dev",
-    });
-
-    const { accountUrl } = getEnvConfig("dev");
-    const url = new URL(result.connectUrl);
-    expect(url.origin).toBe(accountUrl);
-    expect(url.searchParams.get("sessionId")).toBe("sess-123");
-    expect(url.searchParams.get("secret")).toBe("abc");
-  });
-
   it("includes appUrl in connectUrl when provided", async () => {
     mockInitSession();
 
@@ -176,20 +160,6 @@ describe("connect", () => {
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("uses environment config URL when environment is specified", async () => {
-    mockInitSession();
-
-    await connect({
-      privateKey: TEST_PRIVATE_KEY,
-      scopes: ["instagram.dpv1"],
-      environment: "dev",
-    });
-
-    const initUrl = mockFetch.mock.calls[0][0] as string;
-    const { sessionRelayUrl } = getEnvConfig("dev");
-    expect(initUrl).toBe(`${sessionRelayUrl}/v1/session/init`);
   });
 });
 

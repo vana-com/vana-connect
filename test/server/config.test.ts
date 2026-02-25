@@ -17,12 +17,6 @@ describe("createVanaConfig", () => {
     expect(config.privateKey).toBe(VALID_KEY);
     expect(config.scopes).toEqual(["instagram.dpv1", "twitter.dpv1"]);
     expect(config.appUrl).toBe("https://myapp.com");
-    expect(config.environment).toBeUndefined();
-  });
-
-  it("includes optional environment field", () => {
-    const config = createVanaConfig({ ...VALID_CONFIG, environment: "dev" });
-    expect(config.environment).toBe("dev");
   });
 
   it("throws CONFIG_INVALID when privateKey is missing", () => {
