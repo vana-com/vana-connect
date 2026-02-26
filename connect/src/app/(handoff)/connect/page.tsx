@@ -10,8 +10,8 @@ import {
   ConnectErrorState,
   ConnectFooterSpacer,
   ConnectLoadingState,
-  ConnectNoSessionFallbackState,
   ConnectMissingSessionState,
+  ConnectNoSessionFallbackState,
   ConnectPanelFooter,
   ConnectReadyState,
 } from "./_components/connect-page-ui";

@@ -13,7 +13,7 @@ import {
 } from "@/app/_lib/handoff-contract";
 import { ExternalLink } from "@/components/elements/external-link";
 import { SlidingTabs } from "@/components/elements/sliding-tabs";
-import { DcIcon } from "@/components/icons/dc-icon2";
+import { DcIcon } from "@/components/icons/dc-icon3";
 import { DcLogotype } from "@/components/icons/dc-logotype";
 import { Text } from "@/components/typography/text";
 import {
@@ -156,7 +156,9 @@ function DownloadDataConnectPageContent() {
               className={cn(
                 contentStyle,
                 "flex flex-col items-center rounded-card px-w6",
-                downloadButtonStyle,
+                "border border-foreground/20 bg-[#314dc0]/10",
+                "cursor-pointer hover:bg-muted",
+                "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
               )}
             >
               <DownloadDataConnectCardContent
@@ -179,7 +181,7 @@ function DownloadDataConnectPageContent() {
                 tabs={osTabs}
                 value={selectedGroup}
                 onValueChange={(value) => setSelectedGroup(value as OSGroup)}
-                listClassName="w-full rounded-card border border-foreground/30 bg-background p-1"
+                listClassName="w-full rounded-card border border-foreground/20 bg-background p-1"
                 listItemClassName="flex-1 min-w-0"
                 tabClassName={cn(
                   // Layout
@@ -196,7 +198,7 @@ function DownloadDataConnectPageContent() {
                 indicatorLayoutId="download-os-selected-indicator"
               />
 
-              <div className="min-h-[112px] overflow-auto pt-5 -mt-3 border rounded-b-card">
+              <div className="min-h-[111px] pt-4 -mt-3 px-1 py-1 overflow-auto border rounded-b-card">
                 {assets[selectedGroup].map((asset) => (
                   <AssetRow
                     key={asset.filename}
@@ -271,12 +273,6 @@ function DownloadDataConnectPageContent() {
 
 const contentStyle = "mx-auto w-full lg:w-5/6";
 
-const downloadButtonStyle = [
-  "border border-foreground",
-  "cursor-pointer hover:bg-muted",
-  "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
-];
-
 export default function DownloadDataConnectPage() {
   return (
     <Suspense fallback={null}>
@@ -301,9 +297,9 @@ function DownloadDataConnectCardContent({
             "overflow-hidden",
           )}
         >
-          <DcIcon className="size-16!" />
+          <DcIcon className="size-20!" />
         </div>
-        <DcLogotype height={16} role="img" aria-label="DataConnect" />
+        <DcLogotype height={21} role="img" aria-label="DataConnect" />
       </div>
       <hr className="w-full border-ring/30" />
       <Text intent="button" weight="medium" withIcon className="h-12">
@@ -350,7 +346,8 @@ function AssetRow({
       <div
         className={cn(
           buttonVariants({ variant: "outline", size: "xs" }),
-          "group-hover:bg-background group-hover:border-foreground",
+          "border-transparent text-foreground-muted",
+          "group-hover:bg-background group-hover:border-foreground group-hover:text-foreground",
         )}
       >
         Download

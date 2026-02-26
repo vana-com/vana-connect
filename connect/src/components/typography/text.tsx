@@ -212,6 +212,7 @@ export const Text = <T extends ElementType = "div">({
   const ResolvedComponent = Component ?? "div";
   const bulletProp = ResolvedComponent === "li" ? true : bullet;
   const preProp = ResolvedComponent === "pre" ? true : pre;
+  const linkProp = ResolvedComponent === "a" ? (link ?? "default") : link;
   const resolvedOptical =
     optical ?? (displayIntents.has(intent ?? "body") ? "display" : "auto");
 
@@ -257,7 +258,7 @@ export const Text = <T extends ElementType = "div">({
           truncate: needsTruncateWrap ? undefined : truncate,
           pre: preProp,
           bullet: bulletProp,
-          link,
+          link: linkProp,
           withIcon,
           dim,
           muted,

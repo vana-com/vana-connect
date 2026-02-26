@@ -37,7 +37,7 @@
   --canvas-accent-25: color-mix(in oklch, var(--canvas) 75%, var(--accent-5));
   --canvas-accent-25-black-5: color-mix(
     in oklch,
-    var(--canvas-accent-25) 92%,
+    var(--canvas-accent-25) 95%,
     black
   );
 
