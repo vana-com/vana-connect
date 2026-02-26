@@ -7,7 +7,7 @@ export type DownloadAsset = {
   isDefault?: boolean;
 };
 
-const DOWNLOAD_VERSION = "0.7.26";
+const DOWNLOAD_VERSION = "0.7.27";
 
 const downloadAssets: Record<
   Exclude<DetectedOS, "unknown">,
