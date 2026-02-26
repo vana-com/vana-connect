@@ -5,6 +5,7 @@ export type DownloadAsset = {
   filename: string;
   description: string;
   isDefault?: boolean;
+  comingSoon?: boolean;
 };
 
 const DOWNLOAD_VERSION = "0.7.27";
@@ -32,6 +33,7 @@ const downloadAssets: Record<
       filename: `DataConnect_${DOWNLOAD_VERSION}_x64-setup.exe`,
       description: "64-bit installer",
       isDefault: true,
+      comingSoon: true,
     },
   ],
   Linux: [

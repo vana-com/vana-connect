@@ -84,7 +84,9 @@ function DownloadDataConnectPageContent() {
   );
 
   const primaryHref = primaryAsset ? getAssetUrl(primaryAsset.filename) : "#";
-  const canPrimaryDownload = !isUnknown && primaryAsset !== null;
+  const isPrimaryComingSoon = primaryAsset?.comingSoon === true;
+  const canPrimaryDownload =
+    !isUnknown && primaryAsset !== null && !isPrimaryComingSoon;
   const shellActions = authenticated
     ? (["yourApps", "logout"] as const)
     : (["yourApps"] as const);
@@ -165,6 +167,19 @@ function DownloadDataConnectPageContent() {
                 downloadPlatformLabel={downloadPlatformLabel}
               />
             </a>
+          ) : isPrimaryComingSoon ? (
+            <div
+              className={cn(
+                contentStyle,
+                "flex flex-col items-center rounded-card px-w6",
+                "border border-foreground/30 opacity-60",
+              )}
+            >
+              <DownloadDataConnectCardContent
+                downloadPlatformLabel={downloadPlatformLabel}
+                comingSoon
+              />
+            </div>
           ) : (
             <div className="h-[173px]" aria-hidden />
           )}
@@ -283,8 +298,10 @@ export default function DownloadDataConnectPage() {
 
 function DownloadDataConnectCardContent({
   downloadPlatformLabel,
+  comingSoon,
 }: {
   downloadPlatformLabel: string;
+  comingSoon?: boolean;
 }) {
   return (
     <>
@@ -302,10 +319,20 @@ function DownloadDataConnectCardContent({
         <DcLogotype height={21} role="img" aria-label="DataConnect" />
       </div>
       <hr className="w-full border-ring/30" />
-      <Text intent="button" weight="medium" withIcon className="h-12">
-        <ImportIcon className="size-[1.25em]" />
-        Download for {downloadPlatformLabel}
-      </Text>
+      {comingSoon ? (
+        <Text
+          intent="button"
+          weight="medium"
+          className="h-12 flex items-center"
+        >
+          {downloadPlatformLabel} — Coming soon
+        </Text>
+      ) : (
+        <Text intent="button" weight="medium" withIcon className="h-12">
+          <ImportIcon className="size-[1.25em]" />
+          Download for {downloadPlatformLabel}
+        </Text>
+      )}
     </>
   );
 }
@@ -321,6 +348,31 @@ function AssetRow({
   ) => void;
 }) {
   const href = getAssetUrl(asset.filename);
+
+  if (asset.comingSoon) {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 px-2 py-2.5",
+          "opacity-60",
+        )}
+      >
+        <div className="pl-1 flex-1">
+          <Text as="span" intent="small" weight="medium">
+            {asset.label}
+          </Text>
+        </div>
+        <div
+          className={cn(
+            buttonVariants({ variant: "outline", size: "xs" }),
+            "pointer-events-none",
+          )}
+        >
+          Coming soon
+        </div>
+      </div>
+    );
+  }
 
   return (
     <a
