@@ -8,7 +8,7 @@ export type DownloadAsset = {
   comingSoon?: boolean;
 };
 
-const DOWNLOAD_VERSION = "0.7.23";
+const DOWNLOAD_VERSION = "0.7.27";
 
 const downloadAssets: Record<
   Exclude<DetectedOS, "unknown">,
