@@ -31,6 +31,8 @@ function createContext(
     app: "discover-me",
     appId: "app-1",
     appName: "Discover Me",
+    redirectUri: null,
+    oauthState: null,
     returnTo: "/connect",
     createdAt: NOW,
     ...overrides,

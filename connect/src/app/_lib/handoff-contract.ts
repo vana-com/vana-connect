@@ -24,6 +24,8 @@ export type ConnectHandoffContext = {
   app: string | null;
   appId: string | null;
   appName: string | null;
+  redirectUri: string | null;
+  oauthState: string | null;
   returnTo: string;
   createdAt: number;
 };
@@ -37,6 +39,8 @@ type NormalizableInput = {
   app: unknown;
   appId: unknown;
   appName: unknown;
+  redirectUri: unknown;
+  oauthState: unknown;
   returnTo: unknown;
   createdAt: unknown;
 };
@@ -77,6 +81,8 @@ function normalizeContext(
   const app = readNonEmptyString(input.app);
   const appId = readNonEmptyString(input.appId);
   const appName = readNonEmptyString(input.appName);
+  const redirectUri = readNonEmptyString(input.redirectUri);
+  const oauthState = readNonEmptyString(input.oauthState);
 
   return {
     version: HANDOFF_CONTEXT_VERSION,
@@ -86,6 +92,8 @@ function normalizeContext(
     app,
     appId,
     appName,
+    redirectUri,
+    oauthState,
     returnTo: normalizeReturnTo(input.returnTo),
     createdAt: coerceCreatedAt(input.createdAt, now),
   };
@@ -103,6 +111,8 @@ export function parseFromSearchParams(
       app: searchParams.get("app"),
       appId: searchParams.get("appId"),
       appName: searchParams.get("appName"),
+      redirectUri: searchParams.get("redirect_uri"),
+      oauthState: searchParams.get("oauth_state"),
       returnTo: searchParams.get("returnTo"),
       createdAt: now,
     },
@@ -124,6 +134,8 @@ function parseContextJsonPayload(
         app: parsed.app,
         appId: parsed.appId,
         appName: parsed.appName,
+        redirectUri: parsed.redirectUri,
+        oauthState: parsed.oauthState,
         returnTo: parsed.returnTo,
         createdAt: parsed.createdAt,
       },
@@ -388,7 +400,14 @@ export function resolvePostAuthDestination(
 function createHandoffQueryParams(
   context: Pick<
     ConnectHandoffContext,
-    "sessionId" | "secret" | "appUrl" | "app" | "appId" | "appName"
+    | "sessionId"
+    | "secret"
+    | "appUrl"
+    | "app"
+    | "appId"
+    | "appName"
+    | "redirectUri"
+    | "oauthState"
   >,
 ): URLSearchParams {
   const params = new URLSearchParams();
@@ -407,6 +426,12 @@ function createHandoffQueryParams(
   }
   if (context.appName) {
     params.set("appName", context.appName);
+  }
+  if (context.redirectUri) {
+    params.set("redirect_uri", context.redirectUri);
+  }
+  if (context.oauthState) {
+    params.set("oauth_state", context.oauthState);
   }
   return params;
 }
