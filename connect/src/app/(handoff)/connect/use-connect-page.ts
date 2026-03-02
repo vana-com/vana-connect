@@ -281,10 +281,15 @@ export function useConnectPage() {
       });
   }, [phase, signMessage, view, embeddedWalletAddress]);
 
+  const redirectUri = handoffContext?.redirectUri ?? null;
+  const oauthState = handoffContext?.oauthState ?? null;
+
   const deepLinkUrl = resolveConnectLaunchUrl({
     sessionId,
     secret,
     masterKeySig,
+    redirectUri,
+    oauthState,
   });
 
   const ui = resolveConnectPageUiDebugState({

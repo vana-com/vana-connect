@@ -8,7 +8,7 @@ import {
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
 import { DcIcon } from "@/components/icons/dc-icon2";
@@ -140,6 +140,34 @@ export function ConnectReadyState({
   deepLinkUrl: string;
   downloadDataConnectHref: string;
 }) {
+  const isHttpsRedirect = deepLinkUrl.startsWith("https://");
+
+  // Auto-redirect for OAuth HTTPS callbacks (e.g., MCP auth flow)
+  useEffect(() => {
+    if (isHttpsRedirect) {
+      window.location.assign(deepLinkUrl);
+    }
+  }, [isHttpsRedirect, deepLinkUrl]);
+
+  if (isHttpsRedirect) {
+    return (
+      <ConnectStateFrame
+        app={app}
+        title={
+          <Text as="h1" intent="title" withIcon align="center">
+            <Spinner />
+            Authorizing...
+          </Text>
+        }
+        subtitle={
+          <Text as="h1" intent="xlarge" dim>
+            Redirecting back to your application.
+          </Text>
+        }
+      />
+    );
+  }
+
   return (
     <ConnectStateFrame
       app={app}
