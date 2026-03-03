@@ -91,7 +91,7 @@ function DownloadDataConnectPageContent() {
     !isUnknown && primaryAsset !== null && !isPrimaryComingSoon;
   const shellActions = authenticated
     ? (["yourApps", "logout"] as const)
-    : (["yourApps"] as const);
+    : ([] as const);
   const handoffContext = useMemo(
     () =>
       resolveHandoffContextFromClient(searchParams, Date.now(), {
