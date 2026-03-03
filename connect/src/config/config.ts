@@ -9,6 +9,8 @@ export type DownloadAsset = {
 };
 
 const DOWNLOAD_VERSION = "0.7.27";
+const DATA_CONNECT_GITHUB_RELEASES_URL =
+  "https://github.com/vana-com/data-connect/releases";
 
 const downloadAssets: Record<
   Exclude<DetectedOS, "unknown">,
@@ -52,7 +54,7 @@ const downloadAssets: Record<
 };
 
 export function getAssetUrl(filename: string): string {
-  return `https://github.com/vana-com/data-connect/releases/download/v${DOWNLOAD_VERSION}/${filename}`;
+  return `${DATA_CONNECT_GITHUB_RELEASES_URL}/download/v${DOWNLOAD_VERSION}/${filename}`;
 }
 
 export const CONNECT_CONFIG = {
@@ -67,7 +69,7 @@ export const CONNECT_CONFIG = {
   },
   downloads: {
     version: DOWNLOAD_VERSION,
-    githubReleasesUrl: "https://github.com/vana-com/data-connect/releases",
+    githubReleasesUrl: DATA_CONNECT_GITHUB_RELEASES_URL,
     assets: downloadAssets,
   },
   docs: {
