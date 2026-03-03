@@ -25,10 +25,16 @@ export function AdminFormView({
         heading="Register your app"
         color="iris"
         description={
-          <Text>
-            Register a new builder application with the Vana Gateway. You will
-            receive credentials to integrate with the data portability network.
-          </Text>
+          <div className="space-y-1">
+            <Text>
+              Register your app by entering its URL. We register this URL with
+              the Gateway and generate credentials for your app.
+            </Text>
+            <Text dim>
+              For local development setup, use a localhost app URL (for example{" "}
+              <code className="font-mono">http://localhost:3001</code>).
+            </Text>
+          </div>
         }
       />
 
