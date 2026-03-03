@@ -11,11 +11,12 @@ import Link from "next/link";
 import { type ReactNode, useEffect, useState } from "react";
 import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
-import { DcIcon } from "@/components/icons/dc-icon2";
+import { DcIcon } from "@/components/icons/dc-icon3";
 import { PlatformIcon } from "@/components/icons/platform-icon";
 import { VanaV } from "@/components/icons/vana-v";
 import { Text } from "@/components/typography/text";
 import { Button, ButtonArrow } from "@/components/ui/button";
+import { cn } from "@/lib/classes";
 import type { resolveConnectApp } from "../_lib/app-registry";
 
 type ConnectApp = ReturnType<typeof resolveConnectApp>;
@@ -135,10 +136,12 @@ export function ConnectReadyState({
   app,
   deepLinkUrl,
   downloadDataConnectHref,
+  isLocalServerAuthFromDataConnect = false,
 }: {
   app: ConnectApp;
   deepLinkUrl: string;
   downloadDataConnectHref: string;
+  isLocalServerAuthFromDataConnect?: boolean;
 }) {
   const isHttpsRedirect = deepLinkUrl.startsWith("https://");
 
@@ -156,7 +159,7 @@ export function ConnectReadyState({
         title={
           <Text as="h1" intent="title" withIcon align="center">
             <Spinner />
-            Authorizing...
+            Authorizing…
           </Text>
         }
         subtitle={
@@ -173,19 +176,29 @@ export function ConnectReadyState({
       app={app}
       title={
         <Text as="h1" intent="title">
-          You don&apos;t have any data.
+          {/* DataConnect sign-in /?sessionId=local-server-auth&appName=DataConnect */}
+          {isLocalServerAuthFromDataConnect
+            ? "Sign in with DataConnect"
+            : "You don't have any data"}
         </Text>
       }
       subtitle={
-        <Text as="h1" intent="xlarge" dim>
-          To connect your data, download DataConnect.
+        <Text as="h1" intent="large" dim balance>
+          {isLocalServerAuthFromDataConnect
+            ? "Authorize and start your Personal Server on DataConnect"
+            : "To connect your data, download DataConnect"}
         </Text>
       }
       content={
         <ConnectLaunchSection
           deepLinkUrl={deepLinkUrl}
           downloadDataConnectHref={downloadDataConnectHref}
-          buttonLabel="Launch DataConnect"
+          buttonLabel={
+            isLocalServerAuthFromDataConnect
+              ? "Continue in DataConnect"
+              : "Launch DataConnect"
+          }
+          secondaryContent={isLocalServerAuthFromDataConnect ? null : undefined}
         />
       }
     />
@@ -295,7 +308,7 @@ function ConnectStateHeader({
 }) {
   return (
     <div className="space-y-gap">
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-2">
         <ConnectSourceAppIcon
           key={`${app.displayName}-${app.iconUrls.join("|")}`}
           app={app}
@@ -365,21 +378,23 @@ function ConnectLaunchSection({
         showLaunchIcon={shouldShowLaunchIcon}
         showArrow={shouldShowArrow}
       />
-      {secondaryContent ?? (
-        <Text as="p">
-          Don&apos;t have it?{" "}
-          <Link
-            href={downloadDataConnectHref ?? APP_ROUTES.downloadDataConnect}
-            className="link hover:text-foreground"
-          >
-            Download DataConnect&nbsp;
-            <ButtonArrow
-              icon={ArrowRightIcon}
-              className="size-em inline mt-[-0.125em]"
-            />
-          </Link>
-        </Text>
-      )}
+      {secondaryContent === null
+        ? null
+        : (secondaryContent ?? (
+            <Text as="p">
+              Don&apos;t have it?{" "}
+              <Link
+                href={downloadDataConnectHref ?? APP_ROUTES.downloadDataConnect}
+                className="link hover:text-foreground"
+              >
+                Download DataConnect&nbsp;
+                <ButtonArrow
+                  icon={ArrowRightIcon}
+                  className="size-em inline mt-[-0.125em]"
+                />
+              </Link>
+            </Text>
+          ))}
     </div>
   );
 }
@@ -399,22 +414,26 @@ function ConnectPrimaryButton({
   showLaunchIcon?: boolean;
   showArrow?: boolean;
 }) {
-  const buttonClassName =
-    "ring-0 ring-transparent ring-offset-2 ring-offset-background transition-shadow duration-200 hover:ring-2 hover:ring-foreground";
+  const buttonClassName = cn([
+    "ring-0 ring-transparent ring-offset-2 ring-offset-background transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
+    "bg-dc text-background hover:bg-iris data-[state=open]:bg-dc/70",
+  ]);
 
   const content = (
     <>
       {leftIcon}
       {showLaunchIcon && (
-        <DcIcon
-          className="size-[2.25em]!"
-          style={
-            {
-              "--logo-bg-stop-0": "transparent",
-              "--logo-bg-stop-1": "transparent",
-            } as React.CSSProperties
-          }
-        />
+        <div className="pr-1.25">
+          <DcIcon
+            className="size-[2.25em]! rounded-[22%] outline-iris-surface/50 outline-1 outline-offset-1"
+            style={
+              {
+                "--logo-bg-stop-0": "transparent",
+                "--logo-bg-stop-1": "transparent",
+              } as React.CSSProperties
+            }
+          />
+        </div>
       )}
       {label}
       {showArrow && <ButtonArrow icon={ArrowRightIcon} className="ms-0" />}
@@ -423,7 +442,13 @@ function ConnectPrimaryButton({
 
   if (deepLinkUrl) {
     return (
-      <Button asChild size="xl" fullWidth className={buttonClassName}>
+      <Button
+        asChild
+        size="xl"
+        color="iris"
+        fullWidth
+        className={buttonClassName}
+      >
         <a href={deepLinkUrl}>{content}</a>
       </Button>
     );
@@ -432,6 +457,7 @@ function ConnectPrimaryButton({
   return (
     <Button
       size="xl"
+      color="iris"
       fullWidth
       onClick={onClick}
       className={buttonClassName}

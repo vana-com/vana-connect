@@ -61,6 +61,10 @@ function ConnectPageContent() {
     appName: appQuery.appName,
   });
   const supportHref = `mailto:${CONNECT_CONFIG.support.email}`;
+  // signin from DataConnect ?sessionId=local-server-auth&appName=DataConnect
+  const isLocalServerAuthFromDataConnect =
+    sessionId === "local-server-auth" &&
+    appQuery.appName?.toLowerCase() === "dataconnect";
 
   if (!sessionId) {
     return (
@@ -96,6 +100,7 @@ function ConnectPageContent() {
             app={app}
             deepLinkUrl={deepLinkUrl}
             downloadDataConnectHref={downloadDataConnectHref}
+            isLocalServerAuthFromDataConnect={isLocalServerAuthFromDataConnect}
           />
         )}
 
