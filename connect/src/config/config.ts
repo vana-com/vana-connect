@@ -58,6 +58,11 @@ export function getAssetUrl(filename: string): string {
 }
 
 export const CONNECT_CONFIG = {
+  app: {
+    siteUrl: "https://account.vana.org",
+    name: "DataConnect",
+    description: "Connect and export your data into your Personal Server.",
+  },
   legal: {
     privacyPolicyUrl: "https://www.vana.org/privacy",
     termsOfServiceUrl: "https://www.vana.org/terms",

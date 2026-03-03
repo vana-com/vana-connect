@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { AppProviders } from "@/app/_components/app-providers";
+import { CONNECT_CONFIG } from "@/config/config";
 import "../styles/index.css";
 
 const inter = localFont({
@@ -41,8 +42,54 @@ const gtAmericaMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "DataConnect",
-  description: "DataConnect",
+  metadataBase: new URL(CONNECT_CONFIG.app.siteUrl),
+  title: {
+    default: CONNECT_CONFIG.app.name,
+    template: `%s | ${CONNECT_CONFIG.app.name}`,
+  },
+  description: CONNECT_CONFIG.app.description,
+  applicationName: CONNECT_CONFIG.app.name,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: CONNECT_CONFIG.app.name,
+  },
+  openGraph: {
+    type: "website",
+    siteName: CONNECT_CONFIG.app.name,
+    title: CONNECT_CONFIG.app.name,
+    description: CONNECT_CONFIG.app.description,
+    locale: "en_US",
+    // images: [
+    //   {
+    //     url: "/opengraph.png",
+    //     width: 1200,
+    //     height: 630,
+    //     alt: "Vana - Own your data",
+    //     type: "image/png",
+    //   },
+    // ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: CONNECT_CONFIG.app.name,
+    description: CONNECT_CONFIG.app.description,
+    images: ["/opengraph.png"],
+    // creator: APP_METADATA.twitterHandle,
+    // site: APP_METADATA.twitterHandle,
+  },
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false,
+  },
+  robots:
+    process.env.NODE_ENV === "development"
+      ? {
+          index: false,
+          follow: false,
+        }
+      : undefined,
 };
 
 export default function RootLayout({
