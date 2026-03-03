@@ -1,7 +1,7 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import { GithubIcon, ImportIcon, LaptopIcon } from "lucide-react";
+import { GithubIcon, ImportIcon, LaptopIcon, PackageIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useId, useMemo, useState } from "react";
 import { LegalAcceptance } from "@/app/_components/legal-acceptance";
@@ -15,6 +15,7 @@ import { ExternalLink } from "@/components/elements/external-link";
 import { SlidingTabs } from "@/components/elements/sliding-tabs";
 import { DcIcon } from "@/components/icons/dc-icon3";
 import { DcLogotype } from "@/components/icons/dc-logotype";
+import { EyebrowBadge } from "@/components/typography/eyebrow-badge";
 import { Text } from "@/components/typography/text";
 import {
   AlertDialog,
@@ -66,6 +67,7 @@ function DownloadDataConnectPageContent() {
   const { combinedTermsUrl, lastUpdatedLabel } =
     CONNECT_CONFIG.legal.foundationSoftwareUse;
   const { dataConnectGithubUrl } = CONNECT_CONFIG.docs;
+  const { githubReleasesUrl } = CONNECT_CONFIG.downloads;
   const downloadPlatformLabel = getDownloadPlatformLabel();
 
   const { isUnknown, primaryAsset, assets, initialGroup } = useDownloadState();
@@ -135,60 +137,81 @@ function DownloadDataConnectPageContent() {
       <PagePanel
         className="justify-center text-center space-y-small"
         footer={
-          <ExternalLink href={dataConnectGithubUrl} leadingIcon={GithubIcon}>
-            DataConnect on GitHub
-          </ExternalLink>
+          <div className="flex items-center justify-center gap-5">
+            <ExternalLink href={githubReleasesUrl} leadingIcon={PackageIcon}>
+              Releases
+            </ExternalLink>
+            <ExternalLink href={dataConnectGithubUrl} leadingIcon={GithubIcon}>
+              GitHub
+            </ExternalLink>
+          </div>
         }
       >
-        <div className="px-small text-center space-y-small">
-          <div className="space-y-0.5">
+        <div className="text-center space-y-small">
+          <div className="space-y-1">
+            {/* (MIT License) */}
+            <EyebrowBadge variant="outline" className="border-ring/70">
+              Open source
+              <span className="text-foreground-muted/50 mx-1.25">|</span>
+              Runs locally
+            </EyebrowBadge>
             <Text as="h2" intent="title" weight="semi">
-              Download DataConnect.
+              Your data, portable.
             </Text>
-            <Text as="p" intent="subtitle" muted>
-              Install the app. Connect your data.
+            <Text as="p" intent="heading" muted balance>
+              Install DataConnect to export data from supported platforms into
+              your Personal Server.
             </Text>
           </div>
 
           {/* Primary download card */}
-          {canPrimaryDownload ? (
-            <a
-              href={primaryHref}
-              onClick={(event) => handleDownloadIntent(event, primaryHref)}
-              className={cn(
-                contentStyle,
-                "flex flex-col items-center rounded-card px-w6",
-                "border border-foreground/20 bg-[#314dc0]/10",
-                "cursor-pointer hover:bg-muted",
-                "ring-0 ring-transparent transition-shadow duration-200 hover:ring-2 hover:ring-foreground",
-              )}
-            >
-              <DownloadDataConnectCardContent
-                downloadPlatformLabel={downloadPlatformLabel}
-              />
-            </a>
-          ) : isPrimaryComingSoon ? (
-            <div
-              className={cn(
-                contentStyle,
-                "flex flex-col items-center rounded-card px-w6",
-                "border border-foreground/30 opacity-60",
-              )}
-            >
-              <DownloadDataConnectCardContent
-                downloadPlatformLabel={downloadPlatformLabel}
-                comingSoon
-              />
+          <div className="space-y-1">
+            {canPrimaryDownload ? (
+              <a
+                href={primaryHref}
+                onClick={(event) => handleDownloadIntent(event, primaryHref)}
+                className={cn(
+                  contentStyle,
+                  "group",
+                  "flex flex-col items-center rounded-card px-w6 cursor-pointer",
+                  "border border-foreground/20 bg-dc/[0.07]",
+                  "ring-0 ring-transparent transition-shadow duration-200",
+                  "hover:bg-dc/[0.07] hover:border-foreground",
+                  "hover:ring-2 hover:ring-foreground",
+                )}
+              >
+                <DownloadDataConnectCardContent
+                  downloadPlatformLabel={downloadPlatformLabel}
+                />
+              </a>
+            ) : isPrimaryComingSoon ? (
+              <div
+                className={cn(
+                  contentStyle,
+                  "flex flex-col items-center rounded-card px-w6",
+                  "border border-foreground/30 opacity-60",
+                )}
+              >
+                <DownloadDataConnectCardContent
+                  downloadPlatformLabel={downloadPlatformLabel}
+                  comingSoon
+                />
+              </div>
+            ) : (
+              <div className="h-[173px]" aria-hidden />
+            )}
+            <div className={cn(contentStyle, "pt-2")}>
+              <Text as="p" intent="fine" muted align="center">
+                May download Chromium on first launch (~160 MB).
+              </Text>
             </div>
-          ) : (
-            <div className="h-[173px]" aria-hidden />
-          )}
+          </div>
 
-          {/* Other downloads */}
+          {/* All downloads */}
           <div className={cn(contentStyle, "text-left space-y-4")}>
-            <Text as="p" intent="small" dim withIcon align="center">
+            <Text as="p" intent="small" withIcon align="center">
               <LaptopIcon aria-hidden />
-              Other downloads
+              All downloads (Windows coming soon)
             </Text>
 
             <div>
@@ -206,10 +229,7 @@ function DownloadDataConnectPageContent() {
                   // Vertical-center label via line-height = tab height
                   "[&>*]:leading-[var(--tab-h)]",
                 )}
-                indicatorClassName={cn(
-                  "inset-0 rounded-sm",
-                  "bg-(--canvas-accent-25-black-5)",
-                )}
+                indicatorClassName={cn("inset-0 rounded-sm", "bg-dc/10")}
                 indicatorLayoutId="download-os-selected-indicator"
               />
 
@@ -309,8 +329,9 @@ function DownloadDataConnectCardContent({
         <div
           className={cn(
             "size-16 flex items-center justify-center",
-            "rounded-[30%] [corner-shape:squircle]",
-            "bg-foreground shadow-sm",
+            "rounded-[calc(183/832*100%)]",
+            // "[corner-shape:squircle]",
+            "bg-dc shadow-sm",
             "overflow-hidden",
           )}
         >
@@ -318,7 +339,7 @@ function DownloadDataConnectCardContent({
         </div>
         <DcLogotype height={21} role="img" aria-label="DataConnect" />
       </div>
-      <hr className="w-full border-ring/30" />
+      <hr className="w-full border-ring/30 group-hover:border-ring" />
       {comingSoon ? (
         <Text
           intent="button"

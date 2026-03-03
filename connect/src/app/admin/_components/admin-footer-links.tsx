@@ -2,21 +2,21 @@
 
 import { BookOpenTextIcon, GithubIcon } from "lucide-react";
 import { ExternalLink } from "@/components/elements/external-link";
-
-const DOCS_URL = "https://docs.vana.org";
-const GITHUB_URL = "https://github.com/vana-com/vana-connect";
+import { CONNECT_CONFIG } from "@/config/config";
 
 export function AdminFooterLinks() {
+  const { docsSiteUrl, vanaConnectGithubUrl } = CONNECT_CONFIG.docs;
+
   return (
     <div
       data-slot="admin-footer-links"
       className="flex items-center justify-center gap-5"
     >
-      <ExternalLink href={GITHUB_URL} leadingIcon={GithubIcon}>
+      <ExternalLink href={vanaConnectGithubUrl} leadingIcon={GithubIcon}>
         GitHub
       </ExternalLink>
-      <ExternalLink href={DOCS_URL} leadingIcon={BookOpenTextIcon}>
-        Documentation
+      <ExternalLink href={docsSiteUrl} leadingIcon={BookOpenTextIcon}>
+        Docs
       </ExternalLink>
     </div>
   );

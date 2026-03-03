@@ -22,7 +22,7 @@ export function AdminHeaderLinks({
         className={getPageShellActionButtonClassName("bg-transparent px-1.5!")}
       >
         <GithubIcon aria-hidden />
-        Example
+        Example app
       </a>
       {showYourApps ? (
         <NavLink
