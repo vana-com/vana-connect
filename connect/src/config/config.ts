@@ -72,7 +72,9 @@ export const CONNECT_CONFIG = {
   },
   docs: {
     learnMoreUrl: "#",
+    docsSiteUrl: "https://docs.vana.org",
     dataConnectGithubUrl: "https://github.com/vana-com/data-connect",
+    vanaConnectGithubUrl: "https://github.com/vana-com/vana-connect",
     exampleAppUrl:
       "https://github.com/vana-com/vana-connect/tree/main/examples/nextjs-starter",
   },
