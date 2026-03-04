@@ -44,6 +44,7 @@ jobs:
           python3 .github/scripts/sync_dataconnect_version.py --latest-tag "$LATEST_TAG"
 
       - name: Create pull request when version changed
+        id: cpr
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           branch: chore/sync-dataconnect-download-version
@@ -59,3 +60,10 @@ jobs:
             - [ ] Run this workflow via workflow_dispatch
             - [ ] Confirm PR is created only when latest tag differs
             - [ ] Verify generated URLs on `/download-data-connect` point to the new release
+
+      - name: Enable auto-merge for sync PR
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge "${{ steps.cpr.outputs.pull-request-number }}" --auto --squash --delete-branch
