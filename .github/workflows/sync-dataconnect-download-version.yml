@@ -37,25 +37,82 @@ jobs:
           PYTHONPATH: .github/scripts
         run: python3 .github/scripts/test_sync_dataconnect_version.py
 
+      - name: Resolve sync PR branch
+        id: sync-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          existing_pr="$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --json number,title,headRefName \
+            --jq 'map(select(.title == "ci(connect): sync DataConnect download version")) | first')"
+
+          if [ -n "$existing_pr" ] && [ "$existing_pr" != "null" ]; then
+            echo "number=$(printf '%s' "$existing_pr" | jq -r '.number')" >> "$GITHUB_OUTPUT"
+            echo "branch=$(printf '%s' "$existing_pr" | jq -r '.headRefName')" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "number=" >> "$GITHUB_OUTPUT"
+          echo "branch=chore/sync-dataconnect-download-version-${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout sync branch
+        env:
+          PR_NUMBER: ${{ steps.sync-pr.outputs.number }}
+          PR_BRANCH: ${{ steps.sync-pr.outputs.branch }}
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            git fetch origin "$PR_BRANCH"
+            git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
+            exit 0
+          fi
+
+          git checkout -B "$PR_BRANCH"
+
       - name: Update DOWNLOAD_VERSION in config
         env:
           LATEST_TAG: ${{ steps.latest.outputs.tag }}
         run: |
           python3 .github/scripts/sync_dataconnect_version.py --latest-tag "$LATEST_TAG"
 
-      - name: Create pull request when version changed
-        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
-        with:
-          branch: chore/sync-dataconnect-download-version
-          delete-branch: true
-          commit-message: "ci(connect): sync DataConnect download version"
-          title: "ci(connect): sync DataConnect download version"
-          body: |
-            ## Summary
-            - sync `DOWNLOAD_VERSION` in `connect/src/config/config.ts` to the latest `vana-com/data-connect` release tag
-            - keep `/download-data-connect` asset links current without manual edits
+      - name: Commit and push sync branch when version changed
+        id: push-sync
+        env:
+          PR_BRANCH: ${{ steps.sync-pr.outputs.branch }}
+        run: |
+          if git diff --quiet -- connect/src/config/config.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-            ## Test plan
-            - [ ] Run this workflow via workflow_dispatch
-            - [ ] Confirm PR is created only when latest tag differs
-            - [ ] Verify generated URLs on `/download-data-connect` point to the new release
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add connect/src/config/config.ts
+          git commit -m "ci(connect): sync DataConnect download version"
+          git push origin "HEAD:${PR_BRANCH}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request when version changed
+        if: steps.push-sync.outputs.changed == 'true' && steps.sync-pr.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BRANCH: ${{ steps.sync-pr.outputs.branch }}
+        run: |
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$PR_BRANCH" \
+            --title "ci(connect): sync DataConnect download version" \
+            --body "$(cat <<'EOF'
+          ## Summary
+          - sync `DOWNLOAD_VERSION` in `connect/src/config/config.ts` to the latest `vana-com/data-connect` release tag
+          - keep `/download-data-connect` asset links current without manual edits
+
+          ## Test plan
+          - [ ] Run this workflow via workflow_dispatch
+          - [ ] Confirm PR is created only when latest tag differs
+          - [ ] Verify generated URLs on `/download-data-connect` point to the new release
+          EOF
+          )"
