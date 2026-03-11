@@ -21,6 +21,8 @@ export type ConnectHandoffContext = {
   sessionId: string;
   secret: string | null;
   appUrl: string | null;
+  dataSource: string | null;
+  scopes?: string[];
   app: string | null;
   appId: string | null;
   appName: string | null;
@@ -36,6 +38,8 @@ type NormalizableInput = {
   sessionId: unknown;
   secret: unknown;
   appUrl: unknown;
+  dataSource: unknown;
+  scopes: unknown;
   app: unknown;
   appId: unknown;
   appName: unknown;
@@ -69,6 +73,22 @@ function coerceCreatedAt(value: unknown, now: number): number {
   return value;
 }
 
+function normalizeScopes(value: unknown): string[] | undefined {
+  const rawScopes =
+    typeof value === "string"
+      ? value.split(",")
+      : Array.isArray(value)
+        ? value
+        : null;
+  if (!rawScopes) return undefined;
+
+  const scopes = rawScopes
+    .map((scope) => (typeof scope === "string" ? scope.trim() : ""))
+    .filter((scope) => scope.length > 0);
+
+  return scopes.length > 0 ? scopes : undefined;
+}
+
 function normalizeContext(
   input: NormalizableInput,
   now: number,
@@ -78,6 +98,8 @@ function normalizeContext(
 
   const secret = readNonEmptyString(input.secret);
   const appUrl = readNonEmptyString(input.appUrl);
+  const dataSource = readNonEmptyString(input.dataSource);
+  const scopes = normalizeScopes(input.scopes);
   const app = readNonEmptyString(input.app);
   const appId = readNonEmptyString(input.appId);
   const appName = readNonEmptyString(input.appName);
@@ -89,6 +111,8 @@ function normalizeContext(
     sessionId,
     secret,
     appUrl,
+    dataSource,
+    ...(scopes ? { scopes } : {}),
     app,
     appId,
     appName,
@@ -108,6 +132,8 @@ export function parseFromSearchParams(
       sessionId: searchParams.get("sessionId"),
       secret: searchParams.get("secret"),
       appUrl: searchParams.get("appUrl"),
+      dataSource: searchParams.get("dataSource"),
+      scopes: searchParams.get("scopes") ?? searchParams.get("scope"),
       app: searchParams.get("app"),
       appId: searchParams.get("appId"),
       appName: searchParams.get("appName"),
@@ -131,6 +157,8 @@ function parseContextJsonPayload(
         sessionId: parsed.sessionId,
         secret: parsed.secret,
         appUrl: parsed.appUrl,
+        dataSource: parsed.dataSource,
+        scopes: parsed.scopes,
         app: parsed.app,
         appId: parsed.appId,
         appName: parsed.appName,
@@ -403,6 +431,8 @@ function createHandoffQueryParams(
     | "sessionId"
     | "secret"
     | "appUrl"
+    | "dataSource"
+    | "scopes"
     | "app"
     | "appId"
     | "appName"
@@ -417,6 +447,12 @@ function createHandoffQueryParams(
   }
   if (context.appUrl) {
     params.set("appUrl", context.appUrl);
+  }
+  if (context.dataSource) {
+    params.set("dataSource", context.dataSource);
+  }
+  if (context.scopes && context.scopes.length > 0) {
+    params.set("scopes", context.scopes.join(","));
   }
   if (context.app) {
     params.set("app", context.app);

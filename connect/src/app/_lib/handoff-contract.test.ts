@@ -28,6 +28,7 @@ function createContext(
     sessionId: "sess-1",
     secret: "sec-1",
     appUrl: null,
+    dataSource: null,
     app: "discover-me",
     appId: "app-1",
     appName: "Discover Me",
@@ -42,7 +43,7 @@ function createContext(
 describe("handoff-contract", () => {
   it("parses valid query params into handoff context", () => {
     const params = new URLSearchParams(
-      "sessionId=sess-123&secret=sec-abc&appUrl=https%3A%2F%2Ffoo-bar.com%2Fapp&app=discover-me&appId=foo&appName=Foo",
+      "sessionId=sess-123&secret=sec-abc&appUrl=https%3A%2F%2Ffoo-bar.com%2Fapp&dataSource=Instagram&app=discover-me&appId=foo&appName=Foo",
     );
 
     const parsed = parseFromSearchParams(params, NOW);
@@ -52,6 +53,7 @@ describe("handoff-contract", () => {
         sessionId: "sess-123",
         secret: "sec-abc",
         appUrl: "https://foo-bar.com/app",
+        dataSource: "Instagram",
         appId: "foo",
         appName: "Foo",
       }),
@@ -134,10 +136,11 @@ describe("handoff-contract", () => {
         sessionId: "sess-xyz",
         secret: null,
         appUrl: "https://foo-bar.com",
+        dataSource: "Instagram",
       }),
     );
     expect(url).toBe(
-      "/connect?sessionId=sess-xyz&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me&appId=app-1&appName=Discover+Me",
+      "/connect?sessionId=sess-xyz&appUrl=https%3A%2F%2Ffoo-bar.com&dataSource=Instagram&app=discover-me&appId=app-1&appName=Discover+Me",
     );
   });
 
@@ -147,10 +150,11 @@ describe("handoff-contract", () => {
         sessionId: "sess-xyz",
         secret: null,
         appUrl: "https://foo-bar.com",
+        dataSource: "Instagram",
       }),
     );
     expect(url).toBe(
-      "/login?sessionId=sess-xyz&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me&appId=app-1&appName=Discover+Me",
+      "/login?sessionId=sess-xyz&appUrl=https%3A%2F%2Ffoo-bar.com&dataSource=Instagram&app=discover-me&appId=app-1&appName=Discover+Me",
     );
   });
 
@@ -258,10 +262,11 @@ describe("handoff-contract", () => {
         returnTo: APP_ROUTES.downloadDataConnect,
         secret: null,
         appUrl: "https://foo-bar.com",
+        dataSource: "Instagram",
       }),
     );
     expect(destination).toBe(
-      "/download-data-connect?sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me&appId=app-1&appName=Discover+Me",
+      "/download-data-connect?sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&dataSource=Instagram&app=discover-me&appId=app-1&appName=Discover+Me",
     );
   });
 
@@ -274,10 +279,14 @@ describe("handoff-contract", () => {
 
   it("builds canonical download URL from context", () => {
     const href = toDownloadDataConnectUrl(
-      createContext({ secret: null, appUrl: "https://foo-bar.com" }),
+      createContext({
+        secret: null,
+        appUrl: "https://foo-bar.com",
+        dataSource: "Instagram",
+      }),
     );
     expect(href).toBe(
-      "/download-data-connect?sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&app=discover-me&appId=app-1&appName=Discover+Me",
+      "/download-data-connect?sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&dataSource=Instagram&app=discover-me&appId=app-1&appName=Discover+Me",
     );
   });
 });
