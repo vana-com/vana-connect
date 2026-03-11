@@ -18,7 +18,10 @@ import {
 import { useHandoffResolution } from "@/app/_lib/use-handoff-resolution";
 import { APP_ROUTES } from "@/app/routes";
 import { resolveConnectLaunchUrl } from "./_lib/launch-url";
-import { resolveConnectPageUiDebugState } from "./use-connect-page.ui-debug";
+import {
+  resolveConnectPageUiDebugConfig,
+  resolveConnectPageUiDebugState,
+} from "./use-connect-page.ui-debug";
 
 const KEY_QUORUM_ID = process.env.NEXT_PUBLIC_KEY_QUORUM_ID ?? "";
 const SIGN_MESSAGE_TIMEOUT_MS = 15_000;
@@ -62,6 +65,11 @@ type ConnectFlowPhase =
 
 export function useConnectPage() {
   const searchParams = useSearchParams();
+  const debug = useMemo(
+    () => resolveConnectPageUiDebugConfig(searchParams),
+    [searchParams],
+  );
+  const isUiDebugScenarioActive = debug.enabled && debug.scenario !== null;
   const router = useRouter();
   const hasSessionIdInUrl = Boolean(searchParams.get("sessionId"));
   const handoffResolvedAtRef = useRef(Date.now());
@@ -121,10 +129,11 @@ export function useConnectPage() {
   ]);
 
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (!authenticated) return;
     if (!IS_DEV) return;
     console.info("[connect] auth state", { authenticated });
-  }, [authenticated]);
+  }, [authenticated, isUiDebugScenarioActive]);
 
   // Add signers after authentication
   const handleAddSigners = useCallback(
@@ -146,6 +155,7 @@ export function useConnectPage() {
 
   // Redirect to /login when not authenticated
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (!sessionId && ready && !authenticated) {
       router.replace(APP_ROUTES.login);
       return;
@@ -154,29 +164,47 @@ export function useConnectPage() {
     if (phase === "auth-required" && view !== "error") {
       router.replace(toLoginUrl(handoffContext));
     }
-  }, [sessionId, ready, authenticated, phase, handoffContext, view, router]);
+  }, [
+    sessionId,
+    ready,
+    authenticated,
+    phase,
+    handoffContext,
+    view,
+    router,
+    isUiDebugScenarioActive,
+  ]);
 
   // Persist handoff context in case auth redirects lose query params.
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (!handoffContext) return;
     persistHandoffContext(handoffContext);
-  }, [handoffContext]);
+  }, [handoffContext, isUiDebugScenarioActive]);
 
   // Clear stored handoff context once connect is fully ready.
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (view !== "ready") return;
     clearHandoffContext();
-  }, [view]);
+  }, [view, isUiDebugScenarioActive]);
 
   // Add signers when authenticated with a wallet
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (authenticated && embeddedWalletAddress) {
       handleAddSigners(embeddedWalletAddress);
     }
-  }, [authenticated, embeddedWalletAddress, handleAddSigners]);
+  }, [
+    authenticated,
+    embeddedWalletAddress,
+    handleAddSigners,
+    isUiDebugScenarioActive,
+  ]);
 
   // Ensure a Privy embedded wallet exists for signing.
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (!authenticated || !walletsReady) return;
     if (view === "error" || view === "ready") return;
     if (embeddedWalletAddress) return;
@@ -197,7 +225,14 @@ export function useConnectPage() {
       .finally(() => {
         setCreatingEmbeddedWallet(false);
       });
-  }, [authenticated, walletsReady, view, embeddedWalletAddress, createWallet]);
+  }, [
+    authenticated,
+    walletsReady,
+    view,
+    embeddedWalletAddress,
+    createWallet,
+    isUiDebugScenarioActive,
+  ]);
 
   // Avoid infinite loading when auth succeeds but wallet never initializes.
   useEffect(() => {
@@ -206,6 +241,7 @@ export function useConnectPage() {
       walletReadyTimeoutRef.current = null;
     }
 
+    if (isUiDebugScenarioActive) return;
     if (view === "error" || view === "ready") return;
     if (phase !== "wallet-wait") return;
 
@@ -215,7 +251,7 @@ export function useConnectPage() {
       );
       setView("error");
     }, WALLET_READY_TIMEOUT_MS);
-  }, [phase, view]);
+  }, [phase, view, isUiDebugScenarioActive]);
 
   useEffect(() => {
     return () => {
@@ -227,6 +263,7 @@ export function useConnectPage() {
 
   // Sign the master key after authentication
   useEffect(() => {
+    if (isUiDebugScenarioActive) return;
     if (view === "error" || view === "ready") return;
     if (phase !== "signing-ready" || signingRef.current) return;
 
@@ -279,7 +316,13 @@ export function useConnectPage() {
         setError(resolveConnectErrorMessage(err));
         setView("error");
       });
-  }, [phase, signMessage, view, embeddedWalletAddress]);
+  }, [
+    phase,
+    signMessage,
+    view,
+    embeddedWalletAddress,
+    isUiDebugScenarioActive,
+  ]);
 
   const redirectUri = handoffContext?.redirectUri ?? null;
   const oauthState = handoffContext?.oauthState ?? null;
@@ -292,12 +335,15 @@ export function useConnectPage() {
     oauthState,
   });
 
-  const ui = resolveConnectPageUiDebugState({
-    view,
-    error,
-    sessionId,
-    deepLinkUrl,
-  });
+  const ui = resolveConnectPageUiDebugState(
+    {
+      view,
+      error,
+      sessionId,
+      deepLinkUrl,
+    },
+    debug,
+  );
 
   return {
     view: ui.view,
@@ -308,6 +354,8 @@ export function useConnectPage() {
     appContext: handoffContext
       ? {
           appUrl: handoffContext.appUrl,
+          dataSource: handoffContext.dataSource,
+          scopes: handoffContext.scopes,
           app: handoffContext.app,
           appId: handoffContext.appId,
           appName: handoffContext.appName,
