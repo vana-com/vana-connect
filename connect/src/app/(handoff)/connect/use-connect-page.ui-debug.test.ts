@@ -10,48 +10,67 @@ const baseState = {
 describe("resolveConnectPageUiDebugState", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
-    window.history.pushState({}, "", "/");
-    vi.resetModules();
   });
 
   it("is disabled in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    window.history.pushState({}, "", "/connect?authDebug=1&scenario=ready");
-
     const module = await import("./use-connect-page.ui-debug");
-    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual(baseState);
+    const debug = module.resolveConnectPageUiDebugConfig(
+      new URLSearchParams("authDebug=1&scenario=ready"),
+    );
+    expect(module.resolveConnectPageUiDebugState(baseState, debug)).toEqual(
+      baseState,
+    );
   });
 
   it("is disabled in development without authDebug", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    window.history.pushState({}, "", "/connect?scenario=ready");
-
     const module = await import("./use-connect-page.ui-debug");
-    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual(baseState);
+    const debug = module.resolveConnectPageUiDebugConfig(
+      new URLSearchParams("scenario=ready"),
+    );
+    expect(module.resolveConnectPageUiDebugState(baseState, debug)).toEqual(
+      baseState,
+    );
   });
 
   it("keeps real state when authDebug=1 and scenario is omitted", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    window.history.pushState({}, "", "/connect?authDebug=1");
-
     const module = await import("./use-connect-page.ui-debug");
-    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual(baseState);
+    const debug = module.resolveConnectPageUiDebugConfig(
+      new URLSearchParams("authDebug=1"),
+    );
+    expect(module.resolveConnectPageUiDebugState(baseState, debug)).toEqual(
+      baseState,
+    );
   });
 
   it("uses scenario from query when authDebug=1", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    window.history.pushState(
-      {},
-      "",
-      "/connect?authDebug=1&scenario=missing-session",
-    );
-
     const module = await import("./use-connect-page.ui-debug");
-    expect(module.resolveConnectPageUiDebugState(baseState)).toEqual({
+    const debug = module.resolveConnectPageUiDebugConfig(
+      new URLSearchParams("authDebug=1&scenario=missing-session"),
+    );
+    expect(module.resolveConnectPageUiDebugState(baseState, debug)).toEqual({
       ...baseState,
       sessionId: null,
       deepLinkUrl: null,
       view: "loading",
+    });
+  });
+
+  it("uses error scenario from query when authDebug=1", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const module = await import("./use-connect-page.ui-debug");
+    const debug = module.resolveConnectPageUiDebugConfig(
+      new URLSearchParams("authDebug=1&scenario=error"),
+    );
+    expect(module.resolveConnectPageUiDebugState(baseState, debug)).toEqual({
+      ...baseState,
+      sessionId: "sess-debug",
+      deepLinkUrl: null,
+      view: "error",
+      error: "Failed to sign master key. Please try again.",
     });
   });
 });

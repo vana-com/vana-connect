@@ -132,6 +132,20 @@ describe("connect", () => {
     expect(url.searchParams.get("appUrl")).toBe("https://foo-bar.com");
   });
 
+  it("includes dataSource in connectUrl when provided", async () => {
+    mockInitSession();
+
+    const result = await connect({
+      privateKey: TEST_PRIVATE_KEY,
+      scopes: ["instagram.dpv1"],
+      dataSource: "Instagram",
+    });
+
+    const url = new URL(result.connectUrl);
+    expect(url.searchParams.get("sessionId")).toBe("sess-123");
+    expect(url.searchParams.get("dataSource")).toBe("Instagram");
+  });
+
   it("returns connectUrl without secret when deepLinkUrl has no secret", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

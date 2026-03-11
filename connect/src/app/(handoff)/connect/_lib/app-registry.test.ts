@@ -52,15 +52,48 @@ describe("resolveConnectApp", () => {
 });
 
 describe("resolveConnectAppQuery", () => {
-  it("returns appUrl and appName fields", () => {
+  it("returns appUrl, appName, and explicit dataSource fields", () => {
     const query = resolveConnectAppQuery(
       new URLSearchParams(
-        "sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&appName=Foo",
+        "sessionId=sess-1&appUrl=https%3A%2F%2Ffoo-bar.com&appName=Foo&dataSource=Instagram",
       ),
     );
     expect(query).toEqual({
       appUrl: "https://foo-bar.com",
       appName: "Foo",
+      dataSource: "Instagram",
+      dataScopes: [],
+      requestedDataLabel: "Instagram data",
+    });
+  });
+
+  it("derives a natural-language provider label from a single scope", () => {
+    expect(
+      resolveConnectAppQuery(
+        new URLSearchParams("sessionId=sess-1&scope=chatgpt.conversations"),
+      ),
+    ).toEqual({
+      appUrl: null,
+      appName: null,
+      dataSource: "ChatGPT",
+      dataScopes: ["chatgpt.conversations"],
+      requestedDataLabel: "ChatGPT data",
+    });
+  });
+
+  it("joins multiple providers into natural-language data copy", () => {
+    expect(
+      resolveConnectAppQuery(
+        new URLSearchParams(
+          "sessionId=sess-1&scopes=oura.readiness,chatgpt.conversations",
+        ),
+      ),
+    ).toEqual({
+      appUrl: null,
+      appName: null,
+      dataSource: null,
+      dataScopes: ["oura.readiness", "chatgpt.conversations"],
+      requestedDataLabel: "Oura and ChatGPT data",
     });
   });
 
@@ -68,6 +101,9 @@ describe("resolveConnectAppQuery", () => {
     expect(resolveConnectAppQuery(new URLSearchParams("foo=bar"))).toEqual({
       appUrl: null,
       appName: null,
+      dataSource: null,
+      dataScopes: [],
+      requestedDataLabel: null,
     });
   });
 });

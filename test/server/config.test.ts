@@ -25,6 +25,14 @@ describe("createVanaConfig", () => {
     expect(config.environment).toBe("dev");
   });
 
+  it("includes optional dataSource field", () => {
+    const config = createVanaConfig({
+      ...VALID_CONFIG,
+      dataSource: "Instagram",
+    });
+    expect(config.dataSource).toBe("Instagram");
+  });
+
   it("throws CONFIG_INVALID when privateKey is missing", () => {
     expect(() =>
       createVanaConfig({ ...VALID_CONFIG, privateKey: "" as `0x${string}` }),
