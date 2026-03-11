@@ -100,6 +100,8 @@ export interface ConnectConfig {
   scopes: string[];
   /** Public app URL used by Connect UI to resolve favicon branding. */
   appUrl?: string;
+  /** Human-readable label for the requested data source shown in Connect UI. */
+  dataSource?: string;
   /** Public HTTPS URL for grant event notifications. */
   webhookUrl?: string;
   /** Your app's user ID for correlation. */

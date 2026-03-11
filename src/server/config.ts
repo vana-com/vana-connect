@@ -5,6 +5,7 @@ export interface VanaConfig {
   privateKey: `0x${string}`;
   scopes: string[];
   appUrl: string;
+  dataSource?: string;
   environment?: VanaEnvironment;
 }
 
@@ -34,6 +35,7 @@ export function createVanaConfig(config: {
   privateKey: `0x${string}`;
   scopes: string[];
   appUrl: string;
+  dataSource?: string;
   environment?: VanaEnvironment;
 }): VanaConfig {
   if (!config.privateKey) {
@@ -68,6 +70,7 @@ export function createVanaConfig(config: {
     privateKey: config.privateKey,
     scopes: config.scopes,
     appUrl: config.appUrl,
+    dataSource: config.dataSource,
     environment: config.environment,
   };
 }

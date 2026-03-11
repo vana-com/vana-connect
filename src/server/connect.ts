@@ -52,6 +52,12 @@ export async function connect(
   if (typeof config.appUrl === "string" && config.appUrl.trim().length > 0) {
     connectUrl.searchParams.set("appUrl", config.appUrl.trim());
   }
+  if (
+    typeof config.dataSource === "string" &&
+    config.dataSource.trim().length > 0
+  ) {
+    connectUrl.searchParams.set("dataSource", config.dataSource.trim());
+  }
   try {
     const deepLinkParams = new URL(relayResult.deepLinkUrl);
     const secret = deepLinkParams.searchParams.get("secret");
