@@ -10,8 +10,6 @@ import type {
 export interface UseVanaConnectConfig {
   /** Polling interval in milliseconds (default: 2000). */
   pollingInterval?: number;
-  /** SDK environment (`"dev"` or `"prod"`). Defaults to `"prod"`. */
-  environment?: "dev" | "prod";
 }
 
 /** Return value of the {@link useVanaConnect} hook. */
@@ -55,7 +53,7 @@ export interface UseVanaConnectResult {
 export function useVanaConnect(
   config?: UseVanaConnectConfig,
 ): UseVanaConnectResult {
-  const envConfig = getEnvConfig(config?.environment);
+  const envConfig = getEnvConfig();
   const baseUrl = envConfig.sessionRelayUrl;
   const accountUrl = envConfig.accountUrl;
   const interval = config?.pollingInterval ?? 2000;

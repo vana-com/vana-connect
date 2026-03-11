@@ -19,7 +19,6 @@ export async function POST(request: Request) {
     const data = await getData({
       privateKey: config.privateKey,
       grant,
-      environment: config.environment,
     });
 
     return NextResponse.json({ data });

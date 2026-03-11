@@ -24,8 +24,6 @@ export interface UseVanaDataConfig {
   dataUrl?: string;
   /** Polling interval in ms passed to {@link useVanaConnect} (default: 2000). */
   pollingInterval?: number;
-  /** SDK environment passed through to {@link useVanaConnect}. */
-  environment?: "dev" | "prod";
   /** When true, automatically fetches data after grant approval (default: `true`). */
   autoFetch?: boolean;
 }
@@ -96,7 +94,6 @@ export function useVanaData(config?: UseVanaDataConfig): UseVanaDataResult {
     reset: resetPoll,
   } = useVanaConnect({
     pollingInterval: config?.pollingInterval,
-    environment: config?.environment,
   });
 
   const [data, setData] = useState<unknown>(null);

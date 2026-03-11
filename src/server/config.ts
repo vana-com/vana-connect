@@ -1,11 +1,9 @@
-import type { VanaEnvironment } from "../core/constants.js";
 import { ConnectError, ConnectErrorCode } from "../core/errors.js";
 
 export interface VanaConfig {
   privateKey: `0x${string}`;
   scopes: string[];
   appUrl: string;
-  environment?: VanaEnvironment;
 }
 
 /**
@@ -34,7 +32,6 @@ export function createVanaConfig(config: {
   privateKey: `0x${string}`;
   scopes: string[];
   appUrl: string;
-  environment?: VanaEnvironment;
 }): VanaConfig {
   if (!config.privateKey) {
     throw new ConnectError(
@@ -68,6 +65,5 @@ export function createVanaConfig(config: {
     privateKey: config.privateKey,
     scopes: config.scopes,
     appUrl: config.appUrl,
-    environment: config.environment,
   };
 }

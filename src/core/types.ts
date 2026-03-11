@@ -104,8 +104,6 @@ export interface ConnectConfig {
   webhookUrl?: string;
   /** Your app's user ID for correlation. */
   appUserId?: string;
-  /** SDK environment (`"dev"` or `"prod"`). Defaults to `"prod"`. */
-  environment?: "dev" | "prod";
 }
 
 /** Configuration for the high-level {@link getData} function. */
@@ -114,8 +112,6 @@ export interface GetDataConfig {
   privateKey: `0x${string}`;
   /** Grant from the approval step. */
   grant: GrantPayload;
-  /** SDK environment (`"dev"` or `"prod"`). Defaults to `"prod"`. */
-  environment?: "dev" | "prod";
 }
 
 /** Configuration for {@link signVanaManifest}. */
