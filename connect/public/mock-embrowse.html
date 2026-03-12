@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mock Embrowse</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; padding: 24px; background: #fafafa; color: #111; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    .status { font-size: 13px; color: #666; margin-bottom: 16px; }
+    button { padding: 10px 20px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 14px; }
+    button:hover { background: #f0f0f0; }
+    button.primary { background: #0066ff; color: #fff; border-color: #0066ff; }
+    button.primary:hover { background: #0052cc; }
+    button.cancel { color: #666; }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    pre { background: #f5f5f5; padding: 12px; border-radius: 6px; font-size: 12px; overflow: auto; max-height: 400px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Mock Embrowse</h2>
+  <div class="status" id="status">Waiting for config...</div>
+  <div class="actions">
+    <button class="primary" id="btn-scrape" disabled>Simulate scrape</button>
+    <button class="cancel" id="btn-cancel">Cancel</button>
+  </div>
+  <pre id="output"></pre>
+
+  <script>
+    // -- Mock Instagram data (matches instagram.ads + instagram.profile schemas) --
+    const MOCK_DATA = {
+      "instagram.ads": {
+        advertisers: [
+          { name: "Nike" },
+          { name: "Spotify" },
+          { name: "Netflix" },
+          { name: "Airbnb" },
+          { name: "Apple Music" },
+          { name: "Headspace" },
+          { name: "Allbirds" },
+          { name: "Warby Parker" },
+        ],
+        ad_topics: [
+          { name: "Fitness & Wellness" },
+          { name: "Music & Audio" },
+          { name: "Streaming & Entertainment" },
+          { name: "Travel & Hospitality" },
+          { name: "Technology" },
+          { name: "Sustainable Fashion" },
+          { name: "Mental Health" },
+        ],
+      },
+      "instagram.profile": {
+        username: "demo_user",
+        full_name: "Demo User",
+        bio: "Just a demo account for testing Vana data portability",
+        follower_count: 847,
+        following_count: 312,
+        media_count: 156,
+        is_private: false,
+        is_verified: false,
+        is_business: false,
+      },
+    };
+
+    const parentOrigin = document.referrer
+      ? new URL(document.referrer).origin
+      : "*";
+
+    const statusEl = document.getElementById("status");
+    const outputEl = document.getElementById("output");
+    const btnScrape = document.getElementById("btn-scrape");
+    const btnCancel = document.getElementById("btn-cancel");
+
+    let config = null;
+
+    // Signal ready to parent
+    function sendToParent(msg) {
+      const target = window.opener || window.parent;
+      target.postMessage(msg, parentOrigin);
+    }
+
+    sendToParent({ type: "embrowse:ready" });
+    statusEl.textContent = "Ready — waiting for init config...";
+
+    // Listen for init from parent
+    window.addEventListener("message", (event) => {
+      if (event.data?.type !== "embrowse:init") return;
+      config = event.data;
+      statusEl.textContent =
+        `Configured: platform=${config.platform}, scopes=[${config.scopes.join(", ")}], server=${config.serverUrl}`;
+      btnScrape.disabled = false;
+      outputEl.textContent = JSON.stringify(config, null, 2);
+    });
+
+    // Simulate scraping with progress messages
+    btnScrape.addEventListener("click", async () => {
+      if (!config) return;
+      btnScrape.disabled = true;
+
+      const steps = [
+        "Launching browser...",
+        "Navigating to Instagram...",
+        "Extracting ad interests...",
+        "Extracting profile data...",
+        "Posting to Personal Server...",
+      ];
+
+      for (const step of steps) {
+        sendToParent({ type: "embrowse:progress", status: step });
+        statusEl.textContent = step;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
+      // POST each scope to the personal server
+      const ingested = [];
+      for (const scope of config.scopes) {
+        const data = MOCK_DATA[scope];
+        if (!data) continue;
+
+        try {
+          const url = `${config.serverUrl}/v1/data/${scope}`;
+          const headers = { "Content-Type": "application/json" };
+          if (config.serverAuthToken) {
+            headers["Authorization"] = `Bearer ${config.serverAuthToken}`;
+          }
+          const res = await fetch(url, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(data),
+          });
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          ingested.push(scope);
+        } catch (err) {
+          // If server isn't reachable, still count as ingested for the mock
+          console.warn(`[mock-embrowse] POST to ${scope} failed:`, err.message);
+          ingested.push(scope);
+        }
+      }
+
+      sendToParent({ type: "embrowse:complete", scopes: ingested });
+      statusEl.textContent = `Done — ingested: ${ingested.join(", ")}`;
+      outputEl.textContent = JSON.stringify(MOCK_DATA, null, 2);
+    });
+
+    btnCancel.addEventListener("click", () => {
+      sendToParent({ type: "embrowse:cancel" });
+      statusEl.textContent = "Cancelled";
+    });
+  </script>
+</body>
+</html>

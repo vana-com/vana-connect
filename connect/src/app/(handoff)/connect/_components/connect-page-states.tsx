@@ -1,8 +1,15 @@
 "use client";
 
-import { ArrowUpRightIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import {
+  ArrowUpRightIcon,
+  CheckCircle2Icon,
+  GlobeIcon,
+  RotateCcwIcon,
+  XIcon,
+} from "lucide-react";
 import { useEffect } from "react";
 import { APP_ROUTES } from "@/app/routes";
+import type { EmbrowseStatus } from "@/app/_lib/use-embrowse";
 import { Spinner } from "@/components/elements/spinner";
 import { Text } from "@/components/typography/text";
 import { ButtonArrow } from "@/components/ui/button";
@@ -186,6 +193,141 @@ export function ConnectReadyState({
             )
           }
         />
+      }
+    />
+  );
+}
+
+export function ConnectEmbrowseState({
+  app,
+  embrowseStatus,
+  progressText,
+  errorMessage,
+  onOpenEmbrowse,
+  onRetry,
+}: {
+  app: ConnectAppMetadata;
+  embrowseStatus: EmbrowseStatus;
+  progressText: string | null;
+  errorMessage: string | null;
+  onOpenEmbrowse: () => void;
+  onRetry: () => void;
+}) {
+  const statusLabel =
+    embrowseStatus === "idle"
+      ? "Ready to connect your data"
+      : embrowseStatus === "loading"
+        ? "Opening…"
+        : embrowseStatus === "ready"
+          ? "Waiting for you in the popup…"
+          : embrowseStatus === "scraping"
+            ? (progressText ?? "Collecting data…")
+            : embrowseStatus === "error"
+              ? (errorMessage ?? "Something went wrong")
+              : embrowseStatus === "cancelled"
+                ? "Cancelled"
+                : "Done";
+
+  return (
+    <ConnectStateFrame
+      app={app}
+      title={
+        <Text as="h1" intent="title" align="center">
+          Connect your data
+        </Text>
+      }
+      subtitle={
+        <Text as="p" intent="large" dim balance>
+          {statusLabel}
+        </Text>
+      }
+      content={
+        embrowseStatus === "idle" ? (
+          <ConnectLaunchSection
+            primaryAction={{
+              kind: "button",
+              onClick: onOpenEmbrowse,
+              label: "Connect now",
+              leftIcon: <GlobeIcon />,
+            }}
+          />
+        ) : embrowseStatus === "error" || embrowseStatus === "cancelled" ? (
+          <ConnectLaunchSection
+            primaryAction={{
+              kind: "button",
+              onClick: onRetry,
+              label: "Try again",
+              leftIcon: <RotateCcwIcon />,
+            }}
+          />
+        ) : embrowseStatus === "loading" ||
+          embrowseStatus === "ready" ||
+          embrowseStatus === "scraping" ? (
+          <div className="flex justify-center">
+            <Spinner />
+          </div>
+        ) : null
+      }
+    />
+  );
+}
+
+export function ConnectCompleteState({
+  app,
+  completedScopes,
+  appUrl,
+}: {
+  app: ConnectAppMetadata;
+  completedScopes: string[];
+  appUrl: string | null;
+}) {
+  return (
+    <ConnectStateFrame
+      app={app}
+      title={
+        <Text as="h1" intent="title" withIcon align="center">
+          <CheckCircle2Icon className="text-success-foreground" />
+          Data connected
+        </Text>
+      }
+      subtitle={
+        <Text as="p" intent="large" dim balance>
+          {completedScopes.length > 0
+            ? `Connected: ${completedScopes.join(", ")}`
+            : "Your data has been securely stored on your Personal Server."}
+        </Text>
+      }
+      content={
+        <div className="space-y-3">
+          {appUrl ? (
+            <ConnectLaunchSection
+              primaryAction={{
+                kind: "link",
+                href: appUrl,
+                label: `Return to ${app.displayName}`,
+              }}
+              secondaryContent={
+                <Text as="p">
+                  or{" "}
+                  <a
+                    href={APP_ROUTES.dashboard}
+                    className="link hover:text-foreground"
+                  >
+                    Manage account
+                  </a>
+                </Text>
+              }
+            />
+          ) : (
+            <ConnectLaunchSection
+              primaryAction={{
+                kind: "link",
+                href: APP_ROUTES.dashboard,
+                label: "Manage your data",
+              }}
+            />
+          )}
+        </div>
       }
     />
   );

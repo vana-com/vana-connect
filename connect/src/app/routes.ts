@@ -1,6 +1,7 @@
 export const APP_ROUTES = {
   root: "/",
   connect: "/connect",
+  dashboard: "/dashboard",
   login: "/login",
   logout: "/logout",
   admin: "/admin",

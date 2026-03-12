@@ -5,7 +5,10 @@ import { useSearchParams } from "next/navigation";
 import type { ComponentType } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { useEmbrowse } from "@/app/_lib/use-embrowse";
 import {
+  ConnectCompleteState,
+  ConnectEmbrowseState,
   ConnectErrorState,
   ConnectLoadingState,
   ConnectMissingSessionState,
@@ -99,6 +102,23 @@ export function ConnectPageClient({
     sessionId === "local-server-auth" &&
     appQuery.appName?.toLowerCase() === "dataconnect";
 
+  // Embrowse web flow — used when the connect flow completes and we need to
+  // scrape data in-browser instead of handing off to the desktop app.
+  // For now, the PS URL is passed as a query param or hardcoded for demo.
+  const serverUrl = searchParams.get("serverUrl") ?? "http://localhost:8080";
+  const embrowseUrl = searchParams.get("embrowseUrl") ?? "/mock-embrowse.html";
+  const embrowse = useEmbrowse({
+    embrowseUrl,
+    platform: appQuery.dataSource ?? "instagram",
+    scopes: appQuery.dataScopes ?? ["instagram.ads", "instagram.profile"],
+    serverUrl,
+  });
+
+  // Determine if we should show the web embrowse flow instead of the desktop deep link.
+  // For now, use a query param flag (?web=1) to opt in. In production, this would be
+  // determined by whether the user has a hosted PS or is on mobile.
+  const useWebFlow = searchParams.get("web") === "1";
+
   return (
     <>
       {!sessionId ? (
@@ -121,7 +141,33 @@ export function ConnectPageClient({
               <ConnectLoadingState app={app} />
             ) : null}
 
-            {view === "ready" && deepLinkUrl ? (
+            {view === "ready" &&
+            useWebFlow &&
+            embrowse.status !== "complete" ? (
+              <ConnectEmbrowseState
+                app={app}
+                embrowseStatus={embrowse.status}
+                progressText={embrowse.progressText}
+                errorMessage={embrowse.errorMessage}
+                onOpenEmbrowse={embrowse.openPopup}
+                onRetry={() => {
+                  embrowse.reset();
+                  embrowse.openPopup();
+                }}
+              />
+            ) : null}
+
+            {view === "ready" &&
+            useWebFlow &&
+            embrowse.status === "complete" ? (
+              <ConnectCompleteState
+                app={app}
+                completedScopes={embrowse.completedScopes}
+                appUrl={appQuery.appUrl}
+              />
+            ) : null}
+
+            {view === "ready" && !useWebFlow && deepLinkUrl ? (
               <ConnectReadyState
                 app={app}
                 requestedDataLabel={appQuery.requestedDataLabel}
