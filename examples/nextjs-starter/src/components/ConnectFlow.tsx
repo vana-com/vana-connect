@@ -167,7 +167,19 @@ export default function ConnectFlow() {
   const display = STATUS_DISPLAY[status];
   const sessionReady = !!connectUrl;
   const hasConnectFailure = !sessionReady && !!error;
-  const igData = data as InstagramData | null;
+  // Response shape: { data: { "instagram.ads": { data: { advertisers, ... } }, ... } }
+  // useVanaData sets data = json (the full response), so we unwrap: .data (API envelope) → .data (schema envelope)
+  const outer = data as Record<string, unknown> | null;
+  const scoped = (outer?.data ?? outer) as Record<string, unknown> | null;
+  const igData: InstagramData | null = scoped?.["instagram.ads"]
+    ? {
+        "instagram.ads": (scoped["instagram.ads"] as Record<string, unknown>)
+          ?.data as AdInterestsData | undefined,
+        "instagram.profile": (
+          scoped["instagram.profile"] as Record<string, unknown>
+        )?.data as ProfileData | undefined,
+      }
+    : null;
 
   return (
     <div>
@@ -241,10 +253,10 @@ export default function ConnectFlow() {
       )}
 
       {/* Data display */}
-      {igData?.["instagram.profile"] && (
+      {igData?.["instagram.profile"]?.full_name && (
         <ProfileCard profile={igData["instagram.profile"]} />
       )}
-      {igData?.["instagram.ads"] && (
+      {igData?.["instagram.ads"]?.ad_topics && (
         <AdInsightsCard ads={igData["instagram.ads"]} />
       )}
 
