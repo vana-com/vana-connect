@@ -16,8 +16,12 @@
   "publishConfig": {
     "access": "public"
   },
+  "bin": {
+    "vana": "./dist/cli/bin.js"
+  },
   "files": [
-    "dist"
+    "dist",
+    "runtime-assets"
   ],
   "exports": {
     ".": {
@@ -35,11 +39,24 @@
     "./core": {
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./connectors": {
+      "types": "./dist/connectors/index.d.ts",
+      "import": "./dist/connectors/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/main.d.ts",
+      "import": "./dist/cli/main.js"
     }
   },
   "scripts": {
     "build": "tsc --build",
     "clean": "tsc --build --clean",
+    "cli": "node dist/cli/bin.js",
     "skills:sync": "node scripts/sync-skills.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -63,6 +80,11 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "commander": "^14.0.3",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "viem": "^2.0.0",

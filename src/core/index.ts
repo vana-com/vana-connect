@@ -1,4 +1,5 @@
 export { ConnectError, ConnectErrorCode } from "./errors.js";
+export { CliOutcomeStatus } from "./cli-types.js";
 export { isValidGrant } from "./grants.js";
 export {
   getEnvConfig,
@@ -6,6 +7,21 @@ export {
   DEFAULT_ENVIRONMENT,
   type VanaEnvironment,
 } from "./constants.js";
+export {
+  getDataConnectHome,
+  getRunnerDir,
+  getConnectorCacheDir,
+  getBrowserProfilesDir,
+  getCliStatePath,
+  getLastResultPath,
+  getLogsDir,
+  getTimestampedLogPath,
+} from "./paths.js";
+export {
+  readCliState,
+  updateSourceState,
+  ensureParentDir,
+} from "./state-store.js";
 export type {
   ConnectionStatus,
   SessionInitParams,

@@ -72,6 +72,61 @@ Then, in your dev version of DataConnect (likely built from the `main` branch) y
 
 If you prefer to integrate the SDK into an existing project, follow the steps below.
 
+## Headless CLI
+
+`vana-connect` now also ships a local collection CLI for connector setup and data export flows.
+
+### Install
+
+Use the published package directly:
+
+```bash
+pnpm dlx @opendatalabs/connect status
+```
+
+Or install it globally:
+
+```bash
+pnpm add -g @opendatalabs/connect
+vana status
+```
+
+### Commands
+
+```bash
+vana sources
+vana connect github
+vana status
+vana setup
+```
+
+### Local development
+
+From this repo:
+
+```bash
+pnpm install
+pnpm build
+node dist/cli/bin.js status
+```
+
+The CLI installs its local browser runtime under `~/.dataconnect/`.
+
+### Programmatic runtime access
+
+If you are building an app surface like DataConnect Desktop or a hosted orchestration layer, use the SDK modules instead of shelling out to the CLI where possible.
+
+```ts
+import { ManagedPlaywrightRuntime } from "@opendatalabs/connect/runtime";
+import { listAvailableSources } from "@opendatalabs/connect/connectors";
+```
+
+Intended split:
+
+- app surfaces consume SDK/runtime APIs
+- agent skills consume the CLI
+- `data-connectors` remains the connector and schema source of truth
+
 ### Installation
 
 ```bash
