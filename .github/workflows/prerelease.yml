@@ -52,6 +52,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
+      - run: pnpm pack:check
       - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
       - uses: actions/upload-artifact@v4
         with:
@@ -74,6 +75,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm pack:check
       - name: Publish canary
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)

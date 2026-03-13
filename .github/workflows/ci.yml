@@ -47,6 +47,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
+      - run: pnpm pack:check
       - run: pnpm build:sea:smoke
       - run: pnpm test:install:unix
 
@@ -64,5 +65,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
+      - run: pnpm pack:check
       - run: pnpm build:sea -- --artifact-name vana-win32-x64 --platform win32 --arch x64 --archive-format zip --binary-name vana.exe
       - run: pnpm test:install:windows
