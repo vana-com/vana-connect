@@ -46,7 +46,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
@@ -54,6 +54,7 @@ jobs:
       - run: pnpm build
       - run: pnpm pack:check
       - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }} --archive artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }} --checksum artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256 --platform ${{ matrix.platform }} --binary-name ${{ matrix.binary_name }}
       - uses: actions/upload-artifact@v4
         with:
           name: vana-sea-${{ matrix.platform }}-${{ matrix.arch }}
@@ -71,7 +72,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile

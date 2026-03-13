@@ -42,13 +42,14 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
       - run: pnpm pack:check
       - run: pnpm build:sea:smoke
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-linux-x64 --archive artifacts/sea/vana-linux-x64.tar.gz --checksum artifacts/sea/vana-linux-x64.tar.gz.sha256 --platform linux --binary-name vana
       - run: pnpm test:install:unix
 
   sea-smoke-windows:
@@ -60,11 +61,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
       - run: pnpm pack:check
       - run: pnpm build:sea -- --artifact-name vana-win32-x64 --platform win32 --arch x64 --archive-format zip --binary-name vana.exe
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-win32-x64 --archive artifacts/sea/vana-win32-x64.zip --checksum artifacts/sea/vana-win32-x64.zip.sha256 --platform win32 --binary-name vana.exe
       - run: pnpm test:install:windows
