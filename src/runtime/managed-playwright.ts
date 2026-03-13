@@ -2,6 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 
 import {
   ensureParentDir,
@@ -15,8 +16,13 @@ import type { CliEvent, RuntimeState } from "../core/cli-types.js";
 import { fetchConnectorToCache } from "../connectors/registry.js";
 import { getBundledRuntimePaths } from "./bundled-assets.js";
 import type { ConnectorRunHandle } from "./core/index.js";
-import { startChildProcessConnectorRun } from "./playwright/index.js";
+import {
+  startChildProcessConnectorRun,
+  startInProcessConnectorRun,
+} from "./playwright/index.js";
 import { findDataConnectorsDir } from "./repo-paths.js";
+
+const require = createRequire(import.meta.url);
 
 export interface RuntimeInstallResult {
   runtime: RuntimeState;
@@ -131,11 +137,17 @@ export class ManagedPlaywrightRuntime {
   ): AsyncGenerator<CliEvent, void, void> {
     await fsp.mkdir(getLogsDir(), { recursive: true });
     const logPath = getTimestampedLogPath(`run-${options.source}`);
-    const handle: ConnectorRunHandle = startChildProcessConnectorRun({
-      request: options,
-      runnerDir: this.runnerDir,
-      logPath,
-    });
+    const handle: ConnectorRunHandle = process.env
+      .VANA_CONNECT_CHILD_PROCESS_RUNNER
+      ? startChildProcessConnectorRun({
+          request: options,
+          runnerDir: this.runnerDir,
+          logPath,
+        })
+      : startInProcessConnectorRun({
+          request: options,
+          logPath,
+        });
 
     for await (const event of handle.events()) {
       yield event as CliEvent;
@@ -147,20 +159,32 @@ async function installChromium(
   runnerDir: string,
   logPath: string,
 ): Promise<void> {
+  const playwrightCliPath = path.join(
+    path.dirname(require.resolve("playwright/package.json")),
+    "cli.js",
+  );
   try {
-    await spawnForExit("npx", ["playwright", "install", "chromium"], {
-      cwd: runnerDir,
-      logPath,
-    });
-  } catch {
-    await spawnForExit("npx", ["playwright", "install", "chromium"], {
-      cwd: runnerDir,
-      logPath,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_SKIP_BROWSER_GC: "1",
+    await spawnForExit(
+      getNodeCommand(),
+      [playwrightCliPath, "install", "chromium"],
+      {
+        cwd: runnerDir,
+        logPath,
       },
-    });
+    );
+  } catch {
+    await spawnForExit(
+      getNodeCommand(),
+      [playwrightCliPath, "install", "chromium"],
+      {
+        cwd: runnerDir,
+        logPath,
+        env: {
+          ...process.env,
+          PLAYWRIGHT_SKIP_BROWSER_GC: "1",
+        },
+      },
+    );
   }
 }
 
@@ -196,4 +220,8 @@ async function spawnForExit(
       reject(new Error(`Command failed with exit code ${code}.`));
     });
   });
+}
+
+function getNodeCommand(): string {
+  return process.env.VANA_NODE_BIN || process.execPath;
 }
