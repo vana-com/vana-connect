@@ -82,7 +82,6 @@ await build({
 });
 
 const assetPaths = [
-  "runtime-assets/run-connector.cjs",
   "runtime-assets/playwright-runner/index.cjs",
   "runtime-assets/playwright-runner/package.json",
   "runtime-assets/playwright-runner/package-lock.json",

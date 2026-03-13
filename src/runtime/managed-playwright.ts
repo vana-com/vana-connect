@@ -2,13 +2,11 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import * as sea from "node:sea";
 
 import {
   ensureParentDir,
   getConnectorCacheDir,
   getDataConnectHome,
-  getLastResultPath,
   getLogsDir,
   getRunnerDir,
   getTimestampedLogPath,
@@ -16,6 +14,8 @@ import {
 import type { CliEvent, RuntimeState } from "../core/cli-types.js";
 import { fetchConnectorToCache } from "../connectors/registry.js";
 import { getBundledRuntimePaths } from "./bundled-assets.js";
+import type { ConnectorRunHandle } from "./core/index.js";
+import { startChildProcessConnectorRun } from "./playwright/index.js";
 import { findDataConnectorsDir } from "./repo-paths.js";
 
 export interface RuntimeInstallResult {
@@ -51,13 +51,6 @@ export class ManagedPlaywrightRuntime {
     if (!fs.existsSync(path.join(this.runnerDir, "index.cjs"))) {
       return "missing";
     }
-    if (
-      !fs.existsSync(
-        path.join(getConnectorCacheDir(), "..", "run-connector.cjs"),
-      )
-    ) {
-      return "unhealthy";
-    }
     return "installed";
   }
 
@@ -70,7 +63,6 @@ export class ManagedPlaywrightRuntime {
     await ensureParentDir(logPath);
     const homeDir = getDataConnectHome();
     const bundledRuntime = await getBundledRuntimePaths();
-    const runConnectorTargetPath = path.join(homeDir, "run-connector.cjs");
 
     await fsp.mkdir(homeDir, { recursive: true });
     await fsp.mkdir(getConnectorCacheDir(), { recursive: true });
@@ -89,8 +81,6 @@ export class ManagedPlaywrightRuntime {
     });
 
     await installChromium(this.runnerDir, logPath);
-    await ensureParentDir(runConnectorTargetPath);
-    await fsp.copyFile(bundledRuntime.runConnectorPath, runConnectorTargetPath);
 
     return {
       runtime: this.state,
@@ -141,168 +131,16 @@ export class ManagedPlaywrightRuntime {
   ): AsyncGenerator<CliEvent, void, void> {
     await fsp.mkdir(getLogsDir(), { recursive: true });
     const logPath = getTimestampedLogPath(`run-${options.source}`);
-    const runConnectorPath = path.join(
-      getRunnerDir(),
-      "..",
-      "run-connector.cjs",
-    );
-    const args = [
-      runConnectorPath,
-      options.connectorPath,
-      "--output",
-      getLastResultPath(),
-    ];
-    const child = spawn(getNodeCommand(), args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const logStream = fs.createWriteStream(logPath);
-    if (options.signal) {
-      options.signal.addEventListener("abort", () => {
-        child.kill("SIGTERM");
-      });
-    }
-
-    let stdoutBuffer = "";
-    let settled = false;
-    const queue: CliEvent[] = [];
-    let resolveQueue: (() => void) | null = null;
-
-    const flushQueue = () => {
-      resolveQueue?.();
-      resolveQueue = null;
-    };
-
-    const pushEvent = (event: CliEvent) => {
-      queue.push(event);
-      flushQueue();
-    };
-
-    child.stderr.on("data", (chunk) => {
-      logStream.write(chunk);
-    });
-
-    child.stdout.on("data", async (chunk: Buffer) => {
-      logStream.write(chunk);
-      stdoutBuffer += chunk.toString();
-      const lines = stdoutBuffer.split("\n");
-      stdoutBuffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (!line.trim()) {
-          continue;
-        }
-
-        const parsed = JSON.parse(line) as Record<string, unknown>;
-        if (parsed.type === "need-input") {
-          const fields = Object.keys(
-            ((
-              parsed.schema as
-                | { properties?: Record<string, unknown> }
-                | undefined
-            )?.properties ?? {}) as Record<string, unknown>,
-          );
-
-          if (options.noInput || !options.onNeedInput) {
-            child.kill("SIGTERM");
-            pushEvent({
-              type: "needs-input",
-              source: options.source,
-              message:
-                typeof parsed.message === "string"
-                  ? parsed.message
-                  : "Additional input is required.",
-              fields,
-              logPath,
-            });
-            continue;
-          }
-
-          const input = await options.onNeedInput({
-            message:
-              typeof parsed.message === "string"
-                ? parsed.message
-                : "Additional input is required.",
-            schema: parsed.schema as NeedInputEvent["schema"],
-            fields,
-            responseInputPath: String(parsed.responseInputPath),
-          });
-          await ensureParentDir(String(parsed.responseInputPath));
-          await fsp.writeFile(
-            String(parsed.responseInputPath),
-            `${JSON.stringify(input)}\n`,
-            "utf8",
-          );
-          continue;
-        }
-
-        if (parsed.type === "result") {
-          pushEvent({
-            type: "collection-complete",
-            source: options.source,
-            resultPath: String(parsed.resultPath),
-            logPath,
-          });
-          continue;
-        }
-
-        if (parsed.type === "legacy-auth") {
-          pushEvent({
-            type: "legacy-auth",
-            source: options.source,
-            message:
-              typeof parsed.message === "string"
-                ? parsed.message
-                : "This connector requires legacy headed authentication.",
-            logPath,
-          });
-          continue;
-        }
-
-        if (parsed.type === "error") {
-          pushEvent({
-            type: "runtime-error",
-            source: options.source,
-            message:
-              typeof parsed.message === "string"
-                ? parsed.message
-                : "Connector run failed.",
-            logPath,
-          });
-          continue;
-        }
-      }
-    });
-
-    child.on("close", () => {
-      settled = true;
-      logStream.end();
-      flushQueue();
-    });
-
-    pushEvent({
-      type: "run-started",
-      source: options.source,
+    const handle: ConnectorRunHandle = startChildProcessConnectorRun({
+      request: options,
+      runnerDir: this.runnerDir,
       logPath,
     });
 
-    while (!settled || queue.length > 0) {
-      if (queue.length === 0) {
-        await new Promise<void>((resolve) => {
-          resolveQueue = resolve;
-        });
-        continue;
-      }
-      yield queue.shift() as CliEvent;
+    for await (const event of handle.events()) {
+      yield event as CliEvent;
     }
   }
-}
-
-function getNodeCommand(): string {
-  if (!sea.isSea()) {
-    return process.execPath;
-  }
-
-  return process.env.VANA_NODE_BIN || "node";
 }
 
 async function installChromium(

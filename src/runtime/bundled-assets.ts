@@ -7,7 +7,6 @@ import * as sea from "node:sea";
 import { ensureParentDir, getDataConnectHome } from "../core/index.js";
 
 const RUNTIME_ASSET_KEYS = [
-  "runtime-assets/run-connector.cjs",
   "runtime-assets/playwright-runner/index.cjs",
   "runtime-assets/playwright-runner/package.json",
   "runtime-assets/playwright-runner/package-lock.json",
@@ -16,14 +15,12 @@ const RUNTIME_ASSET_KEYS = [
 ] as const;
 
 export interface BundledRuntimePaths {
-  runConnectorPath: string;
   playwrightRunnerDir: string;
 }
 
 export async function getBundledRuntimePaths(): Promise<BundledRuntimePaths> {
   if (!sea.isSea()) {
     return {
-      runConnectorPath: fileSystemRuntimeAssetPath("run-connector.cjs"),
       playwrightRunnerDir: fileSystemRuntimeAssetPath("playwright-runner"),
     };
   }
@@ -51,7 +48,6 @@ export async function getBundledRuntimePaths(): Promise<BundledRuntimePaths> {
   }
 
   return {
-    runConnectorPath: path.join(extractionRoot, "run-connector.cjs"),
     playwrightRunnerDir: path.join(extractionRoot, "playwright-runner"),
   };
 }
