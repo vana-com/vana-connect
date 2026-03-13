@@ -60,6 +60,7 @@
     "cli": "node dist/cli/bin.js",
     "skills:sync": "node scripts/sync-skills.js",
     "test:install:unix": "sh ./scripts/test-install-unix.sh",
+    "test:install:windows": "pwsh -File ./scripts/test-install-windows.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config test/e2e/vitest.config.ts",

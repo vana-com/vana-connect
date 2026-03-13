@@ -49,9 +49,17 @@ if (-not $Version) {
 $AssetBase = "vana-win32-$TargetArch"
 $ArchiveName = "$AssetBase.zip"
 $ChecksumName = "$ArchiveName.sha256"
-$DownloadBase = "$ReleaseBaseUrl/$Version"
-$ArchiveUrl = "$DownloadBase/$ArchiveName"
-$ChecksumUrl = "$DownloadBase/$ChecksumName"
+$UseRemoteReleaseBase = $ReleaseBaseUrl -match '^(https?|file)://'
+if ($UseRemoteReleaseBase) {
+  $DownloadBase = "$ReleaseBaseUrl/$Version"
+  $ArchiveUrl = "$DownloadBase/$ArchiveName"
+  $ChecksumUrl = "$DownloadBase/$ChecksumName"
+}
+else {
+  $DownloadBase = Join-Path $ReleaseBaseUrl $Version
+  $ArchiveUrl = Join-Path $DownloadBase $ArchiveName
+  $ChecksumUrl = Join-Path $DownloadBase $ChecksumName
+}
 
 $TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("vana-install-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $TempDir | Out-Null
@@ -61,8 +69,8 @@ try {
   $ArchivePath = Join-Path $TempDir $ArchiveName
   $ChecksumPath = Join-Path $TempDir $ChecksumName
 
-  Invoke-WebRequest -Uri $ArchiveUrl -OutFile $ArchivePath
-  Invoke-WebRequest -Uri $ChecksumUrl -OutFile $ChecksumPath
+  Copy-VanaAsset -Source $ArchiveUrl -Destination $ArchivePath
+  Copy-VanaAsset -Source $ChecksumUrl -Destination $ChecksumPath
 
   $Expected = (Get-Content $ChecksumPath).Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0].Trim()
   $Actual = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -121,4 +129,25 @@ finally {
   if (Test-Path $TempDir) {
     Remove-Item $TempDir -Recurse -Force
   }
+}
+
+function Copy-VanaAsset {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Source,
+    [Parameter(Mandatory = $true)]
+    [string]$Destination
+  )
+
+  if ($Source -match '^(https?)://') {
+    Invoke-WebRequest -Uri $Source -OutFile $Destination
+    return
+  }
+
+  $ResolvedPath = $Source
+  if ($Source.StartsWith('file://')) {
+    $ResolvedPath = ([System.Uri]$Source).LocalPath
+  }
+
+  Copy-Item -Path $ResolvedPath -Destination $Destination -Force
 }
