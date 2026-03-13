@@ -6,7 +6,9 @@ const requiredPaths = [
   "dist/runtime/managed-playwright.js",
 ];
 
-const raw = execFileSync("npm", ["pack", "--json", "--dry-run"], {
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
+const raw = execFileSync(npmCommand, ["pack", "--json", "--dry-run"], {
   encoding: "utf8",
 });
 
