@@ -25,6 +25,14 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm build:sea
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vana-sea-linux-x64
+          path: |
+            artifacts/sea/vana-linux-x64
+            artifacts/sea/vana-linux-x64.tar.gz
+            artifacts/sea/vana-linux-x64.tar.gz.sha256
       - name: Publish canary
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)

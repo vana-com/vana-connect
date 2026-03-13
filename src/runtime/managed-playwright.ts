@@ -2,7 +2,6 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 import {
   ensureParentDir,
@@ -15,6 +14,7 @@ import {
 } from "../core/index.js";
 import type { CliEvent, RuntimeState } from "../core/cli-types.js";
 import { fetchConnectorToCache } from "../connectors/registry.js";
+import { getBundledRuntimePaths } from "./bundled-assets.js";
 import { findDataConnectorsDir } from "./repo-paths.js";
 
 export interface RuntimeInstallResult {
@@ -68,13 +68,15 @@ export class ManagedPlaywrightRuntime {
     const logPath = getTimestampedLogPath("setup");
     await ensureParentDir(logPath);
     const homeDir = getDataConnectHome();
+    const bundledRuntime = await getBundledRuntimePaths();
     const runConnectorTargetPath = path.join(homeDir, "run-connector.cjs");
-    const runnerSourceDir = getBundledPlaywrightRunnerDir();
 
     await fsp.mkdir(homeDir, { recursive: true });
     await fsp.mkdir(getConnectorCacheDir(), { recursive: true });
     await fsp.rm(this.runnerDir, { recursive: true, force: true });
-    await fsp.cp(runnerSourceDir, this.runnerDir, { recursive: true });
+    await fsp.cp(bundledRuntime.playwrightRunnerDir, this.runnerDir, {
+      recursive: true,
+    });
 
     await spawnForExit("npm", ["install", "--ignore-scripts"], {
       cwd: this.runnerDir,
@@ -87,7 +89,7 @@ export class ManagedPlaywrightRuntime {
 
     await installChromium(this.runnerDir, logPath);
     await ensureParentDir(runConnectorTargetPath);
-    await fsp.copyFile(getBundledRunConnectorPath(), runConnectorTargetPath);
+    await fsp.copyFile(bundledRuntime.runConnectorPath, runConnectorTargetPath);
 
     return {
       runtime: this.state,
@@ -292,18 +294,6 @@ export class ManagedPlaywrightRuntime {
       yield queue.shift() as CliEvent;
     }
   }
-}
-
-function getBundledRunConnectorPath(): string {
-  return fileURLToPath(
-    new URL("../../runtime-assets/run-connector.cjs", import.meta.url),
-  );
-}
-
-function getBundledPlaywrightRunnerDir(): string {
-  return fileURLToPath(
-    new URL("../../runtime-assets/playwright-runner", import.meta.url),
-  );
 }
 
 async function installChromium(

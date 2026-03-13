@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.sea-work/
+artifacts/
 *.tsbuildinfo
 .DS_Store
 coverage/

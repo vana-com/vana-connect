@@ -16,29 +16,38 @@
  * - Phase 2 (Background): Direct HTTP fetch without browser
  */
 
-const { chromium } = require('playwright');
-const fs = require('fs');
-const readline = require('readline');
-const path = require('path');
-const { execSync } = require('child_process');
+const { chromium } = require("playwright");
+const fs = require("fs");
+const readline = require("readline");
+const path = require("path");
+const { execSync } = require("child_process");
 
 // System Chrome paths by platform
 const CHROME_PATHS = {
-  darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  win32: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  linux: '/usr/bin/google-chrome'
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  win32: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  linux: "/usr/bin/google-chrome",
 };
 
 // Get browser cache directory - checks multiple candidate paths
 function getBrowserCacheDir() {
   if (process.env.PLAYWRIGHT_BROWSERS_PATH) {
-    log(`Using PLAYWRIGHT_BROWSERS_PATH: ${process.env.PLAYWRIGHT_BROWSERS_PATH}`);
+    log(
+      `Using PLAYWRIGHT_BROWSERS_PATH: ${process.env.PLAYWRIGHT_BROWSERS_PATH}`,
+    );
     return process.env.PLAYWRIGHT_BROWSERS_PATH;
   }
-  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const home = process.env.HOME || process.env.USERPROFILE || "";
   const candidates = [
-    path.join(home, '.dataconnect', 'browsers'),
-    path.join(home, '.dataconnect', 'playwright-runner', 'node_modules', 'playwright-core', '.local-browsers'),
+    path.join(home, ".dataconnect", "browsers"),
+    path.join(
+      home,
+      ".dataconnect",
+      "playwright-runner",
+      "node_modules",
+      "playwright-core",
+      ".local-browsers",
+    ),
   ];
   for (const dir of candidates) {
     if (fs.existsSync(dir)) {
@@ -59,18 +68,22 @@ function getSystemChromePath() {
   }
   log(`System Chrome not found at default path`);
   // Try alternative Windows paths
-  if (process.platform === 'win32') {
+  if (process.platform === "win32") {
     const altPaths = [
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe')
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+      path.join(
+        process.env.LOCALAPPDATA || "",
+        "Google\\Chrome\\Application\\chrome.exe",
+      ),
     ];
     for (const p of altPaths) {
       if (fs.existsSync(p)) return p;
     }
   }
   // Try Edge on Windows
-  if (process.platform === 'win32') {
-    const edgePath = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  if (process.platform === "win32") {
+    const edgePath =
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
     if (fs.existsSync(edgePath)) return edgePath;
   }
   return null;
@@ -87,36 +100,66 @@ function getDownloadedChromiumPath() {
 
   // Look for chromium directory
   const entries = fs.readdirSync(cacheDir);
-  const chromiumDir = entries.find(e => e.startsWith('chromium-') && !e.includes('headless'));
+  const chromiumDir = entries.find(
+    (e) => e.startsWith("chromium-") && !e.includes("headless"),
+  );
   if (!chromiumDir) return null;
 
   const chromiumPath = path.join(cacheDir, chromiumDir);
 
   // Platform-specific executable paths (Playwright's "Chrome for Testing" structure)
-  if (process.platform === 'darwin') {
+  if (process.platform === "darwin") {
     // Try arm64 first, then x64
     const paths = [
-      path.join(chromiumPath, 'chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
-      path.join(chromiumPath, 'chrome-mac', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'),
+      path.join(
+        chromiumPath,
+        "chrome-mac-arm64",
+        "Google Chrome for Testing.app",
+        "Contents",
+        "MacOS",
+        "Google Chrome for Testing",
+      ),
+      path.join(
+        chromiumPath,
+        "chrome-mac",
+        "Google Chrome for Testing.app",
+        "Contents",
+        "MacOS",
+        "Google Chrome for Testing",
+      ),
       // Legacy paths
-      path.join(chromiumPath, 'chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
-      path.join(chromiumPath, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+      path.join(
+        chromiumPath,
+        "chrome-mac-arm64",
+        "Chromium.app",
+        "Contents",
+        "MacOS",
+        "Chromium",
+      ),
+      path.join(
+        chromiumPath,
+        "chrome-mac",
+        "Chromium.app",
+        "Contents",
+        "MacOS",
+        "Chromium",
+      ),
     ];
     for (const p of paths) {
       if (fs.existsSync(p)) return p;
     }
-  } else if (process.platform === 'win32') {
+  } else if (process.platform === "win32") {
     const paths = [
-      path.join(chromiumPath, 'chrome-win', 'chrome.exe'),
-      path.join(chromiumPath, 'chrome-win64', 'chrome.exe'),
+      path.join(chromiumPath, "chrome-win", "chrome.exe"),
+      path.join(chromiumPath, "chrome-win64", "chrome.exe"),
     ];
     for (const p of paths) {
       if (fs.existsSync(p)) return p;
     }
   } else {
     const paths = [
-      path.join(chromiumPath, 'chrome-linux', 'chrome'),
-      path.join(chromiumPath, 'chrome-linux64', 'chrome'),
+      path.join(chromiumPath, "chrome-linux", "chrome"),
+      path.join(chromiumPath, "chrome-linux64", "chrome"),
     ];
     for (const p of paths) {
       if (fs.existsSync(p)) return p;
@@ -128,16 +171,31 @@ function getDownloadedChromiumPath() {
 
 // Default Chrome user-data directories by platform
 const CHROME_PROFILE_DIRS = {
-  darwin: path.join(process.env.HOME || '', 'Library', 'Application Support', 'Google', 'Chrome'),
-  win32: path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data'),
-  linux: path.join(process.env.HOME || '', '.config', 'google-chrome'),
+  darwin: path.join(
+    process.env.HOME || "",
+    "Library",
+    "Application Support",
+    "Google",
+    "Chrome",
+  ),
+  win32: path.join(
+    process.env.LOCALAPPDATA || "",
+    "Google",
+    "Chrome",
+    "User Data",
+  ),
+  linux: path.join(process.env.HOME || "", ".config", "google-chrome"),
 };
 
 // Check whether a browser path points to system Chrome (not Playwright Chromium).
 function isSystemChrome(browserPath) {
   if (!browserPath) return false;
   const lower = browserPath.toLowerCase();
-  if (lower.includes('.databridge') || lower.includes('chromium') || lower.includes('chrome for testing')) {
+  if (
+    lower.includes(".databridge") ||
+    lower.includes("chromium") ||
+    lower.includes("chrome for testing")
+  ) {
     return false;
   }
   return true;
@@ -145,10 +203,10 @@ function isSystemChrome(browserPath) {
 
 // Get the Chrome last-used profile directory path.
 function getChromeProfileDir(chromeRoot) {
-  const localStatePath = path.join(chromeRoot, 'Local State');
+  const localStatePath = path.join(chromeRoot, "Local State");
   if (fs.existsSync(localStatePath)) {
     try {
-      const localState = JSON.parse(fs.readFileSync(localStatePath, 'utf-8'));
+      const localState = JSON.parse(fs.readFileSync(localStatePath, "utf-8"));
       const lastUsed = localState?.profile?.last_used;
       if (lastUsed) {
         const profileDir = path.join(chromeRoot, lastUsed);
@@ -162,7 +220,7 @@ function getChromeProfileDir(chromeRoot) {
     }
   }
 
-  const defaultDir = path.join(chromeRoot, 'Default');
+  const defaultDir = path.join(chromeRoot, "Default");
   if (fs.existsSync(defaultDir)) return defaultDir;
   return null;
 }
@@ -179,9 +237,9 @@ function importChromecookies(userDataDir, browserPath) {
   if (!isSystemChrome(browserPath)) return;
 
   // Only import once
-  const markerFile = path.join(userDataDir, '.cookies-imported');
+  const markerFile = path.join(userDataDir, ".cookies-imported");
   if (fs.existsSync(markerFile)) {
-    log('Skipping cookie import — already done');
+    log("Skipping cookie import — already done");
     return;
   }
 
@@ -191,13 +249,13 @@ function importChromecookies(userDataDir, browserPath) {
   const sourceProfileDir = getChromeProfileDir(chromeRoot);
   if (!sourceProfileDir) return;
 
-  const sourceCookies = path.join(sourceProfileDir, 'Cookies');
+  const sourceCookies = path.join(sourceProfileDir, "Cookies");
   if (!fs.existsSync(sourceCookies)) return;
 
   // Find the target Cookies db — Chrome creates it inside "Default/" by default
-  const targetCookies = path.join(userDataDir, 'Default', 'Cookies');
+  const targetCookies = path.join(userDataDir, "Default", "Cookies");
   if (!fs.existsSync(targetCookies)) {
-    log('Skipping cookie import — target Cookies db not found yet');
+    log("Skipping cookie import — target Cookies db not found yet");
     return;
   }
 
@@ -211,14 +269,14 @@ function importChromecookies(userDataDir, browserPath) {
       DETACH DATABASE src;
     `;
     execSync(`sqlite3 "${targetCookies}" "${sql}"`, {
-      encoding: 'utf-8',
+      encoding: "utf-8",
       timeout: 10000,
     });
 
     // Verify
     const count = execSync(
       `sqlite3 "${targetCookies}" "SELECT COUNT(*) FROM cookies;"`,
-      { encoding: 'utf-8' }
+      { encoding: "utf-8" },
     ).trim();
     log(`Imported cookies into profile — total cookies now: ${count}`);
 
@@ -237,9 +295,9 @@ async function downloadChromium(sendStatus) {
     fs.mkdirSync(cacheDir, { recursive: true });
   }
 
-  log('Downloading Chromium browser (one-time setup)...');
+  log("Downloading Chromium browser (one-time setup)...");
   if (sendStatus) {
-    sendStatus('DOWNLOADING_BROWSER');
+    sendStatus("DOWNLOADING_BROWSER");
   }
 
   // Set environment for Playwright to use our cache dir
@@ -247,15 +305,17 @@ async function downloadChromium(sendStatus) {
 
   try {
     // Use Playwright's CLI to download Chromium
-    execSync('npx playwright install chromium', {
-      stdio: 'inherit',
-      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: cacheDir }
+    execSync("npx playwright install chromium", {
+      stdio: "inherit",
+      env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: cacheDir },
     });
-    log('Chromium download complete');
+    log("Chromium download complete");
     return getDownloadedChromiumPath();
   } catch (error) {
-    log('Failed to download Chromium:', error.message);
-    throw new Error('Failed to download browser. Please install Google Chrome or try again.');
+    log("Failed to download Chromium:", error.message);
+    throw new Error(
+      "Failed to download browser. Please install Google Chrome or try again.",
+    );
   }
 }
 
@@ -264,22 +324,22 @@ const activeRuns = new Map();
 
 // Send message to parent process
 function send(msg) {
-  process.stdout.write(JSON.stringify(msg) + '\n');
+  process.stdout.write(JSON.stringify(msg) + "\n");
 }
 
 function drainStdout() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (process.stdout.writableNeedDrain) {
-      process.stdout.once('drain', resolve);
+      process.stdout.once("drain", resolve);
     } else {
-      process.stdout.write('', resolve);
+      process.stdout.write("", resolve);
     }
   });
 }
 
 // Log to stderr (doesn't interfere with JSON protocol)
 function log(...args) {
-  console.error('[PlaywrightRunner]', ...args);
+  console.error("[PlaywrightRunner]", ...args);
 }
 
 // Resolve browser executable path
@@ -289,7 +349,9 @@ function resolveBrowserPath() {
   if (!process.env.DATACONNECT_SIMULATE_NO_CHROME) {
     browserPath = getSystemChromePath();
   } else {
-    log('DATACONNECT_SIMULATE_NO_CHROME is set, skipping system Chrome detection');
+    log(
+      "DATACONNECT_SIMULATE_NO_CHROME is set, skipping system Chrome detection",
+    );
   }
 
   if (!browserPath) {
@@ -297,7 +359,9 @@ function resolveBrowserPath() {
   }
 
   if (!browserPath) {
-    throw new Error('No browser available. The Rust backend should have downloaded Chromium before starting the connector.');
+    throw new Error(
+      "No browser available. The Rust backend should have downloaded Chromium before starting the connector.",
+    );
   }
 
   return browserPath;
@@ -311,11 +375,12 @@ async function launchPersistentContext(userDataDir, headless, browserPath) {
   const launchOptions = {
     headless,
     args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-features=MediaRouter,DialMediaRouteProvider',
+      "--disable-blink-features=AutomationControlled",
+      "--disable-features=MediaRouter,DialMediaRouteProvider",
     ],
     viewport: { width: 1280, height: 800 },
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   };
 
   if (browserPath) {
@@ -327,12 +392,17 @@ async function launchPersistentContext(userDataDir, headless, browserPath) {
   // the user's real Chrome profile (both use the same "Chrome Safe Storage"
   // Keychain entry). No popup — Chrome itself is already authorized.
   if (isSystemChrome(browserPath)) {
-    launchOptions.ignoreDefaultArgs = ['--use-mock-keychain'];
+    launchOptions.ignoreDefaultArgs = ["--use-mock-keychain"];
   }
 
-  log(`Launching ${headless ? 'headless' : 'headed'} browser with profile: ${userDataDir}`);
-  const context = await chromium.launchPersistentContext(userDataDir, launchOptions);
-  log('Browser launched successfully');
+  log(
+    `Launching ${headless ? "headless" : "headed"} browser with profile: ${userDataDir}`,
+  );
+  const context = await chromium.launchPersistentContext(
+    userDataDir,
+    launchOptions,
+  );
+  log("Browser launched successfully");
   return context;
 }
 
@@ -344,14 +414,16 @@ function createPageApi(runState, runId) {
   // Helper to get current page, throw if browser is closed
   function requirePage() {
     if (runState.browserClosed || !runState.page) {
-      throw new Error('Browser is closed. Use page.httpFetch() for HTTP requests.');
+      throw new Error(
+        "Browser is closed. Use page.httpFetch() for HTTP requests.",
+      );
     }
     return runState.page;
   }
 
   // Set up network interception on current page
   function setupNetworkCapture(page) {
-    page.on('response', async (response) => {
+    page.on("response", async (response) => {
       const url = response.url();
 
       for (const [key, config] of networkCaptures.entries()) {
@@ -359,17 +431,21 @@ function createPageApi(runState, runId) {
 
         try {
           const request = response.request();
-          const postData = request.postData() || '';
+          const postData = request.postData() || "";
 
           if (config.bodyPattern) {
-            const patterns = config.bodyPattern.split('|');
-            if (!patterns.some(p => postData.includes(p))) continue;
+            const patterns = config.bodyPattern.split("|");
+            if (!patterns.some((p) => postData.includes(p))) continue;
           }
 
           const body = await response.json().catch(() => null);
           if (body) {
-            capturedResponses.set(key, { url, data: body, timestamp: Date.now() });
-            send({ type: 'network-captured', runId, key, url });
+            capturedResponses.set(key, {
+              url,
+              data: body,
+              timestamp: Date.now(),
+            });
+            send({ type: "network-captured", runId, key, url });
           }
         } catch (e) {
           // Ignore errors for non-JSON responses
@@ -387,13 +463,13 @@ function createPageApi(runState, runId) {
     goto: async (url, options = {}) => {
       const page = requirePage();
       log(`pageApi.goto called with: ${url}`);
-      send({ type: 'log', runId, message: `Navigating to: ${url}` });
-      const { waitUntil = 'domcontentloaded', timeout } = options;
+      send({ type: "log", runId, message: `Navigating to: ${url}` });
+      const { waitUntil = "domcontentloaded", timeout } = options;
       const gotoOpts = { waitUntil };
       if (timeout != null) gotoOpts.timeout = timeout;
       try {
         await page.goto(url, gotoOpts);
-        log('pageApi.goto completed successfully');
+        log("pageApi.goto completed successfully");
       } catch (err) {
         log(`pageApi.goto error: ${err.message}`);
         throw err;
@@ -407,49 +483,57 @@ function createPageApi(runState, runId) {
 
     screenshot: async () => {
       const page = requirePage();
-      const buffer = await page.screenshot({ type: 'jpeg', quality: 70, timeout: 5000 });
-      return buffer.toString('base64');
+      const buffer = await page.screenshot({
+        type: "jpeg",
+        quality: 70,
+        timeout: 5000,
+      });
+      return buffer.toString("base64");
     },
 
     requestInput: async (payload) => {
       const requestId = `input-${++runState.requestCounter}`;
-      send({ type: 'request-input', runId, requestId, payload });
+      send({ type: "request-input", runId, requestId, payload });
       return new Promise((resolve, reject) => {
         runState.pendingInputs.set(requestId, { resolve, reject });
       });
     },
 
-    sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 
     setData: async (key, value) => {
-      if (key === 'status') {
-        send({ type: 'log', runId, message: value });
+      if (key === "status") {
+        send({ type: "log", runId, message: value });
         log(`[status] ${value}`);
-      } else if (key === 'error') {
+      } else if (key === "error") {
         log(`[error] ${value}`);
-      } else if (key === 'result') {
+      } else if (key === "result") {
         runState.hasResult = true;
       }
-      send({ type: 'data', runId, key, value });
+      send({ type: "data", runId, key, value });
     },
 
     // Structured progress update — drives the frontend progress UI
     setProgress: async ({ phase, message, count }) => {
-      send({ type: 'status', runId, status: { type: 'COLLECTING', message, phase, count } });
+      send({
+        type: "status",
+        runId,
+        status: { type: "COLLECTING", message, phase, count },
+      });
       if (message) log(`[progress] ${message}`);
     },
 
     promptUser: async (message, checkFn, interval = 2000) => {
-      send({ type: 'log', runId, message });
-      send({ type: 'status', runId, status: 'WAITING_FOR_USER' });
+      send({ type: "log", runId, message });
+      send({ type: "status", runId, status: "WAITING_FOR_USER" });
 
       // Poll until condition is met
       while (true) {
-        await new Promise(resolve => setTimeout(resolve, interval));
+        await new Promise((resolve) => setTimeout(resolve, interval));
         try {
           const result = await checkFn();
           if (result) {
-            send({ type: 'log', runId, message: 'User action completed' });
+            send({ type: "log", runId, message: "User action completed" });
             return;
           }
         } catch (e) {
@@ -460,8 +544,8 @@ function createPageApi(runState, runId) {
 
     captureNetwork: async (config) => {
       networkCaptures.set(config.key, {
-        urlPattern: config.urlPattern || '',
-        bodyPattern: config.bodyPattern || ''
+        urlPattern: config.urlPattern || "",
+        bodyPattern: config.bodyPattern || "",
       });
       log(`Registered network capture: ${config.key}`);
     },
@@ -484,19 +568,21 @@ function createPageApi(runState, runId) {
     // Cookies/session persist in the profile directory for next run.
     closeBrowser: async () => {
       if (runState.browserClosed) {
-        log('Browser already closed');
+        log("Browser already closed");
         return;
       }
 
-      log('Closing browser (connector requested closeBrowser)');
+      log("Closing browser (connector requested closeBrowser)");
 
       // Extract cookies before closing so httpFetch can use them
       if (runState.context) {
         try {
           runState.cookies = await runState.context.cookies();
-          log(`Extracted ${runState.cookies.length} cookies for background HTTP requests`);
+          log(
+            `Extracted ${runState.cookies.length} cookies for background HTTP requests`,
+          );
         } catch (e) {
-          log('Warning: could not extract cookies:', e.message);
+          log("Warning: could not extract cookies:", e.message);
           runState.cookies = [];
         }
       }
@@ -508,48 +594,56 @@ function createPageApi(runState, runId) {
         try {
           await runState.context.close();
         } catch (e) {
-          log('Error closing context:', e.message);
+          log("Error closing context:", e.message);
         }
         runState.context = null;
         runState.page = null;
       }
 
-      send({ type: 'log', runId, message: 'Browser closed, continuing in background...' });
-      log('Browser closed, process stays alive for background work');
+      send({
+        type: "log",
+        runId,
+        message: "Browser closed, continuing in background...",
+      });
+      log("Browser closed, process stays alive for background work");
     },
 
     // Escalate to headed mode for live human interaction (e.g., interactive CAPTCHAs).
     // Gated by allowHeaded capability — if the driver doesn't support headed mode,
     // navigates in the existing headless browser and returns { headed: false }.
     showBrowser: async (url) => {
-      log('showBrowser requested');
+      log("showBrowser requested");
 
       if (runState.browserClosed) {
-        log('showBrowser called but browser is already closed');
+        log("showBrowser called but browser is already closed");
         return { headed: false };
       }
 
       if (!runState.allowHeaded) {
-        log('Headed mode not available — navigating headless');
+        log("Headed mode not available — navigating headless");
         if (url && runState.page) {
           try {
-            await runState.page.goto(url, { waitUntil: 'domcontentloaded' });
+            await runState.page.goto(url, { waitUntil: "domcontentloaded" });
           } catch (e) {
             log(`showBrowser headless navigation failed: ${e.message}`);
           }
         }
-        send({ type: 'log', runId, message: 'Headed interaction unavailable — staying headless' });
+        send({
+          type: "log",
+          runId,
+          message: "Headed interaction unavailable — staying headless",
+        });
         return { headed: false };
       }
 
       // Close existing browser if open
       if (runState.context && !runState.browserClosed) {
-        log('Closing existing browser before reopening headed');
+        log("Closing existing browser before reopening headed");
         runState.browserClosedByConnector = true;
         try {
           await runState.context.close();
         } catch (e) {
-          log('Error closing existing context:', e.message);
+          log("Error closing existing context:", e.message);
         }
         runState.context = null;
         runState.page = null;
@@ -559,18 +653,25 @@ function createPageApi(runState, runId) {
       runState.browserClosed = false;
       runState.browserClosedByConnector = false;
       runState.headless = false;
-      const context = await launchPersistentContext(runState.userDataDir, false, runState.browserPath);
-      const page = context.pages()[0] || await context.newPage();
+      const context = await launchPersistentContext(
+        runState.userDataDir,
+        false,
+        runState.browserPath,
+      );
+      const page = context.pages()[0] || (await context.newPage());
 
       // Set up disconnect handler
-      context.browser().on('disconnected', () => {
-        if (!runState.connectorCompleted && !runState.browserClosedByConnector) {
+      context.browser().on("disconnected", () => {
+        if (
+          !runState.connectorCompleted &&
+          !runState.browserClosedByConnector
+        ) {
           log(`Browser disconnected for run ${runId} (user closed window)`);
           runState.browserClosed = true;
           runState.context = null;
           runState.page = null;
           activeRuns.delete(runId);
-          send({ type: 'status', runId, status: 'STOPPED' });
+          send({ type: "status", runId, status: "STOPPED" });
           drainStdout().then(() => process.exit(0));
         }
       });
@@ -584,11 +685,15 @@ function createPageApi(runState, runId) {
 
       // Navigate to URL
       if (url) {
-        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.goto(url, { waitUntil: "domcontentloaded" });
       }
 
-      send({ type: 'log', runId, message: 'Browser opened for user interaction' });
-      log('Headed browser opened');
+      send({
+        type: "log",
+        runId,
+        message: "Browser opened for user interaction",
+      });
+      log("Headed browser opened");
       return { headed: true };
     },
 
@@ -597,11 +702,11 @@ function createPageApi(runState, runId) {
     // during data collection, while preserving the TLS fingerprint for Cloudflare.
     goHeadless: async () => {
       if (runState.headless && !runState.browserClosed) {
-        log('Already in headless mode');
+        log("Already in headless mode");
         return;
       }
 
-      log('Switching to headless mode');
+      log("Switching to headless mode");
 
       // Close existing headed browser
       if (runState.context && !runState.browserClosed) {
@@ -609,7 +714,7 @@ function createPageApi(runState, runId) {
         try {
           await runState.context.close();
         } catch (e) {
-          log('Error closing headed context:', e.message);
+          log("Error closing headed context:", e.message);
         }
         runState.context = null;
         runState.page = null;
@@ -619,18 +724,25 @@ function createPageApi(runState, runId) {
       runState.browserClosed = false;
       runState.browserClosedByConnector = false;
       runState.headless = true;
-      const context = await launchPersistentContext(runState.userDataDir, true, runState.browserPath);
-      const page = context.pages()[0] || await context.newPage();
+      const context = await launchPersistentContext(
+        runState.userDataDir,
+        true,
+        runState.browserPath,
+      );
+      const page = context.pages()[0] || (await context.newPage());
 
       // Set up disconnect handler
-      context.browser().on('disconnected', () => {
-        if (!runState.connectorCompleted && !runState.browserClosedByConnector) {
+      context.browser().on("disconnected", () => {
+        if (
+          !runState.connectorCompleted &&
+          !runState.browserClosedByConnector
+        ) {
           log(`Browser disconnected for run ${runId}`);
           runState.browserClosed = true;
           runState.context = null;
           runState.page = null;
           activeRuns.delete(runId);
-          send({ type: 'status', runId, status: 'STOPPED' });
+          send({ type: "status", runId, status: "STOPPED" });
           drainStdout().then(() => process.exit(0));
         }
       });
@@ -643,10 +755,16 @@ function createPageApi(runState, runId) {
       setupNetworkCapture(page);
 
       // Navigate to establish browser context
-      await page.goto('https://chatgpt.com/', { waitUntil: 'domcontentloaded' });
+      await page.goto("https://chatgpt.com/", {
+        waitUntil: "domcontentloaded",
+      });
 
-      send({ type: 'log', runId, message: 'Switched to headless mode for background data collection' });
-      log('Switched to headless mode');
+      send({
+        type: "log",
+        runId,
+        message: "Switched to headless mode for background data collection",
+      });
+      log("Switched to headless mode");
     },
 
     // Direct HTTP fetch from Node.js — no browser needed.
@@ -660,14 +778,22 @@ function createPageApi(runState, runId) {
         try {
           const urlObj = new URL(url);
           const relevantCookies = runState.cookies
-            .filter(c => {
-              const cookieDomain = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain;
-              return urlObj.hostname === cookieDomain || urlObj.hostname.endsWith('.' + cookieDomain);
+            .filter((c) => {
+              const cookieDomain = c.domain.startsWith(".")
+                ? c.domain.slice(1)
+                : c.domain;
+              return (
+                urlObj.hostname === cookieDomain ||
+                urlObj.hostname.endsWith("." + cookieDomain)
+              );
             })
-            .map(c => `${c.name}=${c.value}`)
-            .join('; ');
+            .map((c) => `${c.name}=${c.value}`)
+            .join("; ");
           if (relevantCookies) {
-            fetchOptions.headers = { ...fetchOptions.headers, cookie: relevantCookies };
+            fetchOptions.headers = {
+              ...fetchOptions.headers,
+              cookie: relevantCookies,
+            };
           }
         } catch (e) {
           // Ignore cookie injection errors
@@ -684,10 +810,16 @@ function createPageApi(runState, runId) {
         clearTimeout(timeoutId);
         const text = await response.text();
         let json = null;
-        try { json = JSON.parse(text); } catch {}
+        try {
+          json = JSON.parse(text);
+        } catch {}
         if (!response.ok) {
-          log(`[httpFetch] ${response.status} ${response.statusText} for ${url.substring(0, 100)}`);
-          log(`[httpFetch] Response body (first 200 chars): ${text.substring(0, 200)}`);
+          log(
+            `[httpFetch] ${response.status} ${response.statusText} for ${url.substring(0, 100)}`,
+          );
+          log(
+            `[httpFetch] Response body (first 200 chars): ${text.substring(0, 200)}`,
+          );
         }
         return {
           ok: response.ok,
@@ -703,7 +835,7 @@ function createPageApi(runState, runId) {
           ok: false,
           status: 0,
           headers: {},
-          text: '',
+          text: "",
           json: null,
           error: err.message,
         };
@@ -713,13 +845,29 @@ function createPageApi(runState, runId) {
 }
 
 // Run a connector
-async function runConnector(runId, connectorPath, url, headless = true, allowHeaded = true) {
-  log(`Starting run ${runId} with connector ${connectorPath} (headless: ${headless}, allowHeaded: ${allowHeaded})`);
+async function runConnector(
+  runId,
+  connectorPath,
+  url,
+  headless = true,
+  allowHeaded = true,
+) {
+  log(
+    `Starting run ${runId} with connector ${connectorPath} (headless: ${headless}, allowHeaded: ${allowHeaded})`,
+  );
 
   // Derive connector ID for persistent browser profile
-  const connectorFileName = path.basename(connectorPath, path.extname(connectorPath));
-  const home = process.env.HOME || process.env.USERPROFILE || '';
-  const userDataDir = path.join(home, '.dataconnect', 'browser-profiles', connectorFileName);
+  const connectorFileName = path.basename(
+    connectorPath,
+    path.extname(connectorPath),
+  );
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  const userDataDir = path.join(
+    home,
+    ".dataconnect",
+    "browser-profiles",
+    connectorFileName,
+  );
 
   // Mutable state shared with pageApi
   const runState = {
@@ -738,7 +886,7 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
 
   try {
     // Read connector script
-    const connectorCode = fs.readFileSync(connectorPath, 'utf-8');
+    const connectorCode = fs.readFileSync(connectorPath, "utf-8");
 
     // Resolve browser executable
     runState.browserPath = resolveBrowserPath();
@@ -749,31 +897,43 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
     //  2. Close it
     //  3. INSERT cookies from the user's Chrome profile into the db
     //  4. Relaunch — now Chrome loads the imported cookies from disk
-    const markerFile = path.join(userDataDir, '.cookies-imported');
+    const markerFile = path.join(userDataDir, ".cookies-imported");
     if (isSystemChrome(runState.browserPath) && !fs.existsSync(markerFile)) {
-      log('First run: launching browser to initialize profile...');
-      const tempCtx = await launchPersistentContext(userDataDir, true, runState.browserPath);
+      log("First run: launching browser to initialize profile...");
+      const tempCtx = await launchPersistentContext(
+        userDataDir,
+        true,
+        runState.browserPath,
+      );
       await tempCtx.close();
-      log('Profile initialized, importing cookies...');
+      log("Profile initialized, importing cookies...");
       importChromecookies(userDataDir, runState.browserPath);
     }
 
     // Launch browser with persistent context (cookies already in db on first run)
-    const context = await launchPersistentContext(userDataDir, headless, runState.browserPath);
-    const page = context.pages()[0] || await context.newPage();
+    const context = await launchPersistentContext(
+      userDataDir,
+      headless,
+      runState.browserPath,
+    );
+    const page = context.pages()[0] || (await context.newPage());
 
     runState.context = context;
     runState.page = page;
 
     // Handle browser disconnect (user closed browser window)
-    context.browser().on('disconnected', () => {
-      if (!runState.connectorCompleted && !runState.browserClosedByConnector && activeRuns.has(runId)) {
+    context.browser().on("disconnected", () => {
+      if (
+        !runState.connectorCompleted &&
+        !runState.browserClosedByConnector &&
+        activeRuns.has(runId)
+      ) {
         log(`Browser disconnected for run ${runId} (user closed window)`);
         runState.browserClosed = true;
         runState.context = null;
         runState.page = null;
         activeRuns.delete(runId);
-        send({ type: 'status', runId, status: 'STOPPED' });
+        send({ type: "status", runId, status: "STOPPED" });
         drainStdout().then(() => process.exit(0));
       }
     });
@@ -781,7 +941,9 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
     // Store for cleanup
     activeRuns.set(runId, {
       runState,
-      setCompleted: () => { runState.connectorCompleted = true; },
+      setCompleted: () => {
+        runState.connectorCompleted = true;
+      },
     });
 
     // Create page API
@@ -789,9 +951,9 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
 
     // Navigate to starting URL
     log(`Navigating to initial URL: ${url}`);
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-    log('Initial navigation complete');
-    send({ type: 'status', runId, status: 'RUNNING' });
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    log("Initial navigation complete");
+    send({ type: "status", runId, status: "RUNNING" });
 
     // Build the connector execution wrapper
     // The connector has an IIFE at the end - we need to return its Promise
@@ -805,35 +967,44 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
     if (matches.length > 0) {
       const lastMatch = matches[matches.length - 1];
       const insertPos = lastMatch.index;
-      modifiedCode = modifiedCode.substring(0, insertPos) +
-        '\nreturn (async () => {' +
+      modifiedCode =
+        modifiedCode.substring(0, insertPos) +
+        "\nreturn (async () => {" +
         modifiedCode.substring(insertPos + lastMatch[0].length);
-      log(`Added return before IIFE (match ${matches.length} of ${matches.length})`);
+      log(
+        `Added return before IIFE (match ${matches.length} of ${matches.length})`,
+      );
     } else {
-      log('WARNING: Could not find IIFE pattern in connector code');
+      log("WARNING: Could not find IIFE pattern in connector code");
     }
 
     // Execute connector with page API in scope using AsyncFunction
-    log('Starting connector execution...');
-    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-    const runConnectorFn = new AsyncFunction('page', modifiedCode);
+    log("Starting connector execution...");
+    const AsyncFunction = Object.getPrototypeOf(
+      async function () {},
+    ).constructor;
+    const runConnectorFn = new AsyncFunction("page", modifiedCode);
 
-    log('Calling connector function...');
+    log("Calling connector function...");
     const result = await runConnectorFn.call(null, pageApi);
-    log('Connector function completed with result:', result ? 'has result' : 'undefined');
+    log(
+      "Connector function completed with result:",
+      result ? "has result" : "undefined",
+    );
 
     if (!runState.hasResult && result != null) {
-      const exportData = (result && result.success && result.data) ? result.data : result;
-      send({ type: 'result', runId, data: exportData });
+      const exportData =
+        result && result.success && result.data ? result.data : result;
+      send({ type: "result", runId, data: exportData });
     }
-    send({ type: 'status', runId, status: 'COMPLETE' });
+    send({ type: "status", runId, status: "COMPLETE" });
 
     // Mark as completed to prevent disconnect handler from sending STOPPED
     runState.connectorCompleted = true;
 
     // Close browser if still open
     if (!runState.browserClosed && runState.context) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       try {
         await runState.context.close();
       } catch (e) {
@@ -844,14 +1015,13 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
     activeRuns.delete(runId);
 
     // Exit process after successful completion
-    log('Connector completed successfully, exiting');
+    log("Connector completed successfully, exiting");
     await drainStdout();
     process.exit(0);
-
   } catch (error) {
     log(`Error in run ${runId}:`, error.message);
-    send({ type: 'error', runId, message: error.message });
-    send({ type: 'status', runId, status: 'ERROR' });
+    send({ type: "error", runId, message: error.message });
+    send({ type: "status", runId, status: "ERROR" });
 
     // Cleanup on error
     if (runState.context && !runState.browserClosed) {
@@ -862,7 +1032,7 @@ async function runConnector(runId, connectorPath, url, headless = true, allowHea
     activeRuns.delete(runId);
 
     // Exit process after error
-    log('Connector failed, exiting');
+    log("Connector failed, exiting");
     await drainStdout();
     process.exit(1);
   }
@@ -875,26 +1045,26 @@ async function stopRun(runId) {
     log(`Stopping run ${runId}`);
     // Reject any pending requestInput promises so the connector doesn't hang
     for (const [, pending] of run.runState.pendingInputs) {
-      pending.reject(new Error('Run stopped'));
+      pending.reject(new Error("Run stopped"));
     }
     run.runState.pendingInputs.clear();
     if (run.runState && run.runState.context && !run.runState.browserClosed) {
       await run.runState.context.close().catch(() => {});
     }
     activeRuns.delete(runId);
-    send({ type: 'status', runId, status: 'STOPPED' });
+    send({ type: "status", runId, status: "STOPPED" });
   }
 }
 
 // Main loop - read commands from stdin
 async function main() {
-  log('Playwright runner started');
-  send({ type: 'ready' });
+  log("Playwright runner started");
+  send({ type: "ready" });
 
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    terminal: false
+    terminal: false,
   });
 
   for await (const line of rl) {
@@ -902,96 +1072,158 @@ async function main() {
       const cmd = JSON.parse(line);
 
       switch (cmd.type) {
-        case 'run':
-          runConnector(cmd.runId, cmd.connectorPath, cmd.url, cmd.headless !== false, cmd.allowHeaded !== false);
+        case "run":
+          runConnector(
+            cmd.runId,
+            cmd.connectorPath,
+            cmd.url,
+            cmd.headless !== false,
+            cmd.allowHeaded !== false,
+          );
           break;
 
-        case 'stop':
+        case "stop":
           await stopRun(cmd.runId);
           break;
 
-        case 'quit':
-          log('Quitting...');
+        case "quit":
+          log("Quitting...");
           for (const [runId, run] of activeRuns) {
-            if (run.runState && run.runState.context && !run.runState.browserClosed) {
+            if (
+              run.runState &&
+              run.runState.context &&
+              !run.runState.browserClosed
+            ) {
               await run.runState.context.close().catch(() => {});
             }
           }
           process.exit(0);
           break;
 
-        case 'test':
+        case "test":
           // Simple test to prove Node.js is working
-          const os = require('os');
+          const os = require("os");
           send({
-            type: 'test-result',
+            type: "test-result",
             data: {
               nodejs: process.version,
               platform: process.platform,
               arch: process.arch,
               hostname: os.hostname(),
               cpus: os.cpus().length,
-              memory: Math.round(os.totalmem() / 1024 / 1024 / 1024) + ' GB',
-              uptime: Math.round(os.uptime() / 60) + ' minutes'
-            }
+              memory: Math.round(os.totalmem() / 1024 / 1024 / 1024) + " GB",
+              uptime: Math.round(os.uptime() / 60) + " minutes",
+            },
           });
           break;
 
-        case 'evaluate': {
+        case "evaluate": {
           const evalRun = activeRuns.get(cmd.runId);
           if (!evalRun) {
-            send({ type: 'evaluate-result', runId: cmd.runId, error: `No active run: ${cmd.runId}` });
+            send({
+              type: "evaluate-result",
+              runId: cmd.runId,
+              error: `No active run: ${cmd.runId}`,
+            });
             break;
           }
           const { runState: evalState } = evalRun;
           if (evalState.browserClosed || !evalState.page) {
-            send({ type: 'evaluate-result', runId: cmd.runId, error: 'Browser is closed' });
+            send({
+              type: "evaluate-result",
+              runId: cmd.runId,
+              error: "Browser is closed",
+            });
             break;
           }
           // Non-blocking: don't await so stdin loop keeps processing other commands.
           // Wrapped in try so synchronous throws (e.g. page torn down mid-call)
           // always produce an evaluate-result instead of hanging the driver.
           try {
-            evalState.page.evaluate(cmd.script)
-              .then(result => send({ type: 'evaluate-result', runId: cmd.runId, result }))
-              .catch(e => send({ type: 'evaluate-result', runId: cmd.runId, error: e.stack || e.message }));
+            evalState.page
+              .evaluate(cmd.script)
+              .then((result) =>
+                send({ type: "evaluate-result", runId: cmd.runId, result }),
+              )
+              .catch((e) =>
+                send({
+                  type: "evaluate-result",
+                  runId: cmd.runId,
+                  error: e.stack || e.message,
+                }),
+              );
           } catch (e) {
-            send({ type: 'evaluate-result', runId: cmd.runId, error: e.stack || e.message });
+            send({
+              type: "evaluate-result",
+              runId: cmd.runId,
+              error: e.stack || e.message,
+            });
           }
           break;
         }
 
-        case 'input-response': {
+        case "input-response": {
           const inputRun = activeRuns.get(cmd.runId);
           if (!inputRun) break;
           const pending = inputRun.runState.pendingInputs.get(cmd.requestId);
           if (!pending) break;
           inputRun.runState.pendingInputs.delete(cmd.requestId);
           if (cmd.error) {
-            pending.reject(new Error(typeof cmd.error === 'string' ? cmd.error : JSON.stringify(cmd.error)));
+            pending.reject(
+              new Error(
+                typeof cmd.error === "string"
+                  ? cmd.error
+                  : JSON.stringify(cmd.error),
+              ),
+            );
           } else {
             pending.resolve(cmd.data);
           }
           break;
         }
 
-        case 'screenshot': {
+        case "screenshot": {
           const ssRun = activeRuns.get(cmd.runId);
           if (!ssRun) {
-            send({ type: 'screenshot-result', runId: cmd.runId, error: `No active run: ${cmd.runId}` });
+            send({
+              type: "screenshot-result",
+              runId: cmd.runId,
+              error: `No active run: ${cmd.runId}`,
+            });
             break;
           }
           const { runState: ssState } = ssRun;
           if (ssState.browserClosed || !ssState.page) {
-            send({ type: 'screenshot-result', runId: cmd.runId, error: 'Browser is closed' });
+            send({
+              type: "screenshot-result",
+              runId: cmd.runId,
+              error: "Browser is closed",
+            });
             break;
           }
           try {
-            ssState.page.screenshot({ type: 'jpeg', quality: 70, timeout: 5000 })
-              .then(buffer => send({ type: 'screenshot-result', runId: cmd.runId, data: buffer.toString('base64') }))
-              .catch(e => send({ type: 'screenshot-result', runId: cmd.runId, error: e.stack || e.message }));
+            ssState.page
+              .screenshot({ type: "jpeg", quality: 70, timeout: 5000 })
+              .then((buffer) =>
+                send({
+                  type: "screenshot-result",
+                  runId: cmd.runId,
+                  data: buffer.toString("base64"),
+                }),
+              )
+              .catch((e) =>
+                send({
+                  type: "screenshot-result",
+                  runId: cmd.runId,
+                  error: e.stack || e.message,
+                }),
+              );
           } catch (e) {
-            send({ type: 'screenshot-result', runId: cmd.runId, error: e.stack || e.message });
+            send({
+              type: "screenshot-result",
+              runId: cmd.runId,
+              error: e.stack || e.message,
+            });
           }
           break;
         }
@@ -1005,7 +1237,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  log('Fatal error:', err);
+main().catch((err) => {
+  log("Fatal error:", err);
   process.exit(1);
 });
