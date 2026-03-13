@@ -464,7 +464,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
 
   const status: CliStatus = {
     runtime: runtime.state,
-    runtimePath: runtime.state === "installed" ? runtime.runnerDir : null,
+    runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
     sources,
