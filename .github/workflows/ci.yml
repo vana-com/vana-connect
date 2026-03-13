@@ -43,3 +43,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm build:sea:smoke
+      - run: pnpm test:install:unix
