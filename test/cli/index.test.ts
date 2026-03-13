@@ -174,6 +174,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toMatchObject({
       runtime: "installed",
+      runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
       personalServerUrl: "http://localhost:8080",
       sources: [
