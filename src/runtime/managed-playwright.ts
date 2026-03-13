@@ -68,60 +68,26 @@ export class ManagedPlaywrightRuntime {
     const logPath = getTimestampedLogPath("setup");
     await ensureParentDir(logPath);
     const homeDir = getDataConnectHome();
-    const stagingDir = path.join(homeDir, "_data-connect");
-    const runnerSourceDir = path.join(stagingDir, "playwright-runner");
     const runConnectorTargetPath = path.join(homeDir, "run-connector.cjs");
+    const runnerSourceDir = getBundledPlaywrightRunnerDir();
 
     await fsp.mkdir(homeDir, { recursive: true });
     await fsp.mkdir(getConnectorCacheDir(), { recursive: true });
-    await fsp.rm(stagingDir, { recursive: true, force: true });
+    await fsp.rm(this.runnerDir, { recursive: true, force: true });
+    await fsp.cp(runnerSourceDir, this.runnerDir, { recursive: true });
 
-    try {
-      await spawnForExit(
-        "git",
-        [
-          "clone",
-          "--depth",
-          "1",
-          "--filter=blob:none",
-          "--sparse",
-          "--branch",
-          process.env.VANA_PLAYWRIGHT_RUNNER_GIT_REF ?? "main",
-          "https://github.com/vana-com/data-connect.git",
-          stagingDir,
-        ],
-        {
-          cwd: homeDir,
-          logPath,
-        },
-      );
-      await spawnForExit(
-        "git",
-        ["sparse-checkout", "set", "playwright-runner"],
-        {
-          cwd: stagingDir,
-          logPath,
-        },
-      );
+    await spawnForExit("npm", ["install", "--ignore-scripts"], {
+      cwd: this.runnerDir,
+      logPath,
+      env: {
+        ...process.env,
+        CI: autoApprove ? "1" : process.env.CI,
+      },
+    });
 
-      await fsp.rm(this.runnerDir, { recursive: true, force: true });
-      await fsp.cp(runnerSourceDir, this.runnerDir, { recursive: true });
-
-      await spawnForExit("npm", ["install"], {
-        cwd: this.runnerDir,
-        logPath,
-        env: {
-          ...process.env,
-          CI: autoApprove ? "1" : process.env.CI,
-        },
-      });
-
-      await installChromium(this.runnerDir, logPath);
-      await ensureParentDir(runConnectorTargetPath);
-      await fsp.copyFile(getBundledRunConnectorPath(), runConnectorTargetPath);
-    } finally {
-      await fsp.rm(stagingDir, { recursive: true, force: true });
-    }
+    await installChromium(this.runnerDir, logPath);
+    await ensureParentDir(runConnectorTargetPath);
+    await fsp.copyFile(getBundledRunConnectorPath(), runConnectorTargetPath);
 
     return {
       runtime: this.state,
@@ -331,6 +297,12 @@ export class ManagedPlaywrightRuntime {
 function getBundledRunConnectorPath(): string {
   return fileURLToPath(
     new URL("../../runtime-assets/run-connector.cjs", import.meta.url),
+  );
+}
+
+function getBundledPlaywrightRunnerDir(): string {
+  return fileURLToPath(
+    new URL("../../runtime-assets/playwright-runner", import.meta.url),
   );
 }
 

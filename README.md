@@ -111,6 +111,7 @@ node dist/cli/bin.js status
 ```
 
 The CLI installs its local browser runtime under `~/.dataconnect/`.
+That runtime is bundled from `vana-connect` itself, so `vana setup` does not require a separate `data-connect` checkout.
 
 ### Programmatic runtime access
 
