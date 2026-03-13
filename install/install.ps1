@@ -64,6 +64,27 @@ else {
 $TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("vana-install-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $TempDir | Out-Null
 
+function Copy-VanaAsset {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Source,
+    [Parameter(Mandatory = $true)]
+    [string]$Destination
+  )
+
+  if ($Source -match '^(https?)://') {
+    Invoke-WebRequest -Uri $Source -OutFile $Destination
+    return
+  }
+
+  $ResolvedPath = $Source
+  if ($Source.StartsWith('file://')) {
+    $ResolvedPath = ([System.Uri]$Source).LocalPath
+  }
+
+  Copy-Item -Path $ResolvedPath -Destination $Destination -Force
+}
+
 try {
   Write-Host "Installing $AssetBase from $Version"
   $ArchivePath = Join-Path $TempDir $ArchiveName
@@ -129,25 +150,4 @@ finally {
   if (Test-Path $TempDir) {
     Remove-Item $TempDir -Recurse -Force
   }
-}
-
-function Copy-VanaAsset {
-  param(
-    [Parameter(Mandatory = $true)]
-    [string]$Source,
-    [Parameter(Mandatory = $true)]
-    [string]$Destination
-  )
-
-  if ($Source -match '^(https?)://') {
-    Invoke-WebRequest -Uri $Source -OutFile $Destination
-    return
-  }
-
-  $ResolvedPath = $Source
-  if ($Source.StartsWith('file://')) {
-    $ResolvedPath = ([System.Uri]$Source).LocalPath
-  }
-
-  Copy-Item -Path $ResolvedPath -Destination $Destination -Force
 }
