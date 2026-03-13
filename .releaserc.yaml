@@ -16,7 +16,7 @@ plugins:
       message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
   - - "@semantic-release/github"
     - assets:
-        - path: artifacts/sea/vana-linux-x64.tar.gz
-          label: vana-linux-x64.tar.gz
-        - path: artifacts/sea/vana-linux-x64.tar.gz.sha256
-          label: vana-linux-x64.tar.gz.sha256
+        - path: artifacts/release/*.tar.gz
+        - path: artifacts/release/*.tar.gz.sha256
+        - path: artifacts/release/*.zip
+        - path: artifacts/release/*.zip.sha256

@@ -13,8 +13,32 @@ permissions:
   contents: read
 
 jobs:
-  canary:
-    runs-on: ubuntu-latest
+  build-sea:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-13
+            platform: darwin
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-14
+            platform: darwin
+            arch: arm64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: windows-2022
+            platform: win32
+            arch: x64
+            archive_format: zip
+            binary_name: vana.exe
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,14 +49,26 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm build:sea
+      - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
       - uses: actions/upload-artifact@v4
         with:
-          name: vana-sea-linux-x64
+          name: vana-sea-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            artifacts/sea/vana-linux-x64
-            artifacts/sea/vana-linux-x64.tar.gz
-            artifacts/sea/vana-linux-x64.tar.gz.sha256
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256
+  canary:
+    needs: build-sea
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
       - name: Publish canary
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)

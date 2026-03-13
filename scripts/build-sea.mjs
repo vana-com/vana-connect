@@ -27,13 +27,19 @@ for (let index = 2; index < process.argv.length; index += 1) {
 
 const artifactDir = path.join(repoRoot, "artifacts", "sea");
 const scratchDir = path.join(repoRoot, ".sea-work", "build-sea");
-const targetName = `vana-${process.platform}-${process.arch}`;
+const platform = args.get("platform") ?? process.platform;
+const arch = args.get("arch") ?? process.arch;
+const binaryName =
+  args.get("binary-name") ?? (platform === "win32" ? "vana.exe" : "vana");
+const targetName = args.get("artifact-name") ?? `vana-${platform}-${arch}`;
+const archiveFormat =
+  args.get("archive-format") ?? (platform === "win32" ? "zip" : "tar.gz");
 const outputPath = path.resolve(
   repoRoot,
-  args.get("output") ?? path.join(artifactDir, targetName),
+  args.get("output") ?? path.join(artifactDir, targetName, binaryName),
 );
-const tarballPath = `${outputPath}.tar.gz`;
-const checksumPath = `${tarballPath}.sha256`;
+const archivePath = path.join(artifactDir, `${targetName}.${archiveFormat}`);
+const checksumPath = `${archivePath}.sha256`;
 
 const distCliMain = path.join(repoRoot, "dist", "cli", "main.js");
 await assertExists(
@@ -44,6 +50,8 @@ await assertExists(
 await fsp.mkdir(artifactDir, { recursive: true });
 await fsp.rm(scratchDir, { recursive: true, force: true });
 await fsp.mkdir(scratchDir, { recursive: true });
+await fsp.rm(path.dirname(outputPath), { recursive: true, force: true });
+await fsp.mkdir(path.dirname(outputPath), { recursive: true });
 
 const entryPath = path.join(scratchDir, "entry.mjs");
 const bundlePath = path.join(scratchDir, "bundle.cjs");
@@ -106,29 +114,22 @@ if (args.has("smoke")) {
   });
 }
 
-await run(
-  "tar",
-  [
-    "-czf",
-    tarballPath,
-    "-C",
-    path.dirname(outputPath),
-    path.basename(outputPath),
-  ],
-  {
-    cwd: repoRoot,
-  },
-);
+await createArchive({
+  archiveFormat,
+  archivePath,
+  binaryName,
+  binaryDir: path.dirname(outputPath),
+});
 
-const tarballDigest = await sha256(tarballPath);
+const archiveDigest = await sha256(archivePath);
 await fsp.writeFile(
   checksumPath,
-  `${tarballDigest}  ${path.basename(tarballPath)}\n`,
+  `${archiveDigest}  ${path.basename(archivePath)}\n`,
   "utf8",
 );
 
 process.stdout.write(`Built SEA executable: ${outputPath}\n`);
-process.stdout.write(`Built SEA tarball: ${tarballPath}\n`);
+process.stdout.write(`Built SEA archive: ${archivePath}\n`);
 process.stdout.write(`Built SEA checksum: ${checksumPath}\n`);
 
 async function assertExists(filePath, message) {
@@ -160,4 +161,37 @@ async function run(command, commandArgs, options = {}) {
 async function sha256(filePath) {
   const buffer = await fsp.readFile(filePath);
   return createHash("sha256").update(buffer).digest("hex");
+}
+
+async function createArchive({
+  archiveFormat,
+  archivePath,
+  binaryName,
+  binaryDir,
+}) {
+  if (archiveFormat === "tar.gz") {
+    await run("tar", ["-czf", archivePath, "-C", binaryDir, binaryName], {
+      cwd: repoRoot,
+    });
+    return;
+  }
+
+  if (archiveFormat === "zip") {
+    await fsp.rm(archivePath, { force: true });
+    await run(
+      process.platform === "win32" ? "powershell" : "pwsh",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-Command",
+        `Compress-Archive -Path '${path.join(binaryDir, binaryName)}' -DestinationPath '${archivePath}' -Force`,
+      ],
+      {
+        cwd: repoRoot,
+      },
+    );
+    return;
+  }
+
+  throw new Error(`Unsupported archive format: ${archiveFormat}`);
 }

@@ -78,17 +78,24 @@ If you prefer to integrate the SDK into an existing project, follow the steps be
 
 ### Install
 
-Use the published package directly:
+macOS and Linux:
 
 ```bash
-pnpm dlx @opendatalabs/connect status
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
 ```
 
-Or install it globally:
+Windows PowerShell:
+
+```powershell
+iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 -useb | iex
+```
+
+Both installers fetch the latest GitHub release asset for your platform, verify its checksum, and install `vana` without requiring Node or npm.
+
+If you want the npm package path as a fallback:
 
 ```bash
-pnpm add -g @opendatalabs/connect
-vana status
+npx -y @opendatalabs/connect status
 ```
 
 ### Commands
@@ -122,7 +129,7 @@ pnpm build:sea
 ```
 
 `pnpm build:sea` uses Node 25's `--build-sea` flow and embeds the runtime assets needed for `vana setup`.
-It also produces `artifacts/sea/vana-linux-x64.tar.gz` and a matching `.sha256` checksum file for release/distribution.
+It produces a platform-specific executable directory plus a release archive and matching checksum file under `artifacts/sea/`.
 
 ### Programmatic runtime access
 
