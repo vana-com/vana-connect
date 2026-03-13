@@ -209,7 +209,10 @@ async function assertExists(filePath, message) {
 
 async function run(command, commandArgs, options = {}) {
   await new Promise((resolve, reject) => {
+    const useShell =
+      process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
     const child = spawn(command, commandArgs, {
+      shell: useShell,
       stdio: "inherit",
       ...options,
     });
