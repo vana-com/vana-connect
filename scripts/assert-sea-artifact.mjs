@@ -9,11 +9,21 @@ const artifactDir = path.resolve(requiredArg(args, "artifact-dir"));
 const archivePath = path.resolve(requiredArg(args, "archive"));
 const checksumPath = path.resolve(requiredArg(args, "checksum"));
 const platform = requiredArg(args, "platform");
-const binaryName = args.get("binary-name") ?? (platform === "win32" ? "vana.exe" : "vana");
+const binaryName =
+  args.get("binary-name") ?? (platform === "win32" ? "vana.exe" : "vana");
 
-await assertExists(artifactDir, `Artifact directory was not found: ${artifactDir}`);
-await assertExists(archivePath, `Artifact archive was not found: ${archivePath}`);
-await assertExists(checksumPath, `Artifact checksum file was not found: ${checksumPath}`);
+await assertExists(
+  artifactDir,
+  `Artifact directory was not found: ${artifactDir}`,
+);
+await assertExists(
+  archivePath,
+  `Artifact archive was not found: ${archivePath}`,
+);
+await assertExists(
+  checksumPath,
+  `Artifact checksum file was not found: ${checksumPath}`,
+);
 
 const requiredDirectoryEntries = [
   binaryName,
@@ -26,7 +36,10 @@ const requiredDirectoryEntries = [
 
 for (const relativePath of requiredDirectoryEntries) {
   const candidate = path.join(artifactDir, relativePath);
-  await assertExists(candidate, `SEA artifact directory is missing required file: ${candidate}`);
+  await assertExists(
+    candidate,
+    `SEA artifact directory is missing required file: ${candidate}`,
+  );
 }
 
 const archiveEntries = listArchiveEntries({ archivePath, platform });
@@ -104,13 +117,17 @@ async function assertExists(targetPath, message) {
 
 function listArchiveEntries({ archivePath, platform }) {
   if (platform === "win32") {
-    const raw = execFileSync("powershell", [
-      "-NoProfile",
-      "-Command",
-      `Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::OpenRead('${escapePowerShellPath(archivePath)}').Entries | ForEach-Object { $_.FullName }`,
-    ], {
-      encoding: "utf8",
-    });
+    const raw = execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::OpenRead('${escapePowerShellPath(archivePath)}').Entries | ForEach-Object { $_.FullName }`,
+      ],
+      {
+        encoding: "utf8",
+      },
+    );
     return raw
       .split(/\r?\n/)
       .map((entry) => entry.trim())
