@@ -126,6 +126,11 @@ cp -R "$EXTRACTED_DIR/." "$RELEASE_DIR"
 ln -sfn "$INSTALL_ROOT/releases/$VERSION" "$INSTALL_ROOT/current"
 ln -sfn "$INSTALL_ROOT/current/vana" "$BIN_DIR/vana"
 
+if ! HOME="${HOME}" VANA_APP_ROOT="$INSTALL_ROOT/current/app" "$BIN_DIR/vana" status --json >/dev/null 2>&1; then
+  echo "Installed vana failed a post-install self-check. The release payload may be incomplete." >&2
+  exit 1
+fi
+
 echo "Installed vana to $BIN_DIR/vana"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;

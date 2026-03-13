@@ -129,6 +129,11 @@ try {
     Remove-Item $ExePath -Force
   }
 
+  $StatusOutput = & $WrapperPath status --json 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Installed vana failed a post-install self-check. The release payload may be incomplete.`n$StatusOutput"
+  }
+
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathEntries = @()
   if ($UserPath) {
