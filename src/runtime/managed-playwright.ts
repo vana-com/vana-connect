@@ -2,6 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import * as sea from "node:sea";
 
 import {
   ensureParentDir,
@@ -151,7 +152,7 @@ export class ManagedPlaywrightRuntime {
       "--output",
       getLastResultPath(),
     ];
-    const child = spawn(process.execPath, args, {
+    const child = spawn(getNodeCommand(), args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
     const logStream = fs.createWriteStream(logPath);
@@ -294,6 +295,14 @@ export class ManagedPlaywrightRuntime {
       yield queue.shift() as CliEvent;
     }
   }
+}
+
+function getNodeCommand(): string {
+  if (!sea.isSea()) {
+    return process.execPath;
+  }
+
+  return process.env.VANA_NODE_BIN || "node";
 }
 
 async function installChromium(
