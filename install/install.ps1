@@ -71,9 +71,16 @@ try {
   }
 
   $ReleaseDir = Join-Path $InstallRoot "releases\$Version"
-  New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
   Expand-Archive -Path $ArchivePath -DestinationPath $TempDir -Force
-  Copy-Item -Path (Join-Path $TempDir "vana.exe") -Destination (Join-Path $ReleaseDir "vana.exe") -Force
+  $ExtractedDir = Join-Path $TempDir $AssetBase
+  if (-not (Test-Path $ExtractedDir)) {
+    throw "Unexpected archive layout: missing $ExtractedDir"
+  }
+
+  if (Test-Path $ReleaseDir) {
+    Remove-Item $ReleaseDir -Recurse -Force
+  }
+  Copy-Item -Path $ExtractedDir -Destination $ReleaseDir -Recurse
 
   $CurrentDir = Join-Path $InstallRoot "current"
   if (Test-Path $CurrentDir) {
@@ -82,7 +89,16 @@ try {
   Copy-Item -Path $ReleaseDir -Destination $CurrentDir -Recurse
 
   New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
-  Copy-Item -Path (Join-Path $CurrentDir "vana.exe") -Destination (Join-Path $BinDir "vana.exe") -Force
+  $WrapperPath = Join-Path $BinDir "vana.cmd"
+  @(
+    "@echo off"
+    "`"$CurrentDir\vana.exe`" %*"
+  ) | Set-Content -Path $WrapperPath -Encoding ASCII
+
+  $ExePath = Join-Path $BinDir "vana.exe"
+  if (Test-Path $ExePath) {
+    Remove-Item $ExePath -Force
+  }
 
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathEntries = @()
@@ -97,7 +113,7 @@ try {
   }
 
   Write-Host ""
-  Write-Host "Installed vana to $(Join-Path $BinDir 'vana.exe')"
+  Write-Host "Installed vana to $WrapperPath"
   Write-Host "Next step:"
   Write-Host "  vana status"
 }

@@ -50,17 +50,7 @@ export function getBrowserCacheDir(): string {
   }
 
   const home = process.env.HOME || process.env.USERPROFILE || "";
-  const candidates = [
-    path.join(home, ".dataconnect", "browsers"),
-    path.join(
-      home,
-      ".dataconnect",
-      "playwright-runner",
-      "node_modules",
-      "playwright-core",
-      ".local-browsers",
-    ),
-  ];
+  const candidates = [path.join(home, ".dataconnect", "browsers")];
 
   for (const dir of candidates) {
     if (fs.existsSync(dir)) {

@@ -20,8 +20,7 @@
     "vana": "./dist/cli/bin.js"
   },
   "files": [
-    "dist",
-    "runtime-assets"
+    "dist"
   ],
   "exports": {
     ".": {
@@ -57,7 +56,7 @@
     "build": "tsc --build",
     "build:sea": "npx -y node@25 ./scripts/build-sea.mjs",
     "build:sea:smoke": "npx -y node@25 ./scripts/build-sea.mjs --smoke",
-    "clean": "tsc --build --clean",
+    "clean": "node ./scripts/clean-build.mjs",
     "cli": "node dist/cli/bin.js",
     "skills:sync": "node scripts/sync-skills.js",
     "test:install:unix": "sh ./scripts/test-install-unix.sh",
@@ -85,10 +84,11 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.3.0",
-    "commander": "^14.0.3",
+    "@inquirer/prompts": "8.3.0",
+    "chromium-bidi": "15.0.0",
+    "commander": "14.0.3",
     "playwright": "1.58.2",
-    "zod": "^4.3.6"
+    "zod": "4.3.6"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

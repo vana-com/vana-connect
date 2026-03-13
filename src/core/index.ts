@@ -9,7 +9,6 @@ export {
 } from "./constants.js";
 export {
   getDataConnectHome,
-  getRunnerDir,
   getConnectorCacheDir,
   getBrowserProfilesDir,
   getCliStatePath,

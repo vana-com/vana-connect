@@ -22,15 +22,15 @@ vi.mock("../../src/runtime/index.js", () => ({
       return runtimeState;
     }
 
-    get runnerDir() {
-      return "/tmp/.dataconnect/playwright-runner";
+    get runtimePath() {
+      return runtimeState === "installed" ? "/tmp/playwright/chrome" : null;
     }
 
     async ensureInstalled() {
       runtimeState = "installed";
       return {
         runtime: "installed",
-        runtimePath: "/tmp/.dataconnect/playwright-runner",
+        runtimePath: "/tmp/playwright/chrome",
         logPath: "/tmp/logs/setup.log",
       };
     }

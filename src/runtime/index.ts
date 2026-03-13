@@ -12,5 +12,4 @@ export {
   type RunConnectorOptions,
   type RuntimeInstallResult,
 } from "./managed-playwright.js";
-export { startChildProcessConnectorRun } from "./playwright/index.js";
 export { findDataConnectorsDir } from "./repo-paths.js";

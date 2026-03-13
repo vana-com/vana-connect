@@ -5,10 +5,6 @@ export function getDataConnectHome(): string {
   return path.join(os.homedir(), ".dataconnect");
 }
 
-export function getRunnerDir(): string {
-  return path.join(getDataConnectHome(), "playwright-runner");
-}
-
 export function getConnectorCacheDir(): string {
   return path.join(getDataConnectHome(), "connectors");
 }

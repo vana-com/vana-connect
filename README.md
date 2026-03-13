@@ -120,16 +120,16 @@ node dist/cli/bin.js status
 The CLI installs its local browser runtime under `~/.dataconnect/`.
 That runtime is bundled from `vana-connect` itself, so `vana setup` does not require a separate `data-connect` checkout.
 
-To build a standalone SEA executable locally:
+To build a standalone launcher plus app payload locally:
 
 ```bash
 pnpm build
 pnpm build:sea
-./artifacts/sea/vana-linux-x64 status --json
+./artifacts/sea/vana-linux-x64/vana status --json
 ```
 
-`pnpm build:sea` uses Node 25's `--build-sea` flow and embeds the runtime assets needed for `vana setup`.
-It produces a platform-specific executable directory plus a release archive and matching checksum file under `artifacts/sea/`.
+`pnpm build:sea` uses Node 25's `--build-sea` flow to create a small `vana` launcher and packages the real app payload next to it under `app/`.
+It produces a platform-specific release directory plus a release archive and matching checksum file under `artifacts/sea/`.
 
 ### Programmatic runtime access
 

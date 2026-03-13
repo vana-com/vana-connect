@@ -109,8 +109,20 @@ else
 fi
 
 mkdir -p "$INSTALL_ROOT/releases/$VERSION" "$BIN_DIR"
+RELEASE_DIR="$INSTALL_ROOT/releases/$VERSION"
+EXTRACTED_DIR="$TMP_DIR/$ASSET_BASE"
+
+rm -rf "$RELEASE_DIR"
 tar -xzf "$TMP_DIR/$ARCHIVE_NAME" -C "$TMP_DIR"
-install -m 755 "$TMP_DIR/vana" "$INSTALL_ROOT/releases/$VERSION/vana"
+
+if [ ! -d "$EXTRACTED_DIR" ]; then
+  echo "Unexpected archive layout: missing $EXTRACTED_DIR" >&2
+  exit 1
+fi
+
+mkdir -p "$RELEASE_DIR"
+cp -R "$EXTRACTED_DIR/." "$RELEASE_DIR"
+
 ln -sfn "$INSTALL_ROOT/releases/$VERSION" "$INSTALL_ROOT/current"
 ln -sfn "$INSTALL_ROOT/current/vana" "$BIN_DIR/vana"
 

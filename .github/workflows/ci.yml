@@ -41,6 +41,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
       - run: pnpm build
       - run: pnpm build:sea:smoke
       - run: pnpm test:install:unix
