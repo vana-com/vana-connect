@@ -12,7 +12,9 @@ const connectorsDir = "/home/tnunamak/code/data-connectors";
 
 async function main() {
   await fs.mkdir(transcriptsDir, { recursive: true });
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "vana-transcripts-"));
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "vana-transcripts-"),
+  );
   const workingHome = path.join(tempRoot, "home");
   await fs.cp(fixtureHome, workingHome, { recursive: true });
 
