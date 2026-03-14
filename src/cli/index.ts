@@ -852,6 +852,12 @@ async function runList(options: GlobalOptions): Promise<number> {
     ...source,
     installed: installedSourceIds.has(source.id),
   }));
+  const readyCount = enrichedSources.filter(
+    (source) => source.authMode !== "legacy",
+  ).length;
+  const manualCount = enrichedSources.filter(
+    (source) => source.authMode === "legacy",
+  ).length;
   const recommendedSource =
     enrichedSources.find((source) => source.authMode !== "legacy") ??
     enrichedSources[0] ??
@@ -861,6 +867,12 @@ async function runList(options: GlobalOptions): Promise<number> {
       `${JSON.stringify({
         count: enrichedSources.length,
         recommendedSource,
+        summary: {
+          readyCount,
+          manualCount,
+          installedCount: enrichedSources.filter((source) => source.installed)
+            .length,
+        },
         sources: enrichedSources,
       })}\n`,
     );
@@ -875,12 +887,6 @@ async function runList(options: GlobalOptions): Promise<number> {
   );
   emit.blank();
   if (enrichedSources.length > 0) {
-    const readyCount = enrichedSources.filter(
-      (source) => source.authMode !== "legacy",
-    ).length;
-    const manualCount = enrichedSources.filter(
-      (source) => source.authMode === "legacy",
-    ).length;
     emit.info(
       joinOverviewParts([
         formatCountLabel("ready now", readyCount),
@@ -961,6 +967,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
+    summary: {
+      sourceCount: sources.length,
+      needsAttentionCount: sources.filter(
+        (source) => rankSourceStatus(source) <= 4,
+      ).length,
+      connectedCount: sources.filter(
+        (source) =>
+          source.dataState === "ingested_personal_server" ||
+          source.dataState === "collected_local" ||
+          source.dataState === "ingest_failed",
+      ).length,
+      installedCount: sources.filter((source) => source.installed).length,
+    },
     sources,
   };
   const nextSteps = buildStatusNextSteps(
@@ -981,17 +1000,9 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     joinOverviewParts([
       formatCountLabel(
         "need attention",
-        status.sources.filter((source) => rankSourceStatus(source) <= 4).length,
+        status.summary?.needsAttentionCount ?? 0,
       ),
-      formatCountLabel(
-        "connected",
-        status.sources.filter(
-          (source) =>
-            source.dataState === "ingested_personal_server" ||
-            source.dataState === "collected_local" ||
-            source.dataState === "ingest_failed",
-        ).length,
-      ),
+      formatCountLabel("connected", status.summary?.connectedCount ?? 0),
     ]),
   );
   emit.blank();

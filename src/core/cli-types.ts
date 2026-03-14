@@ -84,6 +84,14 @@ export const cliStatusSchema = z.object({
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  summary: z
+    .object({
+      sourceCount: z.number(),
+      needsAttentionCount: z.number(),
+      connectedCount: z.number(),
+      installedCount: z.number(),
+    })
+    .optional(),
   nextSteps: z.array(z.string()).optional(),
   sources: z.array(sourceStatusSchema),
 });
@@ -126,6 +134,13 @@ export type CliDoctor = z.infer<typeof cliDoctorSchema>;
 export const cliSourcesSchema = z.object({
   count: z.number(),
   recommendedSource: listedSourceSchema.nullable(),
+  summary: z
+    .object({
+      readyCount: z.number(),
+      manualCount: z.number(),
+      installedCount: z.number(),
+    })
+    .optional(),
   sources: z.array(listedSourceSchema),
 });
 export type CliSources = z.infer<typeof cliSourcesSchema>;

@@ -188,6 +188,11 @@ describe("runCli", () => {
     expect(parsed).toEqual({
       count: 2,
       recommendedSource: { id: "github", name: "GitHub", installed: true },
+      summary: {
+        readyCount: 2,
+        manualCount: 0,
+        installedCount: 1,
+      },
       sources: [
         { id: "github", name: "GitHub", installed: true },
         { id: "steam", name: "Steam", installed: false },
@@ -227,6 +232,12 @@ describe("runCli", () => {
       nextSteps: expect.arrayContaining([
         "Inspect the latest dataset with `vana data show steam`.",
       ]),
+      summary: {
+        sourceCount: 1,
+        needsAttentionCount: 0,
+        connectedCount: 1,
+        installedCount: 0,
+      },
       sources: [
         {
           source: "steam",
