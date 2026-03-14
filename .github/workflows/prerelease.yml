@@ -185,3 +185,10 @@ jobs:
           BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
           TAG="canary-${BRANCH_SLUG}"
           sh ./scripts/test-install-github-release.sh --version "$TAG"
+      - name: Verify prerelease demo assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          node ./scripts/assert-release-demo-assets.mjs --tag "$TAG" --repo "$GITHUB_REPOSITORY"

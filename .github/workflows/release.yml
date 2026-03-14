@@ -144,3 +144,9 @@ jobs:
       - uses: actions/checkout@v5
       - name: Smoke test latest published installer
         run: sh ./scripts/test-install-github-release.sh
+      - name: Verify latest release demo assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          node ./scripts/assert-release-demo-assets.mjs --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"

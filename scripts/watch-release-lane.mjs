@@ -100,6 +100,14 @@ function main() {
     "--repo",
     options.repo,
   ]);
+  log(`Checking published demo assets for ${releaseTag}`);
+  execCommand("node", [
+    "./scripts/assert-release-demo-assets.mjs",
+    "--tag",
+    releaseTag,
+    "--repo",
+    options.repo,
+  ]);
 }
 
 function parseArgs(argv) {

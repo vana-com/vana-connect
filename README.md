@@ -166,6 +166,18 @@ vana data show github --json | jq '.summary.lines'
 The branch also includes deterministic VHS demo scaffolding under
 [`docs/vhs/`](./docs/vhs/README.md).
 
+Branch prerelease preview media:
+
+- [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
+- [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
+- [`connect-guided.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+
+![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
+
+![Vana data inspection demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
+
+![Vana guided connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+
 Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
