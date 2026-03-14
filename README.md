@@ -2,6 +2,31 @@
 
 Let your users bring their own data to your app.
 
+## CLI preview
+
+This branch also carries the new `vana` collection CLI preview.
+
+- install the current canary on macOS with Homebrew:
+
+```bash
+brew tap vana-com/vana
+brew install vana
+vana status
+```
+
+- or use the hosted prerelease installer on macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
+```
+
+- branch release page:
+  `https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
+- demo media:
+  [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif),
+  [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif),
+  [`connect-guided.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+
 ## What problem this solves
 
 Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.
