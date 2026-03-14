@@ -17,6 +17,20 @@ export interface RenderTheme {
 
 export function createTheme(capabilities: RenderCapabilities): RenderTheme {
   const colors = createColors(capabilities.color);
+  if (capabilities.tier === "rich") {
+    return {
+      accent: (text) => rgb(65, 65, 252, text),
+      heading: (text) => colors.bold(text),
+      label: (text) => colors.bold(text),
+      muted: (text) => rgb(115, 115, 115, text),
+      dim: (text) => colors.dim(text),
+      success: (text) => rgb(0, 213, 11, text),
+      warning: (text) => rgb(186, 139, 0, text),
+      error: (text) => rgb(220, 38, 38, text),
+      info: (text) => rgb(65, 65, 252, text),
+      code: (text) => colors.bold(text),
+    };
+  }
 
   return {
     accent: (text) => colors.blue(text),
@@ -30,4 +44,8 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
     info: (text) => colors.cyan(text),
     code: (text) => colors.bold(text),
   };
+}
+
+function rgb(red: number, green: number, blue: number, text: string): string {
+  return `\u001B[38;2;${red};${green};${blue}m${text}\u001B[39m`;
 }

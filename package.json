@@ -58,6 +58,7 @@
     "build:sea:smoke": "npx -y node@25 ./scripts/build-sea.mjs --smoke",
     "clean": "node ./scripts/clean-build.mjs",
     "cli": "node dist/cli/bin.js",
+    "demo:vhs:fixtures": "node ./scripts/prepare-vhs-fixtures.mjs",
     "pack:check": "node ./scripts/assert-pack-contents.mjs",
     "sea:check": "node ./scripts/assert-sea-artifact.mjs",
     "skills:sync": "node scripts/sync-skills.js",

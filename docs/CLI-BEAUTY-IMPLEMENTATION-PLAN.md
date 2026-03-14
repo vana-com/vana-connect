@@ -149,6 +149,33 @@ It also means:
 - humans get a better default
 - advanced users can still compose with tools like `jq`
 
+## README demo strategy
+
+The README should become a reliable progress surface for the team, not just a
+reference page.
+
+To support that, add **VHS-based terminal recordings early**, not at the end.
+
+Why:
+
+- they make progress visible to people who are not running the branch locally
+- they force the human-mode CLI to stay coherent across releases
+- they create a deterministic review artifact instead of ad hoc screenshots
+- they make README updates a meaningful indicator of product quality
+
+The right model is:
+
+- checked-in `.tape` files under a dedicated folder such as `docs/vhs/`
+- deterministic fixture data and temp-home setup
+- generated SVG assets committed to the repo for README use
+- CI verification that the tapes still render
+
+Important:
+
+- do not rely on live credentials or real connector runs for README demos
+- do not make VHS the source of truth for behavior; tests remain the source of truth
+- do treat VHS as a first-class product artifact that should stay current
+
 ## Product Decision
 
 The CLI should have **two rendering layers** over one command surface:
@@ -624,6 +651,7 @@ This is the recommended sequence.
 - add semantic theme and symbol layer
 - add human renderer primitives
 - preserve exact `--json` behavior
+- add VHS scaffolding and one README-quality demo tape
 
 ### Phase 2: Static surface upgrade
 
@@ -632,6 +660,7 @@ This is the recommended sequence.
 - `data list`
 - `data show`
 - `connect` no-source guided entrypoint
+- embed at least one generated VHS SVG in the README
 
 ### Phase 3: Connect flow narrative
 
@@ -690,15 +719,17 @@ Use terminal recordings for human review:
 
 This matters because terminal beauty is hard to review from code alone.
 
-## The First Three Concrete Tasks
+## The First Four Concrete Tasks
 
 When this work starts, do these first:
 
 1. Introduce the render/capability/theme layer without changing command
    semantics.
-2. Upgrade `vana connect` no-source, `status`, and `data show` to the new
+2. Add VHS scaffolding plus one deterministic README-quality tape for `status`
+   and `sources`.
+3. Upgrade `vana connect` no-source, `status`, and `data show` to the new
    human renderer.
-3. Add a real success summary and next-step block for successful `connect`
+4. Add a real success summary and next-step block for successful `connect`
    runs.
 
 That sequence gives the highest user-visible value with the lowest architectural

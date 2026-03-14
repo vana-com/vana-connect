@@ -719,7 +719,15 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     }
     emit.section(group.title);
     for (const source of group.items) {
-      emit.info(formatSourceStatus(source, sourceLabels, emit));
+      const status = getSourceStatusPresentation(source);
+      const badges: Array<{ text: string; tone?: RenderTone }> = [];
+      if (source.authMode === "interactive") {
+        badges.push({ text: "interactive", tone: "info" });
+      } else if (source.authMode === "legacy") {
+        badges.push({ text: "legacy", tone: "warning" });
+      }
+      badges.push({ text: status.label, tone: status.tone });
+      emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
       const details = formatSourceStatusDetails(source);
       for (const detail of details) {
         emit.detail(detail);
@@ -804,7 +812,10 @@ async function runDataList(options: GlobalOptions): Promise<number> {
 
   emit.title("Collected data");
   emit.blank();
-  for (const dataset of datasetRecords) {
+  datasetRecords.forEach((dataset, index) => {
+    if (index > 0) {
+      emit.blank();
+    }
     const badges =
       dataset.dataState === "ingested_personal_server"
         ? [{ text: "synced", tone: "success" as const }]
@@ -818,10 +829,12 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       }
     }
     if (dataset.lastRunAt) {
-      emit.detail(`Updated: ${formatTimestamp(dataset.lastRunAt)}`);
+      emit.keyValue("Updated", formatTimestamp(dataset.lastRunAt), "muted");
     }
-    emit.detail(dataset.path ?? "");
-  }
+    if (dataset.path) {
+      emit.keyValue("Path", dataset.path, "muted");
+    }
+  });
   return 0;
 }
 
@@ -1096,52 +1109,6 @@ async function listInstalledConnectorFiles(): Promise<
   }
 }
 
-function formatSourceStatus(
-  source: SourceStatus,
-  labels: SourceLabelMap = {},
-  emit?: Emitter,
-): string {
-  const authModeSuffix = formatAuthModeBadge(source.authMode, emit);
-
-  if (!source.installed && !source.lastRunOutcome) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: not connected`;
-  }
-
-  if (!source.lastRunOutcome) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: installed`;
-  }
-
-  if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: needs input`;
-  }
-
-  if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: error`;
-  }
-
-  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: unavailable`;
-  }
-
-  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: manual browser step required`;
-  }
-
-  if (source.dataState === "ingested_personal_server") {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, synced`;
-  }
-
-  if (source.dataState === "collected_local") {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, local only`;
-  }
-
-  if (source.dataState === "ingest_failed") {
-    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, sync failed`;
-  }
-
-  return `${displaySource(source.source, labels)}${authModeSuffix}: connected`;
-}
-
 function formatSourceStatusDetails(source: SourceStatus): string[] {
   const details: string[] = [];
 
@@ -1273,6 +1240,49 @@ function formatAuthModeBadge(
   }
 
   return "";
+}
+
+function getSourceStatusPresentation(source: SourceStatus): {
+  label: string;
+  tone: RenderTone;
+} {
+  if (!source.installed && !source.lastRunOutcome) {
+    return { label: "not connected", tone: "muted" };
+  }
+
+  if (!source.lastRunOutcome) {
+    return { label: "installed", tone: "success" };
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+    return { label: "needs input", tone: "warning" };
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+    return { label: "error", tone: "error" };
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    return { label: "unavailable", tone: "warning" };
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+    return { label: "manual step", tone: "warning" };
+  }
+
+  if (source.dataState === "ingested_personal_server") {
+    return { label: "synced", tone: "success" };
+  }
+
+  if (source.dataState === "collected_local") {
+    return { label: "local", tone: "muted" };
+  }
+
+  if (source.dataState === "ingest_failed") {
+    return { label: "sync failed", tone: "warning" };
+  }
+
+  return { label: "connected", tone: "success" };
 }
 
 function toneForRuntime(runtime: CliStatus["runtime"]): RenderTone {

@@ -218,7 +218,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Connected");
-    expect(stdout).toContain("GitHub [interactive]: connected, local only");
+    expect(stdout).toContain("GitHub [interactive] [local]");
     expect(stdout).toContain("vana data show github");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
     expect(stdout).toContain("/tmp/playwright/chrome");
@@ -471,11 +471,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    const githubIndex = stdout.indexOf("GitHub [interactive]: needs input");
-    const steamIndex = stdout.indexOf("Steam: unavailable");
-    const spotifyIndex = stdout.indexOf(
-      "Spotify [legacy]: connected, local only",
-    );
+    const githubIndex = stdout.indexOf("GitHub [interactive] [needs input]");
+    const steamIndex = stdout.indexOf("Steam [unavailable]");
+    const spotifyIndex = stdout.indexOf("Spotify [legacy] [local]");
     expect(githubIndex).toBeGreaterThanOrEqual(0);
     expect(steamIndex).toBeGreaterThanOrEqual(0);
     expect(spotifyIndex).toBeGreaterThanOrEqual(0);

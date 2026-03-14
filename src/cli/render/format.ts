@@ -37,7 +37,7 @@ export function createHumanRenderer(): HumanRenderer {
       return theme.heading(text);
     },
     section(text) {
-      return theme.accent(text);
+      return `${theme.accent(symbols.arrow)} ${theme.accent(text)}`;
     },
     keyValue(label, value, tone = "muted") {
       return `${theme.label(`${label}:`)} ${applyTone(theme, tone, value)}`;

@@ -161,6 +161,17 @@ vana data show github --json | jq '.summary.lines'
 - `vana status` prioritizes sources that need attention before already-connected sources.
 - `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
 
+### CLI demos
+
+The branch also includes deterministic VHS demo scaffolding under
+[`docs/vhs/`](./docs/vhs/README.md).
+
+To seed the fixture home used by the first tapes:
+
+```bash
+pnpm demo:vhs:fixtures
+```
+
 ### Local development
 
 From this repo:
