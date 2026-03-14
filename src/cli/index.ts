@@ -750,7 +750,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   emit.section("Environment");
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
   if (status.runtimePath) {
-    emit.detail(formatDisplayPath(status.runtimePath));
+    emit.keyValue("Browser", formatDisplayPath(status.runtimePath), "muted");
   }
   emit.keyValue(
     "Personal Server",
@@ -834,7 +834,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
   if (runtime.state === "installed") {
     emit.info("The local runtime is already installed.");
     if (runtime.runtimePath) {
-      emit.detail(formatDisplayPath(runtime.runtimePath));
+      emit.keyValue("Browser", formatDisplayPath(runtime.runtimePath), "muted");
     }
     emit.blank();
     emit.section("Next");
@@ -1351,7 +1351,7 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
   }
 
   if (source.lastResultPath && source.dataState !== "none") {
-    details.push(formatDisplayPath(source.lastResultPath));
+    details.push(`Path: ${formatDisplayPath(source.lastResultPath)}`);
   }
 
   return details;
@@ -1360,7 +1360,7 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
 function buildStatusNextSteps(
   sources: SourceStatus[],
   sourceLabels: SourceLabelMap = {},
-  runtime: CliStatus["runtime"] = "unknown",
+  runtime: CliStatus["runtime"] = "unhealthy",
 ): string[] {
   const nextSteps: string[] = [];
   const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];

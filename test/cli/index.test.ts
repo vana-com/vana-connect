@@ -219,7 +219,7 @@ describe("runCli", () => {
 
       → Runtime
       The local runtime is already installed.
-        /tmp/playwright/chrome
+        Browser: /tmp/playwright/chrome
 
       → Next
         • Check overall status with \`vana status\`.
@@ -321,7 +321,7 @@ describe("runCli", () => {
 
       → Environment
         Runtime: installed
-        /tmp/playwright/chrome
+        Browser: /tmp/playwright/chrome
         Personal Server: unavailable
 
       → Needs attention (1)
@@ -334,7 +334,7 @@ describe("runCli", () => {
         Inspect the latest local dataset with \`vana data show github\`.
         Saved browser session available for faster reconnects.
         Updated: <timestamp>
-        /tmp/.dataconnect/github-result.json
+        Path: /tmp/.dataconnect/github-result.json
 
       → Next
         • Complete the manual browser step for Shop with \`vana connect shop\`.

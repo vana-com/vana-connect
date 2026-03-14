@@ -2,7 +2,7 @@ Vana Connect setup
 
 → Runtime
 The local runtime is already installed.
-  /opt/playwright/chromium-1200/chrome-linux64/chrome
+  Browser: /opt/playwright/chromium-1200/chrome-linux64/chrome
 
 → Next
   • Check overall status with `vana status`.
