@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
 const requiredPaths = [
   "dist/cli/bin.js",
@@ -6,11 +6,7 @@ const requiredPaths = [
   "dist/runtime/managed-playwright.js",
 ];
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-
-const raw = execFileSync(npmCommand, ["pack", "--json", "--dry-run"], {
-  encoding: "utf8",
-});
+const raw = runNpmPackDryRun();
 
 const manifest = JSON.parse(raw);
 if (!Array.isArray(manifest) || manifest.length === 0) {
@@ -38,3 +34,23 @@ if (files.length < 20) {
 console.log(
   `npm pack validation passed with ${files.length} files and required CLI/runtime entries present.`,
 );
+
+function runNpmPackDryRun() {
+  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  const result = spawnSync(npmCommand, ["pack", "--json", "--dry-run"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(
+      `npm pack --json --dry-run failed with code ${result.status ?? "unknown"}\n${result.stderr ?? ""}`,
+    );
+  }
+
+  return result.stdout;
+}
