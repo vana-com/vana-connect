@@ -192,6 +192,37 @@ describe("runCli", () => {
     });
   });
 
+  it("shows nuanced source details in human status output", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          sessionPresent: true,
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("GitHub [interactive]: connected, local only");
+    expect(stdout).toContain("vana data show github");
+    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
+    expect(stdout).toContain("/tmp/playwright/chrome");
+  });
+
   it("fails cleanly in json mode when input is required", async () => {
     runConnectorEvents = [
       {
@@ -239,6 +270,8 @@ describe("runCli", () => {
       sources: {
         github: {
           lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          dataState: "collected_local",
         },
       },
     });
@@ -267,11 +300,105 @@ describe("runCli", () => {
       summary: {
         lines: ["Profile: tridengineer", "Repositories: 1", "1 repository"],
       },
+      lastRunAt: "2026-03-14T13:10:03.677Z",
+      dataState: "collected_local",
       data: {
         profile: { username: "tridengineer" },
         repositories: [{ name: "vana-connect" }],
         exportSummary: { details: "1 repository" },
       },
+    });
+  });
+
+  it("orders collected datasets by most recent run first", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "chatgpt", name: "ChatGPT", authMode: "legacy" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          dataState: "collected_local",
+        },
+        chatgpt: {
+          lastResultPath: "/tmp/.dataconnect/chatgpt-result.json",
+          lastRunAt: "2026-03-14T12:10:03.677Z",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockReadFile.mockImplementation(async (filePath: string) =>
+      JSON.stringify({
+        profile: {
+          username: filePath.includes("github") ? "tridengineer" : "chatgpt",
+        },
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "list", "--json"]);
+
+    expect(exitCode).toBe(0);
+    expect(
+      JSON.parse(stdout).datasets.map(
+        (item: { source: string }) => item.source,
+      ),
+    ).toEqual(["github", "chatgpt"]);
+  });
+
+  it("shows collected data paths in json mode", async () => {
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "data",
+      "path",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      source: "github",
+      path: "/tmp/.dataconnect/github-result.json",
+    });
+  });
+
+  it("returns a structured error when a collected dataset path is missing", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "data",
+      "path",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout)).toEqual({
+      error: "dataset_not_found",
+      source: "github",
+      message: "No collected dataset found for GitHub.",
     });
   });
 
@@ -310,6 +437,49 @@ describe("runCli", () => {
     expect(githubIndex).toBeGreaterThanOrEqual(0);
     expect(chatgptIndex).toBeGreaterThanOrEqual(0);
     expect(githubIndex).toBeLessThan(chatgptIndex);
+    expect(stdout).toContain("Ready now");
+    expect(stdout).toContain("Manual steps");
+  });
+
+  it("orders status output by what needs attention first", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "spotify", name: "Spotify", authMode: "legacy" },
+      { id: "steam", name: "Steam" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunOutcome: "needs_input",
+          lastError: "Log in to GitHub",
+        },
+        spotify: {
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+        },
+        steam: {
+          lastRunOutcome: "connector_unavailable",
+          lastError: "No connector is available for steam right now.",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    const githubIndex = stdout.indexOf("GitHub [interactive]: needs input");
+    const steamIndex = stdout.indexOf("Steam: unavailable");
+    const spotifyIndex = stdout.indexOf(
+      "Spotify [legacy]: connected, local only",
+    );
+    expect(githubIndex).toBeGreaterThanOrEqual(0);
+    expect(steamIndex).toBeGreaterThanOrEqual(0);
+    expect(spotifyIndex).toBeGreaterThanOrEqual(0);
+    expect(githubIndex).toBeLessThan(steamIndex);
+    expect(steamIndex).toBeLessThan(spotifyIndex);
   });
 
   it("prints source_required in json mode when connect source is missing", async () => {
@@ -365,5 +535,131 @@ describe("runCli", () => {
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
+  });
+
+  it("records ingest failures as local data with sync failure state", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.dataconnect/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-failed",
+        source: "github",
+        target: "http://localhost:8080",
+        message: "server exploded",
+      },
+    ]);
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tridengineer" },
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Saved locally");
+    expect(stdout).toContain("Personal Server sync failed: server exploded");
+    expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
+      "github",
+      expect.objectContaining({
+        lastRunOutcome: "ingest_failed",
+        dataState: "ingest_failed",
+        lastError: "server exploded",
+      }),
+    );
+  });
+
+  it("returns connector_unavailable when no connector exists", async () => {
+    mockListAvailableSources.mockResolvedValue([]);
+    fetchConnectorResult = undefined as never;
+    const runtimeImport = await import("../../src/runtime/index.js");
+    const fetchSpy = vi
+      .spyOn(runtimeImport.ManagedPlaywrightRuntime.prototype, "fetchConnector")
+      .mockRejectedValueOnce(
+        new Error("No connector is available for Steam right now."),
+      );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "connect",
+      "steam",
+      "--json",
+    ]);
+
+    fetchSpy.mockRestore();
+
+    expect(exitCode).toBe(1);
+    const lines = stdout
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        type: "outcome",
+        status: "connector_unavailable",
+        source: "steam",
+        reason: "No connector is available for Steam right now.",
+      }),
+    );
+  });
+
+  it("mentions reusable sessions when a browser profile exists", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "github",
+        message: "Log in to GitHub",
+        fields: ["username", "password"],
+      },
+    ];
+    mockExistsSync.mockImplementation(
+      (value) =>
+        typeof value === "string" && value.includes("github-playwright"),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "connect",
+      "github",
+      "--no-input",
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain(
+      "Found an existing GitHub session. Reusing it if it is still valid...",
+    );
   });
 });

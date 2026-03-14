@@ -150,12 +150,15 @@ vana connect github --json --no-input
 vana status
 vana setup
 vana data list
+vana data path github --json
 vana data show github --json | jq '.summary.lines'
 ```
 
 - `vana connect` opens a guided source picker in human mode.
 - `vana connect <source>` runs the end-to-end collection flow.
 - `vana connect <source> --json --no-input` is the strict machine-safe path for agents and shell automation.
+- `vana sources` groups sources into ready-now vs manual-step flows.
+- `vana status` prioritizes sources that need attention before already-connected sources.
 - `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
 
 ### Local development

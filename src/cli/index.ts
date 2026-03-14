@@ -134,6 +134,7 @@ export async function runCli(argv = process.argv): Promise<number> {
   data
     .command("path <source>")
     .description("Print the local path for a collected dataset")
+    .option("--json", "Output machine-readable JSON")
     .action(async (source: string) => {
       process.exitCode = await runDataPath(source, parsedOptions);
     });
@@ -219,7 +220,33 @@ async function runConnect(
       });
     }
 
-    const fetched = await runtime.fetchConnector(source);
+    let fetched: Awaited<
+      ReturnType<ManagedPlaywrightRuntime["fetchConnector"]>
+    >;
+    try {
+      fetched = await runtime.fetchConnector(source);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : `No connector is available for ${displayName} right now.`;
+      await updateSourceState(source, {
+        connectorInstalled: false,
+        lastRunAt: new Date().toISOString(),
+        lastRunOutcome: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+        dataState: "none",
+        lastError: message,
+        lastResultPath: null,
+      });
+      emit.info(message);
+      emit.event({
+        type: "outcome",
+        status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+        source,
+        reason: message,
+      });
+      return 1;
+    }
     fetchLogPath = fetched.logPath;
     const sourceDetails = registrySources.find((item) => item.id === source);
     const resolution = {
@@ -260,6 +287,8 @@ async function runConnect(
 
     let finalStatus: CliOutcome["status"] =
       CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR;
+    let finalDataState: SourceStatus["dataState"] = "none";
+    let ingestFailureMessage: string | null = null;
     let resultPath = getLastResultPath();
     let collectedResult = false;
 
@@ -391,9 +420,21 @@ async function runConnect(
         const ingestCompleted = ingestEvents.some(
           (ingestEvent) => ingestEvent.type === "ingest-complete",
         );
-        finalStatus = ingestCompleted
-          ? CliOutcomeStatus.CONNECTED_AND_INGESTED
-          : CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
+        const ingestFailedEvent = ingestEvents.find(
+          (ingestEvent) => ingestEvent.type === "ingest-failed",
+        );
+        if (ingestCompleted) {
+          finalStatus = CliOutcomeStatus.CONNECTED_AND_INGESTED;
+          finalDataState = "ingested_personal_server";
+        } else if (ingestFailedEvent?.type === "ingest-failed") {
+          finalStatus = CliOutcomeStatus.INGEST_FAILED;
+          finalDataState = "ingest_failed";
+          ingestFailureMessage =
+            ingestFailedEvent.message ?? "Personal Server sync failed.";
+        } else {
+          finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
+          finalDataState = "collected_local";
+        }
       }
     }
 
@@ -419,18 +460,13 @@ async function runConnect(
       return 1;
     }
 
-    const dataState =
-      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
-        ? "ingested_personal_server"
-        : "collected_local";
-
     await updateSourceState(resolution.source, {
       connectorInstalled: true,
       sessionPresent: true,
       lastRunAt: new Date().toISOString(),
       lastRunOutcome: finalStatus,
-      dataState,
-      lastError: null,
+      dataState: finalDataState,
+      lastError: ingestFailureMessage,
       lastResultPath: resultPath,
     });
 
@@ -455,7 +491,12 @@ async function runConnect(
     } else {
       emit.section("Saved locally");
       emit.bullet(resultPath);
-      if (target.state !== "available") {
+      if (
+        finalStatus === CliOutcomeStatus.INGEST_FAILED &&
+        ingestFailureMessage
+      ) {
+        emit.detail(`Personal Server sync failed: ${ingestFailureMessage}`);
+      } else if (target.state !== "available") {
         emit.detail(
           "No Personal Server is available right now, so this run stayed local.",
         );
@@ -568,20 +609,40 @@ async function runList(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   emit.title("Available sources");
   emit.blank();
-  for (const source of enrichedSources) {
-    const badges: Array<{ text: string; tone?: RenderTone }> = [];
-    if (source.installed) {
-      badges.push({ text: "installed", tone: "success" });
+  const groups = [
+    {
+      title: "Ready now",
+      items: enrichedSources.filter((source) => source.authMode !== "legacy"),
+    },
+    {
+      title: "Manual steps",
+      items: enrichedSources.filter((source) => source.authMode === "legacy"),
+    },
+  ].filter((group) => group.items.length > 0);
+
+  groups.forEach((group, index) => {
+    if (index > 0) {
+      emit.blank();
     }
-    if (source.authMode === "interactive") {
-      badges.push({ text: "interactive", tone: "info" });
-    } else if (source.authMode === "legacy") {
-      badges.push({ text: "legacy", tone: "warning" });
+    emit.section(group.title);
+    for (const source of group.items) {
+      const badges: Array<{ text: string; tone?: RenderTone }> = [];
+      if (source.installed) {
+        badges.push({ text: "installed", tone: "success" });
+      }
+      if (source.authMode === "interactive") {
+        badges.push({ text: "interactive", tone: "info" });
+      } else if (source.authMode === "legacy") {
+        badges.push({ text: "legacy", tone: "warning" });
+      }
+      emit.sourceTitle(source.name, badges);
+      if (source.description) {
+        emit.detail(source.description);
+      }
     }
-    emit.sourceTitle(source.name, badges);
-    if (source.description) {
-      emit.detail(source.description);
-    }
+  });
+  if (groups.length === 0) {
+    emit.info("No sources are available right now.");
   }
   return 0;
 }
@@ -613,20 +674,26 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   emit.blank();
   emit.section("Environment");
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
+  if (status.runtimePath) {
+    emit.detail(status.runtimePath);
+  }
   emit.keyValue(
     "Personal Server",
     status.personalServer,
     status.personalServer === "available" ? "success" : "muted",
   );
+  if (status.personalServerUrl) {
+    emit.detail(status.personalServerUrl);
+  }
   if (status.sources.length > 0) {
     emit.blank();
     emit.section("Sources");
   }
   for (const source of status.sources) {
     emit.info(formatSourceStatus(source, sourceLabels, emit));
-    const details = formatSourceStatusDetail(source);
-    if (details) {
-      emit.detail(details);
+    const details = formatSourceStatusDetails(source);
+    for (const detail of details) {
+      emit.detail(detail);
     }
   }
   return 0;
@@ -675,23 +742,29 @@ async function runDataList(options: GlobalOptions): Promise<number> {
     state.sources,
     createSourceMetadataMap(await loadRegistrySources()),
   );
-  const datasets = sources
-    .filter((source) => Boolean(source.lastResultPath))
-    .map((source) => ({
-      source: source.source,
-      name: source.name,
-      dataState: source.dataState,
-      lastRunAt: source.lastRunAt ?? null,
-      path: source.lastResultPath ?? null,
-    }));
+  const datasetRecords = await Promise.all(
+    sources
+      .filter((source) => Boolean(source.lastResultPath))
+      .map(async (source) => ({
+        source: source.source,
+        name: source.name,
+        dataState: source.dataState,
+        lastRunAt: source.lastRunAt ?? null,
+        path: source.lastResultPath ?? null,
+        summary: source.lastResultPath
+          ? await readResultSummary(source.lastResultPath)
+          : null,
+      })),
+  );
+  datasetRecords.sort(compareDatasetOrder);
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({ datasets })}\n`);
+    process.stdout.write(`${JSON.stringify({ datasets: datasetRecords })}\n`);
     return 0;
   }
 
   const emit = createEmitter(options);
-  if (datasets.length === 0) {
+  if (datasetRecords.length === 0) {
     emit.title("Collected data");
     emit.blank();
     emit.info("No local datasets collected yet.");
@@ -701,12 +774,22 @@ async function runDataList(options: GlobalOptions): Promise<number> {
 
   emit.title("Collected data");
   emit.blank();
-  for (const dataset of datasets) {
+  for (const dataset of datasetRecords) {
     const badges =
       dataset.dataState === "ingested_personal_server"
         ? [{ text: "synced", tone: "success" as const }]
-        : [{ text: "local", tone: "muted" as const }];
+        : dataset.dataState === "ingest_failed"
+          ? [{ text: "sync failed", tone: "warning" as const }]
+          : [{ text: "local", tone: "muted" as const }];
     emit.sourceTitle(dataset.name ?? displaySource(dataset.source), badges);
+    if (dataset.summary) {
+      for (const line of dataset.summary.lines) {
+        emit.detail(line);
+      }
+    }
+    if (dataset.lastRunAt) {
+      emit.detail(`Updated: ${formatTimestamp(dataset.lastRunAt)}`);
+    }
     emit.detail(dataset.path ?? "");
   }
   return 0;
@@ -742,15 +825,21 @@ async function runDataShow(
   try {
     const raw = await fsp.readFile(resultPath, "utf8");
     const data = JSON.parse(raw) as Record<string, unknown>;
+    const summary = summarizeResultData(data);
     if (options.json) {
-      const summary = summarizeResultData(data);
       process.stdout.write(
-        `${JSON.stringify({ source, path: resultPath, summary, data })}\n`,
+        `${JSON.stringify({
+          source,
+          path: resultPath,
+          summary,
+          lastRunAt: record?.lastRunAt ?? null,
+          dataState: record?.dataState ?? null,
+          data,
+        })}\n`,
       );
       return 0;
     }
 
-    const summary = summarizeResultData(data);
     emit.title(`${displaySource(source, sourceLabels)} data`);
     emit.blank();
     if (summary) {
@@ -760,6 +849,16 @@ async function runDataShow(
       emit.blank();
     }
     emit.keyValue("Path", resultPath, "muted");
+    if (record?.lastRunAt) {
+      emit.keyValue("Updated", formatTimestamp(record.lastRunAt), "muted");
+    }
+    if (record?.dataState === "ingested_personal_server") {
+      emit.keyValue("State", "Synced to Personal Server", "success");
+    } else if (record?.dataState === "ingest_failed") {
+      emit.keyValue("State", "Saved locally, sync failed", "warning");
+    } else {
+      emit.keyValue("State", "Saved locally", "muted");
+    }
     return 0;
   } catch (error) {
     const message =
@@ -784,13 +883,27 @@ async function runDataPath(
   const resultPath = state.sources[source]?.lastResultPath;
 
   if (!resultPath) {
-    createEmitter(options).info(
-      `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
-    );
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          error: "dataset_not_found",
+          source,
+          message: `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
+        })}\n`,
+      );
+    } else {
+      createEmitter(options).info(
+        `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
+      );
+    }
     return 1;
   }
 
-  process.stdout.write(`${resultPath}\n`);
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ source, path: resultPath })}\n`);
+  } else {
+    process.stdout.write(`${resultPath}\n`);
+  }
   return 0;
 }
 
@@ -893,11 +1006,18 @@ async function gatherSourceStatuses(
   ]);
 
   return [...sourceNames]
-    .sort((left, right) => left.localeCompare(right))
-    .map((source) => {
+    .map((source): SourceStatus => {
       const stored = storedSources[source] ?? {};
       const installed = installedFiles.some((file) => file.source === source);
       const details = metadata[source];
+      const dataState: SourceStatus["dataState"] =
+        stored.dataState === "ingested_personal_server"
+          ? "ingested_personal_server"
+          : stored.dataState === "ingest_failed"
+            ? "ingest_failed"
+            : stored.dataState === "collected_local"
+              ? "collected_local"
+              : "none";
       return {
         source,
         name: details?.name,
@@ -909,16 +1029,12 @@ async function gatherSourceStatuses(
         sessionPresent: stored.sessionPresent ?? false,
         lastRunAt: stored.lastRunAt ?? null,
         lastRunOutcome: stored.lastRunOutcome ?? null,
-        dataState:
-          stored.dataState === "ingested_personal_server"
-            ? "ingested_personal_server"
-            : stored.dataState === "collected_local"
-              ? "collected_local"
-              : "none",
+        dataState,
         lastError: stored.lastError ?? null,
         lastResultPath: stored.lastResultPath ?? null,
       };
-    });
+    })
+    .sort(compareSourceStatusOrder);
 }
 
 async function listInstalledConnectorFiles(): Promise<
@@ -957,7 +1073,7 @@ function formatSourceStatus(
 ): string {
   const authModeSuffix = formatAuthModeBadge(source.authMode, emit);
 
-  if (!source.installed) {
+  if (!source.installed && !source.lastRunOutcome) {
     return `${displaySource(source.source, labels)}${authModeSuffix}: not connected`;
   }
 
@@ -973,6 +1089,10 @@ function formatSourceStatus(
     return `${displaySource(source.source, labels)}${authModeSuffix}: error`;
   }
 
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    return `${displaySource(source.source, labels)}${authModeSuffix}: unavailable`;
+  }
+
   if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
     return `${displaySource(source.source, labels)}${authModeSuffix}: manual browser step required`;
   }
@@ -985,29 +1105,76 @@ function formatSourceStatus(
     return `${displaySource(source.source, labels)}${authModeSuffix}: connected, local only`;
   }
 
+  if (source.dataState === "ingest_failed") {
+    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, sync failed`;
+  }
+
   return `${displaySource(source.source, labels)}${authModeSuffix}: connected`;
 }
 
-function formatSourceStatusDetail(source: SourceStatus): string | null {
+function formatSourceStatusDetails(source: SourceStatus): string[] {
+  const details: string[] = [];
+
   if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
-    return source.lastError
-      ? `${source.lastError}. Run \`vana connect ${source.source}\` interactively.`
-      : `Run \`vana connect ${source.source}\` interactively.`;
+    details.push(
+      source.lastError
+        ? `${source.lastError}. Run \`vana connect ${source.source}\` interactively.`
+        : `Run \`vana connect ${source.source}\` interactively.`,
+    );
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-    return `Run \`vana connect ${source.source}\` without \`--no-input\` to complete the manual browser step.`;
+    details.push(
+      `Run \`vana connect ${source.source}\` without \`--no-input\` to complete the manual browser step.`,
+    );
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
-    return source.lastError ?? "The last connector run failed.";
+    details.push(source.lastError ?? "The last connector run failed.");
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    details.push(
+      source.lastError ?? "No connector is available for this source.",
+    );
   }
 
   if (!source.lastRunOutcome && source.installed) {
-    return `Run \`vana connect ${source.source}\` to collect data.`;
+    details.push(`Run \`vana connect ${source.source}\` to collect data.`);
   }
 
-  return null;
+  if (
+    source.lastRunOutcome === CliOutcomeStatus.CONNECTED_LOCAL_ONLY &&
+    source.lastResultPath
+  ) {
+    details.push(
+      `Inspect the latest local dataset with \`vana data show ${source.source}\`.`,
+    );
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
+    details.push(
+      `Inspect the latest local dataset with \`vana data show ${source.source}\` or use your Personal Server copy.`,
+    );
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED) {
+    details.push(
+      source.lastError
+        ? `${source.lastError} Inspect the local dataset with \`vana data show ${source.source}\`.`
+        : `Personal Server sync failed. Inspect the local dataset with \`vana data show ${source.source}\`.`,
+    );
+  }
+
+  if (source.lastRunAt) {
+    details.push(`Updated: ${formatTimestamp(source.lastRunAt)}`);
+  }
+
+  if (source.lastResultPath && source.dataState !== "none") {
+    details.push(source.lastResultPath);
+  }
+
+  return details;
 }
 
 function normalizeArgv(argv: string[]): string[] {
@@ -1131,6 +1298,55 @@ function compareRegistrySourceOrder(
   );
 }
 
+function compareSourceStatusOrder(
+  left: SourceStatus,
+  right: SourceStatus,
+): number {
+  return (
+    rankSourceStatus(left) - rankSourceStatus(right) ||
+    compareRegistrySourceOrder(
+      {
+        id: left.source,
+        name: left.name ?? displaySource(left.source),
+        authMode: left.authMode,
+      },
+      {
+        id: right.source,
+        name: right.name ?? displaySource(right.source),
+        authMode: right.authMode,
+      },
+    )
+  );
+}
+
+function rankSourceStatus(source: SourceStatus): number {
+  if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+    return 0;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+    return 1;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED) {
+    return 2;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+    return 3;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    return 4;
+  }
+  if (source.dataState === "ingested_personal_server") {
+    return 5;
+  }
+  if (source.dataState === "collected_local") {
+    return 6;
+  }
+  if (source.installed) {
+    return 7;
+  }
+  return 8;
+}
+
 function rankAuthMode(authMode: AvailableSource["authMode"]): number {
   if (authMode === "interactive") {
     return 0;
@@ -1193,6 +1409,44 @@ function summarizeResultData(
   }
 
   return lines.length > 0 ? { lines } : null;
+}
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function compareDatasetOrder(
+  left: {
+    lastRunAt: string | null;
+    name: string | undefined;
+    source: string;
+  },
+  right: {
+    lastRunAt: string | null;
+    name: string | undefined;
+    source: string;
+  },
+): number {
+  const leftTime = left.lastRunAt ? Date.parse(left.lastRunAt) : 0;
+  const rightTime = right.lastRunAt ? Date.parse(right.lastRunAt) : 0;
+  return (
+    rightTime - leftTime ||
+    (left.name ?? left.source).localeCompare(
+      right.name ?? right.source,
+      undefined,
+      {
+        sensitivity: "base",
+      },
+    )
+  );
 }
 
 function isPromptCancelled(error: unknown): boolean {
