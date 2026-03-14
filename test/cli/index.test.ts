@@ -264,6 +264,9 @@ describe("runCli", () => {
     expect(JSON.parse(stdout)).toEqual({
       source: "github",
       path: "/tmp/.dataconnect/github-result.json",
+      summary: {
+        lines: ["Profile: tridengineer", "Repositories: 1", "1 repository"],
+      },
       data: {
         profile: { username: "tridengineer" },
         repositories: [{ name: "vana-connect" }],

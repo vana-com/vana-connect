@@ -742,8 +742,9 @@ async function runDataShow(
     const raw = await fsp.readFile(resultPath, "utf8");
     const data = JSON.parse(raw) as Record<string, unknown>;
     if (options.json) {
+      const summary = summarizeResultData(data);
       process.stdout.write(
-        `${JSON.stringify({ source, path: resultPath, data })}\n`,
+        `${JSON.stringify({ source, path: resultPath, summary, data })}\n`,
       );
       return 0;
     }
