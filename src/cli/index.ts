@@ -1140,6 +1140,13 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
+    paths: {
+      dataHome: getDataConnectHome(),
+      stateFile: getCliStatePath(),
+      connectorCache: getConnectorCacheDir(),
+      browserProfiles: getBrowserProfilesDir(),
+      logs: getLogsDir(),
+    },
     checks,
     nextSteps,
   };

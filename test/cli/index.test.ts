@@ -305,6 +305,15 @@ describe("runCli", () => {
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "unavailable",
+      paths: {
+        dataHome: expect.stringMatching(/\.dataconnect$/),
+        stateFile: expect.stringMatching(
+          /\.dataconnect\/vana-connect-state\.json$/,
+        ),
+        connectorCache: expect.stringMatching(/\.dataconnect\/connectors$/),
+        browserProfiles: "/tmp/browser-profiles",
+        logs: expect.stringMatching(/\.dataconnect\/logs$/),
+      },
       checks: expect.arrayContaining([
         expect.objectContaining({
           key: "cli",

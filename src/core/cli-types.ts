@@ -90,6 +90,13 @@ export const cliDoctorSchema = z.object({
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  paths: z.object({
+    dataHome: z.string(),
+    stateFile: z.string(),
+    connectorCache: z.string(),
+    browserProfiles: z.string(),
+    logs: z.string(),
+  }),
   checks: z.array(cliDoctorCheckSchema),
   nextSteps: z.array(z.string()),
 });
