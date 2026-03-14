@@ -271,4 +271,15 @@ describe("runCli", () => {
       },
     });
   });
+
+  it("prints source_required in json mode when connect source is missing", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "--json"]);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout)).toEqual({
+      error: "source_required",
+      message: "Specify a source. Run `vana sources` to see available options.",
+    });
+  });
 });

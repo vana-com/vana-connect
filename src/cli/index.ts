@@ -149,22 +149,21 @@ async function runConnect(
   const emit = createEmitter(options);
   const registrySources = await loadRegistrySources();
   const sourceLabels = createSourceLabelMap(registrySources);
+  const displayName = displaySource(source, sourceLabels);
   let setupLogPath: string | undefined;
   let fetchLogPath: string | undefined;
   let runLogPath: string | undefined;
 
   try {
-    emit.info(
-      `Finding a connector for ${displaySource(source, sourceLabels)}...`,
-    );
+    emit.title(`Connect ${displayName}`);
+    emit.blank();
+    emit.section("Preparing");
+    emit.info(`Finding a connector for ${displayName}...`);
     const target = await detectPersonalServerTarget();
 
     if (runtime.state !== "installed") {
       emit.info(
-        `Vana Connect needs a local browser runtime before it can connect ${displaySource(
-          source,
-          sourceLabels,
-        )}.`,
+        `Vana Connect needs a local browser runtime before it can connect ${displayName}.`,
       );
       emit.info("");
       emit.info("This will install:");
@@ -243,7 +242,7 @@ async function runConnect(
     );
     if (fs.existsSync(profilePath)) {
       emit.info(
-        `Found an existing ${displaySource(source, sourceLabels)} session. Reusing it if it is still valid...`,
+        `Found an existing ${displayName} session. Reusing it if it is still valid...`,
       );
     }
 
@@ -253,7 +252,9 @@ async function runConnect(
       lastError: null,
     });
 
-    emit.info(`Connecting to ${displaySource(source, sourceLabels)}...`);
+    emit.blank();
+    emit.section("Connecting");
+    emit.info(`Connecting to ${displayName}...`);
     emit.info("Collecting your data...");
 
     let finalStatus: CliOutcome["status"] =
@@ -266,15 +267,16 @@ async function runConnect(
       source: resolution.source,
       noInput: options.noInput,
       onNeedInput: async (needInput) => {
-        emit.info("");
+        emit.blank();
+        emit.section("Continue");
         emit.info(
-          `To connect ${displaySource(source, sourceLabels)}, Vana Connect will open a local browser session on this machine.`,
+          `To connect ${displayName}, Vana Connect will open a local browser session on this machine.`,
         );
         emit.info("Your credentials stay local.");
-        emit.info("");
+        emit.blank();
         emit.info(
           needInput.message ??
-            `${displaySource(source, sourceLabels)} needs additional details to continue.`,
+            `${displayName} needs additional details to continue.`,
         );
 
         const values: Record<string, string> = {};
@@ -306,10 +308,12 @@ async function runConnect(
         });
         if (!options.json) {
           emit.info(
-            `${displaySource(source, sourceLabels)} needs additional input before it can connect.`,
+            `${displayName} needs additional input before it can connect.`,
           );
-          emit.info(
-            `Next: run \`vana connect ${source}\` without \`--no-input\`.`,
+          emit.blank();
+          emit.section("Next");
+          emit.bullet(
+            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
           );
         }
         return 1;
@@ -338,9 +342,7 @@ async function runConnect(
           emit.info(event.message);
         }
         if (event.url) {
-          emit.info(
-            `Opening ${displaySource(source, sourceLabels)} in a local browser session...`,
-          );
+          emit.info(`Opening ${displayName} in a local browser session...`);
         }
         continue;
       }
@@ -357,11 +359,13 @@ async function runConnect(
           event.message ??
             "This connector needs a manual browser step that is not available in non-interactive mode.",
         );
-        emit.info(
-          `Next: run \`vana connect ${source}\` without \`--no-input\`.`,
+        emit.blank();
+        emit.section("Next");
+        emit.bullet(
+          `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
         );
         if (event.logPath) {
-          emit.info(`Run log: ${event.logPath}`);
+          emit.detail(`Run log: ${event.logPath}`);
         }
         emit.event({
           type: "outcome",
@@ -433,7 +437,7 @@ async function runConnect(
     const connectCommand = emit.code("vana status");
     const dataCommand = emit.code(`vana data show ${source}`);
 
-    emit.title(`Connected ${displaySource(source, sourceLabels)}.`);
+    emit.title(`Connected ${displayName}.`);
 
     emit.blank();
     if (resultSummary) {
