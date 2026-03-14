@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -16,18 +18,23 @@ const tapes = [
 
 function main() {
   prepareFixtures();
+  const { env, cleanup } = prepareRenderEnv();
 
   const runner = resolveRunner();
-  for (const tape of tapes) {
-    const tapePath = path.join(tapesDir, tape);
-    const outputPath = tapePath.replace(/\.tape$/, ".svg");
-    if (fs.existsSync(outputPath)) {
-      fs.rmSync(outputPath, { force: true });
+  try {
+    for (const tape of tapes) {
+      const tapePath = path.join(tapesDir, tape);
+      const outputPath = tapePath.replace(/\.tape$/, ".svg");
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, { force: true });
+      }
+      runTape(runner, tapePath, env);
+      process.stdout.write(
+        `[vhs] rendered ${path.relative(repoRoot, outputPath)}\n`,
+      );
     }
-    runTape(runner, tapePath);
-    process.stdout.write(
-      `[vhs] rendered ${path.relative(repoRoot, outputPath)}\n`,
-    );
+  } finally {
+    cleanup();
   }
 }
 
@@ -43,6 +50,13 @@ function resolveRunner() {
     return { command: "vhs", args: [] };
   }
   if (commandExists("docker")) {
+    const dockerEnvArgs = [
+      "-e",
+      `HOME=${fixtureHome}`,
+      ...(connectorsDir
+        ? ["-e", `VANA_DATA_CONNECTORS_DIR=${connectorsDir}`]
+        : []),
+    ];
     return {
       command: "docker",
       args: [
@@ -52,10 +66,7 @@ function resolveRunner() {
         `${repoRoot}:${repoRoot}`,
         "-w",
         repoRoot,
-        "-e",
-        `HOME=${fixtureHome}`,
-        "-e",
-        `VANA_DATA_CONNECTORS_DIR=${connectorsDir}`,
+        ...dockerEnvArgs,
         "ghcr.io/charmbracelet/vhs",
       ],
     };
@@ -65,17 +76,42 @@ function resolveRunner() {
   );
 }
 
-function runTape(runner, tapePath) {
-  const env = {
-    ...process.env,
-    HOME: fixtureHome,
-    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
-  };
+function runTape(runner, tapePath, env) {
   execFileSync(runner.command, [...runner.args, tapePath], {
     cwd: repoRoot,
     env,
     stdio: "inherit",
   });
+}
+
+function prepareRenderEnv() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vana-vhs-"));
+  const binDir = path.join(tempRoot, "bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  const launcherPath = path.join(binDir, "vana");
+  fs.writeFileSync(
+    launcherPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+exec node "${path.join(repoRoot, "dist", "cli", "bin.js")}" "$@"
+`,
+    "utf8",
+  );
+  fs.chmodSync(launcherPath, 0o755);
+
+  const env = {
+    ...process.env,
+    HOME: fixtureHome,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
+  };
+
+  return {
+    env,
+    cleanup() {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    },
+  };
 }
 
 function commandExists(command) {

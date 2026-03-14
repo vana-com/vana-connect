@@ -8,14 +8,10 @@ Set TypingSpeed 0ms
 
 Require pnpm
 
-Type "pnpm demo:vhs:fixtures"
-Enter
-Sleep 800ms
-
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js connect steam --no-input"
+Type "vana connect steam --no-input"
 Enter
 Sleep 1200ms
 
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js connect"
+Type "vana connect"
 Enter
 Sleep 1200ms

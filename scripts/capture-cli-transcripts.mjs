@@ -19,33 +19,36 @@ async function main() {
   );
   const workingHome = path.join(tempRoot, "home");
   await fsp.cp(fixtureHome, workingHome, { recursive: true });
+  const binDir = path.join(tempRoot, "bin");
+  await prepareDemoBin(binDir);
 
   const env = {
     ...process.env,
     HOME: workingHome,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
     ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
   };
 
   const commands = [
     {
       name: "status.txt",
-      argv: ["node", "dist/cli/bin.js", "status"],
+      argv: ["vana", "status"],
     },
     {
       name: "sources.txt",
-      argv: ["node", "dist/cli/bin.js", "sources"],
+      argv: ["vana", "sources"],
     },
     {
       name: "data-list.txt",
-      argv: ["node", "dist/cli/bin.js", "data", "list"],
+      argv: ["vana", "data", "list"],
     },
     {
       name: "data-show-github.txt",
-      argv: ["node", "dist/cli/bin.js", "data", "show", "github"],
+      argv: ["vana", "data", "show", "github"],
     },
     {
       name: "connect-steam-no-input.txt",
-      argv: ["node", "dist/cli/bin.js", "connect", "steam", "--no-input"],
+      argv: ["vana", "connect", "steam", "--no-input"],
       allowFailure: true,
     },
   ];
@@ -67,6 +70,17 @@ function prepareFixtures() {
     cwd: repoRoot,
     stdio: "inherit",
   });
+}
+
+async function prepareDemoBin(binDir) {
+  await fsp.mkdir(binDir, { recursive: true });
+  const launcherPath = path.join(binDir, "vana");
+  const launcher = `#!/usr/bin/env bash
+set -euo pipefail
+exec node "${path.join(repoRoot, "dist", "cli", "bin.js")}" "$@"
+`;
+  await fsp.writeFile(launcherPath, launcher, "utf8");
+  await fsp.chmod(launcherPath, 0o755);
 }
 
 function run(argv, env, allowFailure = false) {

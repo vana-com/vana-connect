@@ -5,6 +5,10 @@ This directory holds deterministic terminal demo assets for the `vana` CLI.
 The goal is to make the README a reliable progress surface for the team without
 depending on live credentials or live connector runs.
 
+The visible commands in these tapes should match what a real user would type.
+Fixture seeding, `HOME`, and any other harness setup should stay hidden in the
+rendering scripts.
+
 ## Fixture model
 
 The demo tapes should use:

@@ -8,14 +8,10 @@ Set TypingSpeed 0ms
 
 Require pnpm
 
-Type "pnpm demo:vhs:fixtures"
-Enter
-Sleep 800ms
-
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js status"
+Type "vana status"
 Enter
 Sleep 1200ms
 
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js sources"
+Type "vana sources"
 Enter
 Sleep 1200ms
