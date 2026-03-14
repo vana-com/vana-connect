@@ -219,6 +219,7 @@ describe("runCli", () => {
     expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
       channel: "stable",
+      installMethod: "development",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
@@ -277,6 +278,16 @@ describe("runCli", () => {
     expect(stdout).toContain("vana connect github --json --no-input");
   });
 
+  it("shows examples in data show help", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "show", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Show a collected dataset");
+    expect(stdout).toContain("vana data show github");
+    expect(stdout).toContain("vana data show github --json | jq '.summary'");
+  });
+
   it("prints structured doctor output in json mode", async () => {
     mockReadCliState.mockResolvedValue({
       version: 1,
@@ -307,6 +318,7 @@ describe("runCli", () => {
     expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
       channel: "stable",
+      installMethod: "development",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "unavailable",
@@ -318,6 +330,11 @@ describe("runCli", () => {
         connectorCache: expect.stringMatching(/\.dataconnect\/connectors$/),
         browserProfiles: "/tmp/browser-profiles",
         logs: expect.stringMatching(/\.dataconnect\/logs$/),
+      },
+      lifecycle: {
+        upgrade: "git pull && pnpm install && pnpm build",
+        uninstall:
+          "Remove the local checkout and any generated ~/.dataconnect state.",
       },
       checks: expect.arrayContaining([
         expect.objectContaining({
@@ -331,6 +348,17 @@ describe("runCli", () => {
       ]),
       nextSteps: expect.any(Array),
     });
+  });
+
+  it("renders lifecycle guidance in human doctor output", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "doctor"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Vana Connect doctor");
+    expect(stdout).toContain("Install");
+    expect(stdout).toContain("Lifecycle");
+    expect(stdout).toContain("git pull && pnpm install && pnpm build");
   });
 
   it("renders a stable human transcript for setup when already installed", async () => {

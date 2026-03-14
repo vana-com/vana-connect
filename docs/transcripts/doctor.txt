@@ -3,6 +3,7 @@ Vana Connect doctor
 → Summary
   CLI:              0.8.1
   Channel:          stable
+  Install:          Development checkout
   Runtime:          installed
   Personal Server:  unavailable
   Tracked sources:  4
@@ -17,6 +18,10 @@ Vana Connect doctor
   Browser profiles: Missing at ~/.dataconnect/browser-profiles
   Logs:             Present at ~/.dataconnect/logs
   Tracked sources:  4 sources in local state
+
+→ Lifecycle
+  Upgrade:          git pull && pnpm install && pnpm build
+  Uninstall:        Remove the local checkout and any generated ~/.dataconnect state.
 
 → Next
   • Your Personal Server is unavailable, so successful runs will stay local.

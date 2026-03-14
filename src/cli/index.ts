@@ -20,9 +20,11 @@ import {
   updateSourceState,
 } from "../core/index.js";
 import type {
+  CliChannel,
   CliDoctor,
   CliDoctorCheck,
   CliEvent,
+  CliInstallMethod,
   CliOutcome,
   CliStatus,
   SourceStatus,
@@ -218,29 +220,53 @@ Examples:
 `,
   );
 
-  data
+  const dataListCommand = data
     .command("list")
     .description("List locally available collected datasets")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runDataList(parsedOptions);
     });
+  dataListCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana data list
+  vana data list --json | jq '.datasets'
+`,
+  );
 
-  data
+  const dataShowCommand = data
     .command("show <source>")
     .description("Show a collected dataset")
     .option("--json", "Output machine-readable JSON")
     .action(async (source: string) => {
       process.exitCode = await runDataShow(source, parsedOptions);
     });
+  dataShowCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana data show github
+  vana data show github --json | jq '.summary'
+`,
+  );
 
-  data
+  const dataPathCommand = data
     .command("path <source>")
     .description("Print the local path for a collected dataset")
     .option("--json", "Output machine-readable JSON")
     .action(async (source: string) => {
       process.exitCode = await runDataPath(source, parsedOptions);
     });
+  dataPathCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana data path github
+  vana data path github --json | jq -r '.path'
+`,
+  );
 
   try {
     await program.parseAsync(normalizedArgv);
@@ -930,6 +956,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   const status: CliStatus = {
     cliVersion: getCliVersion(),
     channel: getCliChannel(),
+    installMethod: getCliInstallMethod(),
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
@@ -1049,6 +1076,8 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   const state = await readCliState();
   const cliVersion = getCliVersion();
   const cliChannel = getCliChannel(cliVersion);
+  const installMethod = getCliInstallMethod();
+  const lifecycle = getLifecycleCommands(installMethod, cliChannel);
 
   const directories = [
     {
@@ -1139,6 +1168,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   const payload: CliDoctor = {
     cliVersion,
     channel: cliChannel,
+    installMethod,
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
@@ -1150,6 +1180,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       browserProfiles: getBrowserProfilesDir(),
       logs: getLogsDir(),
     },
+    lifecycle,
     checks,
     nextSteps,
   };
@@ -1165,6 +1196,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   emit.section("Summary");
   emit.keyValue("CLI", cliVersion, "muted");
   emit.keyValue("Channel", cliChannel, "muted");
+  emit.keyValue("Install", formatInstallMethodLabel(installMethod), "muted");
   emit.keyValue("Runtime", runtime.state, toneForRuntime(runtime.state));
   emit.keyValue(
     "Personal Server",
@@ -1187,6 +1219,10 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
           : "error";
     emit.keyValue(check.label, check.detail, tone);
   }
+  emit.blank();
+  emit.section("Lifecycle");
+  emit.keyValue("Upgrade", lifecycle.upgrade, "muted");
+  emit.keyValue("Uninstall", lifecycle.uninstall, "muted");
   if (nextSteps.length > 0) {
     emit.blank();
     emit.section("Next");
@@ -2102,6 +2138,76 @@ function getCliVersion(): string {
 
 function getCliChannel(version = getCliVersion()): "stable" | "canary" {
   return version.includes("canary") ? "canary" : "stable";
+}
+
+function getCliInstallMethod(execPath = process.execPath): CliInstallMethod {
+  const normalizedPath = execPath.replace(/\\/g, "/").toLowerCase();
+  if (normalizedPath.includes("/cellar/vana/")) {
+    return "homebrew";
+  }
+  if (
+    normalizedPath.includes("/.local/share/vana/") ||
+    normalizedPath.includes("/appdata/local/vana/")
+  ) {
+    return "installer";
+  }
+  if (
+    normalizedPath.endsWith("/node") ||
+    normalizedPath.endsWith("/node.exe") ||
+    normalizedPath.includes("/.nvm/") ||
+    normalizedPath.includes("/volta/") ||
+    normalizedPath.includes("/pnpm/")
+  ) {
+    return "development";
+  }
+  return "unknown";
+}
+
+function formatInstallMethodLabel(method: CliInstallMethod): string {
+  switch (method) {
+    case "homebrew":
+      return "Homebrew";
+    case "installer":
+      return "Hosted installer";
+    case "development":
+      return "Development checkout";
+    default:
+      return "Unknown";
+  }
+}
+
+function getLifecycleCommands(
+  installMethod: CliInstallMethod,
+  channel: CliChannel,
+): { upgrade: string; uninstall: string } {
+  switch (installMethod) {
+    case "homebrew":
+      return {
+        upgrade: "brew update && brew upgrade vana",
+        uninstall: "brew uninstall vana",
+      };
+    case "installer":
+      return {
+        upgrade:
+          channel === "canary"
+            ? "curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1"
+            : "curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh",
+        uninstall:
+          "rm -f ~/.local/bin/vana && rm -rf ~/.local/share/vana ~/.dataconnect",
+      };
+    case "development":
+      return {
+        upgrade: "git pull && pnpm install && pnpm build",
+        uninstall:
+          "Remove the local checkout and any generated ~/.dataconnect state.",
+      };
+    default:
+      return {
+        upgrade: "Reinstall vana using Homebrew or the hosted installer.",
+        uninstall:
+          "Remove the installed vana binary and any ~/.dataconnect state you no longer need.",
+      };
+  }
 }
 
 function formatDisplayPath(filePath: string): string {

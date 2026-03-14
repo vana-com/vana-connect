@@ -223,10 +223,26 @@ vana data show github --json | jq '.summary.lines'
 - Successful command completion returns exit code `0`.
 - Actionable failures like missing source selection, unavailable connectors, or disabled prompting return exit code `1`.
 - `vana --version`, `vana version`, and `vana --help` return exit code `0`.
+- `vana doctor --json` includes `installMethod`, `channel`, and upgrade/uninstall commands so scripts can surface the right lifecycle guidance.
+
+### Shell examples
+
+```bash
+vana status --json | jq '.channel, .installMethod, .runtime, .sources[]?.source'
+vana sources --json | jq '.recommendedSource'
+vana data list --json | jq '.datasets[] | {source, dataState, path}'
+vana doctor --json | jq '.paths, .lifecycle'
+```
 
 ### Upgrade, channels, and uninstall
 
 Upgrade with the same channel you installed from:
+
+You can always confirm the current install method and exact lifecycle commands with:
+
+```bash
+vana doctor
+```
 
 - Homebrew:
   ```bash
