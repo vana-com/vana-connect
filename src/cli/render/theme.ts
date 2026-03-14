@@ -2,6 +2,12 @@ import { createColors } from "picocolors";
 
 import type { RenderCapabilities } from "./capabilities.js";
 
+const VANA_ACCENT = [65, 65, 252] as const;
+const VANA_SUCCESS = [0, 213, 11] as const;
+const VANA_DESTRUCTIVE = [199, 54, 54] as const;
+const VANA_MUTED = [112, 112, 112] as const;
+const VANA_WARNING = [186, 139, 0] as const;
+
 export interface RenderTheme {
   readonly accent: (text: string) => string;
   readonly heading: (text: string) => string;
@@ -18,18 +24,18 @@ export interface RenderTheme {
 export function createTheme(capabilities: RenderCapabilities): RenderTheme {
   const colors = createColors(capabilities.color);
   const formatCode = (text: string) => `\`${text}\``;
-  const richMuted = (text: string) => rgb(115, 115, 115, text);
+  const richMuted = (text: string) => rgb(...VANA_MUTED, text);
   if (capabilities.tier === "rich") {
     return {
-      accent: (text) => rgb(65, 65, 252, text),
+      accent: (text) => rgb(...VANA_ACCENT, text),
       heading: (text) => colors.bold(text),
       label: (text) => richMuted(colors.bold(text)),
       muted: (text) => richMuted(text),
       dim: (text) => colors.dim(text),
-      success: (text) => rgb(0, 213, 11, text),
-      warning: (text) => rgb(186, 139, 0, text),
-      error: (text) => rgb(220, 38, 38, text),
-      info: (text) => rgb(65, 65, 252, text),
+      success: (text) => rgb(...VANA_SUCCESS, text),
+      warning: (text) => rgb(...VANA_WARNING, text),
+      error: (text) => rgb(...VANA_DESTRUCTIVE, text),
+      info: (text) => rgb(...VANA_ACCENT, text),
       code: (text) => colors.bold(formatCode(text)),
     };
   }
