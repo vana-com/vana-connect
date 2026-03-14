@@ -121,6 +121,22 @@ jobs:
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
+            mapfile -t EXISTING_ASSETS < <(gh release view "$TAG" --json assets --jq '.assets[].name' | sort)
+
+            for existing in "${EXISTING_ASSETS[@]}"; do
+              keep=false
+              for release_file in "${RELEASE_FILES[@]}"; do
+                if [ "$existing" = "$(basename "$release_file")" ]; then
+                  keep=true
+                  break
+                fi
+              done
+
+              if [ "$keep" = false ]; then
+                gh release delete-asset "$TAG" "$existing" -y
+              fi
+            done
+
             gh release edit "$TAG" \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
