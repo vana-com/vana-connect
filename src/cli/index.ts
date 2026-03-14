@@ -628,6 +628,9 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     emit.detail(parts.join(" • "));
   }
   emit.info("Choose a source to connect:");
+  emit.detail(
+    `Or jump straight in with ${emit.code("vana connect <source>")}.`,
+  );
   let source: string;
   try {
     source = await select({
@@ -643,6 +646,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
   } catch (error) {
     if (isPromptCancelled(error)) {
       emit.info("Cancelled. No source was connected.");
+      emit.detail(`Browse sources any time with ${emit.code("vana sources")}.`);
       return 1;
     }
     throw error;

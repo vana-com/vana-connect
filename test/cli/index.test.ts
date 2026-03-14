@@ -823,7 +823,63 @@ describe("runCli", () => {
     expect(exitCode).toBe(1);
     expect(mockSelect).toHaveBeenCalled();
     expect(stdout).toContain("1 ready source");
+    expect(stdout).toContain("vana connect <source>");
     expect(stdout).toContain("Cancelled. No source was connected.");
+    expect(stdout).toContain("vana sources");
+  });
+
+  it("renders a stable human transcript for guided connect cancellation", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        description: "Exports GitHub data.",
+        authMode: "interactive",
+      },
+      {
+        id: "shop",
+        name: "Shop",
+        description: "Exports Shop data.",
+        authMode: "legacy",
+      },
+    ]);
+    const promptError = new Error("prompt aborted");
+    promptError.name = "ExitPromptError";
+    mockSelect.mockRejectedValueOnce(promptError);
+    const originalStdoutTty = process.stdout.isTTY;
+    const originalStdinTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect"]);
+
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: originalStdoutTty,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: originalStdinTty,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toMatchInlineSnapshot(`
+      "Connect data
+
+        1 ready source • 1 with manual step
+      Choose a source to connect:
+        Or jump straight in with \`vana connect <source>\`.
+      Cancelled. No source was connected.
+        Browse sources any time with \`vana sources\`.
+      "
+    `);
   });
 
   it("prints a clear message when runtime setup is declined", async () => {
