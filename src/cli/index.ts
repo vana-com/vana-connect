@@ -499,7 +499,7 @@ async function runConnect(
     });
 
     const resultSummary = await readResultSummary(resultPath);
-    const connectCommand = emit.code("vana status");
+    const statusCommand = emit.code("vana status");
     const dataCommand = emit.code(`vana data show ${source}`);
     const successSummary =
       finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
@@ -547,8 +547,8 @@ async function runConnect(
 
     emit.blank();
     emit.section("Next");
-    emit.bullet(`Run ${connectCommand}`);
-    emit.bullet(`Or inspect the data with ${dataCommand}`);
+    emit.bullet(`Inspect the data with ${dataCommand}`);
+    emit.bullet(`Or check overall status with ${statusCommand}`);
     emit.event({
       type: "outcome",
       status: finalStatus,

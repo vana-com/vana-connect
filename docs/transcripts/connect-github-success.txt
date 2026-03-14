@@ -28,5 +28,5 @@ Collecting your data...
   Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
 
 → Next
-  • Run `vana status`
-  • Or inspect the data with `vana data show github`
+  • Inspect the data with `vana data show github`
+  • Or check overall status with `vana status`
