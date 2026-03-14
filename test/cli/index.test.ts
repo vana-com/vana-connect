@@ -246,8 +246,21 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("version");
     expect(stdout).toContain("doctor");
+    expect(stdout).toContain(
+      "connect [options] [source]  Connect a source and collect data",
+    );
     expect(stdout).toContain("vana doctor");
     expect(stdout).toContain("vana connect github");
+  });
+
+  it("shows examples in connect help", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Connect a source and collect data");
+    expect(stdout).toContain("vana connect");
+    expect(stdout).toContain("vana connect github --json --no-input");
   });
 
   it("prints structured doctor output in json mode", async () => {

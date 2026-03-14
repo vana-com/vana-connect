@@ -20,6 +20,8 @@ import {
   updateSourceState,
 } from "../core/index.js";
 import type {
+  CliDoctor,
+  CliDoctorCheck,
   CliEvent,
   CliOutcome,
   CliStatus,
@@ -118,8 +120,9 @@ Examples:
       process.exitCode = 0;
     });
 
-  program
+  const connectCommand = program
     .command("connect [source]")
+    .description("Connect a source and collect data")
     .option("--json", "Output machine-readable JSON")
     .option("--no-input", "Fail instead of prompting for input")
     .option("--yes", "Approve safe setup prompts automatically")
@@ -129,32 +132,65 @@ Examples:
         ? await runConnect(source, parsedOptions)
         : await runConnectEntry(parsedOptions);
     });
+  connectCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana connect
+  vana connect github
+  vana connect github --json --no-input
+`,
+  );
 
-  program
+  const sourcesCommand = program
     .command("sources")
     .description("List supported sources")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runList(parsedOptions);
     });
+  sourcesCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana sources
+  vana sources --json | jq '.sources'
+`,
+  );
 
-  program
+  const statusCommand = program
     .command("status")
     .description("Show runtime and Personal Server status")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runStatus(parsedOptions);
     });
+  statusCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana status
+  vana status --json | jq
+`,
+  );
 
-  program
+  const doctorCommand = program
     .command("doctor")
     .description("Inspect local CLI, runtime, and install health")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runDoctor(parsedOptions);
     });
+  doctorCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana doctor
+  vana doctor --json | jq
+`,
+  );
 
-  program
+  const setupCommand = program
     .command("setup")
     .description("Install or repair the local runtime")
     .option("--json", "Output machine-readable JSON")
@@ -162,8 +198,25 @@ Examples:
     .action(async () => {
       process.exitCode = await runSetup(parsedOptions);
     });
+  setupCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana setup
+  vana setup --yes
+`,
+  );
 
   const data = program.command("data").description("Inspect collected data");
+  data.addHelpText(
+    "after",
+    `
+Examples:
+  vana data list
+  vana data show github
+  vana data path github --json
+`,
+  );
 
   data
     .command("list")
@@ -1022,7 +1075,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     },
   ];
 
-  const checks = [
+  const checks: CliDoctorCheck[] = [
     {
       key: "cli",
       label: "CLI",
@@ -1047,7 +1100,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
           ? (personalServer.url ?? "Available")
           : "Unavailable. Connects will stay local until a Personal Server is reachable.",
     },
-    ...directories.map((entry) => ({
+    ...directories.map<CliDoctorCheck>((entry) => ({
       key: entry.key,
       label: entry.label,
       status: entry.present ? "ok" : "warn",
@@ -1056,10 +1109,10 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     {
       key: "sources",
       label: "Tracked sources",
-      status: "ok",
+      status: "ok" as const,
       detail: `${Object.keys(state.sources).length} source${Object.keys(state.sources).length === 1 ? "" : "s"} in local state`,
     },
-  ] as const;
+  ];
 
   const nextSteps = [
     ...(runtime.state !== "installed"
@@ -1075,7 +1128,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       : ["Check overall status with `vana status`."]),
   ];
 
-  const payload = {
+  const payload: CliDoctor = {
     cliVersion,
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,

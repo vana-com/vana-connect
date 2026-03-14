@@ -64,6 +64,25 @@ export const cliStatusSchema = z.object({
 });
 export type CliStatus = z.infer<typeof cliStatusSchema>;
 
+export const cliDoctorCheckSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: z.enum(["ok", "warn", "error"]),
+  detail: z.string(),
+});
+export type CliDoctorCheck = z.infer<typeof cliDoctorCheckSchema>;
+
+export const cliDoctorSchema = z.object({
+  cliVersion: z.string(),
+  runtime: runtimeStateSchema,
+  runtimePath: z.string().nullable(),
+  personalServer: personalServerStateSchema,
+  personalServerUrl: z.string().nullable(),
+  checks: z.array(cliDoctorCheckSchema),
+  nextSteps: z.array(z.string()),
+});
+export type CliDoctor = z.infer<typeof cliDoctorSchema>;
+
 export const cliEventSchema = z.object({
   type: z.string(),
   source: z.string().optional(),
