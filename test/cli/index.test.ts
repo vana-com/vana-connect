@@ -220,6 +220,10 @@ describe("runCli", () => {
       → Runtime
       The local runtime is already installed.
         /tmp/playwright/chrome
+
+      → Next
+        • Check overall status with \`vana status\`.
+        • Connect a source with \`vana connect\`.
       "
     `);
   });
@@ -237,6 +241,10 @@ describe("runCli", () => {
       → Runtime
       ✓ Runtime ready.
         Setup log: /tmp/logs/setup.log
+
+      → Next
+        • Check overall status with \`vana status\`.
+        • Connect a source with \`vana connect\`.
       "
     `);
   });

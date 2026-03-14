@@ -832,6 +832,10 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     if (runtime.runtimePath) {
       emit.detail(formatDisplayPath(runtime.runtimePath));
     }
+    emit.blank();
+    emit.section("Next");
+    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
+    emit.bullet(`Connect a source with ${emit.code("vana connect")}.`);
     emit.event({ type: "setup-check", runtime: runtime.state });
     return 0;
   }
@@ -842,6 +846,10 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     if (result.logPath) {
       emit.detail(`Setup log: ${formatDisplayPath(result.logPath)}`);
     }
+    emit.blank();
+    emit.section("Next");
+    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
+    emit.bullet(`Connect a source with ${emit.code("vana connect")}.`);
     emit.event({
       type: "setup-complete",
       runtime: result.runtime,
