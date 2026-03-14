@@ -82,6 +82,16 @@ function main() {
         .split("\n")
         .slice(0, 24);
       log(`Current tap formula preview:\n${lines.join("\n")}`);
+      log(`Checking Homebrew formula sync for ${releaseTag}`);
+      execCommand("node", [
+        "./scripts/assert-homebrew-formula-sync.mjs",
+        "--release-tag",
+        releaseTag,
+        "--release-repo",
+        options.repo,
+        "--formula-path",
+        formulaPath,
+      ]);
     }
   }
 

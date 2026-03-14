@@ -63,6 +63,7 @@
     "demo:transcripts": "pnpm build && node ./scripts/capture-cli-transcripts.mjs",
     "pack:check": "node ./scripts/assert-pack-contents.mjs",
     "sea:check": "node ./scripts/assert-sea-artifact.mjs",
+    "homebrew:check": "node ./scripts/assert-homebrew-formula-sync.mjs",
     "release:check-demo-assets": "node ./scripts/assert-release-demo-assets.mjs",
     "release:watch": "node ./scripts/watch-release-lane.mjs",
     "skills:sync": "node scripts/sync-skills.js",
