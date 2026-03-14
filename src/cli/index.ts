@@ -808,7 +808,11 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       }
     }
   });
-  const nextSteps = buildStatusNextSteps(status.sources, sourceLabels);
+  const nextSteps = buildStatusNextSteps(
+    status.sources,
+    sourceLabels,
+    status.runtime,
+  );
   if (nextSteps.length > 0) {
     emit.blank();
     emit.section("Next");
@@ -1356,6 +1360,7 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
 function buildStatusNextSteps(
   sources: SourceStatus[],
   sourceLabels: SourceLabelMap = {},
+  runtime: CliStatus["runtime"] = "unknown",
 ): string[] {
   const nextSteps: string[] = [];
   const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];
@@ -1372,23 +1377,28 @@ function buildStatusNextSteps(
     ? displaySource(highestPriority.source, sourceLabels)
     : null;
 
-  if (highestPriority?.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+  if (!highestPriority) {
+    if (runtime === "installed") {
+      nextSteps.push("Connect your first source with `vana connect`.");
+    } else if (runtime === "missing") {
+      nextSteps.push("Install the local runtime with `vana setup`.");
+    }
+  } else if (highestPriority.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
     nextSteps.push(
       `Continue ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
     );
-  } else if (highestPriority?.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+  } else if (highestPriority.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
     nextSteps.push(
       `Complete the manual browser step for ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
     );
   } else if (
-    highestPriority?.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
+    highestPriority.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
   ) {
     nextSteps.push("Browse available sources with `vana sources`.");
   } else if (
-    highestPriority &&
-    (highestPriority.dataState === "collected_local" ||
-      highestPriority.dataState === "ingested_personal_server" ||
-      highestPriority.dataState === "ingest_failed")
+    highestPriority.dataState === "collected_local" ||
+    highestPriority.dataState === "ingested_personal_server" ||
+    highestPriority.dataState === "ingest_failed"
   ) {
     if (connectedSources.length > 1) {
       nextSteps.push("Review your collected data with `vana data list`.");

@@ -342,6 +342,35 @@ describe("runCli", () => {
     `);
   });
 
+  it("guides first run from status when the runtime is already installed", async () => {
+    mockListAvailableSources.mockResolvedValue([]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {},
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Connect your first source with `vana connect`.");
+  });
+
+  it("guides first run from status when the runtime is missing", async () => {
+    runtimeState = "missing";
+    mockListAvailableSources.mockResolvedValue([]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {},
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Install the local runtime with `vana setup`.");
+  });
+
   it("fails cleanly in json mode when input is required", async () => {
     runConnectorEvents = [
       {

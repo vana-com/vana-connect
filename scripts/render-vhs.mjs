@@ -21,6 +21,7 @@ const tapes = [
   "data-inspection.tape",
   "connect-success.tape",
 ];
+const DEFAULT_TAPE_TIMEOUT_MS = 120_000;
 
 function main() {
   prepareFixtures();
@@ -38,6 +39,7 @@ function main() {
       if (fs.existsSync(outputPath)) {
         fs.rmSync(outputPath, { force: true });
       }
+      process.stdout.write(`[vhs] rendering ${tape}\n`);
       runTape(runner, tapePath, env);
       if (!fs.existsSync(outputPath)) {
         throw new Error(
@@ -105,11 +107,22 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
 }
 
 function runTape(runner, tapePath, env) {
-  execFileSync(runner.command, [...runner.args, tapePath], {
-    cwd: repoRoot,
-    env,
-    stdio: "inherit",
-  });
+  const timeout = resolveTapeTimeout();
+  try {
+    execFileSync(runner.command, [...runner.args, tapePath], {
+      cwd: repoRoot,
+      env,
+      stdio: "inherit",
+      timeout,
+    });
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      throw new Error(
+        `VHS timed out after ${timeout}ms while rendering ${path.basename(tapePath)}.`,
+      );
+    }
+    throw error;
+  }
 }
 
 function prepareRenderEnv(connectorsDir) {
@@ -173,6 +186,25 @@ function resolveDataConnectorsDir() {
 
   const siblingRepo = path.resolve(repoRoot, "..", "data-connectors");
   return fs.existsSync(siblingRepo) ? siblingRepo : null;
+}
+
+function resolveTapeTimeout() {
+  const raw = process.env.VANA_VHS_TIMEOUT_MS;
+  if (!raw) {
+    return DEFAULT_TAPE_TIMEOUT_MS;
+  }
+
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_TAPE_TIMEOUT_MS;
+}
+
+function isTimeoutError(error) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "ETIMEDOUT" || error.signal === "SIGTERM")
+  );
 }
 
 try {
