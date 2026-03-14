@@ -11,7 +11,7 @@ Shop [legacy] [manual step]
   Run `vana connect shop` without `--no-input` to complete the manual browser step.
   Updated: Mar 14, 2026, 8:11 AM
 Steam [unavailable]
-  No connector is available for steam right now.
+  No connector is available for Steam right now.
   Updated: Mar 14, 2026, 8:12 AM
 
 → Connected (2)
@@ -27,4 +27,3 @@ Spotify [interactive] [local]
 
 → Next
 • Complete the manual browser step for Shop with `vana connect shop`.
-• Connect another source with `vana sources`.

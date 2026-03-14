@@ -843,6 +843,7 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       .map(async (source) => ({
         source: source.source,
         name: source.name,
+        authMode: source.authMode ?? null,
         dataState: source.dataState,
         lastRunAt: source.lastRunAt ?? null,
         path: source.lastResultPath ?? null,
@@ -899,6 +900,7 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   emit.blank();
   emit.section("Next");
   emit.bullet(`Inspect one with ${emit.code("vana data show <source>")}.`);
+  emit.bullet(`Print a path with ${emit.code("vana data path <source>")}.`);
   return 0;
 }
 
@@ -937,6 +939,7 @@ async function runDataShow(
       process.stdout.write(
         `${JSON.stringify({
           source,
+          name: displaySource(source, sourceLabels),
           path: resultPath,
           summary,
           lastRunAt: record?.lastRunAt ?? null,
@@ -972,6 +975,7 @@ async function runDataShow(
     emit.bullet(
       `Print the path with ${emit.code(`vana data path ${source}`)}.`,
     );
+    emit.bullet(`Inspect other datasets with ${emit.code("vana data list")}.`);
     emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   } catch (error) {
@@ -1002,6 +1006,7 @@ async function runDataPath(
         `${JSON.stringify({
           error: "dataset_not_found",
           source,
+          name: displaySource(source, sourceLabels),
           message: `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
         })}\n`,
       );
@@ -1014,7 +1019,15 @@ async function runDataPath(
   }
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({ source, path: resultPath })}\n`);
+    process.stdout.write(
+      `${JSON.stringify({
+        source,
+        name: displaySource(source, sourceLabels),
+        path: resultPath,
+        lastRunAt: state.sources[source]?.lastRunAt ?? null,
+        dataState: state.sources[source]?.dataState ?? null,
+      })}\n`,
+    );
   } else {
     process.stdout.write(`${formatDisplayPath(resultPath)}\n`);
   }
@@ -1211,6 +1224,7 @@ async function listInstalledConnectorFiles(): Promise<
 
 function formatSourceStatusDetails(source: SourceStatus): string[] {
   const details: string[] = [];
+  const displayName = source.name ?? displaySource(source.source);
 
   if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
     details.push(
@@ -1227,12 +1241,18 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
-    details.push(source.lastError ?? "The last connector run failed.");
+    details.push(
+      source.lastError
+        ? formatHumanSourceMessage(source.lastError, source.source, displayName)
+        : "The last connector run failed.",
+    );
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
     details.push(
-      source.lastError ?? "No connector is available for this source.",
+      source.lastError
+        ? formatHumanSourceMessage(source.lastError, source.source, displayName)
+        : "No connector is available for this source.",
     );
   }
 
@@ -1289,6 +1309,15 @@ function buildStatusNextSteps(
 ): string[] {
   const nextSteps: string[] = [];
   const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];
+  const connectedSources = sources.filter(
+    (source) =>
+      source.dataState === "collected_local" ||
+      source.dataState === "ingested_personal_server" ||
+      source.dataState === "ingest_failed",
+  );
+  const needsAttention = sources.some(
+    (source) => rankSourceStatus(source) <= 4,
+  );
   const highestPriorityLabel = highestPriority
     ? displaySource(highestPriority.source, sourceLabels)
     : null;
@@ -1311,12 +1340,19 @@ function buildStatusNextSteps(
       highestPriority.dataState === "ingested_personal_server" ||
       highestPriority.dataState === "ingest_failed")
   ) {
-    nextSteps.push(
-      `Inspect the latest dataset with \`vana data show ${highestPriority.source}\`.`,
-    );
+    if (connectedSources.length > 1) {
+      nextSteps.push("Review your collected data with `vana data list`.");
+    } else {
+      nextSteps.push(
+        `Inspect the latest dataset with \`vana data show ${highestPriority.source}\`.`,
+      );
+    }
   }
 
-  if (sources.some((source) => source.installed || source.lastRunOutcome)) {
+  if (
+    sources.some((source) => source.installed || source.lastRunOutcome) &&
+    (!needsAttention || connectedSources.length === 0)
+  ) {
     nextSteps.push("Connect another source with `vana sources`.");
   }
 

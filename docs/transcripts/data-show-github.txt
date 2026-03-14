@@ -11,4 +11,5 @@ State: Saved locally
 
 → Next
 • Print the path with `vana data path github`.
+• Inspect other datasets with `vana data list`.
 • Check overall status with `vana status`.

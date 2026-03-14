@@ -15,3 +15,4 @@ Path: ~/.dataconnect/spotify-result.json
 
 → Next
 • Inspect one with `vana data show <source>`.
+• Print a path with `vana data path <source>`.

@@ -299,7 +299,6 @@ describe("runCli", () => {
 
       → Next
       • Complete the manual browser step for Shop with \`vana connect shop\`.
-      • Connect another source with \`vana sources\`.
       "
     `);
   });
@@ -346,6 +345,12 @@ describe("runCli", () => {
   });
 
   it("shows collected data in json mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+    ]);
     mockReadCliState.mockResolvedValue({
       version: 1,
       sources: {
@@ -377,6 +382,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
       source: "github",
+      name: "GitHub",
       path: "/tmp/.dataconnect/github-result.json",
       summary: {
         lines: ["Profile: tnunamak", "Repositories: 1"],
@@ -436,6 +442,7 @@ describe("runCli", () => {
 
       → Next
       • Print the path with \`vana data path github\`.
+      • Inspect other datasets with \`vana data list\`.
       • Check overall status with \`vana status\`.
       "
     `);
@@ -473,14 +480,94 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "data", "list", "--json"]);
 
     expect(exitCode).toBe(0);
-    expect(
-      JSON.parse(stdout).datasets.map(
-        (item: { source: string }) => item.source,
+    expect(JSON.parse(stdout).datasets).toMatchObject([
+      {
+        source: "github",
+        name: "GitHub",
+        authMode: "interactive",
+        dataState: "collected_local",
+      },
+      {
+        source: "chatgpt",
+        name: "ChatGPT",
+        authMode: "legacy",
+        dataState: "collected_local",
+      },
+    ]);
+  });
+
+  it("renders a stable human transcript for data list", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "spotify", name: "Spotify", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          dataState: "collected_local",
+        },
+        spotify: {
+          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastRunAt: "2026-03-13T16:23:00.000Z",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockReadFile.mockImplementation(async (filePath: string) =>
+      JSON.stringify(
+        filePath.includes("github")
+          ? {
+              profile: { username: "tnunamak" },
+              repositories: [
+                { name: "vana-connect" },
+                { name: "data-connect" },
+              ],
+              starred: [],
+            }
+          : {
+              profile: { username: "tnunamak" },
+              playlists: [{ name: "Focus" }, { name: "Deep Work" }],
+            },
       ),
-    ).toEqual(["github", "chatgpt"]);
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "list"]);
+
+    expect(exitCode).toBe(0);
+    expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
+      "Collected data (2)
+
+      GitHub [local]
+        Profile: tnunamak
+        Repositories: 2
+        Starred: 0
+      Updated: <timestamp>
+      Path: /tmp/.dataconnect/github-result.json
+
+      Spotify [local]
+        Profile: tnunamak
+        Playlists: 2
+      Updated: <timestamp>
+      Path: /tmp/.dataconnect/spotify-result.json
+
+      → Next
+      • Inspect one with \`vana data show <source>\`.
+      • Print a path with \`vana data path <source>\`.
+      "
+    `);
   });
 
   it("shows collected data paths in json mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+    ]);
     mockReadCliState.mockResolvedValue({
       version: 1,
       sources: {
@@ -503,7 +590,10 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
       source: "github",
+      name: "GitHub",
       path: "/tmp/.dataconnect/github-result.json",
+      lastRunAt: null,
+      dataState: null,
     });
   });
 
@@ -529,6 +619,7 @@ describe("runCli", () => {
     expect(JSON.parse(stdout)).toEqual({
       error: "dataset_not_found",
       source: "github",
+      name: "GitHub",
       message: "No collected dataset found for GitHub.",
     });
   });
