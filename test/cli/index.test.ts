@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cliDoctorSchema, cliStatusSchema } from "../../src/core/cli-types.js";
 
 const mockListAvailableSources = vi.fn();
 const mockDetectPersonalServerTarget = vi.fn();
@@ -201,9 +202,10 @@ describe("runCli", () => {
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "status", "--json"]);
+    const parsed = cliStatusSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toMatchObject({
+    expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
@@ -287,9 +289,10 @@ describe("runCli", () => {
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "doctor", "--json"]);
+    const parsed = cliDoctorSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toMatchObject({
+    expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
