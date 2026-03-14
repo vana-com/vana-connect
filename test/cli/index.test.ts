@@ -414,6 +414,10 @@ describe("runCli", () => {
       Path: /tmp/.dataconnect/github-result.json
       Updated: <timestamp>
       State: Saved locally
+
+      → Next
+      • Print the path with \`vana data path github\`.
+      • Check overall status with \`vana status\`.
       "
     `);
   });
@@ -782,7 +786,7 @@ describe("runCli", () => {
     expect(stdout).toContain("No connector is available for steam right now.");
     expect(stdout).toContain("→ Next");
     expect(stdout).toContain("Browse available sources with `vana sources`.");
-    expect(stdout).toContain("Then connect one with vana connect <source>.");
+    expect(stdout).toContain("Then connect one with `vana connect <source>`.");
     expect(stdout).toContain("vana connect <source>");
   });
 

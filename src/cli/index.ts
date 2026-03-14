@@ -665,6 +665,10 @@ async function runList(options: GlobalOptions): Promise<number> {
   });
   if (groups.length === 0) {
     emit.info("No sources are available right now.");
+  } else {
+    emit.blank();
+    emit.section("Next");
+    emit.bullet(`Connect one with ${emit.code("vana connect <source>")}.`);
   }
   return 0;
 }
@@ -857,6 +861,9 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       emit.keyValue("Path", formatDisplayPath(dataset.path), "muted");
     }
   });
+  emit.blank();
+  emit.section("Next");
+  emit.bullet(`Inspect one with ${emit.code("vana data show <source>")}.`);
   return 0;
 }
 
@@ -924,6 +931,12 @@ async function runDataShow(
     } else {
       emit.keyValue("State", "Saved locally", "muted");
     }
+    emit.blank();
+    emit.section("Next");
+    emit.bullet(
+      `Print the path with ${emit.code(`vana data path ${source}`)}.`,
+    );
+    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   } catch (error) {
     const message =

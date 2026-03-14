@@ -7,3 +7,7 @@ GitHub data
 Path: ~/.dataconnect/github-result.json
 Updated: Mar 14, 2026, 8:10 AM
 State: Saved locally
+
+→ Next
+• Print the path with `vana data path github`.
+• Check overall status with `vana status`.

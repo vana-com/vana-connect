@@ -17,6 +17,7 @@ export interface RenderTheme {
 
 export function createTheme(capabilities: RenderCapabilities): RenderTheme {
   const colors = createColors(capabilities.color);
+  const formatCode = (text: string) => `\`${text}\``;
   if (capabilities.tier === "rich") {
     return {
       accent: (text) => rgb(65, 65, 252, text),
@@ -28,7 +29,7 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
       warning: (text) => rgb(186, 139, 0, text),
       error: (text) => rgb(220, 38, 38, text),
       info: (text) => rgb(65, 65, 252, text),
-      code: (text) => colors.bold(text),
+      code: (text) => colors.bold(formatCode(text)),
     };
   }
 
@@ -42,7 +43,7 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
     warning: (text) => colors.yellow(text),
     error: (text) => colors.red(text),
     info: (text) => colors.cyan(text),
-    code: (text) => colors.bold(text),
+    code: (text) => colors.bold(formatCode(text)),
   };
 }
 

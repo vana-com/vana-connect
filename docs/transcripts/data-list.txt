@@ -11,3 +11,6 @@ Spotify [local]
   Profile: tnunamak
 Updated: Mar 13, 2026, 4:23 PM
 Path: ~/.dataconnect/spotify-result.json
+
+→ Next
+• Inspect one with `vana data show <source>`.

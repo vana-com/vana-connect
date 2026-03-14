@@ -21,3 +21,6 @@ Uber [legacy]
   Exports your Uber trip history and receipts using Playwright browser automation.
 YouTube [legacy]
   Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history using Playwright browser automation.
+
+→ Next
+• Connect one with `vana connect <source>`.

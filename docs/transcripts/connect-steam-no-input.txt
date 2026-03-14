@@ -6,4 +6,4 @@ No connector is available for steam right now.
 
 → Next
 • Browse available sources with `vana sources`.
-• Then connect one with vana connect <source>.
+• Then connect one with `vana connect <source>`.
