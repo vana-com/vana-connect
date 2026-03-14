@@ -82,6 +82,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm clean
       - run: pnpm build
+      - run: pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana
       - run: pnpm demo:transcripts
       - run: pnpm demo:vhs
       - uses: actions/upload-artifact@v7

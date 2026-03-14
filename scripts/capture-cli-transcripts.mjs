@@ -8,17 +8,15 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const transcriptsDir = path.join(repoRoot, "docs", "transcripts");
-const fixtureHome = path.join(repoRoot, "docs", "vhs", "fixtures", "demo-home");
 const connectorsDir = resolveDataConnectorsDir();
 
 async function main() {
-  prepareFixtures();
   await fsp.mkdir(transcriptsDir, { recursive: true });
   const tempRoot = await fsp.mkdtemp(
     path.join(os.tmpdir(), "vana-transcripts-"),
   );
   const workingHome = path.join(tempRoot, "home");
-  await fsp.cp(fixtureHome, workingHome, { recursive: true });
+  await prepareFixtures(workingHome);
   const binDir = path.join(tempRoot, "bin");
   await prepareDemoBin(binDir);
 
@@ -65,9 +63,13 @@ async function main() {
   await fsp.rm(tempRoot, { recursive: true, force: true });
 }
 
-function prepareFixtures() {
+function prepareFixtures(homeRoot) {
   execFileSync("node", ["./scripts/prepare-vhs-fixtures.mjs"], {
     cwd: repoRoot,
+    env: {
+      ...process.env,
+      ...(homeRoot ? { VANA_VHS_HOME_ROOT: homeRoot } : {}),
+    },
     stdio: "inherit",
   });
 }

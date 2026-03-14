@@ -1,3 +1,4 @@
+import os from "node:os";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -211,7 +212,7 @@ async function runConnect(
       });
       emit.info("Runtime ready.");
       if (installResult.logPath) {
-        emit.info(`Setup log: ${installResult.logPath}`);
+        emit.info(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
       }
     } else {
       emit.event({
@@ -370,7 +371,7 @@ async function runConnect(
           source: resolution.source,
         });
         if (event.logPath) {
-          emit.info(`Run log: ${event.logPath}`);
+          emit.info(`Run log: ${formatDisplayPath(event.logPath)}`);
         }
         return 1;
       }
@@ -403,7 +404,7 @@ async function runConnect(
           `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
         );
         if (event.logPath) {
-          emit.detail(`Run log: ${event.logPath}`);
+          emit.detail(`Run log: ${formatDisplayPath(event.logPath)}`);
         }
         emit.event({
           type: "outcome",
@@ -503,7 +504,7 @@ async function runConnect(
       emit.bullet("Your data is now available in your Personal Server.");
     } else {
       emit.section("Saved locally");
-      emit.bullet(resultPath);
+      emit.bullet(formatDisplayPath(resultPath));
       if (
         finalStatus === CliOutcomeStatus.INGEST_FAILED &&
         ingestFailureMessage
@@ -517,11 +518,11 @@ async function runConnect(
     }
 
     if (runLogPath) {
-      emit.detail(`Run log: ${runLogPath}`);
+      emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
     } else if (fetchLogPath) {
-      emit.detail(`Fetch log: ${fetchLogPath}`);
+      emit.detail(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
     } else if (setupLogPath) {
-      emit.detail(`Setup log: ${setupLogPath}`);
+      emit.detail(`Setup log: ${formatDisplayPath(setupLogPath)}`);
     }
 
     emit.blank();
@@ -546,11 +547,11 @@ async function runConnect(
       reason: message,
     });
     if (runLogPath) {
-      emit.info(`Run log: ${runLogPath}`);
+      emit.info(`Run log: ${formatDisplayPath(runLogPath)}`);
     } else if (fetchLogPath) {
-      emit.info(`Fetch log: ${fetchLogPath}`);
+      emit.info(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
     } else if (setupLogPath) {
-      emit.info(`Setup log: ${setupLogPath}`);
+      emit.info(`Setup log: ${formatDisplayPath(setupLogPath)}`);
     }
     return 1;
   }
@@ -850,7 +851,7 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       emit.keyValue("Updated", formatTimestamp(dataset.lastRunAt), "muted");
     }
     if (dataset.path) {
-      emit.keyValue("Path", dataset.path, "muted");
+      emit.keyValue("Path", formatDisplayPath(dataset.path), "muted");
     }
   });
   return 0;
@@ -909,7 +910,7 @@ async function runDataShow(
       }
       emit.blank();
     }
-    emit.keyValue("Path", resultPath, "muted");
+    emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
     if (record?.lastRunAt) {
       emit.keyValue("Updated", formatTimestamp(record.lastRunAt), "muted");
     }
@@ -963,7 +964,7 @@ async function runDataPath(
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ source, path: resultPath })}\n`);
   } else {
-    process.stdout.write(`${resultPath}\n`);
+    process.stdout.write(`${formatDisplayPath(resultPath)}\n`);
   }
   return 0;
 }
@@ -1186,7 +1187,7 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
   }
 
   if (source.lastResultPath && source.dataState !== "none") {
-    details.push(source.lastResultPath);
+    details.push(formatDisplayPath(source.lastResultPath));
   }
 
   return details;
@@ -1206,6 +1207,19 @@ function normalizeArgv(argv: string[]): string[] {
   }
 
   return argv;
+}
+
+function formatDisplayPath(filePath: string): string {
+  const homeDir = os.homedir();
+  if (filePath === homeDir) {
+    return "~";
+  }
+
+  if (filePath.startsWith(`${homeDir}${path.sep}`)) {
+    return `~${filePath.slice(homeDir.length)}`;
+  }
+
+  return filePath;
 }
 
 function extractGlobalOptions(argv: string[]): GlobalOptions {

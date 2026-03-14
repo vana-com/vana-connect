@@ -10,6 +10,13 @@ const repoRoot = path.resolve(__dirname, "..");
 const tapesDir = path.join(repoRoot, "docs", "vhs");
 const connectorsDir = resolveDataConnectorsDir();
 const fixtureHome = path.join(tapesDir, "fixtures", "demo-home");
+const linuxSeaBinaryPath = path.join(
+  repoRoot,
+  "artifacts",
+  "sea",
+  "vana-linux-x64",
+  "vana",
+);
 const tapes = [
   "status-and-sources.tape",
   "data-inspection.tape",
@@ -18,9 +25,8 @@ const tapes = [
 
 function main() {
   prepareFixtures();
-  const { env, cleanup } = prepareRenderEnv();
-
-  const runner = resolveRunner();
+  const { env, cleanup, tempRoot, binDir } = prepareRenderEnv();
+  const runner = resolveRunner({ tempRoot, binDir });
   try {
     for (const tape of tapes) {
       const tapePath = path.join(tapesDir, tape);
@@ -50,14 +56,25 @@ function prepareFixtures() {
   });
 }
 
-function resolveRunner() {
+function resolveRunner({ tempRoot, binDir }) {
   if (commandExists("vhs")) {
     return { command: "vhs", args: [] };
   }
   if (commandExists("docker")) {
+    if (!fs.existsSync(linuxSeaBinaryPath)) {
+      throw new Error(
+        `Docker-based VHS rendering requires ${path.relative(
+          repoRoot,
+          linuxSeaBinaryPath,
+        )}. Build it first with \`pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana\`.`,
+      );
+    }
+
     const dockerEnvArgs = [
       "-e",
       `HOME=${fixtureHome}`,
+      "-e",
+      `PATH=${binDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
       ...(connectorsDir
         ? ["-e", `VANA_DATA_CONNECTORS_DIR=${connectorsDir}`]
         : []),
@@ -69,6 +86,8 @@ function resolveRunner() {
         "--rm",
         "-v",
         `${repoRoot}:${repoRoot}`,
+        "-v",
+        `${tempRoot}:${tempRoot}`,
         "-w",
         repoRoot,
         ...dockerEnvArgs,
@@ -94,11 +113,17 @@ function prepareRenderEnv() {
   const binDir = path.join(tempRoot, "bin");
   fs.mkdirSync(binDir, { recursive: true });
   const launcherPath = path.join(binDir, "vana");
+  const launcherTarget = fs.existsSync(linuxSeaBinaryPath)
+    ? linuxSeaBinaryPath
+    : path.join(repoRoot, "dist", "cli", "bin.js");
+  const launcherExec = fs.existsSync(linuxSeaBinaryPath)
+    ? `exec "${launcherTarget}" "$@"`
+    : `exec node "${launcherTarget}" "$@"`;
   fs.writeFileSync(
     launcherPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-exec node "${path.join(repoRoot, "dist", "cli", "bin.js")}" "$@"
+${launcherExec}
 `,
     "utf8",
   );
@@ -113,6 +138,8 @@ exec node "${path.join(repoRoot, "dist", "cli", "bin.js")}" "$@"
 
   return {
     env,
+    tempRoot,
+    binDir,
     cleanup() {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     },

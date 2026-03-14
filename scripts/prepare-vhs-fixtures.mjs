@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const fixturesRoot = path.join(repoRoot, "docs", "vhs", "fixtures");
-const homeRoot = path.join(fixturesRoot, "demo-home");
+const homeRoot = process.env.VANA_VHS_HOME_ROOT
+  ? path.resolve(process.env.VANA_VHS_HOME_ROOT)
+  : path.join(fixturesRoot, "demo-home");
 const dataConnectRoot = path.join(homeRoot, ".dataconnect");
 
 async function main() {
