@@ -172,6 +172,19 @@ To seed the fixture home used by the first tapes:
 pnpm demo:vhs:fixtures
 ```
 
+To capture deterministic human-mode transcripts for review:
+
+```bash
+pnpm demo:transcripts
+```
+
+To watch the branch release lane, trigger Homebrew sync, and verify the
+published installer automatically:
+
+```bash
+pnpm release:watch
+```
+
 ### Local development
 
 From this repo:

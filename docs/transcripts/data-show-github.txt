@@ -1,0 +1,9 @@
+GitHub data
+
+• Profile: tnunamak
+• Repositories: 2
+• Starred: 0
+
+Path: /home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/github-result.json
+Updated: Mar 14, 2026, 8:10 AM
+State: Saved locally
