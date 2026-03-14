@@ -58,7 +58,7 @@ jobs:
       - run: pnpm pack:check
       - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
       - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }} --archive artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }} --checksum artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256 --platform ${{ matrix.platform }} --binary-name ${{ matrix.binary_name }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vana-sea-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
@@ -84,7 +84,7 @@ jobs:
       - run: pnpm clean
       - run: pnpm build
       - run: pnpm pack:check
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: vana-sea-*
           path: artifacts/release
