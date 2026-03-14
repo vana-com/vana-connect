@@ -6,8 +6,6 @@ Set Width 1200
 Set Height 900
 Set TypingSpeed 0ms
 
-Require pnpm
-
 Type "vana data list"
 Enter
 Sleep 1200ms

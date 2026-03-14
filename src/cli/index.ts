@@ -481,8 +481,13 @@ async function runConnect(
     const resultSummary = await readResultSummary(resultPath);
     const connectCommand = emit.code("vana status");
     const dataCommand = emit.code(`vana data show ${source}`);
+    const successSummary =
+      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
+        ? `Collected your ${displayName} data and synced it to your Personal Server.`
+        : `Collected your ${displayName} data and saved it locally.`;
 
     emit.title(`Connected ${displayName}.`);
+    emit.detail(successSummary);
 
     emit.blank();
     if (resultSummary) {

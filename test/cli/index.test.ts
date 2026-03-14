@@ -665,6 +665,9 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Connected GitHub.");
+    expect(stdout).toContain(
+      "Collected your GitHub data and saved it locally.",
+    );
     expect(stdout).toContain("Collected");
     expect(stdout).toContain("Profile: tnunamak");
     expect(stdout).toContain("Repositories: 2");
