@@ -26,3 +26,4 @@ Spotify [interactive] [local]
 
 → Next
   • Complete the manual browser step for Shop with `vana connect shop`.
+  • Review the data you already collected with `vana data list`.

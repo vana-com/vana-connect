@@ -520,29 +520,39 @@ async function runConnect(
     emit.blank();
     if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       emit.section("Synced");
-      emit.bullet("Your data is now available in your Personal Server.");
+      emit.keyValue(
+        "Server",
+        "Your data is now available in your Personal Server.",
+        "success",
+      );
     } else {
       emit.section("Saved locally");
-      emit.bullet(formatDisplayPath(resultPath));
-      emit.detail("Saved browser session available for faster reconnects.");
+      emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
+      emit.keyValue("Session", "Saved for faster reconnects.", "muted");
       if (
         finalStatus === CliOutcomeStatus.INGEST_FAILED &&
         ingestFailureMessage
       ) {
-        emit.detail(`Personal Server sync failed: ${ingestFailureMessage}`);
+        emit.keyValue(
+          "Server",
+          `Sync failed: ${ingestFailureMessage}`,
+          "warning",
+        );
       } else if (target.state !== "available") {
-        emit.detail(
-          "No Personal Server is available right now, so this run stayed local.",
+        emit.keyValue(
+          "Server",
+          "Unavailable, so this run stayed local.",
+          "muted",
         );
       }
     }
 
     if (runLogPath) {
-      emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
+      emit.keyValue("Run log", formatDisplayPath(runLogPath), "muted");
     } else if (fetchLogPath) {
-      emit.detail(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
+      emit.keyValue("Fetch log", formatDisplayPath(fetchLogPath), "muted");
     } else if (setupLogPath) {
-      emit.detail(`Setup log: ${formatDisplayPath(setupLogPath)}`);
+      emit.keyValue("Setup log", formatDisplayPath(setupLogPath), "muted");
     }
 
     emit.blank();
@@ -1424,6 +1434,14 @@ function buildStatusNextSteps(
         `Inspect the latest dataset with \`vana data show ${highestPriority.source}\`.`,
       );
     }
+  }
+
+  if (connectedSources.length > 0 && needsAttention) {
+    nextSteps.push(
+      connectedSources.length > 1
+        ? "Review the data you already collected with `vana data list`."
+        : `Inspect the data you already collected with \`vana data show ${connectedSources[0].source}\`.`,
+    );
   }
 
   if (

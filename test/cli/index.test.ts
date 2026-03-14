@@ -353,6 +353,7 @@ describe("runCli", () => {
 
       → Next
         • Complete the manual browser step for Shop with \`vana connect shop\`.
+        • Inspect the data you already collected with \`vana data show github\`.
       "
     `);
   });
@@ -1107,9 +1108,8 @@ describe("runCli", () => {
     );
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain(
-      "Saved browser session available for faster reconnects.",
-    );
+    expect(stdout).toContain("Session: Saved for faster reconnects.");
+    expect(stdout).toContain("Server: Unavailable, so this run stayed local.");
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
   });
@@ -1153,7 +1153,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Saved locally");
-    expect(stdout).toContain("Personal Server sync failed: server exploded");
+    expect(stdout).toContain("Server: Sync failed: server exploded");
     expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
       "github",
       expect.objectContaining({

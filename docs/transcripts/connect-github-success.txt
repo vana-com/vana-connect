@@ -22,9 +22,9 @@ Collecting your data...
   • Starred: 0
 
 → Saved locally
-  • ~/.dataconnect/last-result.json
-  Saved browser session available for faster reconnects.
-  No Personal Server is available right now, so this run stayed local.
+  Path: ~/.dataconnect/last-result.json
+  Session: Saved for faster reconnects.
+  Server: Unavailable, so this run stayed local.
   Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
 
 → Next
