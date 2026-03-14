@@ -14,7 +14,7 @@ rendering scripts.
 The demo tapes should use:
 
 - a temp or fixture `HOME`
-- `VANA_DATA_CONNECTORS_DIR` pointing at the local `data-connectors` repo
+- `VANA_DATA_CONNECTORS_DIR` pointing at a deterministic fixture connector repo
 - seeded `~/.dataconnect/` state and result files
 
 Prepare the fixture home with:
@@ -27,14 +27,15 @@ That creates:
 
 - `docs/vhs/fixtures/demo-home/.dataconnect/vana-connect-state.json`
 - fake installed connector files
+- `docs/vhs/fixtures/demo-data-connectors/` with deterministic demo connectors
 - a fake downloaded Chromium path so `vana status` reads as installed
 - sample collected result files for `vana data ...`
 
-## Planned first tapes
+## Current tapes
 
 - `status-and-sources.tape`
 - `data-inspection.tape`
-- `connect-guided.tape`
+- `connect-success.tape`
 
 ## Rendering
 
@@ -53,8 +54,9 @@ That command:
 - writes GIF assets next to the tapes
 
 It will use a local `vhs` binary if present, or Docker if available.
-By default the scripts look for a sibling `../data-connectors` checkout, but
-you can override that with `VANA_DATA_CONNECTORS_DIR=/path/to/data-connectors`.
+By default the scripts prefer the deterministic fixture connector repo generated
+under `docs/vhs/fixtures/demo-data-connectors/`, but you can override that with
+`VANA_DATA_CONNECTORS_DIR=/path/to/data-connectors`.
 
 CI also renders the tapes on Linux in the `demo-preview` job and uploads the
 resulting GIFs and transcripts as a workflow artifact so the branch always has a

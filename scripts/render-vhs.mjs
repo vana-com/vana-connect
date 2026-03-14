@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -8,8 +7,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const tapesDir = path.join(repoRoot, "docs", "vhs");
-const connectorsDir = resolveDataConnectorsDir();
 const fixtureHome = path.join(tapesDir, "fixtures", "demo-home");
+const fixturesRoot = path.join(tapesDir, "fixtures");
 const linuxSeaBinaryPath = path.join(
   repoRoot,
   "artifacts",
@@ -20,13 +19,18 @@ const linuxSeaBinaryPath = path.join(
 const tapes = [
   "status-and-sources.tape",
   "data-inspection.tape",
-  "connect-guided.tape",
+  "connect-success.tape",
 ];
 
 function main() {
   prepareFixtures();
-  const { env, cleanup, tempRoot, binDir } = prepareRenderEnv();
-  const runner = resolveRunner({ tempRoot, binDir });
+  const connectorsDir = resolveDataConnectorsDir();
+  const { env, cleanup, tempRoot, binDir } = prepareRenderEnv(connectorsDir);
+  env.VANA_DEMO_FAST_SUCCESS = "1";
+  if (connectorsDir) {
+    env.VANA_DATA_CONNECTORS_DIR = connectorsDir;
+  }
+  const runner = resolveRunner({ tempRoot, binDir, connectorsDir });
   try {
     for (const tape of tapes) {
       const tapePath = path.join(tapesDir, tape);
@@ -56,7 +60,7 @@ function prepareFixtures() {
   });
 }
 
-function resolveRunner({ tempRoot, binDir }) {
+function resolveRunner({ tempRoot, binDir, connectorsDir }) {
   if (commandExists("vhs")) {
     return { command: "vhs", args: [] };
   }
@@ -108,7 +112,7 @@ function runTape(runner, tapePath, env) {
   });
 }
 
-function prepareRenderEnv() {
+function prepareRenderEnv(connectorsDir) {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vana-vhs-"));
   const binDir = path.join(tempRoot, "bin");
   fs.mkdirSync(binDir, { recursive: true });
@@ -158,6 +162,11 @@ function commandExists(command) {
 }
 
 function resolveDataConnectorsDir() {
+  const fixtureRepo = path.join(fixturesRoot, "demo-data-connectors");
+  if (fs.existsSync(path.join(fixtureRepo, "registry.json"))) {
+    return fixtureRepo;
+  }
+
   if (process.env.VANA_DATA_CONNECTORS_DIR) {
     return process.env.VANA_DATA_CONNECTORS_DIR;
   }

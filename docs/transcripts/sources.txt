@@ -3,24 +3,12 @@ Available sources
 → Ready now
 GitHub [installed] [interactive]
   Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+Spotify [installed] [interactive]
+  Exports your Spotify playlists using Playwright browser automation.
 
 → Manual steps
-ChatGPT [legacy]
-  Exports your email, memories, and all conversations from ChatGPT using Playwright browser automation.
-Instagram [legacy]
-  Exports your Instagram profile, posts, and ad interests using Playwright browser automation.
-LinkedIn [legacy]
-  Exports your LinkedIn profile, experience, education, skills, languages, and connections using Playwright browser automation.
-Oura Ring [legacy]
-  Exports your Oura Ring readiness scores, sleep data, and daily activity using Playwright browser automation.
 Shop [installed] [legacy]
   Exports your Shop app order history using Playwright browser automation.
-Spotify [installed] [legacy]
-  Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.
-Uber [legacy]
-  Exports your Uber trip history and receipts using Playwright browser automation.
-YouTube [legacy]
-  Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history using Playwright browser automation.
 
 → Next
 • Connect one with `vana connect <source>`.

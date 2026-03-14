@@ -5,10 +5,11 @@ GitHub [local]
   Repositories: 2
   Starred: 0
 Updated: Mar 14, 2026, 8:10 AM
-Path: ~/.dataconnect/github-result.json
+Path: ~/.dataconnect/last-result.json
 
 Spotify [local]
   Profile: tnunamak
+  Playlists: 2
 Updated: Mar 13, 2026, 4:23 PM
 Path: ~/.dataconnect/spotify-result.json
 

@@ -1,0 +1,31 @@
+{
+  "connectors": [
+    {
+      "id": "github",
+      "name": "GitHub",
+      "company": "github",
+      "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
+      "files": {
+        "script": "connectors/github/github-playwright.js"
+      }
+    },
+    {
+      "id": "shop",
+      "name": "Shop",
+      "company": "shop",
+      "description": "Exports your Shop app order history using Playwright browser automation.",
+      "files": {
+        "script": "connectors/shop/shop-playwright.js"
+      }
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "company": "spotify",
+      "description": "Exports your Spotify playlists using Playwright browser automation.",
+      "files": {
+        "script": "connectors/spotify/spotify-playwright.js"
+      }
+    }
+  ]
+}

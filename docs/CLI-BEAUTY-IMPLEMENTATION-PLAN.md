@@ -21,6 +21,7 @@ It should be read together with:
 - [CLI-AUDIENCE-CONTRACT.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-AUDIENCE-CONTRACT.md)
 - [CLI-ONBOARDING-COPY.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-ONBOARDING-COPY.md)
 - [CLI-UX-SIMULATION.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-UX-SIMULATION.md)
+- [CLI-EXECUTION-PLAYBOOK.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXECUTION-PLAYBOOK.md)
 - [Terminal CLI Beauty Memo](/home/tnunamak/code/data-connectors/skills/vana-connect/docs/cli-beauty-research/terminal-cli-visual-and-emotional-beauty-memo.md)
 
 ## Final Recommendation
@@ -645,6 +646,158 @@ The beauty pass is not done until all of these are true.
 
 This is the recommended sequence.
 
+### Current Branch State And Revised Sequencing
+
+As of branch head `b91e4a2`, the plan above is no longer hypothetical.
+Substantial parts of the foundation are already present:
+
+- a human renderer/theme layer exists
+- `status`, `sources`, and `data` have been upgraded materially
+- `vana connect` has a guided no-source entrypoint
+- structured runtime `status-update` and `progress-update` events now exist
+- VHS scaffolding exists and README-facing demo assets are publishing from CI
+
+That means the next phase should **not** start from Phase 1 again.
+The correct sequence from here is:
+
+### Batch 1: Product-truth and demo-proofing
+
+This batch should be completed and released together before deeper beauty work.
+
+- add a deterministic successful `connect` demo fixture so README demos can show
+  real progress and a real success moment without depending on live GitHub
+- add transcript coverage for that successful connect flow
+- tighten the final human success summary so it consistently lands as:
+  - what connected
+  - what was collected
+  - where the data lives or went
+  - one strong next step
+- strengthen `vana data show` and `vana data path` as the first payoff surface
+- improve `vana status` so it distinguishes:
+  - runtime ready
+  - session present
+  - last successful collection
+  - Personal Server unavailable vs synced
+- broaden acceptance coverage across:
+  - migrated/requestInput connectors
+  - legacy/manual connectors
+  - unsupported sources
+  - saved-session reuse cases
+
+Important:
+
+- this batch is about making the product feel truthful and coherent
+- it should be pushed as one larger release cycle, not as many tiny deployment
+  cycles
+
+### Batch 2: Deep beauty, static-first
+
+Once Batch 1 is externally proven, start the real beauty pass on the surfaces
+that are already semantically stable.
+
+- refine spacing, hierarchy, and semantic color usage across:
+  - `status`
+  - `sources`
+  - `data list`
+  - `data show`
+  - guided `connect`
+- make the renderer feel distinctly Vana without saturating the terminal
+- improve line rhythm, section headings, bullets, and emphasis
+- upgrade README VHS assets so they reflect this calmer, more deliberate visual
+  language
+
+This is where the CLI should start to feel clearly above the current baseline,
+but without touching the machine contract.
+
+### Batch 3: Deep beauty, connect narrative
+
+After static surfaces are strong, apply the beauty work to the long-running
+human `connect` flow itself.
+
+- phase transitions that feel calm and intentional
+- better pacing from prepare -> connect -> continue -> success/failure
+- stronger trust framing before auth/input collection
+- tasteful spinner/checkmark transitions where terminal capabilities allow them
+- cleaner cancellation language
+- cleaner local-only vs Personal Server success distinction
+
+This batch should make `vana connect <source>` feel like a product journey, not
+just a sequence of log lines.
+
+### Batch 4: Runtime event enrichment for beauty
+
+Only after the human connect narrative is visibly better should we deepen the
+runtime event model further.
+
+- add any remaining phase/count/completion metadata needed for better summaries
+- avoid log scraping entirely for human rendering
+- preserve a pristine `--json` contract while making human progress richer
+
+This keeps the event model in service of product quality rather than speculative
+framework-building.
+
+### Batch 5: Public polish and release hardening
+
+- keep README demos, transcripts, installer paths, and Homebrew output aligned
+  to the same canary
+- acceptance-test the published artifact as if discovering the project cold
+- only then decide what is ready to graduate from canary to a more stable lane
+
+### Batching rule from here
+
+The branch should now prefer:
+
+- larger locally validated batches of product/UI work
+- fewer deployment cycles
+- deployment-triggering pushes only when the batch is worth external proof
+
+Break that rule only for:
+
+- a release-path regression
+- a platform-specific packaging failure
+- a public artifact problem that needs immediate isolation
+
+This is the right optimization now that the runtime and installer paths are
+substantially real.
+
+### Deployment streamlining guidance
+
+The current bottleneck is no longer local implementation speed. It is repeated
+publish/verify latency.
+
+The branch should therefore optimize for:
+
+- one larger, coherent product/UI batch per release cycle
+- one canonical local preflight before pushing
+- one canonical post-publish verification path
+
+Recommended operating model:
+
+1. Local preflight should become one command that runs the entire release-ready
+   guardrail set:
+   - tests
+   - lint/format
+   - build
+   - transcript capture
+   - demo rendering verification
+   - release-asset assertions
+2. The publish path should become one watcher-driven flow:
+   - wait for CI/canary
+   - sync Homebrew
+   - verify hosted installer
+   - verify demo assets
+3. Avoid pushing while a release lane is still proving the previous batch unless
+   the current head is blocked by:
+   - a release-path failure
+   - a packaging/platform regression
+   - a public artifact issue
+
+In other words:
+
+- local work should continue optimistically
+- release validation should be automated
+- publish-triggering pushes should be less frequent and more substantial
+
 ### Phase 1: Foundation
 
 - add capability detection
@@ -719,21 +872,23 @@ Use terminal recordings for human review:
 
 This matters because terminal beauty is hard to review from code alone.
 
-## The First Four Concrete Tasks
+## The Next Four Concrete Tasks
 
-When this work starts, do these first:
+From the current branch state, do these next:
 
-1. Introduce the render/capability/theme layer without changing command
-   semantics.
-2. Add VHS scaffolding plus one deterministic README-quality tape for `status`
-   and `sources`.
-3. Upgrade `vana connect` no-source, `status`, and `data show` to the new
-   human renderer.
-4. Add a real success summary and next-step block for successful `connect`
-   runs.
+1. Add a deterministic successful `connect` fixture and README-quality tape
+   that shows real progress and a real success moment.
+2. Make the post-success loop feel complete:
+   - strengthen `connect` success summary
+   - strengthen `vana data show`
+   - strengthen `vana status`
+3. Add broader transcript and acceptance coverage across migrated, legacy, and
+   unsupported connector flows.
+4. Then start the deep beauty pass on static surfaces before touching the
+   long-running `connect` narrative again.
 
-That sequence gives the highest user-visible value with the lowest architectural
-risk.
+That sequence gives the highest user-visible value from the current branch
+state while keeping release cycles efficient.
 
 ## Final Standard
 

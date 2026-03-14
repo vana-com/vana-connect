@@ -1,4 +1,4 @@
-Output docs/vhs/connect-guided.gif
+Output docs/vhs/connect-success.gif
 Require vana
 
 Set Shell "bash"
@@ -9,10 +9,6 @@ Set TypingSpeed 70ms
 Set CursorBlink false
 Set LoopOffset 45%
 
-Type "vana connect steam --no-input"
+Type "vana connect github"
 Enter
-Sleep 1500ms
-
-Type "vana connect"
-Enter
-Sleep 2200ms
+Sleep 3200ms

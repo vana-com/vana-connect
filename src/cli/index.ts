@@ -1207,6 +1207,15 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
     );
   }
 
+  if (
+    source.sessionPresent &&
+    (source.lastRunOutcome === CliOutcomeStatus.CONNECTED_LOCAL_ONLY ||
+      source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED ||
+      source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED)
+  ) {
+    details.push("Saved browser session available for faster reconnects.");
+  }
+
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
     details.push(
       `Inspect the latest local dataset with \`vana data show ${source.source}\` or use your Personal Server copy.`,
@@ -1558,10 +1567,18 @@ function summarizeResultData(
     lines.push(`Orders: ${data.orders.length}`);
   }
 
+  if (Array.isArray(data.playlists)) {
+    lines.push(`Playlists: ${data.playlists.length}`);
+  }
+
   if (
     exportSummary?.details &&
     typeof exportSummary.details === "string" &&
-    !lines.includes(exportSummary.details)
+    !lines.includes(exportSummary.details) &&
+    !Array.isArray(data.repositories) &&
+    !Array.isArray(data.starred) &&
+    !Array.isArray(data.orders) &&
+    !Array.isArray(data.playlists)
   ) {
     lines.push(exportSummary.details);
   }

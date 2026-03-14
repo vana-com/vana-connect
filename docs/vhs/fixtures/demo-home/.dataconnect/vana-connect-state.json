@@ -6,7 +6,7 @@
       "lastRunAt": "2026-03-14T13:10:03.677Z",
       "lastRunOutcome": "connected_local_only",
       "dataState": "collected_local",
-      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/github-result.json"
+      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/last-result.json"
     },
     "shop": {
       "lastRunAt": "2026-03-14T13:11:10.000Z",

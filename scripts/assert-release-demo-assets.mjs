@@ -3,11 +3,12 @@ import { execFileSync } from "node:child_process";
 const REQUIRED_ASSETS = [
   "status-and-sources.gif",
   "data-inspection.gif",
-  "connect-guided.gif",
+  "connect-success.gif",
   "status.txt",
   "sources.txt",
   "data-list.txt",
   "data-show-github.txt",
+  "connect-github-success.txt",
   "connect-steam-no-input.txt",
 ];
 

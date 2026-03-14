@@ -4,7 +4,7 @@ GitHub data
 • Repositories: 2
 • Starred: 0
 
-Path: ~/.dataconnect/github-result.json
+Path: ~/.dataconnect/last-result.json
 Updated: Mar 14, 2026, 8:10 AM
 State: Saved locally
 

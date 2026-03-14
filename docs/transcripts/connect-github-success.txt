@@ -1,0 +1,31 @@
+Connect GitHub
+
+→ Preparing
+Finding a connector for GitHub...
+Connector ready.
+Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+
+→ Connecting
+Connecting to GitHub...
+Collecting your data...
+  Checking GitHub login...
+  Login confirmed. Collecting data in background...
+  Profile (1/3): Fetching profile...
+  Repositories (2/3): Fetched 2 repositories
+  Starred (3/3): Fetched 0 starred repositories
+✓ Connected GitHub.
+  Collected your GitHub data and saved it locally.
+
+→ Collected
+• Profile: tnunamak
+• Repositories: 2
+• Starred: 0
+
+→ Saved locally
+• ~/.dataconnect/last-result.json
+  No Personal Server is available right now, so this run stayed local.
+  Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
+
+→ Next
+• Run `vana status`
+• Or inspect the data with `vana data show github`

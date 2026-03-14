@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-
 - demo media:
   [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif),
   [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif),
-  [`connect-guided.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+  [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
 ## What problem this solves
 
@@ -195,13 +195,13 @@ Branch prerelease preview media:
 
 - [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 - [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
-- [`connect-guided.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+- [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
 ![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 
 ![Vana data inspection demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
 
-![Vana guided connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-guided.gif)
+![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
 Current reviewable transcripts:
 
@@ -209,6 +209,7 @@ Current reviewable transcripts:
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
 - [`data show github`](./docs/transcripts/data-show-github.txt)
+- [`connect github`](./docs/transcripts/connect-github-success.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
 To seed the fixture home used by the first tapes:

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const transcriptsDir = path.join(repoRoot, "docs", "transcripts");
-const connectorsDir = resolveDataConnectorsDir();
+const fixturesRoot = path.join(repoRoot, "docs", "vhs", "fixtures");
 
 async function main() {
   await fsp.mkdir(transcriptsDir, { recursive: true });
@@ -17,6 +17,7 @@ async function main() {
   );
   const workingHome = path.join(tempRoot, "home");
   await prepareFixtures(workingHome);
+  const connectorsDir = resolveDataConnectorsDir();
   const binDir = path.join(tempRoot, "bin");
   await prepareDemoBin(binDir);
 
@@ -24,6 +25,7 @@ async function main() {
     ...process.env,
     HOME: workingHome,
     PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+    VANA_DEMO_FAST_SUCCESS: "1",
     ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
   };
 
@@ -45,6 +47,10 @@ async function main() {
       argv: ["vana", "data", "show", "github"],
     },
     {
+      name: "connect-github-success.txt",
+      argv: ["vana", "connect", "github"],
+    },
+    {
       name: "connect-steam-no-input.txt",
       argv: ["vana", "connect", "steam", "--no-input"],
       allowFailure: true,
@@ -52,7 +58,9 @@ async function main() {
   ];
 
   for (const command of commands) {
-    const output = run(command.argv, env, command.allowFailure);
+    const output = normalizeTranscript(
+      run(command.argv, env, command.allowFailure),
+    );
     const filePath = path.join(transcriptsDir, command.name);
     await fsp.writeFile(filePath, output, "utf8");
     process.stdout.write(
@@ -103,7 +111,19 @@ function run(argv, env, allowFailure = false) {
   }
 }
 
+function normalizeTranscript(output) {
+  return output.replace(
+    /(~\/\.dataconnect\/logs\/(?:run|fetch|setup)-[A-Za-z0-9_-]+)-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.log/g,
+    "$1-<timestamp>.log",
+  );
+}
+
 function resolveDataConnectorsDir() {
+  const fixtureRepo = path.join(fixturesRoot, "demo-data-connectors");
+  if (fs.existsSync(path.join(fixtureRepo, "registry.json"))) {
+    return fixtureRepo;
+  }
+
   if (process.env.VANA_DATA_CONNECTORS_DIR) {
     return process.env.VANA_DATA_CONNECTORS_DIR;
   }
