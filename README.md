@@ -92,6 +92,30 @@ iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install
 
 Both installers fetch the latest GitHub release asset for your platform, verify its checksum, and install `vana` without requiring Node or npm.
 
+### Canary / prerelease testing
+
+If you are testing an unreleased branch build, install from the branch installer and pass the prerelease tag explicitly.
+
+macOS and Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version v0.8.1-connect-cli-canary.9f79983
+```
+
+Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version v0.8.1-connect-cli-canary.9f79983
+```
+
+The current hosted prerelease is:
+
+`v0.8.1-connect-cli-canary.9f79983`
+
+Release page:
+
+`https://github.com/vana-com/vana-connect/releases/tag/v0.8.1-connect-cli-canary.9f79983`
+
 If you want the npm package path as a fallback:
 
 ```bash
