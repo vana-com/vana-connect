@@ -129,12 +129,20 @@ async function generateHomebrewFormula({
   end
 
   def install
-    payload_root = Dir.children(buildpath)
-      .reject { |entry| entry.start_with?(".") }
-      .find { |entry| File.directory?(buildpath/entry) } || "."
+    payload_root =
+      if (buildpath/"vana").exist? && (buildpath/"app").directory?
+        buildpath
+      else
+        child = Dir.children(buildpath)
+          .reject { |entry| entry.start_with?(".") }
+          .find { |entry| File.directory?(buildpath/entry) }
+        raise "Unable to locate Vana payload root" unless child
 
-    libexec.install (buildpath/payload_root/"app")
-    libexec.install (buildpath/payload_root/"vana")
+        buildpath/child
+      end
+
+    libexec.install payload_root/"app"
+    libexec.install payload_root/"vana"
     (bin/"vana").write_env_script libexec/"vana", VANA_APP_ROOT: libexec/"app"
   end
 
