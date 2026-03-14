@@ -5,6 +5,8 @@ const mockDetectPersonalServerTarget = vi.fn();
 const mockIngestResult = vi.fn();
 const mockReadCliState = vi.fn();
 const mockUpdateSourceState = vi.fn();
+const mockConfirm = vi.fn();
+const mockSelect = vi.fn();
 const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
 const mockExistsSync = vi.fn();
@@ -50,6 +52,13 @@ vi.mock("../../src/runtime/index.js", () => ({
 
 vi.mock("../../src/connectors/registry.js", () => ({
   listAvailableSources: mockListAvailableSources,
+}));
+
+vi.mock("@inquirer/prompts", () => ({
+  confirm: mockConfirm,
+  input: vi.fn(),
+  password: vi.fn(),
+  select: mockSelect,
 }));
 
 vi.mock("../../src/personal-server/index.js", () => ({
@@ -99,6 +108,8 @@ describe("runCli", () => {
     mockIngestResult.mockReset();
     mockReadCliState.mockReset();
     mockUpdateSourceState.mockReset();
+    mockConfirm.mockReset();
+    mockSelect.mockReset();
     mockReaddir.mockReset();
     mockReadFile.mockReset();
     mockExistsSync.mockReset();
@@ -118,6 +129,8 @@ describe("runCli", () => {
       { type: "ingest-skipped", reason: "personal_server_unavailable" },
     ]);
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
+    mockConfirm.mockResolvedValue(true);
+    mockSelect.mockResolvedValue("github");
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
@@ -632,6 +645,59 @@ describe("runCli", () => {
       "Specify a source. Run `vana sources` to see available options.",
     );
     expect(stdout).not.toContain("Choose a source to connect:");
+  });
+
+  it("prints a clear message when the guided source picker is cancelled", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    const promptError = new Error("prompt aborted");
+    promptError.name = "ExitPromptError";
+    mockSelect.mockRejectedValueOnce(promptError);
+    const originalStdoutTty = process.stdout.isTTY;
+    const originalStdinTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect"]);
+
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: originalStdoutTty,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: originalStdinTty,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(mockSelect).toHaveBeenCalled();
+    expect(stdout).toContain("Cancelled. No source was connected.");
+  });
+
+  it("prints a clear message when runtime setup is declined", async () => {
+    runtimeState = "missing";
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockConfirm.mockResolvedValueOnce(false);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(1);
+    expect(mockConfirm).toHaveBeenCalledWith({
+      message: "Install the local runtime now?",
+      default: true,
+    });
+    expect(stdout).toContain("Cancelled. Runtime setup was not started.");
   });
 
   it("prints a human success summary after collection completes", async () => {

@@ -190,10 +190,11 @@ async function runConnect(
         }
 
         const shouldContinue = await confirm({
-          message: "Continue?",
+          message: "Install the local runtime now?",
           default: true,
         });
         if (!shouldContinue) {
+          emit.info("Cancelled. Runtime setup was not started.");
           emit.event({
             type: "outcome",
             status: CliOutcomeStatus.SETUP_REQUIRED,
@@ -606,7 +607,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     });
   } catch (error) {
     if (isPromptCancelled(error)) {
-      emit.info("Cancelled.");
+      emit.info("Cancelled. No source was connected.");
       return 1;
     }
     throw error;
