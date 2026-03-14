@@ -23,6 +23,7 @@ Collecting your data...
 
 → Saved locally
 • ~/.dataconnect/last-result.json
+  Saved browser session available for faster reconnects.
   No Personal Server is available right now, so this run stayed local.
   Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
 

@@ -748,6 +748,37 @@ describe("runCli", () => {
     expect(steamIndex).toBeLessThan(spotifyIndex);
   });
 
+  it("suggests reviewing collected data when multiple sources are already connected", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "spotify", name: "Spotify", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+        spotify: {
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(
+      "Review your collected data with `vana data list`.",
+    );
+    expect(stdout).toContain("Connect another source with `vana sources`.");
+  });
+
   it("prints source_required in json mode when connect source is missing", async () => {
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "--json"]);
@@ -967,6 +998,9 @@ describe("runCli", () => {
     );
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
+    expect(stdout).toContain(
+      "Saved browser session available for faster reconnects.",
+    );
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
   });

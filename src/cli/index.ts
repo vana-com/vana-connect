@@ -524,6 +524,7 @@ async function runConnect(
     } else {
       emit.section("Saved locally");
       emit.bullet(formatDisplayPath(resultPath));
+      emit.detail("Saved browser session available for faster reconnects.");
       if (
         finalStatus === CliOutcomeStatus.INGEST_FAILED &&
         ingestFailureMessage
