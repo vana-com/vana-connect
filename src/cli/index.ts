@@ -695,13 +695,13 @@ async function runList(options: GlobalOptions): Promise<number> {
     emit.section(formatCountLabel(group.title, group.items.length));
     for (const source of group.items) {
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
-      if (source.installed) {
-        badges.push({ text: "installed", tone: "success" });
-      }
       if (source.authMode === "interactive") {
         badges.push({ text: "interactive", tone: "info" });
       } else if (source.authMode === "legacy") {
         badges.push({ text: "legacy", tone: "warning" });
+      }
+      if (source.installed) {
+        badges.push({ text: "installed", tone: "success" });
       }
       emit.sourceTitle(source.name, badges);
       if (source.description) {
