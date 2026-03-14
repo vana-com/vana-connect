@@ -654,6 +654,7 @@ async function runDataShow(
   source: string,
   options: GlobalOptions,
 ): Promise<number> {
+  const sourceLabels = createSourceLabelMap(await loadRegistrySources());
   const state = await readCliState();
   const record = state.sources[source];
   const resultPath = record?.lastResultPath;
@@ -665,12 +666,12 @@ async function runDataShow(
         `${JSON.stringify({
           error: "dataset_not_found",
           source,
-          message: `No collected dataset found for ${displaySource(source)}. Run \`vana connect ${source}\` first.`,
+          message: `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
         })}\n`,
       );
     } else {
       emit.info(
-        `No collected dataset found for ${displaySource(source)}. Run \`vana connect ${source}\` first.`,
+        `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
       );
     }
     return 1;
@@ -687,7 +688,7 @@ async function runDataShow(
     }
 
     const summary = summarizeResultData(data);
-    emit.info(`${displaySource(source)} data`);
+    emit.info(`${displaySource(source, sourceLabels)} data`);
     emit.info("");
     if (summary) {
       for (const line of summary.lines) {
@@ -715,12 +716,13 @@ async function runDataPath(
   source: string,
   options: GlobalOptions,
 ): Promise<number> {
+  const sourceLabels = createSourceLabelMap(await loadRegistrySources());
   const state = await readCliState();
   const resultPath = state.sources[source]?.lastResultPath;
 
   if (!resultPath) {
     createEmitter(options).info(
-      `No collected dataset found for ${displaySource(source)}.`,
+      `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
     );
     return 1;
   }
