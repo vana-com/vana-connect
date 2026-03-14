@@ -166,6 +166,8 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
+      count: 2,
+      recommendedSource: { id: "github", name: "GitHub", installed: true },
       sources: [
         { id: "github", name: "GitHub", installed: true },
         { id: "steam", name: "Steam", installed: false },
@@ -198,6 +200,9 @@ describe("runCli", () => {
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
       personalServerUrl: "http://localhost:8080",
+      nextSteps: expect.arrayContaining([
+        "Inspect the latest dataset with `vana data show steam`.",
+      ]),
       sources: [
         {
           source: "steam",
@@ -227,7 +232,7 @@ describe("runCli", () => {
 
       → Runtime
       The local runtime is already installed.
-        Browser: /tmp/playwright/chrome
+        Browser:          /tmp/playwright/chrome
 
       → Next
         • Check overall status with \`vana status\`.
@@ -335,9 +340,9 @@ describe("runCli", () => {
       "Vana Connect status
 
       → Environment
-        Runtime: installed
-        Browser: /tmp/playwright/chrome
-        Personal Server: unavailable
+        Runtime:          installed
+        Browser:          /tmp/playwright/chrome
+        Personal Server:  unavailable
 
       → Needs attention (1)
       Shop [legacy] [manual step]
@@ -347,9 +352,10 @@ describe("runCli", () => {
       → Connected (1)
       GitHub [interactive] [local]
         Inspect the latest local dataset with \`vana data show github\`.
-        Session: Saved for faster reconnects.
+        Session:          Saved for faster reconnects.
+        State:            Saved locally
         Updated: <timestamp>
-        Path: /tmp/.dataconnect/github-result.json
+        Path:             /tmp/.dataconnect/github-result.json
 
       → Next
         • Complete the manual browser step for Shop with \`vana connect shop\`.
@@ -471,7 +477,8 @@ describe("runCli", () => {
       "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
     );
     expect(stdout).toContain("Run `vana connect shop` without `--no-input`.");
-    expect(stdout).toContain("Run log: /tmp/logs/run.log");
+    expect(stdout).toContain("Run log:");
+    expect(stdout).toContain("/tmp/logs/run.log");
     expect(stdout).not.toContain("LegacyAuthError");
   });
 
@@ -567,9 +574,9 @@ describe("runCli", () => {
         • Repositories: 2
         • Starred: 0
 
-        Path: /tmp/.dataconnect/github-result.json
+        Path:             /tmp/.dataconnect/github-result.json
         Updated: <timestamp>
-        State: Saved locally
+        State:            Saved locally
 
       → Next
         • Print the path with \`vana data path github\`.
@@ -577,6 +584,71 @@ describe("runCli", () => {
         • Check overall status with \`vana status\`.
       "
     `);
+  });
+
+  it("returns guided next steps when data show is missing in json mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {},
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "data",
+      "show",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout)).toEqual({
+      error: "dataset_not_found",
+      source: "github",
+      message:
+        "No collected dataset found for GitHub. Run `vana connect github` first.",
+      nextSteps: ["Run `vana connect github` to collect data."],
+    });
+  });
+
+  it("shows guided next steps when data show is missing in human mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+      {
+        id: "spotify",
+        name: "Spotify",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        spotify: {
+          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          dataState: "collected_local",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "show", "github"]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain(
+      "No collected dataset found for GitHub. Run `vana connect github` first.",
+    );
+    expect(stdout).toContain("→ Next");
+    expect(stdout).toContain("Collect data with `vana connect github`.");
+    expect(stdout).toContain("Inspect other datasets with `vana data list`.");
   });
 
   it("renders a stable human transcript for data path", async () => {
@@ -636,20 +708,29 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "data", "list", "--json"]);
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout).datasets).toMatchObject([
-      {
+    expect(JSON.parse(stdout)).toMatchObject({
+      count: 2,
+      latestDataset: {
         source: "github",
         name: "GitHub",
         authMode: "interactive",
         dataState: "collected_local",
       },
-      {
-        source: "chatgpt",
-        name: "ChatGPT",
-        authMode: "legacy",
-        dataState: "collected_local",
-      },
-    ]);
+      datasets: [
+        {
+          source: "github",
+          name: "GitHub",
+          authMode: "interactive",
+          dataState: "collected_local",
+        },
+        {
+          source: "chatgpt",
+          name: "ChatGPT",
+          authMode: "legacy",
+          dataState: "collected_local",
+        },
+      ],
+    });
   });
 
   it("renders a stable human transcript for data list", async () => {
@@ -701,20 +782,43 @@ describe("runCli", () => {
         Profile: tnunamak
         Repositories: 2
         Starred: 0
+        State:            Saved locally
         Updated: <timestamp>
-        Path: /tmp/.dataconnect/github-result.json
+        Path:             /tmp/.dataconnect/github-result.json
 
       Spotify [local]
         Profile: tnunamak
         Playlists: 2
+        State:            Saved locally
         Updated: <timestamp>
-        Path: /tmp/.dataconnect/spotify-result.json
+        Path:             /tmp/.dataconnect/spotify-result.json
 
       → Next
         • Inspect GitHub with \`vana data show github\`.
         • Or print its path with \`vana data path github\`.
       "
     `);
+  });
+
+  it("guides the first data collection from data list when nothing is collected", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {},
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "list"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("No local datasets collected yet.");
+    expect(stdout).toContain("→ Next");
+    expect(stdout).toContain(
+      "Collect your first dataset with `vana connect github`.",
+    );
+    expect(stdout).toContain("Check overall status with `vana status`.");
   });
 
   it("shows collected data paths in json mode", async () => {
@@ -852,12 +956,15 @@ describe("runCli", () => {
       → Ready now (2)
       GitHub [interactive]
         Exports GitHub data.
+        Flow: prompts in this terminal when the source needs input.
       Spotify [interactive]
         Exports Spotify data.
+        Flow: prompts in this terminal when the source needs input.
 
       → Manual steps (1)
       ChatGPT [legacy]
         Exports ChatGPT data.
+        Flow: finishes with a manual browser step on this machine.
 
       → Next
         • Start with GitHub using \`vana connect github\`.
@@ -937,17 +1044,29 @@ describe("runCli", () => {
   });
 
   it("prints source_required in json mode when connect source is missing", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "--json"]);
 
     expect(exitCode).toBe(1);
     expect(JSON.parse(stdout)).toEqual({
       error: "source_required",
-      message: "Specify a source. Run `vana sources` to see available options.",
+      message:
+        "Specify a source. Start with `vana connect github`, or run `vana sources` to see available options.",
+      suggestedSource: {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
     });
   });
 
   it("fails cleanly when connect source is missing in a non-interactive shell", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -973,7 +1092,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(1);
     expect(stdout).toContain(
-      "Specify a source. Run `vana sources` to see available options.",
+      "Specify a source. Start with `vana connect github`, or run `vana sources` to see available options.",
     );
     expect(stdout).not.toContain("Choose a source to connect:");
   });
@@ -1155,8 +1274,10 @@ describe("runCli", () => {
     );
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain("Session: Saved for faster reconnects.");
-    expect(stdout).toContain("Server: Unavailable, so this run stayed local.");
+    expect(stdout).toContain("Session:");
+    expect(stdout).toContain("Saved for faster reconnects.");
+    expect(stdout).toContain("Server:");
+    expect(stdout).toContain("Unavailable, so this run stayed local.");
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
   });
@@ -1200,7 +1321,8 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Saved locally");
-    expect(stdout).toContain("Server: Sync failed: server exploded");
+    expect(stdout).toContain("Server:");
+    expect(stdout).toContain("Sync failed: server exploded");
     expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
       "github",
       expect.objectContaining({

@@ -72,6 +72,18 @@ interface Emitter {
 
 type RenderTone = "accent" | "success" | "warning" | "error" | "muted" | "info";
 
+type SourceStatusDetail =
+  | {
+      kind: "text";
+      message: string;
+    }
+  | {
+      kind: "row";
+      label: string;
+      value: string;
+      tone?: RenderTone;
+    };
+
 export async function runCli(argv = process.argv): Promise<number> {
   const normalizedArgv = normalizeArgv(argv);
   const parsedOptions = extractGlobalOptions(normalizedArgv);
@@ -274,6 +286,10 @@ async function runConnect(
     emit.info("Connector ready.");
     if (sourceDetails?.description) {
       emit.info(sourceDetails.description);
+    }
+    const connectTrustMessage = describeConnectTrust(sourceDetails?.authMode);
+    if (connectTrustMessage) {
+      emit.detail(connectTrustMessage);
     }
 
     const profilePath = path.join(
@@ -602,25 +618,35 @@ async function runConnect(
 async function runConnectEntry(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const sources = await loadRegistrySources();
+  const suggestedSource =
+    sources.find((source) => source.authMode !== "legacy") ?? sources[0];
+  const missingSourceMessage =
+    formatMissingConnectSourceMessage(suggestedSource);
 
   if (options.json) {
     process.stdout.write(
       `${JSON.stringify({
         error: "source_required",
-        message:
-          "Specify a source. Run `vana sources` to see available options.",
+        message: missingSourceMessage,
+        suggestedSource: suggestedSource
+          ? {
+              id: suggestedSource.id,
+              name: suggestedSource.name,
+              authMode: suggestedSource.authMode,
+            }
+          : null,
       })}\n`,
     );
     return 1;
   }
 
   if (options.noInput) {
-    emit.info("Specify a source. Run `vana sources` to see available options.");
+    emit.info(missingSourceMessage);
     return 1;
   }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    emit.info("Specify a source. Run `vana sources` to see available options.");
+    emit.info(missingSourceMessage);
     return 1;
   }
 
@@ -661,7 +687,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
       pageSize: 8,
       choices: sources.map((item) => ({
         name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}`,
-        description: item.description,
+        description: formatSourcePickerDescription(item),
         short: item.name,
         value: item.id,
       })),
@@ -687,8 +713,18 @@ async function runList(options: GlobalOptions): Promise<number> {
     ...source,
     installed: installedSourceIds.has(source.id),
   }));
+  const recommendedSource =
+    enrichedSources.find((source) => source.authMode !== "legacy") ??
+    enrichedSources[0] ??
+    null;
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({ sources: enrichedSources })}\n`);
+    process.stdout.write(
+      `${JSON.stringify({
+        count: enrichedSources.length,
+        recommendedSource,
+        sources: enrichedSources,
+      })}\n`,
+    );
     return 0;
   }
 
@@ -729,24 +765,24 @@ async function runList(options: GlobalOptions): Promise<number> {
       if (source.description) {
         emit.detail(source.description);
       }
+      emit.detail(describeSourceFlow(source.authMode));
     }
   });
   if (groups.length === 0) {
     emit.info("No sources are available right now.");
   } else {
-    const recommendedSource =
-      enrichedSources.find((source) => source.authMode !== "legacy") ??
-      enrichedSources[0];
-    emit.blank();
-    emit.section("Next");
-    emit.bullet(
-      `Start with ${recommendedSource.name} using ${emit.code(
-        `vana connect ${recommendedSource.id}`,
-      )}.`,
-    );
-    emit.bullet(
-      `Or browse the guided picker with ${emit.code("vana connect")}.`,
-    );
+    if (recommendedSource) {
+      emit.blank();
+      emit.section("Next");
+      emit.bullet(
+        `Start with ${recommendedSource.name} using ${emit.code(
+          `vana connect ${recommendedSource.id}`,
+        )}.`,
+      );
+      emit.bullet(
+        `Or browse the guided picker with ${emit.code("vana connect")}.`,
+      );
+    }
   }
   return 0;
 }
@@ -768,9 +804,15 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     personalServerUrl: personalServer.url,
     sources,
   };
+  const nextSteps = buildStatusNextSteps(
+    status.sources,
+    sourceLabels,
+    status.runtime,
+    registrySources,
+  );
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify(status)}\n`);
+    process.stdout.write(`${JSON.stringify({ ...status, nextSteps })}\n`);
     return 0;
   }
 
@@ -833,16 +875,14 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
       const details = formatSourceStatusDetails(source);
       for (const detail of details) {
-        emit.detail(detail);
+        if (detail.kind === "row") {
+          emit.keyValue(detail.label, detail.value, detail.tone ?? "muted");
+          continue;
+        }
+        emit.detail(detail.message);
       }
     }
   });
-  const nextSteps = buildStatusNextSteps(
-    status.sources,
-    sourceLabels,
-    status.runtime,
-    registrySources,
-  );
   if (nextSteps.length > 0) {
     emit.blank();
     emit.section("Next");
@@ -911,9 +951,10 @@ async function runSetup(options: GlobalOptions): Promise<number> {
 
 async function runDataList(options: GlobalOptions): Promise<number> {
   const state = await readCliState();
+  const registrySources = await loadRegistrySources();
   const sources = await gatherSourceStatuses(
     state.sources,
-    createSourceMetadataMap(await loadRegistrySources()),
+    createSourceMetadataMap(registrySources),
   );
   const datasetRecords = await Promise.all(
     sources
@@ -933,16 +974,36 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   datasetRecords.sort(compareDatasetOrder);
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({ datasets: datasetRecords })}\n`);
+    process.stdout.write(
+      `${JSON.stringify({
+        count: datasetRecords.length,
+        latestDataset: datasetRecords[0] ?? null,
+        datasets: datasetRecords,
+      })}\n`,
+    );
     return 0;
   }
 
   const emit = createEmitter(options);
   if (datasetRecords.length === 0) {
+    const suggestedSource =
+      registrySources.find((source) => source.authMode !== "legacy") ??
+      registrySources[0];
     emit.title("Collected data");
     emit.blank();
     emit.info("No local datasets collected yet.");
-    emit.info("Run `vana connect <source>` to collect data.");
+    emit.blank();
+    emit.section("Next");
+    if (suggestedSource) {
+      emit.bullet(
+        `Collect your first dataset with ${emit.code(`vana connect ${suggestedSource.id}`)}.`,
+      );
+    } else {
+      emit.bullet(
+        `Collect your first dataset with ${emit.code("vana connect")}.`,
+      );
+    }
+    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   }
 
@@ -967,6 +1028,13 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       for (const line of dataset.summary.lines) {
         emit.detail(line);
       }
+    }
+    if (dataset.dataState === "ingested_personal_server") {
+      emit.keyValue("State", "Synced to Personal Server", "success");
+    } else if (dataset.dataState === "ingest_failed") {
+      emit.keyValue("State", "Saved locally, sync failed", "warning");
+    } else {
+      emit.keyValue("State", "Saved locally", "muted");
     }
     if (dataset.lastRunAt) {
       emit.keyValue("Updated", formatTimestamp(dataset.lastRunAt), "muted");
@@ -1008,12 +1076,26 @@ async function runDataShow(
           error: "dataset_not_found",
           source,
           message: `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
+          nextSteps: [
+            `Run \`vana connect ${source}\` to collect data.`,
+            ...(datasetCount > 0
+              ? ["Run `vana data list` to inspect other datasets."]
+              : []),
+          ],
         })}\n`,
       );
     } else {
       emit.info(
         `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
       );
+      emit.blank();
+      emit.section("Next");
+      emit.bullet(`Collect data with ${emit.code(`vana connect ${source}`)}.`);
+      if (datasetCount > 0) {
+        emit.bullet(
+          `Inspect other datasets with ${emit.code("vana data list")}.`,
+        );
+      }
     }
     return 1;
   }
@@ -1316,51 +1398,82 @@ async function listInstalledConnectorFiles(): Promise<
   }
 }
 
-function formatSourceStatusDetails(source: SourceStatus): string[] {
-  const details: string[] = [];
+function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
+  const details: SourceStatusDetail[] = [];
   const displayName = source.name ?? displaySource(source.source);
 
   if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
     details.push(
       source.lastError
-        ? `${source.lastError}. Run \`vana connect ${source.source}\` interactively.`
-        : `Run \`vana connect ${source.source}\` interactively.`,
+        ? {
+            kind: "text",
+            message: `${source.lastError}. Run \`vana connect ${source.source}\` interactively.`,
+          }
+        : {
+            kind: "text",
+            message: `Run \`vana connect ${source.source}\` interactively.`,
+          },
     );
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-    details.push(
-      `Run \`vana connect ${source.source}\` without \`--no-input\` to complete the manual browser step.`,
-    );
+    details.push({
+      kind: "text",
+      message: `Run \`vana connect ${source.source}\` without \`--no-input\` to complete the manual browser step.`,
+    });
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
     details.push(
       source.lastError
-        ? formatHumanSourceMessage(source.lastError, source.source, displayName)
-        : "The last connector run failed.",
+        ? {
+            kind: "text",
+            message: formatHumanSourceMessage(
+              source.lastError,
+              source.source,
+              displayName,
+            ),
+          }
+        : {
+            kind: "text",
+            message: "The last connector run failed.",
+          },
     );
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
     details.push(
       source.lastError
-        ? formatHumanSourceMessage(source.lastError, source.source, displayName)
-        : "No connector is available for this source.",
+        ? {
+            kind: "text",
+            message: formatHumanSourceMessage(
+              source.lastError,
+              source.source,
+              displayName,
+            ),
+          }
+        : {
+            kind: "text",
+            message: "No connector is available for this source.",
+          },
     );
   }
 
   if (!source.lastRunOutcome && source.installed) {
-    details.push(`Run \`vana connect ${source.source}\` to collect data.`);
+    details.push({
+      kind: "text",
+      message: `Run \`vana connect ${source.source}\` to collect data.`,
+    });
   }
 
   if (
     source.lastRunOutcome === CliOutcomeStatus.CONNECTED_LOCAL_ONLY &&
     source.lastResultPath
   ) {
-    details.push(
-      `Inspect the latest local dataset with \`vana data show ${source.source}\`.`,
-    );
+    details.push({
+      kind: "text",
+      message: `Inspect the latest local dataset with \`vana data show ${source.source}\`.`,
+    });
   }
 
   if (
@@ -1369,29 +1482,74 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
       source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED ||
       source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED)
   ) {
-    details.push("Session: Saved for faster reconnects.");
+    details.push({
+      kind: "row",
+      label: "Session",
+      value: "Saved for faster reconnects.",
+      tone: "muted",
+    });
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
-    details.push(
-      `Inspect the latest local dataset with \`vana data show ${source.source}\` or use your Personal Server copy.`,
-    );
+    details.push({
+      kind: "text",
+      message: `Inspect the latest local dataset with \`vana data show ${source.source}\` or use your Personal Server copy.`,
+    });
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED) {
     details.push(
       source.lastError
-        ? `${source.lastError} Inspect the local dataset with \`vana data show ${source.source}\`.`
-        : `Personal Server sync failed. Inspect the local dataset with \`vana data show ${source.source}\`.`,
+        ? {
+            kind: "text",
+            message: `${source.lastError} Inspect the local dataset with \`vana data show ${source.source}\`.`,
+          }
+        : {
+            kind: "text",
+            message: `Personal Server sync failed. Inspect the local dataset with \`vana data show ${source.source}\`.`,
+          },
     );
   }
 
+  if (source.dataState === "ingested_personal_server") {
+    details.push({
+      kind: "row",
+      label: "State",
+      value: "Synced to Personal Server",
+      tone: "success",
+    });
+  } else if (source.dataState === "ingest_failed") {
+    details.push({
+      kind: "row",
+      label: "State",
+      value: "Saved locally, sync failed",
+      tone: "warning",
+    });
+  } else if (source.dataState === "collected_local") {
+    details.push({
+      kind: "row",
+      label: "State",
+      value: "Saved locally",
+      tone: "muted",
+    });
+  }
+
   if (source.lastRunAt) {
-    details.push(`Updated: ${formatTimestamp(source.lastRunAt)}`);
+    details.push({
+      kind: "row",
+      label: "Updated",
+      value: formatTimestamp(source.lastRunAt),
+      tone: "muted",
+    });
   }
 
   if (source.lastResultPath && source.dataState !== "none") {
-    details.push(`Path: ${formatDisplayPath(source.lastResultPath)}`);
+    details.push({
+      kind: "row",
+      label: "Path",
+      value: formatDisplayPath(source.lastResultPath),
+      tone: "muted",
+    });
   }
 
   return details;
@@ -1491,6 +1649,61 @@ function formatSetupConnectStep(
   }
 
   return `Connect a source with ${emit.code("vana connect")}.`;
+}
+
+function describeConnectTrust(
+  authMode: "automated" | "interactive" | "legacy" | undefined,
+): string | null {
+  if (authMode === "legacy") {
+    return "If needed, Vana Connect will open a local browser session on this machine.";
+  }
+
+  if (authMode === "interactive") {
+    return "If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.";
+  }
+
+  return null;
+}
+
+function formatMissingConnectSourceMessage(
+  source:
+    | {
+        id: string;
+        name: string;
+      }
+    | undefined,
+): string {
+  if (source) {
+    return `Specify a source. Start with \`vana connect ${source.id}\`, or run \`vana sources\` to see available options.`;
+  }
+
+  return "Specify a source. Run `vana sources` to see available options.";
+}
+
+function describeSourceFlow(
+  authMode: "automated" | "interactive" | "legacy" | undefined,
+): string {
+  if (authMode === "legacy") {
+    return "Flow: finishes with a manual browser step on this machine.";
+  }
+
+  if (authMode === "interactive") {
+    return "Flow: prompts in this terminal when the source needs input.";
+  }
+
+  return "Flow: runs without extra input when the source supports it.";
+}
+
+function formatSourcePickerDescription(source: {
+  description?: string;
+  authMode?: "automated" | "interactive" | "legacy";
+}): string {
+  const flow = describeSourceFlow(source.authMode);
+  if (!source.description) {
+    return flow;
+  }
+
+  return `${source.description} ${flow}`;
 }
 
 function normalizeArgv(argv: string[]): string[] {

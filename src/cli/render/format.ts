@@ -6,6 +6,7 @@ import { createSymbols, type RenderSymbols } from "./symbols.js";
 import { createTheme, type RenderTheme } from "./theme.js";
 
 type Tone = "accent" | "success" | "warning" | "error" | "muted" | "info";
+const KEY_VALUE_LABEL_WIDTH = 17;
 
 export interface HumanRenderer {
   readonly capabilities: RenderCapabilities;
@@ -44,7 +45,12 @@ export function createHumanRenderer(): HumanRenderer {
       return `${theme.accent(symbols.arrow)} ${theme.heading(text)}`;
     },
     keyValue(label, value, tone = "muted") {
-      return `  ${theme.label(`${label}:`)} ${applyTone(theme, tone, value)}`;
+      const rawLabel = `${label}:`;
+      const paddedLabel =
+        rawLabel.length >= KEY_VALUE_LABEL_WIDTH
+          ? rawLabel
+          : rawLabel.padEnd(KEY_VALUE_LABEL_WIDTH);
+      return `  ${theme.label(paddedLabel)} ${applyTone(theme, tone, value)}`;
     },
     sourceTitle(name, badges = []) {
       if (badges.length === 0) {
