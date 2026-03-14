@@ -4,6 +4,7 @@ import {
   cliDataPathSchema,
   cliDataShowSchema,
   cliDoctorSchema,
+  cliEventSchema,
   datasetNotFoundErrorSchema,
   cliSourcesSchema,
   cliStatusSchema,
@@ -542,7 +543,7 @@ describe("runCli", () => {
     const lines = stdout
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => cliEventSchema.parse(JSON.parse(line)));
 
     expect(exitCode).toBe(1);
     expect(lines).toContainEqual(
@@ -1583,7 +1584,7 @@ describe("runCli", () => {
     const lines = stdout
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => cliEventSchema.parse(JSON.parse(line)));
     expect(lines).toContainEqual(
       expect.objectContaining({
         type: "outcome",

@@ -160,6 +160,13 @@ export const cliDataShowSchema = z.object({
 });
 export type CliDataShow = z.infer<typeof cliDataShowSchema>;
 
+export const progressPhaseSchema = z.object({
+  step: z.number(),
+  total: z.number(),
+  label: z.string(),
+});
+export type ProgressPhase = z.infer<typeof progressPhaseSchema>;
+
 export const sourceRequiredErrorSchema = z.object({
   error: z.literal("source_required"),
   message: z.string(),
@@ -206,7 +213,7 @@ export const cliEventSchema = z.object({
   runtime: z.string().optional(),
   reason: z.string().optional(),
   count: z.number().optional(),
-  phase: z.unknown().optional(),
+  phase: progressPhaseSchema.optional(),
 });
 export type CliEvent = z.infer<typeof cliEventSchema>;
 
