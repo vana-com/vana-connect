@@ -78,6 +78,8 @@ If you prefer to integrate the SDK into an existing project, follow the steps be
 
 ### Install
 
+If you are evaluating this branch before it lands on `main`, use the prerelease path in the next section. The stable install commands below are the intended post-merge install path.
+
 macOS and Linux:
 
 ```bash
