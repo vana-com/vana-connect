@@ -38,6 +38,15 @@ export interface RuntimeCollectionCompleteEvent {
   logPath: string;
 }
 
+export interface RuntimeProgressEvent {
+  type: "progress-update";
+  source: string;
+  logPath: string;
+  message?: string;
+  count?: number;
+  phase?: unknown;
+}
+
 export interface RuntimeErrorEvent {
   type: "runtime-error";
   source: string;
@@ -51,6 +60,7 @@ export type RuntimeEvent =
   | RuntimeHeadedRequiredEvent
   | RuntimeLegacyAuthEvent
   | RuntimeCollectionCompleteEvent
+  | RuntimeProgressEvent
   | RuntimeErrorEvent;
 
 export interface RuntimeInputRequest {

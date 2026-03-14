@@ -75,6 +75,8 @@ export const cliEventSchema = z.object({
   target: z.string().optional(),
   runtime: z.string().optional(),
   reason: z.string().optional(),
+  count: z.number().optional(),
+  phase: z.unknown().optional(),
 });
 export type CliEvent = z.infer<typeof cliEventSchema>;
 

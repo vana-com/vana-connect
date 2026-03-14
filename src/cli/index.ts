@@ -360,6 +360,14 @@ async function runConnect(
         return 1;
       }
 
+      if (event.type === "progress-update") {
+        const progressLine = formatProgressUpdate(event);
+        if (progressLine) {
+          emit.detail(progressLine);
+        }
+        continue;
+      }
+
       if (event.type === "runtime-error") {
         await updateSourceState(resolution.source, {
           lastRunAt: new Date().toISOString(),
@@ -1349,6 +1357,31 @@ function toneForRuntime(runtime: CliStatus["runtime"]): RenderTone {
     return "warning";
   }
   return "muted";
+}
+
+function formatProgressUpdate(event: {
+  message?: string;
+  count?: number;
+  phase?: unknown;
+}): string | null {
+  const phaseLabel =
+    event.phase &&
+    typeof event.phase === "object" &&
+    "label" in event.phase &&
+    typeof (event.phase as { label?: unknown }).label === "string"
+      ? (event.phase as { label: string }).label
+      : null;
+
+  if (phaseLabel && event.message) {
+    return `${phaseLabel}: ${event.message}`;
+  }
+  if (event.message) {
+    return event.message;
+  }
+  if (phaseLabel && typeof event.count === "number") {
+    return `${phaseLabel}: ${event.count}`;
+  }
+  return null;
 }
 
 function inferInstalledAuthMode(

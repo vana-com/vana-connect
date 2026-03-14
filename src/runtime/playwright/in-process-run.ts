@@ -581,6 +581,14 @@ function createPageApi({
       message?: string;
       count?: number;
     }) => {
+      pushEvent({
+        type: "progress-update",
+        source: request.source,
+        logPath,
+        phase,
+        message,
+        count,
+      });
       writeLog(
         `[progress] ${JSON.stringify({
           phase,
