@@ -59,7 +59,7 @@ export function createHumanRenderer(): HumanRenderer {
       return `  ${theme.muted(symbols.bullet)} ${text}`;
     },
     badge(text, tone = "muted") {
-      return applyTone(theme, tone, `[${text}]`);
+      return `${theme.muted("[")}${applyTone(theme, tone, text)}${theme.muted("]")}`;
     },
   };
 }
