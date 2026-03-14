@@ -501,7 +501,18 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const sources = await loadRegistrySources();
 
-  if (options.json || options.noInput) {
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        error: "source_required",
+        message:
+          "Specify a source. Run `vana sources` to see available options.",
+      })}\n`,
+    );
+    return 1;
+  }
+
+  if (options.noInput) {
     emit.info("Specify a source. Run `vana sources` to see available options.");
     return 1;
   }
