@@ -101,13 +101,13 @@ jobs:
           RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           pnpm package-managers:generate -- --release-tag "$RELEASE_TAG" --package-version "$PACKAGE_VERSION"
-      - name: Attach package-manager metadata
+      - name: Attach release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
-          mapfile -t PACKAGE_MANAGER_FILES < <(find artifacts/package-managers -type f | sort)
-          gh release upload "$RELEASE_TAG" "${PACKAGE_MANAGER_FILES[@]}" --clobber
+          mapfile -t RELEASE_FILES < <(pnpm release:collect-assets)
+          gh release upload "$RELEASE_TAG" "${RELEASE_FILES[@]}" --clobber
   verify-release-install:
     needs: release
     runs-on: ubuntu-latest
