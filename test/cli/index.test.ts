@@ -729,6 +729,12 @@ describe("runCli", () => {
         message: "Fetching repositories...",
       },
       {
+        type: "status-update",
+        source: "github",
+        logPath: "/tmp/logs/run.log",
+        message: "Complete! 2 repositories and 0 starred repos collected.",
+      },
+      {
         type: "collection-complete",
         source: "github",
         resultPath: "/tmp/.dataconnect/github-result.json",
@@ -755,7 +761,10 @@ describe("runCli", () => {
     expect(stdout).toContain("Profile: tnunamak");
     expect(stdout).toContain("Repositories: 2");
     expect(stdout).toContain("Checking GitHub login...");
-    expect(stdout).toContain("Repositories: Fetching repositories...");
+    expect(stdout).toContain("Repositories (2/3): Fetching repositories...");
+    expect(stdout).not.toContain(
+      "Complete! 2 repositories and 0 starred repos collected.",
+    );
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
     expect(stdout).toContain("Next");

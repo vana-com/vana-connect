@@ -369,7 +369,7 @@ async function runConnect(
       }
 
       if (event.type === "status-update") {
-        if (event.message) {
+        if (event.message && shouldRenderStatusUpdate(event.message)) {
           emit.detail(event.message);
         }
         continue;
@@ -1378,17 +1378,39 @@ function formatProgressUpdate(event: {
     typeof (event.phase as { label?: unknown }).label === "string"
       ? (event.phase as { label: string }).label
       : null;
+  const phaseStep =
+    event.phase &&
+    typeof event.phase === "object" &&
+    "step" in event.phase &&
+    typeof (event.phase as { step?: unknown }).step === "number"
+      ? (event.phase as { step: number }).step
+      : null;
+  const phaseTotal =
+    event.phase &&
+    typeof event.phase === "object" &&
+    "total" in event.phase &&
+    typeof (event.phase as { total?: unknown }).total === "number"
+      ? (event.phase as { total: number }).total
+      : null;
+  const phasePrefix =
+    phaseLabel && phaseStep != null && phaseTotal != null
+      ? `${phaseLabel} (${phaseStep}/${phaseTotal})`
+      : phaseLabel;
 
-  if (phaseLabel && event.message) {
-    return `${phaseLabel}: ${event.message}`;
+  if (phasePrefix && event.message) {
+    return `${phasePrefix}: ${event.message}`;
   }
   if (event.message) {
     return event.message;
   }
-  if (phaseLabel && typeof event.count === "number") {
-    return `${phaseLabel}: ${event.count}`;
+  if (phasePrefix && typeof event.count === "number") {
+    return `${phasePrefix}: ${event.count}`;
   }
   return null;
+}
+
+function shouldRenderStatusUpdate(message: string): boolean {
+  return !/^complete\b/i.test(message.trim());
 }
 
 function inferInstalledAuthMode(
