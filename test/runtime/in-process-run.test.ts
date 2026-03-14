@@ -265,4 +265,52 @@ describe("startInProcessConnectorRun", () => {
       repositories: [],
     });
   });
+
+  it("treats setData('result', ...) as collection completion", async () => {
+    createFakeRuntime();
+    const connectorPath = await writeConnector(`
+(async () => {
+  await page.setData("status", "Collecting");
+  await page.setData("result", {
+    profile: { username: "tester" },
+    repositories: []
+  });
+  await page.setData("status", "Complete!");
+})();
+`);
+
+    const { startInProcessConnectorRun } =
+      await import("../../src/runtime/playwright/in-process-run.js");
+
+    const handle = startInProcessConnectorRun({
+      request: {
+        connectorPath,
+        source: "github",
+        noInput: false,
+      },
+      logPath: path.join(os.tmpdir(), "vana-connect-setdata-result.log"),
+    });
+
+    const events = [];
+    for await (const event of handle.events()) {
+      events.push(event);
+    }
+
+    const completion = events.find(
+      (event) => event.type === "collection-complete",
+    );
+    expect(completion).toEqual(
+      expect.objectContaining({
+        type: "collection-complete",
+        source: "github",
+      }),
+    );
+
+    const resultPath = (completion as { resultPath: string }).resultPath;
+    const result = JSON.parse(await fs.readFile(resultPath, "utf8"));
+    expect(result).toEqual({
+      profile: { username: "tester" },
+      repositories: [],
+    });
+  });
 });

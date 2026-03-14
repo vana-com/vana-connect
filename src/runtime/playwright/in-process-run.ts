@@ -43,6 +43,7 @@ type RunState = {
   headless: boolean;
   allowHeaded: boolean;
   hasResult: boolean;
+  resultPath: string | null;
   cookies: Cookie[];
 };
 
@@ -279,6 +280,7 @@ export function startInProcessConnectorRun({
       headless: true,
       allowHeaded: !request.noInput,
       hasResult: false,
+      resultPath: null,
       cookies: [],
     };
     activeRunState = runState;
@@ -355,6 +357,8 @@ export function startInProcessConnectorRun({
           resultPath,
           logPath,
         });
+        runState.hasResult = true;
+        runState.resultPath = resultPath;
       }
 
       runState.connectorCompleted = true;
@@ -545,7 +549,23 @@ function createPageApi({
 
     setData: async (key: string, value: unknown) => {
       if (key === "result") {
-        runState.hasResult = true;
+        if (!runState.hasResult) {
+          const resultPath = getLastResultPath();
+          await ensureParentDir(resultPath);
+          await fsp.writeFile(
+            resultPath,
+            `${JSON.stringify(value, null, 2)}\n`,
+            "utf8",
+          );
+          runState.hasResult = true;
+          runState.resultPath = resultPath;
+          pushEvent({
+            type: "collection-complete",
+            source: request.source,
+            resultPath,
+            logPath,
+          });
+        }
       }
       writeLog(
         `[data] ${key}=${typeof value === "string" ? value : JSON.stringify(value)}`,
