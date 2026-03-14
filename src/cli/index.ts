@@ -952,6 +952,9 @@ async function runDataShow(
   const state = await readCliState();
   const record = state.sources[source];
   const resultPath = record?.lastResultPath;
+  const datasetCount = Object.values(state.sources).filter((entry) =>
+    Boolean(entry?.lastResultPath),
+  ).length;
   const emit = createEmitter(options);
 
   if (!resultPath) {
@@ -1015,7 +1018,14 @@ async function runDataShow(
     emit.bullet(
       `Print the path with ${emit.code(`vana data path ${source}`)}.`,
     );
-    emit.bullet(`Inspect other datasets with ${emit.code("vana data list")}.`);
+    emit.bullet(
+      `Reconnect ${displaySource(source, sourceLabels)} with ${emit.code(`vana connect ${source}`)}.`,
+    );
+    if (datasetCount > 1) {
+      emit.bullet(
+        `Inspect other datasets with ${emit.code("vana data list")}.`,
+      );
+    }
     emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   } catch (error) {
@@ -1047,12 +1057,12 @@ async function runDataPath(
           error: "dataset_not_found",
           source,
           name: displaySource(source, sourceLabels),
-          message: `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
+          message: `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
         })}\n`,
       );
     } else {
       createEmitter(options).info(
-        `No collected dataset found for ${displaySource(source, sourceLabels)}.`,
+        `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
       );
     }
     return 1;

@@ -481,10 +481,35 @@ describe("runCli", () => {
 
       → Next
         • Print the path with \`vana data path github\`.
-        • Inspect other datasets with \`vana data list\`.
+        • Reconnect GitHub with \`vana connect github\`.
         • Check overall status with \`vana status\`.
       "
     `);
+  });
+
+  it("renders a stable human transcript for data path", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "path", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe("/tmp/.dataconnect/github-result.json\n");
   });
 
   it("orders collected datasets by most recent run first", async () => {
@@ -659,7 +684,8 @@ describe("runCli", () => {
       error: "dataset_not_found",
       source: "github",
       name: "GitHub",
-      message: "No collected dataset found for GitHub.",
+      message:
+        "No collected dataset found for GitHub. Run `vana connect github` first.",
     });
   });
 

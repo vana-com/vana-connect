@@ -43,6 +43,7 @@ Current reviewable transcripts:
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
 - [`data show github`](./docs/transcripts/data-show-github.txt)
+- [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
@@ -229,6 +230,7 @@ Current reviewable transcripts:
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
 - [`data show github`](./docs/transcripts/data-show-github.txt)
+- [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 

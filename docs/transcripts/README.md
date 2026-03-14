@@ -19,5 +19,6 @@ Current generated surfaces include:
 - `sources.txt`
 - `data-list.txt`
 - `data-show-github.txt`
+- `data-path-github.txt`
 - `connect-github-success.txt`
 - `connect-steam-no-input.txt`

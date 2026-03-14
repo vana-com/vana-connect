@@ -51,6 +51,10 @@ async function main() {
       argv: ["vana", "data", "show", "github"],
     },
     {
+      name: "data-path-github.txt",
+      argv: ["vana", "data", "path", "github"],
+    },
+    {
       name: "connect-github-success.txt",
       argv: ["vana", "connect", "github"],
     },
