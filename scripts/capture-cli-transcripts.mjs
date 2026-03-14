@@ -90,6 +90,12 @@ async function main() {
       env: seededEnv,
     },
     {
+      name: "connect-github-no-input.txt",
+      argv: ["vana", "connect", "github", "--no-input"],
+      env: freshEnv,
+      allowFailure: true,
+    },
+    {
       name: "connect-shop-no-input.txt",
       argv: ["vana", "connect", "shop", "--no-input"],
       env: seededEnv,

@@ -50,6 +50,7 @@ Current reviewable transcripts:
 - [`data show github (missing)`](./docs/transcripts/data-show-github-missing.txt)
 - [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
+- [`connect github --no-input`](./docs/transcripts/connect-github-no-input.txt)
 - [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
@@ -296,6 +297,7 @@ Current reviewable transcripts:
 - [`data show github (missing)`](./docs/transcripts/data-show-github-missing.txt)
 - [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
+- [`connect github --no-input`](./docs/transcripts/connect-github-no-input.txt)
 - [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
