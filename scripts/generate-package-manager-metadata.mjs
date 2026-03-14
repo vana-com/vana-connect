@@ -133,7 +133,8 @@ async function generateHomebrewFormula({
       .reject { |entry| entry.start_with?(".") }
       .find { |entry| File.directory?(buildpath/entry) } || "."
 
-    libexec.install Dir[(buildpath/payload_root/"*").to_s]
+    libexec.install (buildpath/payload_root/"app")
+    libexec.install (buildpath/payload_root/"vana")
     (bin/"vana").write_env_script libexec/"vana", VANA_APP_ROOT: libexec/"app"
   end
 

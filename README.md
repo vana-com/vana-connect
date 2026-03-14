@@ -80,6 +80,13 @@ If you prefer to integrate the SDK into an existing project, follow the steps be
 
 If you are evaluating this branch before it lands on `main`, use the prerelease path in the next section. The stable install commands below are the intended post-merge install path.
 
+macOS with Homebrew:
+
+```bash
+brew tap vana-com/vana
+brew install vana
+```
+
 macOS and Linux:
 
 ```bash
@@ -97,6 +104,15 @@ Both installers fetch the latest GitHub release asset for your platform, verify 
 ### Canary / prerelease testing
 
 If you are testing an unreleased branch build, install from the branch installer and pass the prerelease tag explicitly.
+
+macOS with Homebrew:
+
+```bash
+brew tap vana-com/vana
+brew install vana
+```
+
+The current Homebrew tap is following the latest `vana-connect` canary while this CLI is still rolling out.
 
 macOS and Linux:
 
