@@ -296,6 +296,10 @@ describe("runCli", () => {
         Saved browser session available for faster reconnects.
         Updated: <timestamp>
         /tmp/.dataconnect/github-result.json
+
+      → Next
+      • Complete the manual browser step for Shop with \`vana connect shop\`.
+      • Connect another source with \`vana sources\`.
       "
     `);
   });

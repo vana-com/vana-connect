@@ -781,6 +781,14 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       }
     }
   });
+  const nextSteps = buildStatusNextSteps(status.sources, sourceLabels);
+  if (nextSteps.length > 0) {
+    emit.blank();
+    emit.section("Next");
+    for (const step of nextSteps) {
+      emit.bullet(step);
+    }
+  }
   return 0;
 }
 
@@ -1252,6 +1260,46 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
   }
 
   return details;
+}
+
+function buildStatusNextSteps(
+  sources: SourceStatus[],
+  sourceLabels: SourceLabelMap = {},
+): string[] {
+  const nextSteps: string[] = [];
+  const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];
+  const highestPriorityLabel = highestPriority
+    ? displaySource(highestPriority.source, sourceLabels)
+    : null;
+
+  if (highestPriority?.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+    nextSteps.push(
+      `Continue ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
+    );
+  } else if (highestPriority?.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+    nextSteps.push(
+      `Complete the manual browser step for ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
+    );
+  } else if (
+    highestPriority?.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
+  ) {
+    nextSteps.push("Browse available sources with `vana sources`.");
+  } else if (
+    highestPriority &&
+    (highestPriority.dataState === "collected_local" ||
+      highestPriority.dataState === "ingested_personal_server" ||
+      highestPriority.dataState === "ingest_failed")
+  ) {
+    nextSteps.push(
+      `Inspect the latest dataset with \`vana data show ${highestPriority.source}\`.`,
+    );
+  }
+
+  if (sources.some((source) => source.installed || source.lastRunOutcome)) {
+    nextSteps.push("Connect another source with `vana sources`.");
+  }
+
+  return [...new Set(nextSteps)];
 }
 
 function normalizeArgv(argv: string[]): string[] {

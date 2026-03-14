@@ -24,3 +24,7 @@ Spotify [interactive] [local]
   Inspect the latest local dataset with `vana data show spotify`.
   Updated: Mar 13, 2026, 4:23 PM
   ~/.dataconnect/spotify-result.json
+
+→ Next
+• Complete the manual browser step for Shop with `vana connect shop`.
+• Connect another source with `vana sources`.
