@@ -10,7 +10,7 @@ on:
       - "examples/**"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-sea:
@@ -87,3 +87,32 @@ jobs:
           npm publish --tag canary
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vana-sea-*
+          path: artifacts/release
+          merge-multiple: true
+      - name: Publish branch prerelease assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          TITLE="Canary ${GITHUB_REF_NAME}"
+          NOTES="Branch canary for ${GITHUB_REF_NAME} at ${SHORT_SHA}. Install with the branch installer and \`--version ${TAG}\`."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --prerelease
+            gh release upload "$TAG" artifacts/release/* --clobber
+          else
+            gh release create "$TAG" artifacts/release/* \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --prerelease
+          fi

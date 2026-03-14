@@ -101,22 +101,22 @@ If you are testing an unreleased branch build, install from the branch installer
 macOS and Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version v0.8.1-connect-cli-canary.9f79983
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
 ```
 
 Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version v0.8.1-connect-cli-canary.9f79983
+& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version canary-feat-connect-cli-v1
 ```
 
 The current hosted prerelease is:
 
-`v0.8.1-connect-cli-canary.9f79983`
+`canary-feat-connect-cli-v1`
 
 Release page:
 
-`https://github.com/vana-com/vana-connect/releases/tag/v0.8.1-connect-cli-canary.9f79983`
+`https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
 
 If you want the npm package path as a fallback:
 
