@@ -243,9 +243,9 @@ async function runConnect(
       if (!options.json) {
         emit.blank();
         emit.section("Next");
-        emit.bullet("Run `vana sources` to see available sources.");
+        emit.bullet("Browse available sources with `vana sources`.");
         emit.bullet(
-          `Or try a different source with ${emit.code("vana connect <source>")}.`,
+          `Then connect one with ${emit.code("vana connect <source>")}.`,
         );
       }
       emit.event({

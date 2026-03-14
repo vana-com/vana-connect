@@ -781,7 +781,8 @@ describe("runCli", () => {
     expect(exitCode).toBe(1);
     expect(stdout).toContain("No connector is available for steam right now.");
     expect(stdout).toContain("→ Next");
-    expect(stdout).toContain("Run `vana sources` to see available sources.");
+    expect(stdout).toContain("Browse available sources with `vana sources`.");
+    expect(stdout).toContain("Then connect one with vana connect <source>.");
     expect(stdout).toContain("vana connect <source>");
   });
 
