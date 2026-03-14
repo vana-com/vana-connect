@@ -368,6 +368,13 @@ async function runConnect(
         continue;
       }
 
+      if (event.type === "status-update") {
+        if (event.message) {
+          emit.detail(event.message);
+        }
+        continue;
+      }
+
       if (event.type === "runtime-error") {
         await updateSourceState(resolution.source, {
           lastRunAt: new Date().toISOString(),

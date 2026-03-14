@@ -548,6 +548,14 @@ function createPageApi({
     sleep: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
 
     setData: async (key: string, value: unknown) => {
+      if (key === "status" && typeof value === "string") {
+        pushEvent({
+          type: "status-update",
+          source: request.source,
+          logPath,
+          message: value,
+        });
+      }
       if (key === "result") {
         if (!runState.hasResult) {
           const resultPath = getLastResultPath();

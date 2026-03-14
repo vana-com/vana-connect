@@ -716,6 +716,12 @@ describe("runCli", () => {
     };
     runConnectorEvents = [
       {
+        type: "status-update",
+        source: "github",
+        logPath: "/tmp/logs/run.log",
+        message: "Checking GitHub login...",
+      },
+      {
         type: "progress-update",
         source: "github",
         logPath: "/tmp/logs/run.log",
@@ -748,6 +754,7 @@ describe("runCli", () => {
     expect(stdout).toContain("Collected");
     expect(stdout).toContain("Profile: tnunamak");
     expect(stdout).toContain("Repositories: 2");
+    expect(stdout).toContain("Checking GitHub login...");
     expect(stdout).toContain("Repositories: Fetching repositories...");
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");

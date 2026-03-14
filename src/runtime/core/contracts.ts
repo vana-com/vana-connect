@@ -47,6 +47,13 @@ export interface RuntimeProgressEvent {
   phase?: unknown;
 }
 
+export interface RuntimeStatusEvent {
+  type: "status-update";
+  source: string;
+  logPath: string;
+  message: string;
+}
+
 export interface RuntimeErrorEvent {
   type: "runtime-error";
   source: string;
@@ -61,6 +68,7 @@ export type RuntimeEvent =
   | RuntimeLegacyAuthEvent
   | RuntimeCollectionCompleteEvent
   | RuntimeProgressEvent
+  | RuntimeStatusEvent
   | RuntimeErrorEvent;
 
 export interface RuntimeInputRequest {
