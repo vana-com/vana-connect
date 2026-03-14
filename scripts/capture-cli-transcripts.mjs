@@ -36,6 +36,10 @@ async function main() {
     PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
     ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
   };
+  const seededInputEnv = {
+    ...seededEnv,
+  };
+  delete seededInputEnv.VANA_DEMO_FAST_SUCCESS;
 
   const commands = [
     {
@@ -93,6 +97,12 @@ async function main() {
       name: "connect-github-no-input.txt",
       argv: ["vana", "connect", "github", "--no-input"],
       env: freshEnv,
+      allowFailure: true,
+    },
+    {
+      name: "connect-github-session-reuse-no-input.txt",
+      argv: ["vana", "connect", "github", "--no-input"],
+      env: seededInputEnv,
       allowFailure: true,
     },
     {
