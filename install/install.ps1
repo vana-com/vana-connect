@@ -38,7 +38,19 @@ $TargetArch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArc
 }
 
 if (-not $Version) {
-  $Release = Invoke-RestMethod -Uri $ReleaseApiUrl
+  $Attempts = 5
+  for ($Attempt = 1; $Attempt -le $Attempts; $Attempt++) {
+    try {
+      $Release = Invoke-RestMethod -Uri $ReleaseApiUrl
+      break
+    }
+    catch {
+      if ($Attempt -eq $Attempts) {
+        throw
+      }
+      Start-Sleep -Seconds 2
+    }
+  }
   $Version = $Release.tag_name
 }
 
@@ -73,7 +85,19 @@ function Copy-VanaAsset {
   )
 
   if ($Source -match '^(https?)://') {
-    Invoke-WebRequest -Uri $Source -OutFile $Destination
+    $Attempts = 8
+    for ($Attempt = 1; $Attempt -le $Attempts; $Attempt++) {
+      try {
+        Invoke-WebRequest -Uri $Source -OutFile $Destination
+        return
+      }
+      catch {
+        if ($Attempt -eq $Attempts) {
+          throw
+        }
+        Start-Sleep -Seconds 2
+      }
+    }
     return
   }
 

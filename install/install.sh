@@ -43,6 +43,12 @@ need_cmd() {
 need_cmd curl
 need_cmd tar
 
+download_asset() {
+  url="$1"
+  destination="$2"
+  curl --retry 8 --retry-delay 2 --retry-all-errors -fsSL "$url" -o "$destination"
+}
+
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
@@ -66,7 +72,7 @@ esac
 
 if [ -z "$VERSION" ]; then
   VERSION="$(
-    curl -fsSL "$RELEASE_API_URL" |
+    curl --retry 5 --retry-delay 2 --retry-all-errors -fsSL "$RELEASE_API_URL" |
       sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' |
       head -n 1
   )"
@@ -91,8 +97,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Installing $ASSET_BASE from $VERSION"
-curl -fsSL "$ARCHIVE_URL" -o "$TMP_DIR/$ARCHIVE_NAME"
-curl -fsSL "$CHECKSUM_URL" -o "$TMP_DIR/$CHECKSUM_NAME"
+download_asset "$ARCHIVE_URL" "$TMP_DIR/$ARCHIVE_NAME"
+download_asset "$CHECKSUM_URL" "$TMP_DIR/$CHECKSUM_NAME"
 
 if command -v sha256sum >/dev/null 2>&1; then
   (cd "$TMP_DIR" && sha256sum -c "$CHECKSUM_NAME")
