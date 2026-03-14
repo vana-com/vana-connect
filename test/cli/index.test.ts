@@ -282,4 +282,48 @@ describe("runCli", () => {
       message: "Specify a source. Run `vana sources` to see available options.",
     });
   });
+
+  it("prints a human success summary after collection completes", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        description:
+          "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
+        authMode: "interactive",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.dataconnect/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tridengineer" },
+        repositories: [{ name: "vana-connect" }, { name: "data-connect" }],
+        starred: [],
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Connected GitHub.");
+    expect(stdout).toContain("Collected");
+    expect(stdout).toContain("Profile: tridengineer");
+    expect(stdout).toContain("Repositories: 2");
+    expect(stdout).toContain("Saved locally");
+    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
+    expect(stdout).toContain("Next");
+    expect(stdout).toContain("vana data show github");
+  });
 });
