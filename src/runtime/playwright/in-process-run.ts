@@ -58,6 +58,166 @@ class LegacyAuthError extends Error {
   }
 }
 
+function setupNetworkCapture(
+  page: Page,
+  networkCaptures: Map<string, NetworkCaptureConfig>,
+  capturedResponses: Map<
+    string,
+    { url: string; data: unknown; timestamp: number }
+  >,
+  writeLog: (message: string) => void,
+): void {
+  page.on("response", async (response) => {
+    const url = response.url();
+
+    for (const [key, config] of networkCaptures.entries()) {
+      if (config.urlPattern && !url.includes(config.urlPattern)) {
+        continue;
+      }
+
+      try {
+        const request = response.request();
+        const postData = request.postData() || "";
+        if (config.bodyPattern) {
+          const patterns = config.bodyPattern.split("|");
+          if (!patterns.some((pattern) => postData.includes(pattern))) {
+            continue;
+          }
+        }
+
+        const body = await response.json().catch(() => null);
+        if (body) {
+          capturedResponses.set(key, {
+            url,
+            data: body,
+            timestamp: Date.now(),
+          });
+          writeLog(`[network] captured ${key} from ${url}`);
+        }
+      } catch {
+        // Ignore non-JSON responses.
+      }
+    }
+  });
+}
+
+async function reopenContext(
+  runState: RunState,
+  networkCaptures: Map<string, NetworkCaptureConfig>,
+  capturedResponses: Map<
+    string,
+    { url: string; data: unknown; timestamp: number }
+  >,
+  headless: boolean,
+  writeLog: (message: string) => void,
+  pushEvent: (event: RuntimeEvent) => void,
+  source: string,
+  logPath: string,
+): Promise<void> {
+  if (runState.context && !runState.browserClosed) {
+    runState.browserClosedByConnector = true;
+    await runState.context.close().catch(() => {});
+    runState.context = null;
+    runState.page = null;
+  }
+
+  runState.browserClosed = false;
+  runState.browserClosedByConnector = false;
+  runState.headless = headless;
+  runState.context = await launchPersistentContext(
+    runState.userDataDir,
+    headless,
+    runState.browserPath,
+  );
+  runState.page =
+    runState.context.pages()[0] || (await runState.context.newPage());
+
+  runState.context.browser()?.on("disconnected", () => {
+    runState.browserClosed = true;
+    runState.context = null;
+    runState.page = null;
+    if (!runState.connectorCompleted && !runState.browserClosedByConnector) {
+      pushEvent({
+        type: "runtime-error",
+        source,
+        message: "Browser session ended before the connector completed.",
+        logPath,
+      });
+    }
+  });
+
+  if (runState.page) {
+    setupNetworkCapture(
+      runState.page,
+      networkCaptures,
+      capturedResponses,
+      writeLog,
+    );
+  }
+
+  writeLog(
+    `[browser] launched ${headless ? "headless" : "headed"} context at ${runState.userDataDir}`,
+  );
+}
+
+async function ensureHeadedBrowser(
+  runState: RunState,
+  source: string,
+  logPath: string,
+  pushEvent: (event: RuntimeEvent) => void,
+  writeLog: (message: string) => void,
+  networkCaptures: Map<string, NetworkCaptureConfig>,
+  capturedResponses: Map<
+    string,
+    { url: string; data: unknown; timestamp: number }
+  >,
+  url?: string,
+): Promise<boolean> {
+  if (!runState.allowHeaded) {
+    writeLog(
+      "[browser] headed interaction requested but prompting is disabled",
+    );
+    throw new LegacyAuthError(url ? "showBrowser" : "promptUser");
+  }
+
+  if (
+    process.platform === "linux" &&
+    !process.env.DISPLAY &&
+    !process.env.WAYLAND_DISPLAY
+  ) {
+    throw new Error(
+      "This source needs a manual browser step, but no local display server is available. Run this command in a desktop session or use xvfb-run.",
+    );
+  }
+
+  if (runState.headless || runState.browserClosed || !runState.context) {
+    pushEvent({
+      type: "headed-required",
+      source,
+      message:
+        "This source needs a manual browser step. Opening a local browser session on this machine.",
+      logPath,
+      url,
+    });
+    await reopenContext(
+      runState,
+      networkCaptures,
+      capturedResponses,
+      false,
+      writeLog,
+      pushEvent,
+      source,
+      logPath,
+    );
+  }
+
+  if (url && runState.page) {
+    await runState.page.goto(url, { waitUntil: "domcontentloaded" });
+  }
+
+  return true;
+}
+
 export function startInProcessConnectorRun({
   request,
   logPath,
@@ -81,6 +241,7 @@ export function startInProcessConnectorRun({
   let resolveQueue: (() => void) | null = null;
   let settled = false;
   let activeContext: BrowserContext | null = null;
+  let activeRunState: RunState | null = null;
 
   const flushQueue = () => {
     resolveQueue?.();
@@ -116,10 +277,11 @@ export function startInProcessConnectorRun({
       browserClosedByConnector: false,
       connectorCompleted: false,
       headless: true,
-      allowHeaded: false,
+      allowHeaded: !request.noInput,
       hasResult: false,
       cookies: [],
     };
+    activeRunState = runState;
 
     if (request.signal) {
       request.signal.addEventListener("abort", () => {
@@ -144,32 +306,17 @@ export function startInProcessConnectorRun({
         importChromeCookies(runState.userDataDir, runState.browserPath);
       }
 
-      const context = await launchPersistentContext(
-        runState.userDataDir,
+      await reopenContext(
+        runState,
+        new Map<string, NetworkCaptureConfig>(),
+        new Map<string, { url: string; data: unknown; timestamp: number }>(),
         true,
-        runState.browserPath,
+        writeLog,
+        pushEvent,
+        request.source,
+        logPath,
       );
-      activeContext = context;
-      const page = context.pages()[0] || (await context.newPage());
-      runState.context = context;
-      runState.page = page;
-
-      context.browser()?.on("disconnected", () => {
-        runState.browserClosed = true;
-        runState.context = null;
-        runState.page = null;
-        if (
-          !runState.connectorCompleted &&
-          !runState.browserClosedByConnector
-        ) {
-          pushEvent({
-            type: "runtime-error",
-            source: request.source,
-            message: "Browser session ended before the connector completed.",
-            logPath,
-          });
-        }
-      });
+      activeContext = runState.context;
 
       const pageApi = createPageApi({
         request,
@@ -181,7 +328,9 @@ export function startInProcessConnectorRun({
         writeLog,
       });
 
-      await page.goto("about:blank", { waitUntil: "domcontentloaded" });
+      await runState.page?.goto("about:blank", {
+        waitUntil: "domcontentloaded",
+      });
       const connectorFunction = buildConnectorFunction(connectorCode);
       const result = await connectorFunction.call(null, pageApi);
 
@@ -220,6 +369,7 @@ export function startInProcessConnectorRun({
       pushEvent(classifyRuntimeError(error, request.source, logPath));
     } finally {
       settled = true;
+      activeContext = runState.context;
       await activeContext?.close().catch(() => {});
       logStream.end();
       flushQueue();
@@ -244,7 +394,7 @@ export function startInProcessConnectorRun({
       await runPromise;
     },
     stop() {
-      void activeContext?.close().catch(() => {});
+      void (activeRunState?.context ?? activeContext)?.close().catch(() => {});
       if (!settled) {
         pushEvent({
           type: "runtime-error",
@@ -311,43 +461,13 @@ function createPageApi({
     return runState.page;
   }
 
-  function setupNetworkCapture(page: Page): void {
-    page.on("response", async (response) => {
-      const url = response.url();
-
-      for (const [key, config] of networkCaptures.entries()) {
-        if (config.urlPattern && !url.includes(config.urlPattern)) {
-          continue;
-        }
-
-        try {
-          const request = response.request();
-          const postData = request.postData() || "";
-          if (config.bodyPattern) {
-            const patterns = config.bodyPattern.split("|");
-            if (!patterns.some((pattern) => postData.includes(pattern))) {
-              continue;
-            }
-          }
-
-          const body = await response.json().catch(() => null);
-          if (body) {
-            capturedResponses.set(key, {
-              url,
-              data: body,
-              timestamp: Date.now(),
-            });
-            writeLog(`[network] captured ${key} from ${url}`);
-          }
-        } catch {
-          // Ignore non-JSON responses.
-        }
-      }
-    });
-  }
-
   if (runState.page) {
-    setupNetworkCapture(runState.page);
+    setupNetworkCapture(
+      runState.page,
+      networkCaptures,
+      capturedResponses,
+      writeLog,
+    );
   }
 
   return {
@@ -456,9 +576,49 @@ function createPageApi({
       interval = 2000,
     ) => {
       writeLog(`[prompt] ${message}`);
-      void checkFn;
-      void interval;
-      throw new LegacyAuthError("promptUser");
+      if (request.noInput) {
+        throw new LegacyAuthError("promptUser");
+      }
+
+      await ensureHeadedBrowser(
+        runState,
+        request.source,
+        logPath,
+        pushEvent,
+        writeLog,
+        networkCaptures,
+        capturedResponses,
+        runState.page?.url(),
+      );
+      pushEvent({
+        type: "headed-required",
+        source: request.source,
+        message,
+        logPath,
+        url: runState.page?.url(),
+      });
+
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, interval));
+        if (
+          request.signal?.aborted ||
+          runState.browserClosed ||
+          !runState.page
+        ) {
+          throw new Error(
+            "Browser session ended before manual interaction completed.",
+          );
+        }
+        try {
+          const result = await checkFn();
+          if (result) {
+            writeLog("[prompt] User action completed");
+            return;
+          }
+        } catch {
+          // Keep waiting until the connector's condition passes.
+        }
+      }
     },
 
     captureNetwork: async (config: {
@@ -505,25 +665,35 @@ function createPageApi({
     },
 
     showBrowser: async (url?: string) => {
-      void url;
-      throw new LegacyAuthError("showBrowser");
+      if (request.noInput) {
+        throw new LegacyAuthError("showBrowser");
+      }
+
+      await ensureHeadedBrowser(
+        runState,
+        request.source,
+        logPath,
+        pushEvent,
+        writeLog,
+        networkCaptures,
+        capturedResponses,
+        url,
+      );
+      return { headed: true };
     },
 
     goHeadless: async () => {
-      runState.browserClosedByConnector = true;
-      await runState.context?.close().catch(() => {});
-      runState.context = await launchPersistentContext(
-        runState.userDataDir,
+      await reopenContext(
+        runState,
+        networkCaptures,
+        capturedResponses,
         true,
-        runState.browserPath,
+        writeLog,
+        pushEvent,
+        request.source,
+        logPath,
       );
-      runState.page =
-        runState.context.pages()[0] || (await runState.context.newPage());
-      runState.browserClosed = false;
-      runState.browserClosedByConnector = false;
-      runState.headless = true;
       if (runState.page) {
-        setupNetworkCapture(runState.page);
         await runState.page.goto("https://chatgpt.com/", {
           waitUntil: "domcontentloaded",
         });
@@ -610,7 +780,20 @@ function classifyRuntimeError(
       type: "legacy-auth",
       source,
       message:
-        "This connector uses legacy authentication (showBrowser/promptUser) which is not supported in batch mode. Either use a migrated connector that supports requestInput, or establish a session manually first.",
+        "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+      logPath,
+    };
+  }
+
+  if (
+    message.includes("Missing X server or $DISPLAY") ||
+    message.includes("headed browser without having a XServer running")
+  ) {
+    return {
+      type: "runtime-error",
+      source,
+      message:
+        "This source needs a manual browser step, but no local display server is available. Run this command in a desktop session or use xvfb-run.",
       logPath,
     };
   }

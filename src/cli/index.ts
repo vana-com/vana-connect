@@ -45,6 +45,7 @@ interface SourceMetadataMap {
     name: string;
     company?: string;
     description?: string;
+    authMode?: "automated" | "interactive" | "legacy";
   };
 }
 
@@ -120,7 +121,7 @@ async function runConnect(
       );
       emit.info("");
       emit.info("This will install:");
-      emit.info("- the connector runner");
+      emit.info("- the local browser runtime");
       emit.info("- a Chromium browser engine");
       emit.info("- local runtime files under ~/.dataconnect/");
       emit.info("");
@@ -285,6 +286,18 @@ async function runConnect(
         return 1;
       }
 
+      if (event.type === "headed-required") {
+        if (event.message) {
+          emit.info(event.message);
+        }
+        if (event.url) {
+          emit.info(
+            `Opening ${displaySource(source, sourceLabels)} in a local browser session...`,
+          );
+        }
+        continue;
+      }
+
       if (event.type === "legacy-auth") {
         await updateSourceState(resolution.source, {
           lastRunAt: new Date().toISOString(),
@@ -294,13 +307,10 @@ async function runConnect(
         });
         emit.info(
           event.message ??
-            "This connector requires legacy headed authentication that is not available in batch mode.",
+            "This connector needs a manual browser step that is not available in non-interactive mode.",
         );
         emit.info(
-          `Next: establish a reusable ${displaySource(
-            source,
-            sourceLabels,
-          )} session manually, or migrate this connector to requestInput.`,
+          `Next: run \`vana connect ${source}\` without \`--no-input\`.`,
         );
         if (event.logPath) {
           emit.info(`Run log: ${event.logPath}`);
@@ -447,7 +457,8 @@ async function runList(options: GlobalOptions): Promise<number> {
   for (const source of enrichedSources) {
     const description = source.description ? ` - ${source.description}` : "";
     const installed = source.installed ? " [installed]" : "";
-    emit.info(`${source.name}${installed}${description}`);
+    const authMode = formatAuthModeBadge(source.authMode);
+    emit.info(`${source.name}${installed}${authMode}${description}`);
   }
   return 0;
 }
@@ -578,6 +589,8 @@ async function gatherSourceStatuses(
         name: details?.name,
         company: details?.company,
         description: details?.description,
+        authMode:
+          details?.authMode ?? inferInstalledAuthMode(installedFiles, source),
         installed,
         sessionPresent: stored.sessionPresent ?? false,
         lastRunAt: stored.lastRunAt ?? null,
@@ -626,35 +639,42 @@ function formatSourceStatus(
   source: SourceStatus,
   labels: SourceLabelMap = {},
 ): string {
+  const authModeSuffix =
+    source.authMode === "legacy"
+      ? " [legacy]"
+      : source.authMode === "interactive"
+        ? " [interactive]"
+        : "";
+
   if (!source.installed) {
-    return `${displaySource(source.source, labels)}: not connected`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: not connected`;
   }
 
   if (!source.lastRunOutcome) {
-    return `${displaySource(source.source, labels)}: installed`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: installed`;
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
-    return `${displaySource(source.source, labels)}: needs input`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: needs input`;
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
-    return `${displaySource(source.source, labels)}: error`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: error`;
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-    return `${displaySource(source.source, labels)}: legacy auth required`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: manual browser step required`;
   }
 
   if (source.dataState === "ingested_personal_server") {
-    return `${displaySource(source.source, labels)}: connected, synced`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, synced`;
   }
 
   if (source.dataState === "collected_local") {
-    return `${displaySource(source.source, labels)}: connected, local only`;
+    return `${displaySource(source.source, labels)}${authModeSuffix}: connected, local only`;
   }
 
-  return `${displaySource(source.source, labels)}: connected`;
+  return `${displaySource(source.source, labels)}${authModeSuffix}: connected`;
 }
 
 function formatSourceStatusDetail(source: SourceStatus): string | null {
@@ -665,7 +685,7 @@ function formatSourceStatusDetail(source: SourceStatus): string | null {
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-    return "This source still uses legacy headed auth and cannot complete in batch mode.";
+    return `Run \`vana connect ${source.source}\` without \`--no-input\` to complete the manual browser step.`;
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
@@ -716,6 +736,7 @@ function createSourceMetadataMap(
     name: string;
     company?: string;
     description?: string;
+    authMode?: "automated" | "interactive" | "legacy";
   }>,
 ): SourceMetadataMap {
   return Object.fromEntries(
@@ -725,9 +746,47 @@ function createSourceMetadataMap(
         name: source.name,
         company: source.company,
         description: source.description,
+        authMode: source.authMode,
       },
     ]),
   );
+}
+
+function formatAuthModeBadge(
+  authMode: "automated" | "interactive" | "legacy" | undefined,
+): string {
+  if (authMode === "legacy") {
+    return " [legacy]";
+  }
+
+  if (authMode === "interactive") {
+    return " [interactive]";
+  }
+
+  return "";
+}
+
+function inferInstalledAuthMode(
+  installedFiles: Array<{ source: string; path: string }>,
+  source: string,
+): "automated" | "interactive" | "legacy" | undefined {
+  const match = installedFiles.find((file) => file.source === source);
+  if (!match) {
+    return undefined;
+  }
+
+  try {
+    const script = fs.readFileSync(match.path, "utf8");
+    if (/page\.requestInput\(/.test(script)) {
+      return "interactive";
+    }
+    if (/page\.(showBrowser|promptUser)\(/.test(script)) {
+      return "legacy";
+    }
+    return "automated";
+  } catch {
+    return undefined;
+  }
 }
 
 async function loadRegistrySources() {

@@ -23,6 +23,14 @@ export interface RuntimeLegacyAuthEvent {
   logPath: string;
 }
 
+export interface RuntimeHeadedRequiredEvent {
+  type: "headed-required";
+  source: string;
+  message: string;
+  logPath: string;
+  url?: string;
+}
+
 export interface RuntimeCollectionCompleteEvent {
   type: "collection-complete";
   source: string;
@@ -40,6 +48,7 @@ export interface RuntimeErrorEvent {
 export type RuntimeEvent =
   | RuntimeRunStartedEvent
   | RuntimeNeedInputEvent
+  | RuntimeHeadedRequiredEvent
   | RuntimeLegacyAuthEvent
   | RuntimeCollectionCompleteEvent
   | RuntimeErrorEvent;

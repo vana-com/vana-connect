@@ -32,14 +32,26 @@ export interface AvailableSource {
   name: string;
   company?: string;
   description?: string;
+  authMode?: "automated" | "interactive" | "legacy";
 }
 
 export async function listAvailableSources(
   dataConnectorsDir?: string,
 ): Promise<AvailableSource[]> {
   const registry = await loadRegistry(dataConnectorsDir);
-  return (registry.connectors ?? [])
-    .map((entry) => toAvailableSource(entry))
+  const sources = await Promise.all(
+    (registry.connectors ?? []).map(async (entry) => {
+      const source = toAvailableSource(entry);
+      if (!source) {
+        return null;
+      }
+
+      source.authMode = await detectAuthMode(entry, dataConnectorsDir);
+      return source;
+    }),
+  );
+
+  return sources
     .filter((value): value is AvailableSource => Boolean(value))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -190,6 +202,44 @@ async function copyOrFetchFile(
   }
   const content = Buffer.from(await response.arrayBuffer());
   await fs.writeFile(destination, content);
+}
+
+async function detectAuthMode(
+  entry: ConnectorRegistryEntry,
+  dataConnectorsDir?: string,
+): Promise<AvailableSource["authMode"] | undefined> {
+  const relativePath =
+    entry.files?.script ?? entry.scriptPath ?? entry.script_path;
+
+  if (!relativePath) {
+    return undefined;
+  }
+
+  let script = "";
+  if (dataConnectorsDir) {
+    try {
+      script = await fs.readFile(
+        path.join(dataConnectorsDir, relativePath),
+        "utf8",
+      );
+    } catch {
+      script = "";
+    }
+  }
+
+  if (!script) {
+    return undefined;
+  }
+
+  if (/page\.requestInput\(/.test(script)) {
+    return "interactive";
+  }
+
+  if (/page\.(showBrowser|promptUser)\(/.test(script)) {
+    return "legacy";
+  }
+
+  return "automated";
 }
 
 function normalizeSourceName(source: string | undefined): string | null {

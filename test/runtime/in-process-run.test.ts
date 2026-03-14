@@ -25,6 +25,7 @@ type FakePage = {
   evaluate: ReturnType<typeof vi.fn>;
   screenshot: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
+  url: ReturnType<typeof vi.fn>;
 };
 
 type FakeContext = {
@@ -42,6 +43,7 @@ function createFakeRuntime() {
     evaluate: vi.fn(async () => null),
     screenshot: vi.fn(async () => Buffer.from("test")),
     on: vi.fn(),
+    url: vi.fn(() => "https://example.com/login"),
   };
 
   const context: FakeContext = {
@@ -158,6 +160,63 @@ describe("startInProcessConnectorRun", () => {
         expect.objectContaining({ type: "legacy-auth", source: "spotify" }),
       ]),
     );
+  });
+
+  it("supports headed manual flows for legacy connectors in human mode", async () => {
+    createFakeRuntime();
+    const previousDisplay = process.env.DISPLAY;
+    process.env.DISPLAY = ":99";
+    try {
+      const connectorPath = await writeConnector(`
+(async () => {
+  let complete = false;
+  setTimeout(() => {
+    complete = true;
+  }, 5);
+  const browser = await page.showBrowser("https://shop.app/account/order-history");
+  if (!browser.headed) {
+    throw new Error("Expected headed browser");
+  }
+  await page.promptUser("Finish signing in to Shop in the browser window.", async () => complete, 1);
+  return { orders: [] };
+})();
+`);
+
+      const { startInProcessConnectorRun } =
+        await import("../../src/runtime/playwright/in-process-run.js");
+
+      const handle = startInProcessConnectorRun({
+        request: {
+          connectorPath,
+          source: "shop",
+          noInput: false,
+        },
+        logPath: path.join(os.tmpdir(), "vana-connect-headed-manual.log"),
+      });
+
+      const events = [];
+      for await (const event of handle.events()) {
+        events.push(event);
+      }
+
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "run-started", source: "shop" }),
+          expect.objectContaining({ type: "headed-required", source: "shop" }),
+          expect.objectContaining({
+            type: "collection-complete",
+            source: "shop",
+          }),
+        ]),
+      );
+      expect(launchPersistentContext).toHaveBeenCalledWith(
+        expect.any(String),
+        false,
+        "/tmp/chrome",
+      );
+    } finally {
+      process.env.DISPLAY = previousDisplay;
+    }
   });
 
   it("writes a result and emits collection-complete", async () => {

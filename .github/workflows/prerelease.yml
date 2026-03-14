@@ -101,6 +101,12 @@ jobs:
           TAG="canary-${BRANCH_SLUG}"
           TITLE="Canary ${GITHUB_REF_NAME}"
           NOTES="Branch canary for ${GITHUB_REF_NAME} at ${SHORT_SHA}. Install with the branch installer and \`--version ${TAG}\`."
+          mapfile -t RELEASE_FILES < <(find artifacts/release -maxdepth 1 -type f | sort)
+
+          if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
+            echo "No release files were found in artifacts/release"
+            exit 1
+          fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" \
@@ -108,9 +114,9 @@ jobs:
               --title "$TITLE" \
               --notes "$NOTES" \
               --prerelease
-            gh release upload "$TAG" artifacts/release/* --clobber
+            gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber
           else
-            gh release create "$TAG" artifacts/release/* \
+            gh release create "$TAG" "${RELEASE_FILES[@]}" \
               --target "$GITHUB_SHA" \
               --title "$TITLE" \
               --notes "$NOTES" \
