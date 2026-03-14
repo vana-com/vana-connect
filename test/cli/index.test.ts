@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cliDoctorSchema, cliStatusSchema } from "../../src/core/cli-types.js";
+import {
+  cliDataListSchema,
+  cliDataPathSchema,
+  cliDataShowSchema,
+  cliDoctorSchema,
+  cliSourcesSchema,
+  cliStatusSchema,
+} from "../../src/core/cli-types.js";
 
 const mockListAvailableSources = vi.fn();
 const mockDetectPersonalServerTarget = vi.fn();
@@ -172,9 +179,10 @@ describe("runCli", () => {
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "sources", "--json"]);
+    const parsed = cliSourcesSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       count: 2,
       recommendedSource: { id: "github", name: "GitHub", installed: true },
       sources: [
@@ -660,9 +668,10 @@ describe("runCli", () => {
       "github",
       "--json",
     ]);
+    const parsed = cliDataShowSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       source: "github",
       name: "GitHub",
       path: "/tmp/.dataconnect/github-result.json",
@@ -851,9 +860,10 @@ describe("runCli", () => {
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "data", "list", "--json"]);
+    const parsed = cliDataListSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toMatchObject({
+    expect(parsed).toMatchObject({
       count: 2,
       latestDataset: {
         source: "github",
@@ -994,9 +1004,10 @@ describe("runCli", () => {
       "github",
       "--json",
     ]);
+    const parsed = cliDataPathSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(0);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       source: "github",
       name: "GitHub",
       path: "/tmp/.dataconnect/github-result.json",

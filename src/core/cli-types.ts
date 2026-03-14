@@ -53,6 +53,18 @@ export const sourceStatusSchema = z.object({
 });
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 
+export const listedSourceSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    company: z.string().optional(),
+    description: z.string().optional(),
+    authMode: z.enum(["automated", "interactive", "legacy"]).optional(),
+    installed: z.boolean(),
+  })
+  .passthrough();
+export type ListedSource = z.infer<typeof listedSourceSchema>;
+
 export const cliStatusSchema = z.object({
   cliVersion: z.string().optional(),
   runtime: runtimeStateSchema,
@@ -82,6 +94,59 @@ export const cliDoctorSchema = z.object({
   nextSteps: z.array(z.string()),
 });
 export type CliDoctor = z.infer<typeof cliDoctorSchema>;
+
+export const cliSourcesSchema = z.object({
+  count: z.number(),
+  recommendedSource: listedSourceSchema.nullable(),
+  sources: z.array(listedSourceSchema),
+});
+export type CliSources = z.infer<typeof cliSourcesSchema>;
+
+export const datasetSummarySchema = z.object({
+  lines: z.array(z.string()),
+});
+export type DatasetSummary = z.infer<typeof datasetSummarySchema>;
+
+export const datasetRecordSchema = z.object({
+  source: z.string(),
+  name: z.string().nullable().optional(),
+  authMode: z
+    .enum(["automated", "interactive", "legacy"])
+    .nullable()
+    .optional(),
+  dataState: dataStateSchema.optional(),
+  lastRunAt: z.string().nullable().optional(),
+  path: z.string().nullable().optional(),
+  summary: datasetSummarySchema.nullable().optional(),
+});
+export type DatasetRecord = z.infer<typeof datasetRecordSchema>;
+
+export const cliDataListSchema = z.object({
+  count: z.number(),
+  latestDataset: datasetRecordSchema.nullable(),
+  datasets: z.array(datasetRecordSchema),
+});
+export type CliDataList = z.infer<typeof cliDataListSchema>;
+
+export const cliDataPathSchema = z.object({
+  source: z.string(),
+  name: z.string(),
+  path: z.string(),
+  lastRunAt: z.string().nullable(),
+  dataState: dataStateSchema.nullable(),
+});
+export type CliDataPath = z.infer<typeof cliDataPathSchema>;
+
+export const cliDataShowSchema = z.object({
+  source: z.string(),
+  name: z.string(),
+  path: z.string(),
+  summary: datasetSummarySchema.nullable(),
+  lastRunAt: z.string().nullable(),
+  dataState: dataStateSchema.nullable(),
+  data: z.record(z.string(), z.unknown()),
+});
+export type CliDataShow = z.infer<typeof cliDataShowSchema>;
 
 export const cliEventSchema = z.object({
   type: z.string(),
