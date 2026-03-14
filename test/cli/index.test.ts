@@ -224,6 +224,64 @@ describe("runCli", () => {
     expect(stdout).toContain("/tmp/playwright/chrome");
   });
 
+  it("renders a stable human transcript for status", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          sessionPresent: true,
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+        shop: {
+          lastRunAt: "2026-03-14T13:11:10.000Z",
+          lastRunOutcome: "legacy_auth",
+          dataState: "none",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatchInlineSnapshot(`
+      "Vana Connect status
+
+      → Environment
+      Runtime: installed
+        /tmp/playwright/chrome
+      Personal Server: unavailable
+
+      → Sources
+      → Needs attention
+      Shop [legacy] [manual step]
+        Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
+        Updated: Mar 14, 2026, 8:11 AM
+
+      → Connected
+      GitHub [interactive] [local]
+        Inspect the latest local dataset with \`vana data show github\`.
+        Updated: Mar 14, 2026, 8:10 AM
+        /tmp/.dataconnect/github-result.json
+      "
+    `);
+  });
+
   it("fails cleanly in json mode when input is required", async () => {
     runConnectorEvents = [
       {
@@ -309,6 +367,51 @@ describe("runCli", () => {
         exportSummary: { details: "1 repository" },
       },
     });
+  });
+
+  it("renders a stable human transcript for data show", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunAt: "2026-03-14T13:10:03.677Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+      },
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tridengineer" },
+        repositories: [{ name: "vana_oft_presale" }, { name: "minddao" }],
+        starred: [],
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data", "show", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatchInlineSnapshot(`
+      "GitHub data
+
+      • Profile: tridengineer
+      • Repositories: 2
+      • Starred: 0
+
+      Path: /tmp/.dataconnect/github-result.json
+      Updated: Mar 14, 2026, 8:10 AM
+      State: Saved locally
+      "
+    `);
   });
 
   it("orders collected datasets by most recent run first", async () => {
