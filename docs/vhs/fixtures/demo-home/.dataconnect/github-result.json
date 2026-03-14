@@ -1,13 +1,13 @@
 {
   "profile": {
-    "username": "tridengineer"
+    "username": "tnunamak"
   },
   "repositories": [
     {
-      "name": "vana_oft_presale"
+      "name": "vana-connect"
     },
     {
-      "name": "minddao"
+      "name": "data-connectors"
     }
   ],
   "starred": []

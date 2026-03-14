@@ -130,6 +130,10 @@ describe("runCli", () => {
     vi.resetModules();
   });
 
+  function normalizeRenderedTimestamps(output: string): string {
+    return output.replace(/Updated: .+/g, "Updated: <timestamp>");
+  }
+
   it("lists available sources in json mode", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub" },
@@ -259,7 +263,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toMatchInlineSnapshot(`
+    expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Vana Connect status
 
       → Environment
@@ -271,12 +275,12 @@ describe("runCli", () => {
       → Needs attention
       Shop [legacy] [manual step]
         Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
-        Updated: Mar 14, 2026, 8:11 AM
+        Updated: <timestamp>
 
       → Connected
       GitHub [interactive] [local]
         Inspect the latest local dataset with \`vana data show github\`.
-        Updated: Mar 14, 2026, 8:10 AM
+        Updated: <timestamp>
         /tmp/.dataconnect/github-result.json
       "
     `);
@@ -336,7 +340,7 @@ describe("runCli", () => {
     });
     mockReadFile.mockResolvedValue(
       JSON.stringify({
-        profile: { username: "tridengineer" },
+        profile: { username: "tnunamak" },
         repositories: [{ name: "vana-connect" }],
         exportSummary: { details: "1 repository" },
       }),
@@ -357,12 +361,12 @@ describe("runCli", () => {
       source: "github",
       path: "/tmp/.dataconnect/github-result.json",
       summary: {
-        lines: ["Profile: tridengineer", "Repositories: 1", "1 repository"],
+        lines: ["Profile: tnunamak", "Repositories: 1", "1 repository"],
       },
       lastRunAt: "2026-03-14T13:10:03.677Z",
       dataState: "collected_local",
       data: {
-        profile: { username: "tridengineer" },
+        profile: { username: "tnunamak" },
         repositories: [{ name: "vana-connect" }],
         exportSummary: { details: "1 repository" },
       },
@@ -390,8 +394,8 @@ describe("runCli", () => {
     });
     mockReadFile.mockResolvedValue(
       JSON.stringify({
-        profile: { username: "tridengineer" },
-        repositories: [{ name: "vana_oft_presale" }, { name: "minddao" }],
+        profile: { username: "tnunamak" },
+        repositories: [{ name: "vana-connect" }, { name: "data-connectors" }],
         starred: [],
       }),
     );
@@ -400,15 +404,15 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "data", "show", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toMatchInlineSnapshot(`
+    expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "GitHub data
 
-      • Profile: tridengineer
+      • Profile: tnunamak
       • Repositories: 2
       • Starred: 0
 
       Path: /tmp/.dataconnect/github-result.json
-      Updated: Mar 14, 2026, 8:10 AM
+      Updated: <timestamp>
       State: Saved locally
       "
     `);
@@ -437,7 +441,7 @@ describe("runCli", () => {
     mockReadFile.mockImplementation(async (filePath: string) =>
       JSON.stringify({
         profile: {
-          username: filePath.includes("github") ? "tridengineer" : "chatgpt",
+          username: filePath.includes("github") ? "tnunamak" : "chatgpt",
         },
       }),
     );
@@ -650,7 +654,7 @@ describe("runCli", () => {
     ];
     mockReadFile.mockResolvedValue(
       JSON.stringify({
-        profile: { username: "tridengineer" },
+        profile: { username: "tnunamak" },
         repositories: [{ name: "vana-connect" }, { name: "data-connect" }],
         starred: [],
       }),
@@ -662,7 +666,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Connected GitHub.");
     expect(stdout).toContain("Collected");
-    expect(stdout).toContain("Profile: tridengineer");
+    expect(stdout).toContain("Profile: tnunamak");
     expect(stdout).toContain("Repositories: 2");
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
@@ -700,7 +704,7 @@ describe("runCli", () => {
     ]);
     mockReadFile.mockResolvedValue(
       JSON.stringify({
-        profile: { username: "tridengineer" },
+        profile: { username: "tnunamak" },
       }),
     );
 

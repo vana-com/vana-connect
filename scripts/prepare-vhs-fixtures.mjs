@@ -99,8 +99,8 @@ async function main() {
     path.join(dataConnectRoot, "github-result.json"),
     `${JSON.stringify(
       {
-        profile: { username: "tridengineer" },
-        repositories: [{ name: "vana_oft_presale" }, { name: "minddao" }],
+        profile: { username: "tnunamak" },
+        repositories: [{ name: "vana-connect" }, { name: "data-connectors" }],
         starred: [],
       },
       null,
@@ -112,8 +112,8 @@ async function main() {
     path.join(dataConnectRoot, "spotify-result.json"),
     `${JSON.stringify(
       {
-        profile: { username: "tridengineer" },
-        playlists: [{ name: "Daily Mix 1" }, { name: "Focus" }],
+        profile: { username: "tnunamak" },
+        playlists: [{ name: "Data Portability" }, { name: "Build Flow" }],
       },
       null,
       2,

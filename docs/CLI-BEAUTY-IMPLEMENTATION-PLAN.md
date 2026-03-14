@@ -475,7 +475,7 @@ Recommended shape:
 Connected GitHub.
 
 Collected:
-- Profile: tridengineer
+- Profile: tnunamak
 - Repositories: 2
 - Starred: 0
 
