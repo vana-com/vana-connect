@@ -6,4 +6,4 @@ The local runtime is already installed.
 
 → Next
   • Check overall status with `vana status`.
-  • Connect a source with `vana connect`.
+  • Connect GitHub with `vana connect github`.

@@ -833,6 +833,10 @@ async function runStatus(options: GlobalOptions): Promise<number> {
 async function runSetup(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const runtime = new ManagedPlaywrightRuntime();
+  const registrySources = await loadRegistrySources();
+  const suggestedSource =
+    registrySources.find((source) => source.authMode !== "legacy") ??
+    registrySources[0];
 
   emit.title("Vana Connect setup");
   emit.blank();
@@ -846,7 +850,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     emit.blank();
     emit.section("Next");
     emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
-    emit.bullet(`Connect a source with ${emit.code("vana connect")}.`);
+    emit.bullet(formatSetupConnectStep(emit, suggestedSource));
     emit.event({ type: "setup-check", runtime: runtime.state });
     return 0;
   }
@@ -860,7 +864,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     emit.blank();
     emit.section("Next");
     emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
-    emit.bullet(`Connect a source with ${emit.code("vana connect")}.`);
+    emit.bullet(formatSetupConnectStep(emit, suggestedSource));
     emit.event({
       type: "setup-complete",
       runtime: result.runtime,
@@ -1430,6 +1434,22 @@ function buildStatusNextSteps(
   }
 
   return [...new Set(nextSteps)];
+}
+
+function formatSetupConnectStep(
+  emit: Pick<Emitter, "code">,
+  source:
+    | {
+        id: string;
+        name: string;
+      }
+    | undefined,
+): string {
+  if (source) {
+    return `Connect ${source.name} with ${emit.code(`vana connect ${source.id}`)}.`;
+  }
+
+  return `Connect a source with ${emit.code("vana connect")}.`;
 }
 
 function normalizeArgv(argv: string[]): string[] {

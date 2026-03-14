@@ -210,6 +210,14 @@ describe("runCli", () => {
   });
 
   it("renders a stable human transcript for setup when already installed", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "setup"]);
 
@@ -223,13 +231,20 @@ describe("runCli", () => {
 
       → Next
         • Check overall status with \`vana status\`.
-        • Connect a source with \`vana connect\`.
+        • Connect GitHub with \`vana connect github\`.
       "
     `);
   });
 
   it("renders a stable human transcript for setup when installation runs", async () => {
     runtimeState = "missing";
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "setup", "--yes"]);
@@ -244,7 +259,7 @@ describe("runCli", () => {
 
       → Next
         • Check overall status with \`vana status\`.
-        • Connect a source with \`vana connect\`.
+        • Connect GitHub with \`vana connect github\`.
       "
     `);
   });
