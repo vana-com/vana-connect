@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const tapesDir = path.join(repoRoot, "docs", "vhs");
-const connectorsDir = "/home/tnunamak/code/data-connectors";
+const connectorsDir = resolveDataConnectorsDir();
 const fixtureHome = path.join(tapesDir, "fixtures", "demo-home");
 const tapes = [
   "status-and-sources.tape",
@@ -69,7 +69,7 @@ function runTape(runner, tapePath) {
   const env = {
     ...process.env,
     HOME: fixtureHome,
-    VANA_DATA_CONNECTORS_DIR: connectorsDir,
+    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
   };
   execFileSync(runner.command, [...runner.args, tapePath], {
     cwd: repoRoot,
@@ -87,6 +87,15 @@ function commandExists(command) {
   } catch {
     return false;
   }
+}
+
+function resolveDataConnectorsDir() {
+  if (process.env.VANA_DATA_CONNECTORS_DIR) {
+    return process.env.VANA_DATA_CONNECTORS_DIR;
+  }
+
+  const siblingRepo = path.resolve(repoRoot, "..", "data-connectors");
+  return fs.existsSync(siblingRepo) ? siblingRepo : null;
 }
 
 try {

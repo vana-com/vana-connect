@@ -1,4 +1,5 @@
-import fs from "node:fs/promises";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -8,20 +9,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const transcriptsDir = path.join(repoRoot, "docs", "transcripts");
 const fixtureHome = path.join(repoRoot, "docs", "vhs", "fixtures", "demo-home");
-const connectorsDir = "/home/tnunamak/code/data-connectors";
+const connectorsDir = resolveDataConnectorsDir();
 
 async function main() {
-  await fs.mkdir(transcriptsDir, { recursive: true });
-  const tempRoot = await fs.mkdtemp(
+  await fsp.mkdir(transcriptsDir, { recursive: true });
+  const tempRoot = await fsp.mkdtemp(
     path.join(os.tmpdir(), "vana-transcripts-"),
   );
   const workingHome = path.join(tempRoot, "home");
-  await fs.cp(fixtureHome, workingHome, { recursive: true });
+  await fsp.cp(fixtureHome, workingHome, { recursive: true });
 
   const env = {
     ...process.env,
     HOME: workingHome,
-    VANA_DATA_CONNECTORS_DIR: connectorsDir,
+    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
   };
 
   const commands = [
@@ -51,13 +52,13 @@ async function main() {
   for (const command of commands) {
     const output = run(command.argv, env, command.allowFailure);
     const filePath = path.join(transcriptsDir, command.name);
-    await fs.writeFile(filePath, output, "utf8");
+    await fsp.writeFile(filePath, output, "utf8");
     process.stdout.write(
       `[transcript] wrote ${path.relative(repoRoot, filePath)}\n`,
     );
   }
 
-  await fs.rm(tempRoot, { recursive: true, force: true });
+  await fsp.rm(tempRoot, { recursive: true, force: true });
 }
 
 function run(argv, env, allowFailure = false) {
@@ -76,6 +77,15 @@ function run(argv, env, allowFailure = false) {
     }
     throw new Error(`${stdout}${stderr}`.trim());
   }
+}
+
+function resolveDataConnectorsDir() {
+  if (process.env.VANA_DATA_CONNECTORS_DIR) {
+    return process.env.VANA_DATA_CONNECTORS_DIR;
+  }
+
+  const siblingRepo = path.resolve(repoRoot, "..", "data-connectors");
+  return fs.existsSync(siblingRepo) ? siblingRepo : null;
 }
 
 main().catch((error) => {

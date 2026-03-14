@@ -12,10 +12,10 @@ Type "pnpm demo:vhs:fixtures"
 Enter
 Sleep 800ms
 
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" VANA_DATA_CONNECTORS_DIR=\"/home/tnunamak/code/data-connectors\" node dist/cli/bin.js data list"
+Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js data list"
 Enter
 Sleep 1200ms
 
-Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" VANA_DATA_CONNECTORS_DIR=\"/home/tnunamak/code/data-connectors\" node dist/cli/bin.js data show github"
+Type "HOME=\"$PWD/docs/vhs/fixtures/demo-home\" node dist/cli/bin.js data show github"
 Enter
 Sleep 1200ms
