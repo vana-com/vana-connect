@@ -648,52 +648,46 @@ This is the recommended sequence.
 
 ### Current Branch State And Revised Sequencing
 
-As of branch head `b91e4a2`, the plan above is no longer hypothetical.
+As of branch head `0afda69`, the plan above is no longer hypothetical.
 Substantial parts of the foundation are already present:
 
 - a human renderer/theme layer exists
 - `status`, `sources`, and `data` have been upgraded materially
-- `vana connect` has a guided no-source entrypoint
+- `vana connect` has a guided no-source entrypoint with clearer cancellation
+  and direct-command copy
 - structured runtime `status-update` and `progress-update` events now exist
-- VHS scaffolding exists and README-facing demo assets are publishing from CI
+- deterministic success demos, transcripts, and README-facing VHS assets are
+  publishing from CI
+- successful connects now land with a stronger payoff moment, including saved
+  session messaging
 
-That means the next phase should **not** start from Phase 1 again.
+That means the next phase should **not** start from Phase 1 again and should
+not repeat the already-finished product-truth work.
 The correct sequence from here is:
 
-### Batch 1: Product-truth and demo-proofing
+### Batch 1: Product-truth and demo-proofing follow-through
 
-This batch should be completed and released together before deeper beauty work.
+This batch is mostly complete. The remaining work should be follow-through only:
 
-- add a deterministic successful `connect` demo fixture so README demos can show
-  real progress and a real success moment without depending on live GitHub
-- add transcript coverage for that successful connect flow
-- tighten the final human success summary so it consistently lands as:
-  - what connected
-  - what was collected
-  - where the data lives or went
-  - one strong next step
-- strengthen `vana data show` and `vana data path` as the first payoff surface
-- improve `vana status` so it distinguishes:
-  - runtime ready
-  - session present
-  - last successful collection
-  - Personal Server unavailable vs synced
+- keep tightening any remaining rough edges surfaced by real acceptance tests
 - broaden acceptance coverage across:
   - migrated/requestInput connectors
   - legacy/manual connectors
   - unsupported sources
   - saved-session reuse cases
+- keep README, transcripts, and published demo assets aligned with the current
+  canary
 
 Important:
 
-- this batch is about making the product feel truthful and coherent
-- it should be pushed as one larger release cycle, not as many tiny deployment
+- this is now a cleanup/follow-through lane, not the main product frontier
+- it should still be pushed as larger release cycles, not many tiny deployment
   cycles
 
 ### Batch 2: Deep beauty, static-first
 
-Once Batch 1 is externally proven, start the real beauty pass on the surfaces
-that are already semantically stable.
+This is now the main frontier. Focus first on the surfaces that are already
+semantically stable.
 
 - refine spacing, hierarchy, and semantic color usage across:
   - `status`

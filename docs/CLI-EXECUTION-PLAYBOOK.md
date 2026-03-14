@@ -16,9 +16,9 @@ wins.
 
 ## Current State
 
-Branch head at the time of writing:
+Branch head at the time of this update:
 
-- `b91e4a2`
+- `0afda69`
 
 Already true on this branch:
 
@@ -27,6 +27,10 @@ Already true on this branch:
 - published canary assets work
 - `status`, `sources`, `data`, and guided `connect` have been materially
   upgraded
+- guided `connect` now has clearer entry, cancellation, and continuation copy
+- `status` now points users toward `vana data list` when that is the right next step
+- `data show` / `data path` JSON surfaces are more useful for shell tooling
+- successful connects now explicitly mention the saved browser session payoff
 - structured runtime `status-update` and `progress-update` events exist
 - README-facing VHS demos and transcripts are publishing from CI
 
