@@ -217,6 +217,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
+    expect(stdout).toContain("Connected");
     expect(stdout).toContain("GitHub [interactive]: connected, local only");
     expect(stdout).toContain("vana data show github");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");

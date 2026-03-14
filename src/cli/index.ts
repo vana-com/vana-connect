@@ -685,17 +685,47 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   if (status.personalServerUrl) {
     emit.detail(status.personalServerUrl);
   }
-  if (status.sources.length > 0) {
+  const sourceGroups = [
+    {
+      title: "Needs attention",
+      items: status.sources.filter((source) => rankSourceStatus(source) <= 4),
+    },
+    {
+      title: "Connected",
+      items: status.sources.filter(
+        (source) =>
+          source.dataState === "ingested_personal_server" ||
+          source.dataState === "collected_local" ||
+          source.dataState === "ingest_failed",
+      ),
+    },
+    {
+      title: "Installed",
+      items: status.sources.filter(
+        (source) =>
+          rankSourceStatus(source) > 4 &&
+          source.dataState === "none" &&
+          source.installed,
+      ),
+    },
+  ].filter((group) => group.items.length > 0);
+  if (sourceGroups.length > 0) {
     emit.blank();
     emit.section("Sources");
   }
-  for (const source of status.sources) {
-    emit.info(formatSourceStatus(source, sourceLabels, emit));
-    const details = formatSourceStatusDetails(source);
-    for (const detail of details) {
-      emit.detail(detail);
+  sourceGroups.forEach((group, index) => {
+    if (index > 0) {
+      emit.blank();
     }
-  }
+    emit.section(group.title);
+    for (const source of group.items) {
+      emit.info(formatSourceStatus(source, sourceLabels, emit));
+      const details = formatSourceStatusDetails(source);
+      for (const detail of details) {
+        emit.detail(detail);
+      }
+    }
+  });
   return 0;
 }
 
