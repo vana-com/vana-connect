@@ -243,7 +243,7 @@ async function runConnect(
     );
     if (fs.existsSync(profilePath)) {
       emit.info(
-        `Found an existing ${displaySource(source, sourceLabels)} session. Trying that first...`,
+        `Found an existing ${displaySource(source, sourceLabels)} session. Reusing it if it is still valid...`,
       );
     }
 
