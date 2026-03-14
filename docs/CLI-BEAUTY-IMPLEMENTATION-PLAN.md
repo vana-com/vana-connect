@@ -718,6 +718,22 @@ human `connect` flow itself.
 This batch should make `vana connect <source>` feel like a product journey, not
 just a sequence of log lines.
 
+### Operational polish after beauty
+
+Do not let the beauty work crowd out the less visible CLI quality bar.
+
+After the static and connect-narrative beauty batches are stable, run an
+explicit operational-polish pass covering:
+
+- `vana --version` / `vana version`
+- help quality
+- a diagnostics surface, likely `vana doctor`
+- exit-code matrix review
+- JSON contract audit
+- upgrade/uninstall/channel clarity
+
+This is part of the best-in-class bar even though it is not primarily visual.
+
 ### Batch 4: Runtime event enrichment for beauty
 
 Only after the human connect narrative is visibly better should we deepen the

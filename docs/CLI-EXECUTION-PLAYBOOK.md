@@ -390,6 +390,71 @@ This batch strengthens the CLI as a tool, not just a guided product surface.
 2. human-surface formatting
 3. transcript examples for shell composability
 
+## Batch 5A: Operational Polish And CLI Contract
+
+This batch exists to close the non-glamorous gaps that separate a strong CLI
+from a best-in-class one.
+
+### Goals
+
+- make versioning, diagnostics, and lifecycle operations obvious
+- make the shell contract explicit and reliable
+- improve help/discoverability without weakening the human product surface
+
+### Work items
+
+1. Add an explicit version surface:
+   - `vana --version`
+   - `vana version`
+   - version visibility in `vana --help`
+   - version in `status --json`
+2. Add a diagnostics surface:
+   - likely `vana doctor`
+   - runtime/browser/install checks
+   - actionable remediation output
+3. Define and verify the exit-code matrix:
+   - success
+   - cancel
+   - source required
+   - setup required
+   - needs input
+   - legacy/manual step required
+   - connector unavailable
+   - runtime/internal failure
+4. Audit and tighten the JSON contract:
+   - stable top-level shapes
+   - no noisy human output in `--json`
+   - predictable error payloads
+5. Improve lifecycle discoverability:
+   - upgrade instructions
+   - uninstall/cleanup instructions
+   - canary vs stable channel clarity
+6. Improve help quality:
+   - command descriptions
+   - examples
+   - first-step orientation
+
+### Exit criteria
+
+- a new user can discover version, help, diagnostics, and upgrade paths from the CLI itself
+- script authors have a documented and test-covered exit-code matrix
+- `--json` behavior is explicit, stable, and reviewed as a contract
+- uninstall/cleanup and channel guidance exist in docs
+
+### Good subagent slices
+
+1. version/help command work
+2. `doctor` command scaffolding and tests
+3. exit-code matrix tests
+4. JSON contract audit/tests
+5. install/upgrade/uninstall doc pass
+
+Primary-agent integration:
+
+- deciding what belongs in `doctor` vs `status`
+- deciding what version information belongs in normal human surfaces
+- protecting the CLI from “helpful” additions that bloat the contract
+
 ## Batch 6: Debuggability And Operator Affordances
 
 This batch is for connector authors, agents, and support/debug workflows.
