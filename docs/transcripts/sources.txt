@@ -11,5 +11,5 @@ Shop [legacy] [installed]
   Exports your Shop app order history using Playwright browser automation.
 
 → Next
-  • Browse the guided picker with `vana connect`.
-  • Or connect one directly with `vana connect <source>`.
+  • Start with GitHub using `vana connect github`.
+  • Or browse the guided picker with `vana connect`.

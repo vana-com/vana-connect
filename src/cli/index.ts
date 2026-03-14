@@ -712,11 +712,18 @@ async function runList(options: GlobalOptions): Promise<number> {
   if (groups.length === 0) {
     emit.info("No sources are available right now.");
   } else {
+    const recommendedSource =
+      enrichedSources.find((source) => source.authMode !== "legacy") ??
+      enrichedSources[0];
     emit.blank();
     emit.section("Next");
-    emit.bullet(`Browse the guided picker with ${emit.code("vana connect")}.`);
     emit.bullet(
-      `Or connect one directly with ${emit.code("vana connect <source>")}.`,
+      `Start with ${recommendedSource.name} using ${emit.code(
+        `vana connect ${recommendedSource.id}`,
+      )}.`,
+    );
+    emit.bullet(
+      `Or browse the guided picker with ${emit.code("vana connect")}.`,
     );
   }
   return 0;
@@ -943,8 +950,14 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   });
   emit.blank();
   emit.section("Next");
-  emit.bullet(`Inspect one with ${emit.code("vana data show <source>")}.`);
-  emit.bullet(`Print a path with ${emit.code("vana data path <source>")}.`);
+  emit.bullet(
+    `Inspect ${datasetRecords[0].name ?? displaySource(datasetRecords[0].source)} with ${emit.code(
+      `vana data show ${datasetRecords[0].source}`,
+    )}.`,
+  );
+  emit.bullet(
+    `Or print its path with ${emit.code(`vana data path ${datasetRecords[0].source}`)}.`,
+  );
   return 0;
 }
 

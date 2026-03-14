@@ -648,8 +648,8 @@ describe("runCli", () => {
         Path: /tmp/.dataconnect/spotify-result.json
 
       → Next
-        • Inspect one with \`vana data show <source>\`.
-        • Print a path with \`vana data path <source>\`.
+        • Inspect GitHub with \`vana data show github\`.
+        • Or print its path with \`vana data path github\`.
       "
     `);
   });
@@ -797,8 +797,8 @@ describe("runCli", () => {
         Exports ChatGPT data.
 
       → Next
-        • Browse the guided picker with \`vana connect\`.
-        • Or connect one directly with \`vana connect <source>\`.
+        • Start with GitHub using \`vana connect github\`.
+        • Or browse the guided picker with \`vana connect\`.
       "
     `);
   });
