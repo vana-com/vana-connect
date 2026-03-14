@@ -20,6 +20,7 @@ import type {
   CliStatus,
   SourceStatus,
 } from "../core/cli-types.js";
+import type { AvailableSource } from "../connectors/registry.js";
 import { listAvailableSources } from "../connectors/registry.js";
 import {
   detectPersonalServerTarget,
@@ -1114,10 +1115,33 @@ async function loadRegistrySources() {
   try {
     return (
       (await listAvailableSources(findDataConnectorsDir() ?? undefined)) ?? []
-    );
+    ).sort(compareRegistrySourceOrder);
   } catch {
     return [];
   }
+}
+
+function compareRegistrySourceOrder(
+  left: AvailableSource,
+  right: AvailableSource,
+): number {
+  return (
+    rankAuthMode(left.authMode) - rankAuthMode(right.authMode) ||
+    left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
+  );
+}
+
+function rankAuthMode(authMode: AvailableSource["authMode"]): number {
+  if (authMode === "interactive") {
+    return 0;
+  }
+  if (authMode === "automated") {
+    return 1;
+  }
+  if (authMode === "legacy") {
+    return 2;
+  }
+  return 3;
 }
 
 async function readResultSummary(

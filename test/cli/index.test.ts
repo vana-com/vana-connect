@@ -275,6 +275,43 @@ describe("runCli", () => {
     });
   });
 
+  it("prioritizes higher-maturity sources in human output", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "chatgpt",
+        name: "ChatGPT",
+        description: "Exports ChatGPT data.",
+        authMode: "legacy",
+      },
+      {
+        id: "github",
+        name: "GitHub",
+        description: "Exports GitHub data.",
+        authMode: "interactive",
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "sources"]);
+
+    expect(exitCode).toBe(0);
+    const renderedLines = stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(
+        (line) => line.startsWith("GitHub") || line.startsWith("ChatGPT"),
+      );
+    const githubIndex = renderedLines.findIndex((line) =>
+      line.startsWith("GitHub"),
+    );
+    const chatgptIndex = renderedLines.findIndex((line) =>
+      line.startsWith("ChatGPT"),
+    );
+    expect(githubIndex).toBeGreaterThanOrEqual(0);
+    expect(chatgptIndex).toBeGreaterThanOrEqual(0);
+    expect(githubIndex).toBeLessThan(chatgptIndex);
+  });
+
   it("prints source_required in json mode when connect source is missing", async () => {
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "--json"]);
