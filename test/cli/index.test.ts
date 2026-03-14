@@ -323,6 +323,8 @@ describe("runCli", () => {
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "unavailable",
       paths: {
+        executable: expect.any(String),
+        appRoot: expect.any(String),
         dataHome: expect.stringMatching(/\.dataconnect$/),
         stateFile: expect.stringMatching(
           /\.dataconnect\/vana-connect-state\.json$/,
@@ -357,6 +359,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Vana Connect doctor");
     expect(stdout).toContain("Install");
+    expect(stdout).toContain("Paths");
     expect(stdout).toContain("Lifecycle");
     expect(stdout).toContain("git pull && pnpm install && pnpm build");
   });
@@ -546,6 +549,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Install the local runtime with `vana setup`.");
+    expect(stdout).toContain("Inspect install health with `vana doctor`.");
   });
 
   it("fails cleanly in json mode when input is required", async () => {

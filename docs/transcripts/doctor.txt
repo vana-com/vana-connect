@@ -12,12 +12,23 @@ Vana Connect doctor
   CLI:              Version 0.8.1
   Runtime:          Browser available at /opt/playwright/chromium-1200/chrome-linux64/chrome
   Personal Server:  Unavailable. Connects will stay local until a Personal Server is reachable.
+  Executable:       Present at /usr/local/bin/node
+  App root:         Missing at /usr/local/bin/app
   Data home:        Present at ~/.dataconnect
   State file:       Present at ~/.dataconnect/vana-connect-state.json
   Connector cache:  Present at ~/.dataconnect/connectors
   Browser profiles: Missing at ~/.dataconnect/browser-profiles
   Logs:             Present at ~/.dataconnect/logs
   Tracked sources:  4 sources in local state
+
+→ Paths
+  Executable:       /usr/local/bin/node
+  App root:         /usr/local/bin/app
+  Data home:        ~/.dataconnect
+  State file:       ~/.dataconnect/vana-connect-state.json
+  Connector cache:  ~/.dataconnect/connectors
+  Browser profiles: ~/.dataconnect/browser-profiles
+  Logs:             ~/.dataconnect/logs
 
 → Lifecycle
   Upgrade:          git pull && pnpm install && pnpm build

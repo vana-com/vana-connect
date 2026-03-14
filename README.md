@@ -231,7 +231,7 @@ vana data show github --json | jq '.summary.lines'
 vana status --json | jq '.channel, .installMethod, .runtime, .sources[]?.source'
 vana sources --json | jq '.recommendedSource'
 vana data list --json | jq '.datasets[] | {source, dataState, path}'
-vana doctor --json | jq '.paths, .lifecycle'
+vana doctor --json | jq '.paths.executable, .paths.appRoot, .lifecycle'
 ```
 
 ### Upgrade, channels, and uninstall

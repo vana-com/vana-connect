@@ -106,6 +106,8 @@ export const cliDoctorSchema = z.object({
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
   paths: z.object({
+    executable: z.string(),
+    appRoot: z.string(),
     dataHome: z.string(),
     stateFile: z.string(),
     connectorCache: z.string(),

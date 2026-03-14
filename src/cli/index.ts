@@ -1081,6 +1081,18 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
 
   const directories = [
     {
+      key: "executable",
+      label: "Executable",
+      path: process.execPath,
+      present: fs.existsSync(process.execPath),
+    },
+    {
+      key: "appRoot",
+      label: "App root",
+      path: getCliAppRoot(),
+      present: fs.existsSync(getCliAppRoot()),
+    },
+    {
       key: "dataHome",
       label: "Data home",
       path: getDataConnectHome(),
@@ -1174,6 +1186,8 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
     paths: {
+      executable: process.execPath,
+      appRoot: getCliAppRoot(),
       dataHome: getDataConnectHome(),
       stateFile: getCliStatePath(),
       connectorCache: getConnectorCacheDir(),
@@ -1219,6 +1233,23 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
           : "error";
     emit.keyValue(check.label, check.detail, tone);
   }
+  emit.blank();
+  emit.section("Paths");
+  emit.keyValue("Executable", formatDisplayPath(process.execPath), "muted");
+  emit.keyValue("App root", formatDisplayPath(getCliAppRoot()), "muted");
+  emit.keyValue("Data home", formatDisplayPath(getDataConnectHome()), "muted");
+  emit.keyValue("State file", formatDisplayPath(getCliStatePath()), "muted");
+  emit.keyValue(
+    "Connector cache",
+    formatDisplayPath(getConnectorCacheDir()),
+    "muted",
+  );
+  emit.keyValue(
+    "Browser profiles",
+    formatDisplayPath(getBrowserProfilesDir()),
+    "muted",
+  );
+  emit.keyValue("Logs", formatDisplayPath(getLogsDir()), "muted");
   emit.blank();
   emit.section("Lifecycle");
   emit.keyValue("Upgrade", lifecycle.upgrade, "muted");
@@ -1954,6 +1985,9 @@ function buildStatusNextSteps(
       }
     } else if (runtime === "missing") {
       nextSteps.push("Install the local runtime with `vana setup`.");
+      nextSteps.push("Inspect install health with `vana doctor`.");
+    } else if (runtime === "unhealthy") {
+      nextSteps.push("Inspect install health with `vana doctor`.");
     }
   } else if (highestPriority.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
     nextSteps.push(
@@ -1994,6 +2028,17 @@ function buildStatusNextSteps(
     (!needsAttention || connectedSources.length === 0)
   ) {
     nextSteps.push("Connect another source with `vana sources`.");
+  }
+
+  if (
+    runtime !== "installed" ||
+    sources.some(
+      (source) =>
+        source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR ||
+        source.lastRunOutcome === CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR,
+    )
+  ) {
+    nextSteps.push("Inspect install health with `vana doctor`.");
   }
 
   return [...new Set(nextSteps)];
@@ -2161,6 +2206,10 @@ function getCliInstallMethod(execPath = process.execPath): CliInstallMethod {
     return "development";
   }
   return "unknown";
+}
+
+function getCliAppRoot(execPath = process.execPath): string {
+  return process.env.VANA_APP_ROOT ?? path.join(path.dirname(execPath), "app");
 }
 
 function formatInstallMethodLabel(method: CliInstallMethod): string {
