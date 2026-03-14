@@ -430,47 +430,45 @@ async function runConnect(
     });
 
     const resultSummary = await readResultSummary(resultPath);
+    const connectCommand = emit.code("vana status");
+    const dataCommand = emit.code(`vana data show ${source}`);
 
-    if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
-      emit.info(`Connected ${displaySource(source, sourceLabels)}.`);
-      emit.info(
-        `Collected your ${displaySource(source, sourceLabels)} data and synced it to your Personal Server.`,
-      );
-    } else {
-      if (target.state !== "available") {
-        emit.info(
-          `No Personal Server is available right now, so your ${displaySource(
-            source,
-            sourceLabels,
-          )} data was saved locally.`,
-        );
+    emit.title(`Connected ${displaySource(source, sourceLabels)}.`);
+
+    emit.blank();
+    if (resultSummary) {
+      emit.section("Collected");
+      for (const line of resultSummary.lines) {
+        emit.bullet(line);
       }
-      emit.info(`Connected ${displaySource(source, sourceLabels)}.`);
-      emit.info(
-        `Collected your ${displaySource(source, sourceLabels)} data and saved it locally.`,
-      );
-      emit.info(`Local result: ${resultPath}`);
     }
 
-    if (resultSummary) {
-      emit.info("");
-      emit.info("Collected:");
-      for (const line of resultSummary.lines) {
-        emit.info(`- ${line}`);
+    emit.blank();
+    if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
+      emit.section("Synced");
+      emit.bullet("Your data is now available in your Personal Server.");
+    } else {
+      emit.section("Saved locally");
+      emit.bullet(resultPath);
+      if (target.state !== "available") {
+        emit.detail(
+          "No Personal Server is available right now, so this run stayed local.",
+        );
       }
     }
 
     if (runLogPath) {
-      emit.info(`Run log: ${runLogPath}`);
+      emit.detail(`Run log: ${runLogPath}`);
     } else if (fetchLogPath) {
-      emit.info(`Fetch log: ${fetchLogPath}`);
+      emit.detail(`Fetch log: ${fetchLogPath}`);
     } else if (setupLogPath) {
-      emit.info(`Setup log: ${setupLogPath}`);
+      emit.detail(`Setup log: ${setupLogPath}`);
     }
 
-    emit.info(
-      "Next: run `vana status` to inspect your current connection state.",
-    );
+    emit.blank();
+    emit.section("Next");
+    emit.bullet(`Run ${connectCommand}`);
+    emit.bullet(`Or inspect the data with ${dataCommand}`);
     emit.event({
       type: "outcome",
       status: finalStatus,
@@ -678,6 +676,8 @@ async function runDataList(options: GlobalOptions): Promise<number> {
 
   const emit = createEmitter(options);
   if (datasets.length === 0) {
+    emit.title("Collected data");
+    emit.blank();
     emit.info("No local datasets collected yet.");
     emit.info("Run `vana connect <source>` to collect data.");
     return 0;

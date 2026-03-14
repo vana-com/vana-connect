@@ -40,7 +40,7 @@ export function createHumanRenderer(): HumanRenderer {
       return theme.accent(text);
     },
     keyValue(label, value, tone = "muted") {
-      return `${theme.label(label)} ${applyTone(theme, tone, value)}`;
+      return `${theme.label(`${label}:`)} ${applyTone(theme, tone, value)}`;
     },
     sourceTitle(name, badges = []) {
       if (badges.length === 0) {
