@@ -1,15 +1,15 @@
 GitHub data
 
 → Summary
-• Profile: tnunamak
-• Repositories: 2
-• Starred: 0
+  • Profile: tnunamak
+  • Repositories: 2
+  • Starred: 0
 
-Path: ~/.dataconnect/last-result.json
-Updated: Mar 14, 2026, 8:10 AM
-State: Saved locally
+  Path: ~/.dataconnect/last-result.json
+  Updated: Mar 14, 2026, 8:10 AM
+  State: Saved locally
 
 → Next
-• Print the path with `vana data path github`.
-• Inspect other datasets with `vana data list`.
-• Check overall status with `vana status`.
+  • Print the path with `vana data path github`.
+  • Inspect other datasets with `vana data list`.
+  • Check overall status with `vana status`.

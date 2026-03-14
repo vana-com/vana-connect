@@ -5,5 +5,5 @@ Finding a connector for Steam...
 No connector is available for Steam right now.
 
 → Next
-• Browse available sources with `vana sources`.
-• Then connect one with `vana connect <source>`.
+  • Browse available sources with `vana sources`.
+  • Then connect one with `vana connect <source>`.

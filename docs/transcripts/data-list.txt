@@ -4,15 +4,15 @@ GitHub [local]
   Profile: tnunamak
   Repositories: 2
   Starred: 0
-Updated: Mar 14, 2026, 8:10 AM
-Path: ~/.dataconnect/last-result.json
+  Updated: Mar 14, 2026, 8:10 AM
+  Path: ~/.dataconnect/last-result.json
 
 Spotify [local]
   Profile: tnunamak
   Playlists: 2
-Updated: Mar 13, 2026, 4:23 PM
-Path: ~/.dataconnect/spotify-result.json
+  Updated: Mar 13, 2026, 4:23 PM
+  Path: ~/.dataconnect/spotify-result.json
 
 → Next
-• Inspect one with `vana data show <source>`.
-• Print a path with `vana data path <source>`.
+  • Inspect one with `vana data show <source>`.
+  • Print a path with `vana data path <source>`.

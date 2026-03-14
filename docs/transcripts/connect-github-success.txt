@@ -17,16 +17,16 @@ Collecting your data...
   Collected your GitHub data and saved it locally.
 
 → Collected
-• Profile: tnunamak
-• Repositories: 2
-• Starred: 0
+  • Profile: tnunamak
+  • Repositories: 2
+  • Starred: 0
 
 → Saved locally
-• ~/.dataconnect/last-result.json
+  • ~/.dataconnect/last-result.json
   Saved browser session available for faster reconnects.
   No Personal Server is available right now, so this run stayed local.
   Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
 
 → Next
-• Run `vana status`
-• Or inspect the data with `vana data show github`
+  • Run `vana status`
+  • Or inspect the data with `vana data show github`

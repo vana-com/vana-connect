@@ -280,9 +280,9 @@ describe("runCli", () => {
       "Vana Connect status
 
       → Environment
-      Runtime: installed
+        Runtime: installed
         /tmp/playwright/chrome
-      Personal Server: unavailable
+        Personal Server: unavailable
 
       → Sources (2)
       → Needs attention (1)
@@ -298,7 +298,7 @@ describe("runCli", () => {
         /tmp/.dataconnect/github-result.json
 
       → Next
-      • Complete the manual browser step for Shop with \`vana connect shop\`.
+        • Complete the manual browser step for Shop with \`vana connect shop\`.
       "
     `);
   });
@@ -432,18 +432,18 @@ describe("runCli", () => {
       "GitHub data
 
       → Summary
-      • Profile: tnunamak
-      • Repositories: 2
-      • Starred: 0
+        • Profile: tnunamak
+        • Repositories: 2
+        • Starred: 0
 
-      Path: /tmp/.dataconnect/github-result.json
-      Updated: <timestamp>
-      State: Saved locally
+        Path: /tmp/.dataconnect/github-result.json
+        Updated: <timestamp>
+        State: Saved locally
 
       → Next
-      • Print the path with \`vana data path github\`.
-      • Inspect other datasets with \`vana data list\`.
-      • Check overall status with \`vana status\`.
+        • Print the path with \`vana data path github\`.
+        • Inspect other datasets with \`vana data list\`.
+        • Check overall status with \`vana status\`.
       "
     `);
   });
@@ -545,18 +545,18 @@ describe("runCli", () => {
         Profile: tnunamak
         Repositories: 2
         Starred: 0
-      Updated: <timestamp>
-      Path: /tmp/.dataconnect/github-result.json
+        Updated: <timestamp>
+        Path: /tmp/.dataconnect/github-result.json
 
       Spotify [local]
         Profile: tnunamak
         Playlists: 2
-      Updated: <timestamp>
-      Path: /tmp/.dataconnect/spotify-result.json
+        Updated: <timestamp>
+        Path: /tmp/.dataconnect/spotify-result.json
 
       → Next
-      • Inspect one with \`vana data show <source>\`.
-      • Print a path with \`vana data path <source>\`.
+        • Inspect one with \`vana data show <source>\`.
+        • Print a path with \`vana data path <source>\`.
       "
     `);
   });
@@ -703,8 +703,8 @@ describe("runCli", () => {
         Exports ChatGPT data.
 
       → Next
-      • Browse the guided picker with \`vana connect\`.
-      • Or connect one directly with \`vana connect <source>\`.
+        • Browse the guided picker with \`vana connect\`.
+        • Or connect one directly with \`vana connect <source>\`.
       "
     `);
   });

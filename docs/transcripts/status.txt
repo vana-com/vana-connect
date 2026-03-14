@@ -1,9 +1,9 @@
 Vana Connect status
 
 → Environment
-Runtime: installed
+  Runtime: installed
   /opt/playwright/chromium-1200/chrome-linux64/chrome
-Personal Server: unavailable
+  Personal Server: unavailable
 
 → Sources (4)
 → Needs attention (2)
@@ -26,4 +26,4 @@ Spotify [interactive] [local]
   ~/.dataconnect/spotify-result.json
 
 → Next
-• Complete the manual browser step for Shop with `vana connect shop`.
+  • Complete the manual browser step for Shop with `vana connect shop`.
