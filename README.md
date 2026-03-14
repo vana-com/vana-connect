@@ -166,10 +166,24 @@ vana data show github --json | jq '.summary.lines'
 The branch also includes deterministic VHS demo scaffolding under
 [`docs/vhs/`](./docs/vhs/README.md).
 
+Current reviewable transcripts:
+
+- [`status`](./docs/transcripts/status.txt)
+- [`sources`](./docs/transcripts/sources.txt)
+- [`data list`](./docs/transcripts/data-list.txt)
+- [`data show github`](./docs/transcripts/data-show-github.txt)
+- [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
+
 To seed the fixture home used by the first tapes:
 
 ```bash
 pnpm demo:vhs:fixtures
+```
+
+To render the checked-in tapes once `vhs` or Docker is available:
+
+```bash
+pnpm demo:vhs
 ```
 
 To capture deterministic human-mode transcripts for review:

@@ -36,6 +36,20 @@ That creates:
 
 The preferred renderer is `vhs` from Charm.
 
+One command path:
+
+```bash
+pnpm demo:vhs
+```
+
+That command:
+
+- reseeds the fixture home
+- renders all checked-in `.tape` files
+- writes SVG assets next to the tapes
+
+It will use a local `vhs` binary if present, or Docker if available.
+
 Typical usage once `vhs` is available locally:
 
 ```bash
