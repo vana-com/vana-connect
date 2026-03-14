@@ -1,5 +1,7 @@
 Available sources (3)
 
+ready now (2) • with manual step (1)
+
 → Ready now (2)
 GitHub [interactive] [installed]
   Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.

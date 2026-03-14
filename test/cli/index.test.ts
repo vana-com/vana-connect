@@ -420,6 +420,8 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Vana Connect status
 
+      need attention (1) • connected (1)
+
       → Environment
         Runtime:          installed
         Browser:          /tmp/playwright/chrome
@@ -859,6 +861,8 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Collected data (2)
 
+      local dataset (2) • synced dataset (0)
+
       GitHub [local]
         Profile: tnunamak
         Repositories: 2
@@ -1033,6 +1037,8 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
       "Available sources (3)
+
+      ready now (2) • with manual step (1)
 
       → Ready now (2)
       GitHub [interactive]

@@ -1,5 +1,7 @@
 Vana Connect status
 
+need attention (2) • connected (2)
+
 → Environment
   Runtime:          installed
   Browser:          /opt/playwright/chromium-1200/chrome-linux64/chrome

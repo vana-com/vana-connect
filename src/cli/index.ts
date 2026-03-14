@@ -789,6 +789,23 @@ async function runList(options: GlobalOptions): Promise<number> {
       : "Available sources",
   );
   emit.blank();
+  if (enrichedSources.length > 0) {
+    const readyCount = enrichedSources.filter(
+      (source) => source.authMode !== "legacy",
+    ).length;
+    const manualCount = enrichedSources.filter(
+      (source) => source.authMode === "legacy",
+    ).length;
+    emit.info(
+      joinOverviewParts([
+        formatCountLabel("ready now", readyCount),
+        manualCount > 0
+          ? formatCountLabel("with manual step", manualCount)
+          : "",
+      ]),
+    );
+    emit.blank();
+  }
   const groups = [
     {
       title: "Ready now",
@@ -872,6 +889,24 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
 
   emit.title("Vana Connect status");
+  emit.blank();
+  emit.info(
+    joinOverviewParts([
+      formatCountLabel(
+        "need attention",
+        status.sources.filter((source) => rankSourceStatus(source) <= 4).length,
+      ),
+      formatCountLabel(
+        "connected",
+        status.sources.filter(
+          (source) =>
+            source.dataState === "ingested_personal_server" ||
+            source.dataState === "collected_local" ||
+            source.dataState === "ingest_failed",
+        ).length,
+      ),
+    ]),
+  );
   emit.blank();
   emit.section("Environment");
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
@@ -1213,6 +1248,23 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       : "Collected data",
   );
   emit.blank();
+  emit.info(
+    joinOverviewParts([
+      formatCountLabel(
+        "local dataset",
+        datasetRecords.filter(
+          (dataset) => dataset.dataState !== "ingested_personal_server",
+        ).length,
+      ),
+      formatCountLabel(
+        "synced dataset",
+        datasetRecords.filter(
+          (dataset) => dataset.dataState === "ingested_personal_server",
+        ).length,
+      ),
+    ]),
+  );
+  emit.blank();
   datasetRecords.forEach((dataset, index) => {
     if (index > 0) {
       emit.blank();
@@ -1496,6 +1548,10 @@ function displaySource(source: string, labels: SourceLabelMap = {}): string {
 
 function formatCountLabel(label: string, count: number): string {
   return `${label} (${count})`;
+}
+
+function joinOverviewParts(parts: string[]): string {
+  return parts.filter(Boolean).join(" • ");
 }
 
 function humanizeField(value: string): string {
