@@ -77,9 +77,13 @@ if (archiveStat.size < 1024 * 100) {
 }
 
 if (platform === "darwin") {
-  execFileSync("codesign", ["--verify", "--verbose=2", path.join(artifactDir, binaryName)], {
-    stdio: "inherit",
-  });
+  execFileSync(
+    "codesign",
+    ["--verify", "--verbose=2", path.join(artifactDir, binaryName)],
+    {
+      stdio: "inherit",
+    },
+  );
 }
 
 console.log(
