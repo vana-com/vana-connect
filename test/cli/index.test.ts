@@ -209,6 +209,38 @@ describe("runCli", () => {
     });
   });
 
+  it("renders a stable human transcript for setup when already installed", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "setup"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatchInlineSnapshot(`
+      "Vana Connect setup
+
+      → Runtime
+      The local runtime is already installed.
+        /tmp/playwright/chrome
+      "
+    `);
+  });
+
+  it("renders a stable human transcript for setup when installation runs", async () => {
+    runtimeState = "missing";
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "setup", "--yes"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatchInlineSnapshot(`
+      "Vana Connect setup
+
+      → Runtime
+      ✓ Runtime ready.
+        Setup log: /tmp/logs/setup.log
+      "
+    `);
+  });
+
   it("shows nuanced source details in human status output", async () => {
     mockListAvailableSources.mockResolvedValue([
       {

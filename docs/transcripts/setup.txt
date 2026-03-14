@@ -1,0 +1,5 @@
+Vana Connect setup
+
+→ Runtime
+The local runtime is already installed.
+  /opt/playwright/chromium-1200/chrome-linux64/chrome

@@ -11,3 +11,13 @@ Refresh them with:
 pnpm demo:vhs:fixtures
 pnpm demo:transcripts
 ```
+
+Current generated surfaces include:
+
+- `status.txt`
+- `setup.txt`
+- `sources.txt`
+- `data-list.txt`
+- `data-show-github.txt`
+- `connect-github-success.txt`
+- `connect-steam-no-input.txt`

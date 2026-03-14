@@ -39,6 +39,7 @@ vana data show github
 Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
+- [`setup`](./docs/transcripts/setup.txt)
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
 - [`data show github`](./docs/transcripts/data-show-github.txt)

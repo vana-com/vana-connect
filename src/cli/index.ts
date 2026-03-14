@@ -823,8 +823,15 @@ async function runSetup(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const runtime = new ManagedPlaywrightRuntime();
 
+  emit.title("Vana Connect setup");
+  emit.blank();
+  emit.section("Runtime");
+
   if (runtime.state === "installed") {
-    emit.info("Vana Connect runtime is already installed.");
+    emit.info("The local runtime is already installed.");
+    if (runtime.runtimePath) {
+      emit.detail(formatDisplayPath(runtime.runtimePath));
+    }
     emit.event({ type: "setup-check", runtime: runtime.state });
     return 0;
   }
@@ -833,7 +840,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     const result = await runtime.ensureInstalled(Boolean(options.yes));
     emit.success("Runtime ready.");
     if (result.logPath) {
-      emit.info(`Setup log: ${formatDisplayPath(result.logPath)}`);
+      emit.detail(`Setup log: ${formatDisplayPath(result.logPath)}`);
     }
     emit.event({
       type: "setup-complete",

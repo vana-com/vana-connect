@@ -35,6 +35,10 @@ async function main() {
       argv: ["vana", "status"],
     },
     {
+      name: "setup.txt",
+      argv: ["vana", "setup"],
+    },
+    {
       name: "sources.txt",
       argv: ["vana", "sources"],
     },
