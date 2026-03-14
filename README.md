@@ -146,14 +146,16 @@ npx -y @opendatalabs/connect status
 vana connect
 vana sources
 vana connect github
+vana connect github --json --no-input
 vana status
 vana setup
 vana data list
-vana data show github --json | jq
+vana data show github --json | jq '.summary.lines'
 ```
 
 - `vana connect` opens a guided source picker in human mode.
 - `vana connect <source>` runs the end-to-end collection flow.
+- `vana connect <source> --json --no-input` is the strict machine-safe path for agents and shell automation.
 - `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
 
 ### Local development
