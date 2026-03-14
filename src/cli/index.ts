@@ -394,7 +394,7 @@ async function runConnect(
           source: resolution.source,
         });
         if (event.logPath) {
-          emit.info(`Run log: ${formatDisplayPath(event.logPath)}`);
+          emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
         }
         terminalExitCode = 1;
         continue;
@@ -430,7 +430,7 @@ async function runConnect(
           `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
         );
         if (event.logPath) {
-          emit.detail(`Run log: ${formatDisplayPath(event.logPath)}`);
+          emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
         }
         emit.event({
           type: "outcome",
