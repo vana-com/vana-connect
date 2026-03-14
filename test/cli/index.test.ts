@@ -570,7 +570,10 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(1);
     expect(stdout).toContain(
-      "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+      "Shop still needs a manual browser step on this machine.",
+    );
+    expect(stdout).toContain(
+      "Because `--no-input` is enabled, Vana stopped before opening that session.",
     );
     expect(stdout).toContain("Run `vana connect shop` without `--no-input`.");
     expect(stdout).toContain("Run log:");

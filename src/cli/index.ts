@@ -480,6 +480,9 @@ async function runConnect(
           emit.info(
             `${displayName} needs additional input before it can connect.`,
           );
+          emit.detail(
+            `Because ${emit.code("--no-input")} is enabled, Vana stopped before prompting in this terminal.`,
+          );
           emit.blank();
           emit.section("Next");
           emit.bullet(
@@ -549,8 +552,10 @@ async function runConnect(
         emit.blank();
         emit.section("Manual step required");
         emit.info(
-          event.message ??
-            "This connector needs a manual browser step that is not available in non-interactive mode.",
+          `${displayName} still needs a manual browser step on this machine.`,
+        );
+        emit.detail(
+          `Because ${emit.code("--no-input")} is enabled, Vana stopped before opening that session.`,
         );
         emit.blank();
         emit.section("Next");

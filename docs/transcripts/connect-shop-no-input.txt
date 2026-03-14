@@ -11,7 +11,8 @@ Connecting to Shop...
 Collecting your data...
 
 → Manual step required
-This source needs a manual browser step, but prompting is disabled in --no-input mode.
+Shop still needs a manual browser step on this machine.
+  Because `--no-input` is enabled, Vana stopped before opening that session.
 
 → Next
   • Run `vana connect shop` without `--no-input`.
