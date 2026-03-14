@@ -65,8 +65,33 @@ jobs:
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256
+  demo-preview:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm demo:transcripts
+      - run: pnpm demo:vhs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-demo-preview
+          path: |
+            docs/transcripts
+            docs/vhs/*.svg
   release:
-    needs: build-sea
+    needs: [build-sea, demo-preview]
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -89,6 +114,10 @@ jobs:
           pattern: vana-sea-*
           path: artifacts/release
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: vana-demo-preview
+          path: artifacts/demo-preview
       - run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
