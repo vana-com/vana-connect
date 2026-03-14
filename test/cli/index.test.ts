@@ -284,13 +284,13 @@ describe("runCli", () => {
         /tmp/playwright/chrome
       Personal Server: unavailable
 
-      → Sources
-      → Needs attention
+      → Sources (2)
+      → Needs attention (1)
       Shop [legacy] [manual step]
         Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
         Updated: <timestamp>
 
-      → Connected
+      → Connected (1)
       GitHub [interactive] [local]
         Inspect the latest local dataset with \`vana data show github\`.
         Saved browser session available for faster reconnects.
@@ -421,6 +421,7 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "GitHub data
 
+      → Summary
       • Profile: tnunamak
       • Repositories: 2
       • Starred: 0

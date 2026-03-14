@@ -219,7 +219,10 @@ async function seedDemoDataConnectors() {
   }
 
   await delay(120);
-  await page.setData("status", "Login confirmed. Collecting data in background...");
+  await page.setData(
+    "status",
+    "Login confirmed. Collecting data in background...",
+  );
   await page.setProgress({
     phase: { step: 1, total: 3, label: "Profile" },
     message: "Fetching profile...",
@@ -240,10 +243,7 @@ async function seedDemoDataConnectors() {
 
   return {
     profile: { username: "tnunamak" },
-    repositories: [
-      { name: "vana-connect" },
-      { name: "data-connectors" },
-    ],
+    repositories: [{ name: "vana-connect" }, { name: "data-connectors" }],
     starred: [],
     exportSummary: {
       count: 2,

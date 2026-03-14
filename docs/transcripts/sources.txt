@@ -1,12 +1,12 @@
-Available sources
+Available sources (3)
 
-→ Ready now
+→ Ready now (2)
 GitHub [installed] [interactive]
   Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
 Spotify [installed] [interactive]
   Exports your Spotify playlists using Playwright browser automation.
 
-→ Manual steps
+→ Manual steps (1)
 Shop [installed] [legacy]
   Exports your Shop app order history using Playwright browser automation.
 

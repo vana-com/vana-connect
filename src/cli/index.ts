@@ -646,7 +646,11 @@ async function runList(options: GlobalOptions): Promise<number> {
   }
 
   const emit = createEmitter(options);
-  emit.title("Available sources");
+  emit.title(
+    enrichedSources.length > 0
+      ? `Available sources (${enrichedSources.length})`
+      : "Available sources",
+  );
   emit.blank();
   const groups = [
     {
@@ -663,7 +667,7 @@ async function runList(options: GlobalOptions): Promise<number> {
     if (index > 0) {
       emit.blank();
     }
-    emit.section(group.title);
+    emit.section(formatCountLabel(group.title, group.items.length));
     for (const source of group.items) {
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
       if (source.installed) {
@@ -754,13 +758,13 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   ].filter((group) => group.items.length > 0);
   if (sourceGroups.length > 0) {
     emit.blank();
-    emit.section("Sources");
+    emit.section(formatCountLabel("Sources", status.sources.length));
   }
   sourceGroups.forEach((group, index) => {
     if (index > 0) {
       emit.blank();
     }
-    emit.section(group.title);
+    emit.section(formatCountLabel(group.title, group.items.length));
     for (const source of group.items) {
       const status = getSourceStatusPresentation(source);
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
@@ -853,7 +857,11 @@ async function runDataList(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
-  emit.title("Collected data");
+  emit.title(
+    datasetRecords.length > 0
+      ? `Collected data (${datasetRecords.length})`
+      : "Collected data",
+  );
   emit.blank();
   datasetRecords.forEach((dataset, index) => {
     if (index > 0) {
@@ -932,6 +940,7 @@ async function runDataShow(
     emit.title(`${displaySource(source, sourceLabels)} data`);
     emit.blank();
     if (summary) {
+      emit.section("Summary");
       for (const line of summary.lines) {
         emit.bullet(line);
       }
@@ -1084,6 +1093,10 @@ function createEmitter(options: GlobalOptions): Emitter {
 
 function displaySource(source: string, labels: SourceLabelMap = {}): string {
   return labels[source] ?? source.charAt(0).toUpperCase() + source.slice(1);
+}
+
+function formatCountLabel(label: string, count: number): string {
+  return `${label} (${count})`;
 }
 
 function humanizeField(value: string): string {

@@ -5,8 +5,8 @@ Runtime: installed
   /opt/playwright/chromium-1200/chrome-linux64/chrome
 Personal Server: unavailable
 
-→ Sources
-→ Needs attention
+→ Sources (4)
+→ Needs attention (2)
 Shop [legacy] [manual step]
   Run `vana connect shop` without `--no-input` to complete the manual browser step.
   Updated: Mar 14, 2026, 8:11 AM
@@ -14,7 +14,7 @@ Steam [unavailable]
   No connector is available for steam right now.
   Updated: Mar 14, 2026, 8:12 AM
 
-→ Connected
+→ Connected (2)
 GitHub [interactive] [local]
   Inspect the latest local dataset with `vana data show github`.
   Saved browser session available for faster reconnects.

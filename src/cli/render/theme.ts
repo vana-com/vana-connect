@@ -18,12 +18,13 @@ export interface RenderTheme {
 export function createTheme(capabilities: RenderCapabilities): RenderTheme {
   const colors = createColors(capabilities.color);
   const formatCode = (text: string) => `\`${text}\``;
+  const richMuted = (text: string) => rgb(115, 115, 115, text);
   if (capabilities.tier === "rich") {
     return {
       accent: (text) => rgb(65, 65, 252, text),
       heading: (text) => colors.bold(text),
-      label: (text) => colors.bold(text),
-      muted: (text) => rgb(115, 115, 115, text),
+      label: (text) => richMuted(colors.bold(text)),
+      muted: (text) => richMuted(text),
       dim: (text) => colors.dim(text),
       success: (text) => rgb(0, 213, 11, text),
       warning: (text) => rgb(186, 139, 0, text),
@@ -36,7 +37,7 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
   return {
     accent: (text) => colors.blue(text),
     heading: (text) => colors.bold(text),
-    label: (text) => colors.bold(text),
+    label: (text) => colors.bold(colors.gray(text)),
     muted: (text) => colors.gray(text),
     dim: (text) => colors.dim(text),
     success: (text) => colors.green(text),
