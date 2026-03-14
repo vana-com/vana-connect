@@ -1,4 +1,4 @@
-Output docs/vhs/status-and-sources.svg
+Output docs/vhs/status-and-sources.gif
 
 Set Shell "bash"
 Set FontSize 16

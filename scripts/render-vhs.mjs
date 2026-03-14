@@ -24,11 +24,16 @@ function main() {
   try {
     for (const tape of tapes) {
       const tapePath = path.join(tapesDir, tape);
-      const outputPath = tapePath.replace(/\.tape$/, ".svg");
+      const outputPath = tapePath.replace(/\.tape$/, ".gif");
       if (fs.existsSync(outputPath)) {
         fs.rmSync(outputPath, { force: true });
       }
       runTape(runner, tapePath, env);
+      if (!fs.existsSync(outputPath)) {
+        throw new Error(
+          `VHS did not produce ${path.relative(repoRoot, outputPath)}.`,
+        );
+      }
       process.stdout.write(
         `[vhs] rendered ${path.relative(repoRoot, outputPath)}\n`,
       );

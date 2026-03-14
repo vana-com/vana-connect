@@ -1,4 +1,4 @@
-Output docs/vhs/data-inspection.svg
+Output docs/vhs/data-inspection.gif
 
 Set Shell "bash"
 Set FontSize 16

@@ -65,11 +65,13 @@ const demoPreviewFiles = [
     path.join(demoPreviewDir, "transcripts"),
     (filePath) => filePath.endsWith(".txt") || filePath.endsWith(".md"),
   ),
-  ...listFiles(path.join(demoPreviewDir, "docs", "vhs"), (filePath) =>
-    filePath.endsWith(".svg"),
+  ...listFiles(
+    path.join(demoPreviewDir, "docs", "vhs"),
+    (filePath) => filePath.endsWith(".gif") || filePath.endsWith(".svg"),
   ),
-  ...listFiles(path.join(demoPreviewDir, "vhs"), (filePath) =>
-    filePath.endsWith(".svg"),
+  ...listFiles(
+    path.join(demoPreviewDir, "vhs"),
+    (filePath) => filePath.endsWith(".gif") || filePath.endsWith(".svg"),
   ),
 ].sort();
 

@@ -1,4 +1,4 @@
-Output docs/vhs/connect-guided.svg
+Output docs/vhs/connect-guided.gif
 
 Set Shell "bash"
 Set FontSize 16

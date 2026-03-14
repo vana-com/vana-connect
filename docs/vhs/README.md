@@ -50,14 +50,14 @@ That command:
 
 - reseeds the fixture home
 - renders all checked-in `.tape` files
-- writes SVG assets next to the tapes
+- writes GIF assets next to the tapes
 
 It will use a local `vhs` binary if present, or Docker if available.
 By default the scripts look for a sibling `../data-connectors` checkout, but
 you can override that with `VANA_DATA_CONNECTORS_DIR=/path/to/data-connectors`.
 
 CI also renders the tapes on Linux in the `demo-preview` job and uploads the
-resulting SVGs and transcripts as a workflow artifact so the branch always has a
+resulting GIFs and transcripts as a workflow artifact so the branch always has a
 current review surface.
 
 Typical usage once `vhs` is available locally:
@@ -68,5 +68,5 @@ VANA_DATA_CONNECTORS_DIR="/home/tnunamak/code/data-connectors" \
 vhs docs/vhs/status-and-sources.tape
 ```
 
-Generated SVG assets should be committed once they are stable enough for the
+Generated GIF assets should be committed once they are stable enough for the
 README.
