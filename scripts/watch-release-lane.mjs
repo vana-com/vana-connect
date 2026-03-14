@@ -13,7 +13,7 @@ const DEFAULT_TIMEOUT_MS = 45 * 60_000;
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const branch = options.branch ?? getCurrentBranch(options.repo);
-  const headSha = options.headSha ?? getCurrentHeadSha();
+  const headSha = options.headSha ?? getTrackedHeadSha(branch);
   const releaseTag = options.releaseTag ?? `canary-${slugify(branch)}`;
 
   log(`Watching release lane for ${branch} @ ${headSha.slice(0, 7)}`);
@@ -314,6 +314,14 @@ function getCurrentBranch(repo) {
 
 function getCurrentHeadSha() {
   return execCommand("git", ["rev-parse", "HEAD"]).trim();
+}
+
+function getTrackedHeadSha(branch) {
+  try {
+    return execCommand("git", ["rev-parse", `origin/${branch}`]).trim();
+  } catch {
+    return getCurrentHeadSha();
+  }
 }
 
 function slugify(value) {
