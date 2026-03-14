@@ -536,6 +536,48 @@ describe("runCli", () => {
     );
   });
 
+  it("shows a clear human message when input is required in no-input mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+        description: "Exports GitHub data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "github",
+        message: "Log in to GitHub",
+        fields: ["username", "password"],
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "connect",
+      "github",
+      "--no-input",
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("→ Input required");
+    expect(stdout).toContain(
+      "GitHub needs additional input before it can connect.",
+    );
+    expect(stdout).toContain(
+      "Because `--no-input` is enabled, Vana stopped before prompting in this terminal.",
+    );
+    expect(stdout).toContain("Run `vana connect github` without `--no-input`.");
+  });
+
   it("prints a clean manual-step message for legacy connectors in no-input mode", async () => {
     mockListAvailableSources.mockResolvedValue([
       {
