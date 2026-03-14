@@ -204,6 +204,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(JSON.parse(stdout)).toMatchObject({
+      cliVersion: "0.8.1",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
@@ -219,6 +220,78 @@ describe("runCli", () => {
           dataState: "collected_local",
         },
       ],
+    });
+  });
+
+  it("prints the CLI version with --version", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "--version"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe("0.8.1");
+  });
+
+  it("prints the CLI version with the version command", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "version"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe("0.8.1");
+  });
+
+  it("shows operational commands in top-level help", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("version");
+    expect(stdout).toContain("doctor");
+    expect(stdout).toContain("vana doctor");
+    expect(stdout).toContain("vana connect github");
+  });
+
+  it("prints structured doctor output in json mode", async () => {
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "unavailable",
+      url: null,
+    });
+    mockExistsSync.mockImplementation((target: string) =>
+      [
+        "/tmp/playwright/chrome",
+        "/tmp/browser-profiles",
+        "/tmp/.dataconnect",
+      ].includes(target),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "doctor", "--json"]);
+
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toMatchObject({
+      cliVersion: "0.8.1",
+      runtime: "installed",
+      runtimePath: "/tmp/playwright/chrome",
+      personalServer: "unavailable",
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          key: "cli",
+          status: "ok",
+        }),
+        expect.objectContaining({
+          key: "runtime",
+          status: "ok",
+        }),
+      ]),
+      nextSteps: expect.any(Array),
     });
   });
 

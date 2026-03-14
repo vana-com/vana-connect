@@ -44,6 +44,11 @@ async function main() {
       env: seededEnv,
     },
     {
+      name: "doctor.txt",
+      argv: ["vana", "doctor"],
+      env: seededEnv,
+    },
+    {
       name: "setup.txt",
       argv: ["vana", "setup"],
       env: seededEnv,

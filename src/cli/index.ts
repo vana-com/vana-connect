@@ -2,16 +2,20 @@ import os from "node:os";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
+import { createRequire } from "node:module";
 
 import { Separator, confirm, input, password, select } from "@inquirer/prompts";
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 
 import { createHumanRenderer } from "./render/index.js";
 import {
   CliOutcomeStatus,
+  getCliStatePath,
   getBrowserProfilesDir,
   getConnectorCacheDir,
+  getDataConnectHome,
   getLastResultPath,
+  getLogsDir,
   readCliState,
   updateSourceState,
 } from "../core/index.js";
@@ -71,6 +75,7 @@ interface Emitter {
 }
 
 type RenderTone = "accent" | "success" | "warning" | "error" | "muted" | "info";
+const require = createRequire(import.meta.url);
 
 type SourceStatusDetail =
   | {
@@ -87,8 +92,31 @@ type SourceStatusDetail =
 export async function runCli(argv = process.argv): Promise<number> {
   const normalizedArgv = normalizeArgv(argv);
   const parsedOptions = extractGlobalOptions(normalizedArgv);
+  const cliVersion = getCliVersion();
   const program = new Command();
-  program.name("vana").description("Vana Connect CLI");
+  program
+    .name("vana")
+    .description("Vana Connect CLI")
+    .version(cliVersion, "-v, --version", "Print CLI version")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  vana status
+  vana connect github
+  vana data show github
+  vana doctor
+`,
+    );
+  program.exitOverride();
+
+  program
+    .command("version")
+    .description("Print CLI version")
+    .action(async () => {
+      process.stdout.write(`${cliVersion}\n`);
+      process.exitCode = 0;
+    });
 
   program
     .command("connect [source]")
@@ -116,6 +144,14 @@ export async function runCli(argv = process.argv): Promise<number> {
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runStatus(parsedOptions);
+    });
+
+  program
+    .command("doctor")
+    .description("Inspect local CLI, runtime, and install health")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runDoctor(parsedOptions);
     });
 
   program
@@ -153,7 +189,20 @@ export async function runCli(argv = process.argv): Promise<number> {
       process.exitCode = await runDataPath(source, parsedOptions);
     });
 
-  await program.parseAsync(normalizedArgv);
+  try {
+    await program.parseAsync(normalizedArgv);
+  } catch (error) {
+    if (
+      error instanceof CommanderError &&
+      (error.code === "commander.help" ||
+        error.code === "commander.helpDisplayed" ||
+        error.code === "commander.version")
+    ) {
+      process.exitCode = error.exitCode;
+      return Number(process.exitCode ?? 0);
+    }
+    throw error;
+  }
   return Number(process.exitCode ?? 0);
 }
 
@@ -803,6 +852,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   const sources = await gatherSourceStatuses(state.sources, sourceMetadata);
 
   const status: CliStatus = {
+    cliVersion: getCliVersion(),
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
@@ -895,6 +945,151 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       emit.bullet(step);
     }
   }
+  return 0;
+}
+
+async function runDoctor(options: GlobalOptions): Promise<number> {
+  const runtime = new ManagedPlaywrightRuntime();
+  const personalServer = await detectPersonalServerTarget();
+  const state = await readCliState();
+  const cliVersion = getCliVersion();
+
+  const directories = [
+    {
+      key: "dataHome",
+      label: "Data home",
+      path: getDataConnectHome(),
+      present: fs.existsSync(getDataConnectHome()),
+    },
+    {
+      key: "stateFile",
+      label: "State file",
+      path: getCliStatePath(),
+      present: fs.existsSync(getCliStatePath()),
+    },
+    {
+      key: "connectorCache",
+      label: "Connector cache",
+      path: getConnectorCacheDir(),
+      present: fs.existsSync(getConnectorCacheDir()),
+    },
+    {
+      key: "browserProfiles",
+      label: "Browser profiles",
+      path: getBrowserProfilesDir(),
+      present: fs.existsSync(getBrowserProfilesDir()),
+    },
+    {
+      key: "logs",
+      label: "Logs",
+      path: getLogsDir(),
+      present: fs.existsSync(getLogsDir()),
+    },
+  ];
+
+  const checks = [
+    {
+      key: "cli",
+      label: "CLI",
+      status: "ok",
+      detail: `Version ${cliVersion}`,
+    },
+    {
+      key: "runtime",
+      label: "Runtime",
+      status: runtime.state === "installed" ? "ok" : "warn",
+      detail:
+        runtime.state === "installed"
+          ? `Browser available at ${formatDisplayPath(runtime.runtimePath ?? "unknown")}`
+          : "Run `vana setup` to install the local browser runtime.",
+    },
+    {
+      key: "personalServer",
+      label: "Personal Server",
+      status: personalServer.state === "available" ? "ok" : "warn",
+      detail:
+        personalServer.state === "available"
+          ? (personalServer.url ?? "Available")
+          : "Unavailable. Connects will stay local until a Personal Server is reachable.",
+    },
+    ...directories.map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      status: entry.present ? "ok" : "warn",
+      detail: `${entry.present ? "Present" : "Missing"} at ${formatDisplayPath(entry.path)}`,
+    })),
+    {
+      key: "sources",
+      label: "Tracked sources",
+      status: "ok",
+      detail: `${Object.keys(state.sources).length} source${Object.keys(state.sources).length === 1 ? "" : "s"} in local state`,
+    },
+  ] as const;
+
+  const nextSteps = [
+    ...(runtime.state !== "installed"
+      ? ["Install the local runtime with `vana setup`."]
+      : []),
+    ...(personalServer.state !== "available"
+      ? [
+          "Your Personal Server is unavailable, so successful runs will stay local.",
+        ]
+      : []),
+    ...(Object.keys(state.sources).length === 0
+      ? ["Connect your first source with `vana connect`."]
+      : ["Check overall status with `vana status`."]),
+  ];
+
+  const payload = {
+    cliVersion,
+    runtime: runtime.state,
+    runtimePath: runtime.runtimePath,
+    personalServer: personalServer.state,
+    personalServerUrl: personalServer.url,
+    checks,
+    nextSteps,
+  };
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(payload)}\n`);
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  emit.title("Vana Connect doctor");
+  emit.blank();
+  emit.section("Summary");
+  emit.keyValue("CLI", cliVersion, "muted");
+  emit.keyValue("Runtime", runtime.state, toneForRuntime(runtime.state));
+  emit.keyValue(
+    "Personal Server",
+    personalServer.state,
+    personalServer.state === "available" ? "success" : "warning",
+  );
+  emit.keyValue(
+    "Tracked sources",
+    String(Object.keys(state.sources).length),
+    "muted",
+  );
+  emit.blank();
+  emit.section("Checks");
+  for (const check of checks) {
+    const tone: RenderTone =
+      check.status === "ok"
+        ? "success"
+        : check.status === "warn"
+          ? "warning"
+          : "error";
+    emit.keyValue(check.label, check.detail, tone);
+  }
+  if (nextSteps.length > 0) {
+    emit.blank();
+    emit.section("Next");
+    for (const step of nextSteps) {
+      emit.bullet(step);
+    }
+  }
+
   return 0;
 }
 
@@ -1770,6 +1965,11 @@ function normalizeArgv(argv: string[]): string[] {
   }
 
   return argv;
+}
+
+function getCliVersion(): string {
+  const packageJson = require("../../package.json") as { version?: string };
+  return packageJson.version ?? "0.0.0";
 }
 
 function formatDisplayPath(filePath: string): string {

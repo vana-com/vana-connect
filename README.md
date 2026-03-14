@@ -30,6 +30,8 @@ curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-
 Once installed, the best way to evaluate the CLI quickly is:
 
 ```bash
+vana --version
+vana doctor
 vana status
 vana sources
 vana connect github
@@ -39,6 +41,7 @@ vana data show github
 Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
+- [`doctor`](./docs/transcripts/doctor.txt)
 - [`setup`](./docs/transcripts/setup.txt)
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
@@ -191,6 +194,9 @@ npx -y @opendatalabs/connect status
 ### Commands
 
 ```bash
+vana --version
+vana version
+vana doctor
 vana connect
 vana sources
 vana connect github
@@ -207,7 +213,59 @@ vana data show github --json | jq '.summary.lines'
 - `vana connect <source> --json --no-input` is the strict machine-safe path for agents and shell automation.
 - `vana sources` groups sources into ready-now vs manual-step flows.
 - `vana status` prioritizes sources that need attention before already-connected sources.
+- `vana doctor` checks the local install, browser runtime, and state directories.
 - `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
+
+### Shell contract
+
+- `--json` mode writes machine-readable output to stdout without human narration.
+- Successful command completion returns exit code `0`.
+- Actionable failures like missing source selection, unavailable connectors, or disabled prompting return exit code `1`.
+- `vana --version`, `vana version`, and `vana --help` return exit code `0`.
+
+### Upgrade, channels, and uninstall
+
+Upgrade with the same channel you installed from:
+
+- Homebrew:
+  ```bash
+  brew update
+  brew upgrade vana
+  ```
+- macOS/Linux installer:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
+  ```
+- Windows PowerShell installer:
+  ```powershell
+  iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 -useb | iex
+  ```
+
+Current channels:
+
+- `stable`: install from `main` or the eventual stable Homebrew tap state
+- `canary`: install from the latest prerelease assets while this CLI is still rolling out
+
+To remove the installed CLI:
+
+- Homebrew:
+  ```bash
+  brew uninstall vana
+  ```
+- macOS/Linux installer:
+  ```bash
+  rm -f ~/.local/bin/vana
+  rm -rf ~/.local/share/vana
+  ```
+- Windows PowerShell installer:
+  - remove `%USERPROFILE%\AppData\Local\Microsoft\WinGet\Links\vana.cmd`
+  - remove `%USERPROFILE%\AppData\Local\Vana`
+
+To remove local runtime and collected state as well:
+
+```bash
+rm -rf ~/.dataconnect
+```
 
 ### CLI demos
 
@@ -229,6 +287,7 @@ Branch prerelease preview media:
 Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
+- [`doctor`](./docs/transcripts/doctor.txt)
 - [`setup`](./docs/transcripts/setup.txt)
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)

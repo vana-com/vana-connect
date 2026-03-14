@@ -54,10 +54,12 @@ export const sourceStatusSchema = z.object({
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 
 export const cliStatusSchema = z.object({
+  cliVersion: z.string().optional(),
   runtime: runtimeStateSchema,
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  nextSteps: z.array(z.string()).optional(),
   sources: z.array(sourceStatusSchema),
 });
 export type CliStatus = z.infer<typeof cliStatusSchema>;
