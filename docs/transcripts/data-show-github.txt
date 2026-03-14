@@ -5,9 +5,9 @@ GitHub data
   • Repositories: 2
   • Starred: 0
 
-  Path: ~/.dataconnect/last-result.json
-  Updated: Mar 14, 2026, 8:10 AM
-  State: Saved locally
+  Path:             ~/.dataconnect/last-result.json
+  Updated:          Mar 14, 2026, 8:10 AM
+  State:            Saved locally
 
 → Next
   • Print the path with `vana data path github`.

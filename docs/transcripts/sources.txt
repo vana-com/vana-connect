@@ -3,12 +3,15 @@ Available sources (3)
 → Ready now (2)
 GitHub [interactive] [installed]
   Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+  Flow: prompts in this terminal when the source needs input.
 Spotify [interactive] [installed]
   Exports your Spotify playlists using Playwright browser automation.
+  Flow: prompts in this terminal when the source needs input.
 
 → Manual steps (1)
 Shop [legacy] [installed]
   Exports your Shop app order history using Playwright browser automation.
+  Flow: finishes with a manual browser step on this machine.
 
 → Next
   • Start with GitHub using `vana connect github`.

@@ -18,7 +18,9 @@ Current generated surfaces include:
 - `setup.txt`
 - `sources.txt`
 - `data-list.txt`
+- `data-list-empty.txt`
 - `data-show-github.txt`
+- `data-show-github-missing.txt`
 - `data-path-github.txt`
 - `connect-github-success.txt`
 - `connect-shop-no-input.txt`

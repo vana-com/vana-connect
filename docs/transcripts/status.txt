@@ -1,28 +1,30 @@
 Vana Connect status
 
 → Environment
-  Runtime: installed
-  Browser: /opt/playwright/chromium-1200/chrome-linux64/chrome
-  Personal Server: unavailable
+  Runtime:          installed
+  Browser:          /opt/playwright/chromium-1200/chrome-linux64/chrome
+  Personal Server:  unavailable
 
 → Needs attention (2)
 Shop [legacy] [manual step]
   Run `vana connect shop` without `--no-input` to complete the manual browser step.
-  Updated: Mar 14, 2026, 8:11 AM
+  Updated:          Mar 14, 2026, 8:11 AM
 Steam [unavailable]
   No connector is available for Steam right now.
-  Updated: Mar 14, 2026, 8:12 AM
+  Updated:          Mar 14, 2026, 8:12 AM
 
 → Connected (2)
 GitHub [interactive] [local]
   Inspect the latest local dataset with `vana data show github`.
-  Session: Saved for faster reconnects.
-  Updated: Mar 14, 2026, 8:10 AM
-  Path: ~/.dataconnect/last-result.json
+  Session:          Saved for faster reconnects.
+  State:            Saved locally
+  Updated:          Mar 14, 2026, 8:10 AM
+  Path:             ~/.dataconnect/last-result.json
 Spotify [interactive] [local]
   Inspect the latest local dataset with `vana data show spotify`.
-  Updated: Mar 13, 2026, 4:23 PM
-  Path: ~/.dataconnect/spotify-result.json
+  State:            Saved locally
+  Updated:          Mar 13, 2026, 4:23 PM
+  Path:             ~/.dataconnect/spotify-result.json
 
 → Next
   • Complete the manual browser step for Shop with `vana connect shop`.

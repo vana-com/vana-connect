@@ -1,0 +1,7 @@
+Collected data
+
+No local datasets collected yet.
+
+→ Next
+  • Collect your first dataset with `vana connect github`.
+  • Check overall status with `vana status`.

@@ -4,14 +4,16 @@ GitHub [local]
   Profile: tnunamak
   Repositories: 2
   Starred: 0
-  Updated: Mar 14, 2026, 8:10 AM
-  Path: ~/.dataconnect/last-result.json
+  State:            Saved locally
+  Updated:          Mar 14, 2026, 8:10 AM
+  Path:             ~/.dataconnect/last-result.json
 
 Spotify [local]
   Profile: tnunamak
   Playlists: 2
-  Updated: Mar 13, 2026, 4:23 PM
-  Path: ~/.dataconnect/spotify-result.json
+  State:            Saved locally
+  Updated:          Mar 13, 2026, 4:23 PM
+  Path:             ~/.dataconnect/spotify-result.json
 
 → Next
   • Inspect GitHub with `vana data show github`.

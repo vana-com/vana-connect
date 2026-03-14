@@ -4,6 +4,7 @@ Connect GitHub
 Finding a connector for GitHub...
 Connector ready.
 Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+  If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.
 
 → Connecting
 Connecting to GitHub...
@@ -22,10 +23,10 @@ Collecting your data...
   • Starred: 0
 
 → Saved locally
-  Path: ~/.dataconnect/last-result.json
-  Session: Saved for faster reconnects.
-  Server: Unavailable, so this run stayed local.
-  Run log: ~/.dataconnect/logs/run-github-<timestamp>.log
+  Path:             ~/.dataconnect/last-result.json
+  Session:          Saved for faster reconnects.
+  Server:           Unavailable, so this run stayed local.
+  Run log:          ~/.dataconnect/logs/run-github-<timestamp>.log
 
 → Next
   • Inspect the data with `vana data show github`

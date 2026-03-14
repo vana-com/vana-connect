@@ -1,0 +1,4 @@
+No collected dataset found for GitHub. Run `vana connect github` first.
+
+→ Next
+  • Collect data with `vana connect github`.
