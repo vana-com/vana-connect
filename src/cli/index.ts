@@ -3,7 +3,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 
-import { confirm, input, password, select } from "@inquirer/prompts";
+import { Separator, confirm, input, password, select } from "@inquirer/prompts";
 import { Command } from "commander";
 
 import { createHumanRenderer } from "./render/index.js";
@@ -695,12 +695,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     source = await select({
       message: "Source",
       pageSize: 8,
-      choices: sources.map((item) => ({
-        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}`,
-        description: formatSourcePickerDescription(item),
-        short: item.name,
-        value: item.id,
-      })),
+      choices: buildConnectChoices(sources, emit),
     });
   } catch (error) {
     if (isPromptCancelled(error)) {
@@ -1673,6 +1668,51 @@ function describeConnectTrust(
   }
 
   return null;
+}
+
+function buildConnectChoices(
+  sources: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    authMode?: "automated" | "interactive" | "legacy";
+  }>,
+  emit: Pick<Emitter, "badge">,
+) {
+  const readyNow = sources.filter((source) => source.authMode !== "legacy");
+  const manualSteps = sources.filter((source) => source.authMode === "legacy");
+  const choices: Array<
+    | Separator
+    | {
+        value: string;
+        name: string;
+        description: string;
+        short: string;
+      }
+  > = [];
+
+  const appendGroup = (label: string, items: typeof sources) => {
+    if (items.length === 0) {
+      return;
+    }
+    if (choices.length > 0) {
+      choices.push(new Separator(""));
+    }
+    choices.push(new Separator(label));
+    for (const item of items) {
+      choices.push({
+        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}`,
+        description: formatSourcePickerDescription(item),
+        short: item.name,
+        value: item.id,
+      });
+    }
+  };
+
+  appendGroup("Ready now", readyNow);
+  appendGroup("Manual steps", manualSteps);
+
+  return choices;
 }
 
 function formatMissingConnectSourceMessage(

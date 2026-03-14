@@ -55,6 +55,14 @@ vi.mock("../../src/connectors/registry.js", () => ({
 }));
 
 vi.mock("@inquirer/prompts", () => ({
+  Separator: class {
+    type = "separator";
+    separator: string;
+
+    constructor(separator = "") {
+      this.separator = separator;
+    }
+  },
   confirm: mockConfirm,
   input: vi.fn(),
   password: vi.fn(),
@@ -1095,6 +1103,53 @@ describe("runCli", () => {
       "Specify a source. Start with `vana connect github`, or run `vana sources` to see available options.",
     );
     expect(stdout).not.toContain("Choose a source to connect:");
+  });
+
+  it("groups guided connect choices by readiness", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "spotify", name: "Spotify", authMode: "interactive" },
+      { id: "shop", name: "Shop", authMode: "legacy" },
+    ]);
+    mockSelect.mockResolvedValueOnce("github");
+
+    const originalStdoutTty = process.stdout.isTTY;
+    const originalStdinTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect"]);
+
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: originalStdoutTty,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: originalStdinTty,
+    });
+
+    const choices = mockSelect.mock.calls[0]?.[0]?.choices;
+    expect(choices).toBeDefined();
+    expect(choices[0]).toMatchObject({
+      type: "separator",
+      separator: "Ready now",
+    });
+    expect(choices[1]).toMatchObject({ value: "github" });
+    expect(choices[2]).toMatchObject({ value: "spotify" });
+    expect(choices[3]).toMatchObject({ type: "separator", separator: "" });
+    expect(choices[4]).toMatchObject({
+      type: "separator",
+      separator: "Manual steps",
+    });
+    expect(choices[5]).toMatchObject({ value: "shop" });
   });
 
   it("prints a clear message when the guided source picker is cancelled", async () => {
