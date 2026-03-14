@@ -78,6 +78,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "package-managers:generate": "node ./scripts/generate-package-manager-metadata.mjs",
+    "preflight:cli": "pnpm test test/runtime/in-process-run.test.ts test/cli/index.test.ts && pnpm build && pnpm format:check && pnpm demo:transcripts",
     "release:collect-assets": "node ./scripts/collect-release-assets.mjs",
     "validate": "npm run lint && npm run lint:eslint && npm run format:check && npm test",
     "prepare": "husky"

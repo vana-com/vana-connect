@@ -134,6 +134,11 @@ Tasks:
    - transcript capture
    - VHS/demo verification
    - release asset assertions
+
+Current canonical local CLI preflight:
+
+- `pnpm preflight:cli`
+
 2. Maintain one watcher-driven post-publish flow that handles:
    - CI/canary polling
    - Homebrew sync
