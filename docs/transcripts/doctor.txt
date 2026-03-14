@@ -2,6 +2,7 @@ Vana Connect doctor
 
 → Summary
   CLI:              0.8.1
+  Channel:          stable
   Runtime:          installed
   Personal Server:  unavailable
   Tracked sources:  4

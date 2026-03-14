@@ -929,6 +929,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
 
   const status: CliStatus = {
     cliVersion: getCliVersion(),
+    channel: getCliChannel(),
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
@@ -1047,6 +1048,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   const personalServer = await detectPersonalServerTarget();
   const state = await readCliState();
   const cliVersion = getCliVersion();
+  const cliChannel = getCliChannel(cliVersion);
 
   const directories = [
     {
@@ -1136,6 +1138,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
 
   const payload: CliDoctor = {
     cliVersion,
+    channel: cliChannel,
     runtime: runtime.state,
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
@@ -1161,6 +1164,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   emit.blank();
   emit.section("Summary");
   emit.keyValue("CLI", cliVersion, "muted");
+  emit.keyValue("Channel", cliChannel, "muted");
   emit.keyValue("Runtime", runtime.state, toneForRuntime(runtime.state));
   emit.keyValue(
     "Personal Server",
@@ -2094,6 +2098,10 @@ function normalizeArgv(argv: string[]): string[] {
 function getCliVersion(): string {
   const packageJson = require("../../package.json") as { version?: string };
   return packageJson.version ?? "0.0.0";
+}
+
+function getCliChannel(version = getCliVersion()): "stable" | "canary" {
+  return version.includes("canary") ? "canary" : "stable";
 }
 
 function formatDisplayPath(filePath: string): string {

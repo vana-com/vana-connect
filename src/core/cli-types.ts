@@ -28,6 +28,9 @@ export const personalServerStateSchema = z.enum([
 ]);
 export type PersonalServerState = z.infer<typeof personalServerStateSchema>;
 
+export const cliChannelSchema = z.enum(["stable", "canary"]);
+export type CliChannel = z.infer<typeof cliChannelSchema>;
+
 export const dataStateSchema = z.enum([
   "none",
   "collected_local",
@@ -67,6 +70,7 @@ export type ListedSource = z.infer<typeof listedSourceSchema>;
 
 export const cliStatusSchema = z.object({
   cliVersion: z.string().optional(),
+  channel: cliChannelSchema.optional(),
   runtime: runtimeStateSchema,
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
@@ -86,6 +90,7 @@ export type CliDoctorCheck = z.infer<typeof cliDoctorCheckSchema>;
 
 export const cliDoctorSchema = z.object({
   cliVersion: z.string(),
+  channel: cliChannelSchema,
   runtime: runtimeStateSchema,
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,

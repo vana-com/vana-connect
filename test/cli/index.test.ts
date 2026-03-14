@@ -217,6 +217,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
+      channel: "stable",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
@@ -304,6 +305,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(parsed).toMatchObject({
       cliVersion: "0.8.1",
+      channel: "stable",
       runtime: "installed",
       runtimePath: "/tmp/playwright/chrome",
       personalServer: "unavailable",
