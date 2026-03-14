@@ -12,6 +12,7 @@ const fixtureHome = path.join(repoRoot, "docs", "vhs", "fixtures", "demo-home");
 const connectorsDir = resolveDataConnectorsDir();
 
 async function main() {
+  prepareFixtures();
   await fsp.mkdir(transcriptsDir, { recursive: true });
   const tempRoot = await fsp.mkdtemp(
     path.join(os.tmpdir(), "vana-transcripts-"),
@@ -59,6 +60,13 @@ async function main() {
   }
 
   await fsp.rm(tempRoot, { recursive: true, force: true });
+}
+
+function prepareFixtures() {
+  execFileSync("node", ["./scripts/prepare-vhs-fixtures.mjs"], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
 }
 
 function run(argv, env, allowFailure = false) {
