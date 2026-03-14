@@ -57,6 +57,7 @@ interface Emitter {
   info(message: string): void;
   blank(): void;
   title(message: string): void;
+  success(message: string): void;
   section(message: string): void;
   keyValue(label: string, value: string, tone?: RenderTone): void;
   detail(message: string): void;
@@ -210,7 +211,7 @@ async function runConnect(
         runtime: installResult.runtime,
         logPath: installResult.logPath,
       });
-      emit.info("Runtime ready.");
+      emit.success("Runtime ready.");
       if (installResult.logPath) {
         emit.info(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
       }
@@ -487,7 +488,7 @@ async function runConnect(
         ? `Collected your ${displayName} data and synced it to your Personal Server.`
         : `Collected your ${displayName} data and saved it locally.`;
 
-    emit.title(`Connected ${displayName}.`);
+    emit.success(`Connected ${displayName}.`);
     emit.detail(successSummary);
 
     emit.blank();
@@ -775,7 +776,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
 
   try {
     const result = await runtime.ensureInstalled(Boolean(options.yes));
-    emit.info("Runtime ready.");
+    emit.success("Runtime ready.");
     if (result.logPath) {
       emit.info(`Setup log: ${formatDisplayPath(result.logPath)}`);
     }
@@ -1011,6 +1012,12 @@ function createEmitter(options: GlobalOptions): Emitter {
         return;
       }
       process.stdout.write(`${renderer.title(message)}\n`);
+    },
+    success(message: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.success(message)}\n`);
     },
     section(message: string) {
       if (options.json || options.quiet) {

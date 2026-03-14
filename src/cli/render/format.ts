@@ -13,6 +13,7 @@ export interface HumanRenderer {
   readonly theme: RenderTheme;
   blank(): string;
   title(text: string): string;
+  success(text: string): string;
   section(text: string): string;
   keyValue(label: string, value: string, tone?: Tone): string;
   sourceTitle(name: string, badges?: string[]): string;
@@ -35,6 +36,9 @@ export function createHumanRenderer(): HumanRenderer {
     },
     title(text) {
       return theme.heading(text);
+    },
+    success(text) {
+      return `${theme.success(symbols.success)} ${theme.heading(text)}`;
     },
     section(text) {
       return `${theme.accent(symbols.arrow)} ${theme.accent(text)}`;
