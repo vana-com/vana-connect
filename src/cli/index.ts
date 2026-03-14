@@ -169,13 +169,12 @@ async function runConnect(
       emit.info(
         `Vana Connect needs a local browser runtime before it can connect ${displayName}.`,
       );
-      emit.info("");
-      emit.info("This will install:");
-      emit.info("- the local browser runtime");
-      emit.info("- a Chromium browser engine");
-      emit.info("- local runtime files under ~/.dataconnect/");
-      emit.info("");
-      emit.info(
+      emit.blank();
+      emit.section("Runtime setup");
+      emit.bullet("Install the local browser runtime.");
+      emit.bullet("Install a Chromium browser engine.");
+      emit.bullet("Create local runtime files under `~/.dataconnect/`.");
+      emit.detail(
         "Your credentials stay on this machine. Nothing is sent anywhere except the platform you’re connecting to.",
       );
 
@@ -214,7 +213,7 @@ async function runConnect(
       });
       emit.success("Runtime ready.");
       if (installResult.logPath) {
-        emit.info(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
+        emit.detail(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
       }
     } else {
       emit.event({
@@ -229,10 +228,11 @@ async function runConnect(
     try {
       fetched = await runtime.fetchConnector(source);
     } catch (error) {
-      const message =
+      const rawMessage =
         error instanceof Error
           ? error.message
           : `No connector is available for ${displayName} right now.`;
+      const message = formatHumanSourceMessage(rawMessage, source, displayName);
       await updateSourceState(source, {
         connectorInstalled: false,
         lastRunAt: new Date().toISOString(),
@@ -280,7 +280,7 @@ async function runConnect(
       `${path.basename(resolution.connectorPath, path.extname(resolution.connectorPath))}`,
     );
     if (fs.existsSync(profilePath)) {
-      emit.info(
+      emit.detail(
         `Found an existing ${displayName} session. Reusing it if it is still valid...`,
       );
     }
@@ -309,11 +309,11 @@ async function runConnect(
       noInput: options.noInput,
       onNeedInput: async (needInput) => {
         emit.blank();
-        emit.section("Continue");
+        emit.section("Continue in this terminal");
         emit.info(
-          `To connect ${displayName}, Vana Connect will open a local browser session on this machine.`,
+          `Vana Connect will keep the ${displayName} session local to this machine.`,
         );
-        emit.info("Your credentials stay local.");
+        emit.detail("The details you enter here stay local.");
         emit.blank();
         emit.info(
           needInput.message ??
@@ -394,11 +394,13 @@ async function runConnect(
       }
 
       if (event.type === "headed-required") {
+        emit.blank();
+        emit.section("Continue in your browser");
         if (event.message) {
           emit.info(event.message);
         }
         if (event.url) {
-          emit.info(`Opening ${displayName} in a local browser session...`);
+          emit.detail(`Opening ${displayName} in a local browser session...`);
         }
         continue;
       }
@@ -481,7 +483,7 @@ async function runConnect(
         reason: "Connector run ended without a result.",
       });
       if (runLogPath) {
-        emit.info(`Run log: ${runLogPath}`);
+        emit.info(`Run log: ${formatDisplayPath(runLogPath)}`);
       }
       return 1;
     }
@@ -564,11 +566,11 @@ async function runConnect(
       reason: message,
     });
     if (runLogPath) {
-      emit.info(`Run log: ${formatDisplayPath(runLogPath)}`);
+      emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
     } else if (fetchLogPath) {
-      emit.info(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
+      emit.detail(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
     } else if (setupLogPath) {
-      emit.info(`Setup log: ${formatDisplayPath(setupLogPath)}`);
+      emit.detail(`Setup log: ${formatDisplayPath(setupLogPath)}`);
     }
     return 1;
   }
@@ -1112,6 +1114,25 @@ function humanizeField(value: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]/g, " ")
     .replace(/^\w/, (match) => match.toUpperCase());
+}
+
+function formatHumanSourceMessage(
+  message: string,
+  source: string,
+  displayName: string,
+): string {
+  if (!message || source === displayName) {
+    return message;
+  }
+
+  return message.replace(
+    new RegExp(`\\b${escapeRegExp(source)}\\b`, "gi"),
+    displayName,
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function gatherSourceStatuses(

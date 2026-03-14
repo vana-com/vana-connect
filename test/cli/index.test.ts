@@ -879,7 +879,7 @@ describe("runCli", () => {
     fetchSpy.mockRestore();
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("No connector is available for steam right now.");
+    expect(stdout).toContain("No connector is available for Steam right now.");
     expect(stdout).toContain("→ Next");
     expect(stdout).toContain("Browse available sources with `vana sources`.");
     expect(stdout).toContain("Then connect one with `vana connect <source>`.");

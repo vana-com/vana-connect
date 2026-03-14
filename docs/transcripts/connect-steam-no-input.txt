@@ -2,7 +2,7 @@ Connect Steam
 
 → Preparing
 Finding a connector for Steam...
-No connector is available for steam right now.
+No connector is available for Steam right now.
 
 → Next
 • Browse available sources with `vana sources`.
