@@ -94,6 +94,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Generate package-manager metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          PACKAGE_VERSION="${RELEASE_TAG#v}"
+          pnpm package-managers:generate -- --release-tag "$RELEASE_TAG" --package-version "$PACKAGE_VERSION"
+      - name: Attach package-manager metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          mapfile -t PACKAGE_MANAGER_FILES < <(find artifacts/package-managers -type f | sort)
+          gh release upload "$RELEASE_TAG" "${PACKAGE_MANAGER_FILES[@]}" --clobber
   verify-release-install:
     needs: release
     runs-on: ubuntu-latest

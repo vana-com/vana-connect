@@ -96,6 +96,14 @@ jobs:
           pattern: vana-sea-*
           path: artifacts/release
           merge-multiple: true
+      - name: Generate package-manager metadata
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION=$(node -p "require('./package.json').version")
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          PACKAGE_VERSION="${VERSION}-canary.${SHORT_SHA}"
+          pnpm package-managers:generate -- --release-tag "$TAG" --package-version "$PACKAGE_VERSION"
       - name: Publish branch prerelease assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,7 +113,7 @@ jobs:
           TAG="canary-${BRANCH_SLUG}"
           TITLE="Canary ${GITHUB_REF_NAME}"
           NOTES="Branch canary for ${GITHUB_REF_NAME} at ${SHORT_SHA}. Install with the branch installer and \`--version ${TAG}\`."
-          mapfile -t RELEASE_FILES < <(find artifacts/release -maxdepth 1 -type f | sort)
+          mapfile -t RELEASE_FILES < <(find artifacts/release artifacts/package-managers -type f | sort)
 
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
             echo "No release files were found in artifacts/release"

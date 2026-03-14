@@ -72,6 +72,7 @@
     "lint:eslint:fix": "eslint --fix 'src/**/*.ts' 'src/**/*.tsx'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "package-managers:generate": "node ./scripts/generate-package-manager-metadata.mjs",
     "validate": "npm run lint && npm run lint:eslint && npm run format:check && npm test",
     "prepare": "husky"
   },
