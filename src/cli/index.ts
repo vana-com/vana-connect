@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 
-import { confirm, input, password } from "@inquirer/prompts";
+import { confirm, input, password, select } from "@inquirer/prompts";
 import { Command } from "commander";
 
 import {
@@ -56,13 +56,15 @@ export async function runCli(argv = process.argv): Promise<number> {
   program.name("vana").description("Vana Connect CLI");
 
   program
-    .command("connect <source>")
+    .command("connect [source]")
     .option("--json", "Output machine-readable JSON")
     .option("--no-input", "Fail instead of prompting for input")
     .option("--yes", "Approve safe setup prompts automatically")
     .option("--quiet", "Reduce non-essential output")
-    .action(async (source: string) => {
-      process.exitCode = await runConnect(source, parsedOptions);
+    .action(async (source?: string) => {
+      process.exitCode = source
+        ? await runConnect(source, parsedOptions)
+        : await runConnectEntry(parsedOptions);
     });
 
   program
@@ -88,6 +90,31 @@ export async function runCli(argv = process.argv): Promise<number> {
     .option("--yes", "Approve safe setup prompts automatically")
     .action(async () => {
       process.exitCode = await runSetup(parsedOptions);
+    });
+
+  const data = program.command("data").description("Inspect collected data");
+
+  data
+    .command("list")
+    .description("List locally available collected datasets")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runDataList(parsedOptions);
+    });
+
+  data
+    .command("show <source>")
+    .description("Show a collected dataset")
+    .option("--json", "Output machine-readable JSON")
+    .action(async (source: string) => {
+      process.exitCode = await runDataShow(source, parsedOptions);
+    });
+
+  data
+    .command("path <source>")
+    .description("Print the local path for a collected dataset")
+    .action(async (source: string) => {
+      process.exitCode = await runDataPath(source, parsedOptions);
     });
 
   await program.parseAsync(normalizedArgv);
@@ -304,6 +331,7 @@ async function runConnect(
           lastRunOutcome: CliOutcomeStatus.LEGACY_AUTH,
           lastError: event.message ?? "Legacy authentication is required.",
           dataState: "none",
+          lastResultPath: null,
         });
         emit.info(
           event.message ??
@@ -352,6 +380,7 @@ async function runConnect(
         lastRunOutcome: CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR,
         dataState: "none",
         lastError: "Connector run ended without a result.",
+        lastResultPath: null,
       });
       emit.event({
         type: "outcome",
@@ -377,7 +406,10 @@ async function runConnect(
       lastRunOutcome: finalStatus,
       dataState,
       lastError: null,
+      lastResultPath: resultPath,
     });
+
+    const resultSummary = await readResultSummary(resultPath);
 
     if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       emit.info(`Connected ${displaySource(source, sourceLabels)}.`);
@@ -398,6 +430,14 @@ async function runConnect(
         `Collected your ${displaySource(source, sourceLabels)} data and saved it locally.`,
       );
       emit.info(`Local result: ${resultPath}`);
+    }
+
+    if (resultSummary) {
+      emit.info("");
+      emit.info("Collected:");
+      for (const line of resultSummary.lines) {
+        emit.info(`- ${line}`);
+      }
     }
 
     if (runLogPath) {
@@ -437,6 +477,42 @@ async function runConnect(
     }
     return 1;
   }
+}
+
+async function runConnectEntry(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+  const sources = await loadRegistrySources();
+
+  if (options.json || options.noInput) {
+    emit.info("Specify a source. Run `vana sources` to see available options.");
+    return 1;
+  }
+
+  if (sources.length === 0) {
+    emit.info("No sources are available right now.");
+    emit.info("Run `vana sources` to verify the local connector registry.");
+    return 1;
+  }
+
+  emit.info("Choose a source to connect:");
+  let source: string;
+  try {
+    source = await select({
+      message: "Source",
+      choices: sources.map((item) => ({
+        name: `${item.name}${formatAuthModeBadge(item.authMode)}${item.description ? ` - ${item.description}` : ""}`,
+        value: item.id,
+      })),
+    });
+  } catch (error) {
+    if (isPromptCancelled(error)) {
+      emit.info("Cancelled.");
+      return 1;
+    }
+    throw error;
+  }
+  emit.info("");
+  return runConnect(source, options);
 }
 
 async function runList(options: GlobalOptions): Promise<number> {
@@ -538,6 +614,121 @@ async function runSetup(options: GlobalOptions): Promise<number> {
   }
 }
 
+async function runDataList(options: GlobalOptions): Promise<number> {
+  const state = await readCliState();
+  const sources = await gatherSourceStatuses(
+    state.sources,
+    createSourceMetadataMap(await loadRegistrySources()),
+  );
+  const datasets = sources
+    .filter((source) => Boolean(source.lastResultPath))
+    .map((source) => ({
+      source: source.source,
+      name: source.name,
+      dataState: source.dataState,
+      lastRunAt: source.lastRunAt ?? null,
+      path: source.lastResultPath ?? null,
+    }));
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ datasets })}\n`);
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  if (datasets.length === 0) {
+    emit.info("No local datasets collected yet.");
+    emit.info("Run `vana connect <source>` to collect data.");
+    return 0;
+  }
+
+  for (const dataset of datasets) {
+    emit.info(
+      `${dataset.name ?? displaySource(dataset.source)}${dataset.dataState === "ingested_personal_server" ? " [synced]" : ""} - ${dataset.path}`,
+    );
+  }
+  return 0;
+}
+
+async function runDataShow(
+  source: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const state = await readCliState();
+  const record = state.sources[source];
+  const resultPath = record?.lastResultPath;
+  const emit = createEmitter(options);
+
+  if (!resultPath) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          error: "dataset_not_found",
+          source,
+          message: `No collected dataset found for ${displaySource(source)}. Run \`vana connect ${source}\` first.`,
+        })}\n`,
+      );
+    } else {
+      emit.info(
+        `No collected dataset found for ${displaySource(source)}. Run \`vana connect ${source}\` first.`,
+      );
+    }
+    return 1;
+  }
+
+  try {
+    const raw = await fsp.readFile(resultPath, "utf8");
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ source, path: resultPath, data })}\n`,
+      );
+      return 0;
+    }
+
+    const summary = summarizeResultData(data);
+    emit.info(`${displaySource(source)} data`);
+    emit.info("");
+    if (summary) {
+      for (const line of summary.lines) {
+        emit.info(`- ${line}`);
+      }
+      emit.info("");
+    }
+    emit.info(`Path: ${resultPath}`);
+    return 0;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : `Could not read ${resultPath}.`;
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ error: "dataset_read_failed", source, path: resultPath, message })}\n`,
+      );
+    } else {
+      emit.info(message);
+    }
+    return 1;
+  }
+}
+
+async function runDataPath(
+  source: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const state = await readCliState();
+  const resultPath = state.sources[source]?.lastResultPath;
+
+  if (!resultPath) {
+    createEmitter(options).info(
+      `No collected dataset found for ${displaySource(source)}.`,
+    );
+    return 1;
+  }
+
+  process.stdout.write(`${resultPath}\n`);
+  return 0;
+}
+
 function createEmitter(options: GlobalOptions) {
   return {
     event(event: CliEvent | CliOutcome) {
@@ -602,6 +793,7 @@ async function gatherSourceStatuses(
               ? "collected_local"
               : "none",
         lastError: stored.lastError ?? null,
+        lastResultPath: stored.lastResultPath ?? null,
       };
     });
 }
@@ -797,4 +989,62 @@ async function loadRegistrySources() {
   } catch {
     return [];
   }
+}
+
+async function readResultSummary(
+  resultPath: string,
+): Promise<{ lines: string[] } | null> {
+  try {
+    const raw = await fsp.readFile(resultPath, "utf8");
+    return summarizeResultData(JSON.parse(raw) as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
+function summarizeResultData(
+  data: Record<string, unknown>,
+): { lines: string[] } | null {
+  const lines: string[] = [];
+  const exportSummary =
+    typeof data.exportSummary === "object" && data.exportSummary
+      ? (data.exportSummary as Record<string, unknown>)
+      : null;
+  const profile =
+    typeof data.profile === "object" && data.profile
+      ? (data.profile as Record<string, unknown>)
+      : null;
+
+  if (profile?.username && typeof profile.username === "string") {
+    lines.push(`Profile: ${profile.username}`);
+  }
+
+  if (Array.isArray(data.repositories)) {
+    lines.push(`Repositories: ${data.repositories.length}`);
+  }
+
+  if (Array.isArray(data.starred)) {
+    lines.push(`Starred: ${data.starred.length}`);
+  }
+
+  if (Array.isArray(data.orders)) {
+    lines.push(`Orders: ${data.orders.length}`);
+  }
+
+  if (
+    exportSummary?.details &&
+    typeof exportSummary.details === "string" &&
+    !lines.includes(exportSummary.details)
+  ) {
+    lines.push(exportSummary.details);
+  }
+
+  return lines.length > 0 ? { lines } : null;
+}
+
+function isPromptCancelled(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "ExitPromptError" || error.message.includes("SIGINT"))
+  );
 }

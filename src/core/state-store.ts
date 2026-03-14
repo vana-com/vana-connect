@@ -10,6 +10,7 @@ export interface StoredSourceState {
   lastRunOutcome?: string | null;
   dataState?: string | null;
   lastError?: string | null;
+  lastResultPath?: string | null;
 }
 
 export interface CliStateFile {

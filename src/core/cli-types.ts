@@ -49,6 +49,7 @@ export const sourceStatusSchema = z.object({
   lastRunOutcome: z.string().nullable().optional(),
   dataState: dataStateSchema.optional(),
   lastError: z.string().nullable().optional(),
+  lastResultPath: z.string().nullable().optional(),
 });
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 

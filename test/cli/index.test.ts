@@ -6,6 +6,7 @@ const mockIngestResult = vi.fn();
 const mockReadCliState = vi.fn();
 const mockUpdateSourceState = vi.fn();
 const mockReaddir = vi.fn();
+const mockReadFile = vi.fn();
 const mockExistsSync = vi.fn();
 
 let runtimeState = "installed";
@@ -76,6 +77,7 @@ vi.mock("node:fs", () => ({
 vi.mock("node:fs/promises", () => ({
   default: {
     readdir: mockReaddir,
+    readFile: mockReadFile,
   },
 }));
 
@@ -98,6 +100,7 @@ describe("runCli", () => {
     mockReadCliState.mockReset();
     mockUpdateSourceState.mockReset();
     mockReaddir.mockReset();
+    mockReadFile.mockReset();
     mockExistsSync.mockReset();
 
     runtimeState = "installed";
@@ -116,6 +119,7 @@ describe("runCli", () => {
     ]);
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
     mockReaddir.mockRejectedValue(new Error("missing"));
+    mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
     process.exitCode = 0;
   });
@@ -227,5 +231,44 @@ describe("runCli", () => {
         source: "steam",
       }),
     );
+  });
+
+  it("shows collected data in json mode", async () => {
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastResultPath: "/tmp/.dataconnect/github-result.json",
+        },
+      },
+    });
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tridengineer" },
+        repositories: [{ name: "vana-connect" }],
+        exportSummary: { details: "1 repository" },
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "data",
+      "show",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      source: "github",
+      path: "/tmp/.dataconnect/github-result.json",
+      data: {
+        profile: { username: "tridengineer" },
+        repositories: [{ name: "vana-connect" }],
+        exportSummary: { details: "1 repository" },
+      },
+    });
   });
 });
