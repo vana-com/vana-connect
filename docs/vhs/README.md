@@ -50,6 +50,10 @@ That command:
 
 It will use a local `vhs` binary if present, or Docker if available.
 
+CI also renders the tapes on Linux in the `demo-preview` job and uploads the
+resulting SVGs and transcripts as a workflow artifact so the branch always has a
+current review surface.
+
 Typical usage once `vhs` is available locally:
 
 ```bash
