@@ -167,6 +167,13 @@ export type DatasetRecord = z.infer<typeof datasetRecordSchema>;
 export const cliDataListSchema = z.object({
   count: z.number(),
   latestDataset: datasetRecordSchema.nullable(),
+  summary: z
+    .object({
+      localCount: z.number(),
+      syncedCount: z.number(),
+      syncFailedCount: z.number(),
+    })
+    .optional(),
   datasets: z.array(datasetRecordSchema),
 });
 export type CliDataList = z.infer<typeof cliDataListSchema>;

@@ -929,6 +929,11 @@ describe("runCli", () => {
         authMode: "interactive",
         dataState: "collected_local",
       },
+      summary: {
+        localCount: 2,
+        syncedCount: 0,
+        syncFailedCount: 0,
+      },
       datasets: [
         {
           source: "github",

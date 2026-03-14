@@ -1361,6 +1361,17 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       `${JSON.stringify({
         count: datasetRecords.length,
         latestDataset: datasetRecords[0] ?? null,
+        summary: {
+          localCount: datasetRecords.filter(
+            (dataset) => dataset.dataState !== "ingested_personal_server",
+          ).length,
+          syncedCount: datasetRecords.filter(
+            (dataset) => dataset.dataState === "ingested_personal_server",
+          ).length,
+          syncFailedCount: datasetRecords.filter(
+            (dataset) => dataset.dataState === "ingest_failed",
+          ).length,
+        },
         datasets: datasetRecords,
       })}\n`,
     );
