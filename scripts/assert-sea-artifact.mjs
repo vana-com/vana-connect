@@ -76,6 +76,12 @@ if (archiveStat.size < 1024 * 100) {
   );
 }
 
+if (platform === "darwin") {
+  execFileSync("codesign", ["--verify", "--verbose=2", path.join(artifactDir, binaryName)], {
+    stdio: "inherit",
+  });
+}
+
 console.log(
   `SEA artifact validation passed for ${path.basename(archivePath)} with ${archiveEntries.length} archive entries.`,
 );

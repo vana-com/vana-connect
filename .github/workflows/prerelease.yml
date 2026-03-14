@@ -98,11 +98,9 @@ jobs:
           merge-multiple: true
       - name: Generate package-manager metadata
         run: |
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
           BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
           TAG="canary-${BRANCH_SLUG}"
-          PACKAGE_VERSION="${VERSION}-canary.${SHORT_SHA}"
           pnpm package-managers:generate -- --release-tag "$TAG" --package-version "$PACKAGE_VERSION"
       - name: Publish branch prerelease assets
         env:

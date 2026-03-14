@@ -57,6 +57,7 @@ const launcherPath = path.join(scratchDir, "launcher.cjs");
 const configPath = path.join(scratchDir, "sea-config.json");
 await writeLauncher(launcherPath);
 await buildLauncher(outputPath, launcherPath, configPath);
+await signLauncher(outputPath);
 await stageAppPayload(appPayloadPath);
 
 if (args.has("smoke")) {
@@ -101,6 +102,16 @@ async function buildLauncher(outputFile, mainFile, configFile) {
     "utf8",
   );
   await run(process.execPath, ["--build-sea", configFile], {
+    cwd: repoRoot,
+  });
+}
+
+async function signLauncher(outputFile) {
+  if (platform !== "darwin") {
+    return;
+  }
+
+  await run("codesign", ["--force", "--sign", "-", outputFile], {
     cwd: repoRoot,
   });
 }
