@@ -786,7 +786,6 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   ].filter((group) => group.items.length > 0);
   if (sourceGroups.length > 0) {
     emit.blank();
-    emit.section(formatCountLabel("Sources", status.sources.length));
   }
   sourceGroups.forEach((group, index) => {
     if (index > 0) {

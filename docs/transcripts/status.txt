@@ -5,7 +5,6 @@ Vana Connect status
   /opt/playwright/chromium-1200/chrome-linux64/chrome
   Personal Server: unavailable
 
-→ Sources (4)
 → Needs attention (2)
 Shop [legacy] [manual step]
   Run `vana connect shop` without `--no-input` to complete the manual browser step.

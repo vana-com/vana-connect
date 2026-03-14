@@ -284,7 +284,6 @@ describe("runCli", () => {
         /tmp/playwright/chrome
         Personal Server: unavailable
 
-      → Sources (2)
       → Needs attention (1)
       Shop [legacy] [manual step]
         Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
