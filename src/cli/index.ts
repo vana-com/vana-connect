@@ -239,6 +239,14 @@ async function runConnect(
         lastResultPath: null,
       });
       emit.info(message);
+      if (!options.json) {
+        emit.blank();
+        emit.section("Next");
+        emit.bullet("Run `vana sources` to see available sources.");
+        emit.bullet(
+          `Or try a different source with ${emit.code("vana connect <source>")}.`,
+        );
+      }
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
@@ -559,6 +567,11 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
   }
 
   if (options.noInput) {
+    emit.info("Specify a source. Run `vana sources` to see available options.");
+    return 1;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
     emit.info("Specify a source. Run `vana sources` to see available options.");
     return 1;
   }

@@ -595,6 +595,37 @@ describe("runCli", () => {
     });
   });
 
+  it("fails cleanly when connect source is missing in a non-interactive shell", async () => {
+    const originalStdoutTty = process.stdout.isTTY;
+    const originalStdinTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: false,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: false,
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect"]);
+
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: originalStdoutTty,
+    });
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: originalStdinTty,
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain(
+      "Specify a source. Run `vana sources` to see available options.",
+    );
+    expect(stdout).not.toContain("Choose a source to connect:");
+  });
+
   it("prints a human success summary after collection completes", async () => {
     mockListAvailableSources.mockResolvedValue([
       {
@@ -723,6 +754,28 @@ describe("runCli", () => {
         reason: "No connector is available for Steam right now.",
       }),
     );
+  });
+
+  it("shows next steps when no connector exists in human mode", async () => {
+    mockListAvailableSources.mockResolvedValue([]);
+    fetchConnectorResult = undefined as never;
+    const runtimeImport = await import("../../src/runtime/index.js");
+    const fetchSpy = vi
+      .spyOn(runtimeImport.ManagedPlaywrightRuntime.prototype, "fetchConnector")
+      .mockRejectedValueOnce(
+        new Error("No connector is available for steam right now."),
+      );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "steam"]);
+
+    fetchSpy.mockRestore();
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("No connector is available for steam right now.");
+    expect(stdout).toContain("→ Next");
+    expect(stdout).toContain("Run `vana sources` to see available sources.");
+    expect(stdout).toContain("vana connect <source>");
   });
 
   it("mentions reusable sessions when a browser profile exists", async () => {
