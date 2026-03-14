@@ -162,6 +162,39 @@ describe("startInProcessConnectorRun", () => {
     );
   });
 
+  it("emits legacy-auth for showBrowser connectors in no-input mode", async () => {
+    createFakeRuntime();
+    const connectorPath = await writeConnector(`
+(async () => {
+  await page.showBrowser("https://shop.app/account/order-history");
+})();
+`);
+
+    const { startInProcessConnectorRun } =
+      await import("../../src/runtime/playwright/in-process-run.js");
+
+    const handle = startInProcessConnectorRun({
+      request: {
+        connectorPath,
+        source: "shop",
+        noInput: true,
+      },
+      logPath: path.join(os.tmpdir(), "vana-connect-showbrowser-legacy.log"),
+    });
+
+    const events = [];
+    for await (const event of handle.events()) {
+      events.push(event);
+    }
+
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "run-started", source: "shop" }),
+        expect.objectContaining({ type: "legacy-auth", source: "shop" }),
+      ]),
+    );
+  });
+
   it("supports headed manual flows for legacy connectors in human mode", async () => {
     createFakeRuntime();
     const previousDisplay = process.env.DISPLAY;

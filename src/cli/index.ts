@@ -157,6 +157,7 @@ async function runConnect(
   let setupLogPath: string | undefined;
   let fetchLogPath: string | undefined;
   let runLogPath: string | undefined;
+  let terminalExitCode: number | null = null;
 
   try {
     emit.title(`Connect ${displayName}`);
@@ -336,6 +337,10 @@ async function runConnect(
         runLogPath = event.logPath;
       }
 
+      if (terminalExitCode !== null) {
+        continue;
+      }
+
       if (event.type === "needs-input") {
         await updateSourceState(resolution.source, {
           lastRunAt: new Date().toISOString(),
@@ -357,7 +362,8 @@ async function runConnect(
             `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
           );
         }
-        return 1;
+        terminalExitCode = 1;
+        continue;
       }
 
       if (event.type === "progress-update") {
@@ -390,7 +396,8 @@ async function runConnect(
         if (event.logPath) {
           emit.info(`Run log: ${formatDisplayPath(event.logPath)}`);
         }
-        return 1;
+        terminalExitCode = 1;
+        continue;
       }
 
       if (event.type === "headed-required") {
@@ -430,7 +437,8 @@ async function runConnect(
           status: CliOutcomeStatus.LEGACY_AUTH,
           source: resolution.source,
         });
-        return 1;
+        terminalExitCode = 1;
+        continue;
       }
 
       if (event.type === "collection-complete" && event.resultPath) {
@@ -464,6 +472,10 @@ async function runConnect(
           finalDataState = "collected_local";
         }
       }
+    }
+
+    if (terminalExitCode !== null) {
+      return terminalExitCode;
     }
 
     if (!collectedResult) {

@@ -45,6 +45,7 @@ Current reviewable transcripts:
 - [`data show github`](./docs/transcripts/data-show-github.txt)
 - [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
+- [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
 ## What problem this solves
@@ -232,6 +233,7 @@ Current reviewable transcripts:
 - [`data show github`](./docs/transcripts/data-show-github.txt)
 - [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
+- [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
 To seed the fixture home used by the first tapes:

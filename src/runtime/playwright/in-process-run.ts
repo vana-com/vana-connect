@@ -45,6 +45,7 @@ type RunState = {
   hasResult: boolean;
   resultPath: string | null;
   cookies: Cookie[];
+  legacyAuthTriggered: boolean;
 };
 
 class NeedsInputError extends Error {
@@ -282,6 +283,7 @@ export function startInProcessConnectorRun({
       hasResult: false,
       resultPath: null,
       cookies: [],
+      legacyAuthTriggered: false,
     };
     activeRunState = runState;
 
@@ -335,6 +337,9 @@ export function startInProcessConnectorRun({
       });
       const connectorFunction = buildConnectorFunction(connectorCode);
       const result = await connectorFunction.call(null, pageApi);
+      if (runState.legacyAuthTriggered) {
+        return;
+      }
 
       if (!runState.hasResult && result != null) {
         const exportData =
@@ -384,18 +389,20 @@ export function startInProcessConnectorRun({
     source: request.source,
     logPath,
     async *events(): AsyncGenerator<RuntimeEvent, void, void> {
-      while (!settled || queue.length > 0) {
-        if (queue.length === 0) {
-          await new Promise<void>((resolve) => {
-            resolveQueue = resolve;
-          });
-          continue;
+      try {
+        while (!settled || queue.length > 0) {
+          if (queue.length === 0) {
+            await new Promise<void>((resolve) => {
+              resolveQueue = resolve;
+            });
+            continue;
+          }
+
+          yield queue.shift() as RuntimeEvent;
         }
-
-        yield queue.shift() as RuntimeEvent;
+      } finally {
+        await runPromise.catch(() => {});
       }
-
-      await runPromise;
     },
     stop() {
       void (activeRunState?.context ?? activeContext)?.close().catch(() => {});
@@ -613,7 +620,17 @@ function createPageApi({
     ) => {
       writeLog(`[prompt] ${message}`);
       if (request.noInput) {
-        throw new LegacyAuthError("promptUser");
+        if (!runState.legacyAuthTriggered) {
+          pushEvent({
+            type: "legacy-auth",
+            source: request.source,
+            message:
+              "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+            logPath,
+          });
+        }
+        runState.legacyAuthTriggered = true;
+        return;
       }
 
       await ensureHeadedBrowser(
@@ -702,7 +719,17 @@ function createPageApi({
 
     showBrowser: async (url?: string) => {
       if (request.noInput) {
-        throw new LegacyAuthError("showBrowser");
+        if (!runState.legacyAuthTriggered) {
+          pushEvent({
+            type: "legacy-auth",
+            source: request.source,
+            message:
+              "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+            logPath,
+          });
+        }
+        runState.legacyAuthTriggered = true;
+        return { headed: false };
       }
 
       await ensureHeadedBrowser(

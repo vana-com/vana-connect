@@ -1,0 +1,15 @@
+Connect Shop
+
+→ Preparing
+Finding a connector for Shop...
+Connector ready.
+Exports your Shop app order history using Playwright browser automation.
+
+→ Connecting
+Connecting to Shop...
+Collecting your data...
+This source needs a manual browser step, but prompting is disabled in --no-input mode.
+
+→ Next
+  • Run `vana connect shop` without `--no-input`.
+  Run log: ~/.dataconnect/logs/run-shop-<timestamp>.log

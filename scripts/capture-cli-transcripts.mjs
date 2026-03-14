@@ -59,6 +59,11 @@ async function main() {
       argv: ["vana", "connect", "github"],
     },
     {
+      name: "connect-shop-no-input.txt",
+      argv: ["vana", "connect", "shop", "--no-input"],
+      allowFailure: true,
+    },
+    {
       name: "connect-steam-no-input.txt",
       argv: ["vana", "connect", "steam", "--no-input"],
       allowFailure: true,
