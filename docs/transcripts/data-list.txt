@@ -20,3 +20,4 @@ Spotify [local]
 → Next
   • Inspect GitHub with `vana data show github`.
   • Or print its path with `vana data path github`.
+  • Connect another source with `vana sources`.

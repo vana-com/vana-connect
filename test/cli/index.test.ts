@@ -680,6 +680,7 @@ describe("runCli", () => {
       → Next
         • Print the path with \`vana data path github\`.
         • Reconnect GitHub with \`vana connect github\`.
+        • Connect another source with \`vana sources\`.
         • Check overall status with \`vana status\`.
       "
     `);
@@ -897,6 +898,7 @@ describe("runCli", () => {
       → Next
         • Inspect GitHub with \`vana data show github\`.
         • Or print its path with \`vana data path github\`.
+        • Connect another source with \`vana sources\`.
       "
     `);
   });
@@ -1430,6 +1432,7 @@ describe("runCli", () => {
     expect(stdout).toContain("Unavailable, so this run stayed local.");
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
+    expect(stdout).toContain("vana sources");
   });
 
   it("records ingest failures as local data with sync failure state", async () => {

@@ -12,5 +12,6 @@ GitHub data
 → Next
   • Print the path with `vana data path github`.
   • Reconnect GitHub with `vana connect github`.
+  • Connect another source with `vana sources`.
   • Inspect other datasets with `vana data list`.
   • Check overall status with `vana status`.

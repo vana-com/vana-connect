@@ -30,4 +30,5 @@ Collecting your data...
 
 → Next
   • Inspect the data with `vana data show github`
+  • Connect another source with `vana sources`
   • Or check overall status with `vana status`

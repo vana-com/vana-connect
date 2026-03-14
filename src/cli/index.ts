@@ -703,6 +703,7 @@ async function runConnect(
     emit.blank();
     emit.section("Next");
     emit.bullet(`Inspect the data with ${dataCommand}`);
+    emit.bullet(`Connect another source with ${emit.code("vana sources")}`);
     emit.bullet(`Or check overall status with ${statusCommand}`);
     emit.event({
       type: "outcome",
@@ -1363,6 +1364,7 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   emit.bullet(
     `Or print its path with ${emit.code(`vana data path ${datasetRecords[0].source}`)}.`,
   );
+  emit.bullet(`Connect another source with ${emit.code("vana sources")}.`);
   return 0;
 }
 
@@ -1457,6 +1459,7 @@ async function runDataShow(
     emit.bullet(
       `Reconnect ${displaySource(source, sourceLabels)} with ${emit.code(`vana connect ${source}`)}.`,
     );
+    emit.bullet(`Connect another source with ${emit.code("vana sources")}.`);
     if (datasetCount > 1) {
       emit.bullet(
         `Inspect other datasets with ${emit.code("vana data list")}.`,
