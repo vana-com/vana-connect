@@ -9,6 +9,8 @@ Exports your Shop app order history using Playwright browser automation.
 → Connecting
 Connecting to Shop...
 Collecting your data...
+
+→ Manual step required
 This source needs a manual browser step, but prompting is disabled in --no-input mode.
 
 → Next

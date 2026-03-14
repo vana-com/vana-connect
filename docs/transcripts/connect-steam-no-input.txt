@@ -2,6 +2,8 @@ Connect Steam
 
 → Preparing
 Finding a connector for Steam...
+
+→ Not available yet
 No connector is available for Steam right now.
 
 → Next

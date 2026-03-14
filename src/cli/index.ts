@@ -254,6 +254,10 @@ async function runConnect(
         lastError: message,
         lastResultPath: null,
       });
+      if (!options.json) {
+        emit.blank();
+        emit.section("Not available yet");
+      }
       emit.info(message);
       if (!options.json) {
         emit.blank();
@@ -369,6 +373,8 @@ async function runConnect(
           source: resolution.source,
         });
         if (!options.json) {
+          emit.blank();
+          emit.section("Input required");
           emit.info(
             `${displayName} needs additional input before it can connect.`,
           );
@@ -403,6 +409,8 @@ async function runConnect(
           lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
           lastError: event.message ?? "Connector run failed.",
         });
+        emit.blank();
+        emit.section("Problem");
         emit.info(event.message ?? "Connector run failed.");
         emit.event({
           type: "outcome",
@@ -436,6 +444,8 @@ async function runConnect(
           dataState: "none",
           lastResultPath: null,
         });
+        emit.blank();
+        emit.section("Manual step required");
         emit.info(
           event.message ??
             "This connector needs a manual browser step that is not available in non-interactive mode.",
