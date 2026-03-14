@@ -5,6 +5,7 @@ import path from "node:path";
 import { confirm, input, password, select } from "@inquirer/prompts";
 import { Command } from "commander";
 
+import { createHumanRenderer } from "./render/index.js";
 import {
   CliOutcomeStatus,
   getBrowserProfilesDir,
@@ -48,6 +49,25 @@ interface SourceMetadataMap {
     authMode?: "automated" | "interactive" | "legacy";
   };
 }
+
+interface Emitter {
+  event(event: CliEvent | CliOutcome): void;
+  info(message: string): void;
+  blank(): void;
+  title(message: string): void;
+  section(message: string): void;
+  keyValue(label: string, value: string, tone?: RenderTone): void;
+  detail(message: string): void;
+  bullet(message: string): void;
+  sourceTitle(
+    name: string,
+    badges?: Array<{ text: string; tone?: RenderTone }>,
+  ): void;
+  badge(text: string, tone?: RenderTone): string;
+  code(text: string): string;
+}
+
+type RenderTone = "accent" | "success" | "warning" | "error" | "muted" | "info";
 
 export async function runCli(argv = process.argv): Promise<number> {
   const normalizedArgv = normalizeArgv(argv);
@@ -494,13 +514,15 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
+  emit.title("Connect data");
+  emit.blank();
   emit.info("Choose a source to connect:");
   let source: string;
   try {
     source = await select({
       message: "Source",
       choices: sources.map((item) => ({
-        name: `${item.name}${formatAuthModeBadge(item.authMode)}${item.description ? ` - ${item.description}` : ""}`,
+        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}${item.description ? ` - ${item.description}` : ""}`,
         value: item.id,
       })),
     });
@@ -511,7 +533,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     }
     throw error;
   }
-  emit.info("");
+  emit.blank();
   return runConnect(source, options);
 }
 
@@ -530,11 +552,22 @@ async function runList(options: GlobalOptions): Promise<number> {
   }
 
   const emit = createEmitter(options);
+  emit.title("Available sources");
+  emit.blank();
   for (const source of enrichedSources) {
-    const description = source.description ? ` - ${source.description}` : "";
-    const installed = source.installed ? " [installed]" : "";
-    const authMode = formatAuthModeBadge(source.authMode);
-    emit.info(`${source.name}${installed}${authMode}${description}`);
+    const badges: Array<{ text: string; tone?: RenderTone }> = [];
+    if (source.installed) {
+      badges.push({ text: "installed", tone: "success" });
+    }
+    if (source.authMode === "interactive") {
+      badges.push({ text: "interactive", tone: "info" });
+    } else if (source.authMode === "legacy") {
+      badges.push({ text: "legacy", tone: "warning" });
+    }
+    emit.sourceTitle(source.name, badges);
+    if (source.description) {
+      emit.detail(source.description);
+    }
   }
   return 0;
 }
@@ -562,16 +595,24 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
-  emit.info("Vana Connect status");
-  emit.info("");
-  emit.info(`Runtime: ${status.runtime}`);
-  emit.info(`Personal Server: ${status.personalServer}`);
-  emit.info("");
+  emit.title("Vana Connect status");
+  emit.blank();
+  emit.section("Environment");
+  emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
+  emit.keyValue(
+    "Personal Server",
+    status.personalServer,
+    status.personalServer === "available" ? "success" : "muted",
+  );
+  if (status.sources.length > 0) {
+    emit.blank();
+    emit.section("Sources");
+  }
   for (const source of status.sources) {
-    emit.info(formatSourceStatus(source, sourceLabels));
+    emit.info(formatSourceStatus(source, sourceLabels, emit));
     const details = formatSourceStatusDetail(source);
     if (details) {
-      emit.info(`  ${details}`);
+      emit.detail(details);
     }
   }
   return 0;
@@ -642,10 +683,15 @@ async function runDataList(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
+  emit.title("Collected data");
+  emit.blank();
   for (const dataset of datasets) {
-    emit.info(
-      `${dataset.name ?? displaySource(dataset.source)}${dataset.dataState === "ingested_personal_server" ? " [synced]" : ""} - ${dataset.path}`,
-    );
+    const badges =
+      dataset.dataState === "ingested_personal_server"
+        ? [{ text: "synced", tone: "success" as const }]
+        : [{ text: "local", tone: "muted" as const }];
+    emit.sourceTitle(dataset.name ?? displaySource(dataset.source), badges);
+    emit.detail(dataset.path ?? "");
   }
   return 0;
 }
@@ -688,15 +734,15 @@ async function runDataShow(
     }
 
     const summary = summarizeResultData(data);
-    emit.info(`${displaySource(source, sourceLabels)} data`);
-    emit.info("");
+    emit.title(`${displaySource(source, sourceLabels)} data`);
+    emit.blank();
     if (summary) {
       for (const line of summary.lines) {
-        emit.info(`- ${line}`);
+        emit.bullet(line);
       }
-      emit.info("");
+      emit.blank();
     }
-    emit.info(`Path: ${resultPath}`);
+    emit.keyValue("Path", resultPath, "muted");
     return 0;
   } catch (error) {
     const message =
@@ -731,7 +777,9 @@ async function runDataPath(
   return 0;
 }
 
-function createEmitter(options: GlobalOptions) {
+function createEmitter(options: GlobalOptions): Emitter {
+  const renderer = createHumanRenderer();
+
   return {
     event(event: CliEvent | CliOutcome) {
       if (options.json) {
@@ -743,6 +791,62 @@ function createEmitter(options: GlobalOptions) {
         return;
       }
       process.stdout.write(`${message}\n`);
+    },
+    blank() {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write("\n");
+    },
+    title(message: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.title(message)}\n`);
+    },
+    section(message: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.section(message)}\n`);
+    },
+    keyValue(label: string, value: string, tone: RenderTone = "muted") {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.keyValue(label, value, tone)}\n`);
+    },
+    detail(message: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.detail(message)}\n`);
+    },
+    bullet(message: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(`${renderer.bullet(message)}\n`);
+    },
+    sourceTitle(
+      name: string,
+      badges: Array<{ text: string; tone?: RenderTone }> = [],
+    ) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(
+        `${renderer.sourceTitle(
+          name,
+          badges.map((badge) => renderer.badge(badge.text, badge.tone)),
+        )}\n`,
+      );
+    },
+    badge(text: string, tone: RenderTone = "muted") {
+      return renderer.badge(text, tone);
+    },
+    code(text: string) {
+      return renderer.theme.code(text);
     },
   };
 }
@@ -832,13 +936,9 @@ async function listInstalledConnectorFiles(): Promise<
 function formatSourceStatus(
   source: SourceStatus,
   labels: SourceLabelMap = {},
+  emit?: Emitter,
 ): string {
-  const authModeSuffix =
-    source.authMode === "legacy"
-      ? " [legacy]"
-      : source.authMode === "interactive"
-        ? " [interactive]"
-        : "";
+  const authModeSuffix = formatAuthModeBadge(source.authMode, emit);
 
   if (!source.installed) {
     return `${displaySource(source.source, labels)}${authModeSuffix}: not connected`;
@@ -948,16 +1048,27 @@ function createSourceMetadataMap(
 
 function formatAuthModeBadge(
   authMode: "automated" | "interactive" | "legacy" | undefined,
+  emit?: Pick<Emitter, "badge">,
 ): string {
   if (authMode === "legacy") {
-    return " [legacy]";
+    return ` ${emit ? emit.badge("legacy", "warning") : "[legacy]"}`;
   }
 
   if (authMode === "interactive") {
-    return " [interactive]";
+    return ` ${emit ? emit.badge("interactive", "info") : "[interactive]"}`;
   }
 
   return "";
+}
+
+function toneForRuntime(runtime: CliStatus["runtime"]): RenderTone {
+  if (runtime === "installed") {
+    return "success";
+  }
+  if (runtime === "missing") {
+    return "warning";
+  }
+  return "muted";
 }
 
 function inferInstalledAuthMode(
