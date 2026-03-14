@@ -841,6 +841,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     status.sources,
     sourceLabels,
     status.runtime,
+    registrySources,
   );
   if (nextSteps.length > 0) {
     emit.blank();
@@ -1400,6 +1401,7 @@ function buildStatusNextSteps(
   sources: SourceStatus[],
   sourceLabels: SourceLabelMap = {},
   runtime: CliStatus["runtime"] = "unhealthy",
+  availableSources: Array<{ id: string; name: string; authMode?: string }> = [],
 ): string[] {
   const nextSteps: string[] = [];
   const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];
@@ -1415,10 +1417,19 @@ function buildStatusNextSteps(
   const highestPriorityLabel = highestPriority
     ? displaySource(highestPriority.source, sourceLabels)
     : null;
+  const suggestedSource =
+    availableSources.find((source) => source.authMode !== "legacy") ??
+    availableSources[0];
 
   if (!highestPriority) {
     if (runtime === "installed") {
-      nextSteps.push("Connect your first source with `vana connect`.");
+      if (suggestedSource) {
+        nextSteps.push(
+          `Connect ${suggestedSource.name} with \`vana connect ${suggestedSource.id}\`.`,
+        );
+      } else {
+        nextSteps.push("Connect your first source with `vana connect`.");
+      }
     } else if (runtime === "missing") {
       nextSteps.push("Install the local runtime with `vana setup`.");
     }

@@ -359,7 +359,13 @@ describe("runCli", () => {
   });
 
   it("guides first run from status when the runtime is already installed", async () => {
-    mockListAvailableSources.mockResolvedValue([]);
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
     mockReadCliState.mockResolvedValue({
       version: 1,
       sources: {},
@@ -369,7 +375,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Connect your first source with `vana connect`.");
+    expect(stdout).toContain("Connect GitHub with `vana connect github`.");
   });
 
   it("guides first run from status when the runtime is missing", async () => {
