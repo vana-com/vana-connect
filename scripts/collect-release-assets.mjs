@@ -56,16 +56,22 @@ const packageManagerFiles = listFiles(path.join(packageManagersDir, "homebrew"))
     ),
   )
   .sort();
-const demoPreviewFiles = listFiles(
-  path.join(demoPreviewDir, "docs", "transcripts"),
-  (filePath) => filePath.endsWith(".txt") || filePath.endsWith(".md"),
-)
-  .concat(
-    listFiles(path.join(demoPreviewDir, "docs", "vhs"), (filePath) =>
-      filePath.endsWith(".svg"),
-    ),
-  )
-  .sort();
+const demoPreviewFiles = [
+  ...listFiles(
+    path.join(demoPreviewDir, "docs", "transcripts"),
+    (filePath) => filePath.endsWith(".txt") || filePath.endsWith(".md"),
+  ),
+  ...listFiles(
+    path.join(demoPreviewDir, "transcripts"),
+    (filePath) => filePath.endsWith(".txt") || filePath.endsWith(".md"),
+  ),
+  ...listFiles(path.join(demoPreviewDir, "docs", "vhs"), (filePath) =>
+    filePath.endsWith(".svg"),
+  ),
+  ...listFiles(path.join(demoPreviewDir, "vhs"), (filePath) =>
+    filePath.endsWith(".svg"),
+  ),
+].sort();
 
 for (const file of releaseFiles.concat(packageManagerFiles, demoPreviewFiles)) {
   process.stdout.write(`${file}\n`);

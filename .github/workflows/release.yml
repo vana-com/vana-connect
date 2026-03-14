@@ -89,7 +89,7 @@ jobs:
           name: vana-demo-preview
           path: |
             docs/transcripts
-            docs/vhs/*.svg
+            docs/vhs
   release:
     needs: [build-sea, demo-preview]
     runs-on: ubuntu-latest
