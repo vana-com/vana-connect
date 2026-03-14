@@ -663,6 +663,52 @@ describe("runCli", () => {
     expect(stdout).toContain("Manual steps");
   });
 
+  it("renders a stable human transcript for sources", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        description: "Exports GitHub data.",
+        authMode: "interactive",
+      },
+      {
+        id: "spotify",
+        name: "Spotify",
+        description: "Exports Spotify data.",
+        authMode: "interactive",
+      },
+      {
+        id: "chatgpt",
+        name: "ChatGPT",
+        description: "Exports ChatGPT data.",
+        authMode: "legacy",
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "sources"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatchInlineSnapshot(`
+      "Available sources (3)
+
+      → Ready now (2)
+      GitHub [interactive]
+        Exports GitHub data.
+      Spotify [interactive]
+        Exports Spotify data.
+
+      → Manual steps (1)
+      ChatGPT [legacy]
+        Exports ChatGPT data.
+
+      → Next
+      • Browse the guided picker with \`vana connect\`.
+      • Or connect one directly with \`vana connect <source>\`.
+      "
+    `);
+  });
+
   it("orders status output by what needs attention first", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
@@ -776,6 +822,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(1);
     expect(mockSelect).toHaveBeenCalled();
+    expect(stdout).toContain("1 ready source");
     expect(stdout).toContain("Cancelled. No source was connected.");
   });
 

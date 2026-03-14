@@ -27,6 +27,24 @@ curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-
   [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif),
   [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
+Once installed, the best way to evaluate the CLI quickly is:
+
+```bash
+vana status
+vana sources
+vana connect github
+vana data show github
+```
+
+Current reviewable transcripts:
+
+- [`status`](./docs/transcripts/status.txt)
+- [`sources`](./docs/transcripts/sources.txt)
+- [`data list`](./docs/transcripts/data-list.txt)
+- [`data show github`](./docs/transcripts/data-show-github.txt)
+- [`connect github`](./docs/transcripts/connect-github-success.txt)
+- [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
+
 ## What problem this solves
 
 Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.

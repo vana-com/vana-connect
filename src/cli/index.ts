@@ -609,6 +609,24 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
 
   emit.title("Connect data");
   emit.blank();
+  const readyNowCount = sources.filter(
+    (source) => source.authMode !== "legacy",
+  ).length;
+  const manualCount = sources.length - readyNowCount;
+  if (readyNowCount > 0 || manualCount > 0) {
+    const parts = [];
+    if (readyNowCount > 0) {
+      parts.push(
+        `${readyNowCount} ready ${readyNowCount === 1 ? "source" : "sources"}`,
+      );
+    }
+    if (manualCount > 0) {
+      parts.push(
+        `${manualCount} with manual ${manualCount === 1 ? "step" : "steps"}`,
+      );
+    }
+    emit.detail(parts.join(" • "));
+  }
   emit.info("Choose a source to connect:");
   let source: string;
   try {
@@ -691,7 +709,10 @@ async function runList(options: GlobalOptions): Promise<number> {
   } else {
     emit.blank();
     emit.section("Next");
-    emit.bullet(`Connect one with ${emit.code("vana connect <source>")}.`);
+    emit.bullet(`Browse the guided picker with ${emit.code("vana connect")}.`);
+    emit.bullet(
+      `Or connect one directly with ${emit.code("vana connect <source>")}.`,
+    );
   }
   return 0;
 }
