@@ -113,7 +113,7 @@ jobs:
           TAG="canary-${BRANCH_SLUG}"
           TITLE="Canary ${GITHUB_REF_NAME}"
           NOTES="Branch canary for ${GITHUB_REF_NAME} at ${SHORT_SHA}. Install with the branch installer and \`--version ${TAG}\`."
-          mapfile -t RELEASE_FILES < <(pnpm release:collect-assets)
+          mapfile -t RELEASE_FILES < <(node ./scripts/collect-release-assets.mjs)
 
           if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
             echo "No release files were found in artifacts/release"

@@ -106,7 +106,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
-          mapfile -t RELEASE_FILES < <(pnpm release:collect-assets)
+          mapfile -t RELEASE_FILES < <(node ./scripts/collect-release-assets.mjs)
           gh release upload "$RELEASE_TAG" "${RELEASE_FILES[@]}" --clobber
   verify-release-install:
     needs: release
