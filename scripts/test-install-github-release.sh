@@ -66,6 +66,9 @@ echo "Checking status"
 echo "Checking sources"
 "$BIN_DIR/vana" sources --json >/dev/null
 
+echo "Checking piped human output"
+"$BIN_DIR/vana" sources | head -n 8 >/dev/null
+
 echo "Checking non-interactive connect for ${SOURCE}"
 set +e
 CONNECT_OUTPUT="$("$BIN_DIR/vana" connect "$SOURCE" --json --no-input 2>&1)"
