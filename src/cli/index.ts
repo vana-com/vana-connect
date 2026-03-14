@@ -694,7 +694,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   emit.section("Environment");
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
   if (status.runtimePath) {
-    emit.detail(status.runtimePath);
+    emit.detail(formatDisplayPath(status.runtimePath));
   }
   emit.keyValue(
     "Personal Server",
@@ -770,7 +770,7 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     const result = await runtime.ensureInstalled(Boolean(options.yes));
     emit.info("Runtime ready.");
     if (result.logPath) {
-      emit.info(`Setup log: ${result.logPath}`);
+      emit.info(`Setup log: ${formatDisplayPath(result.logPath)}`);
     }
     emit.event({
       type: "setup-complete",
