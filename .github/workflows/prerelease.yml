@@ -122,3 +122,13 @@ jobs:
               --notes "$NOTES" \
               --prerelease
           fi
+  verify-prerelease-install:
+    needs: canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Smoke test hosted prerelease installer
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          sh ./scripts/test-install-github-release.sh --version "$TAG"
