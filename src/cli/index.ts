@@ -1356,7 +1356,7 @@ function formatSourceStatusDetails(source: SourceStatus): string[] {
       source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED ||
       source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED)
   ) {
-    details.push("Saved browser session available for faster reconnects.");
+    details.push("Session: Saved for faster reconnects.");
   }
 
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED) {

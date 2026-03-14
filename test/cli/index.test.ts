@@ -347,7 +347,7 @@ describe("runCli", () => {
       → Connected (1)
       GitHub [interactive] [local]
         Inspect the latest local dataset with \`vana data show github\`.
-        Saved browser session available for faster reconnects.
+        Session: Saved for faster reconnects.
         Updated: <timestamp>
         Path: /tmp/.dataconnect/github-result.json
 

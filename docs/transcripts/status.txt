@@ -16,7 +16,7 @@ Steam [unavailable]
 → Connected (2)
 GitHub [interactive] [local]
   Inspect the latest local dataset with `vana data show github`.
-  Saved browser session available for faster reconnects.
+  Session: Saved for faster reconnects.
   Updated: Mar 14, 2026, 8:10 AM
   Path: ~/.dataconnect/last-result.json
 Spotify [interactive] [local]
