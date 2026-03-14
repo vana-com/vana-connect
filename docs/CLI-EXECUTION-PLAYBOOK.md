@@ -16,9 +16,10 @@ wins.
 
 ## Current State
 
-Branch head at the time of this update:
+Branch state at the time of this update:
 
-- `0afda69`
+- local work has moved materially past the earlier canary checkpoints
+- use `git log --oneline --decorate -10` to confirm the exact local head before pushing
 
 Already true on this branch:
 
@@ -30,9 +31,14 @@ Already true on this branch:
 - guided `connect` now has clearer entry, cancellation, and continuation copy
 - `status` now points users toward `vana data list` when that is the right next step
 - `data show` / `data path` JSON surfaces are more useful for shell tooling
+- `sources`, `status`, `data`, and success summaries now use more structured factual rows
+- source discovery surfaces now explain whether a source prompts in-terminal or requires a manual browser step
+- `data` empty/missing states now include concrete next steps instead of dead-end copy
+- `sources --json`, `status --json`, and `data list --json` now expose more top-level guidance metadata
 - successful connects now explicitly mention the saved browser session payoff
 - structured runtime `status-update` and `progress-update` events exist
 - README-facing VHS demos and transcripts are publishing from CI
+- local transcript/demo scripts now rebuild first so review artifacts cannot silently drift behind `dist`
 
 This means the next work is no longer “make the CLI exist.”
 It is:
