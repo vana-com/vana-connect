@@ -434,6 +434,47 @@ describe("runCli", () => {
     );
   });
 
+  it("prints a clean manual-step message for legacy connectors in no-input mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+        description: "Exports Shop data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "legacy-auth",
+        source: "shop",
+        message:
+          "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "connect",
+      "shop",
+      "--no-input",
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain(
+      "This source needs a manual browser step, but prompting is disabled in --no-input mode.",
+    );
+    expect(stdout).toContain("Run `vana connect shop` without `--no-input`.");
+    expect(stdout).toContain("Run log: /tmp/logs/run.log");
+    expect(stdout).not.toContain("LegacyAuthError");
+  });
+
   it("shows collected data in json mode", async () => {
     mockListAvailableSources.mockResolvedValue([
       {
