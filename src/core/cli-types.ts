@@ -155,6 +155,38 @@ export const cliDataShowSchema = z.object({
 });
 export type CliDataShow = z.infer<typeof cliDataShowSchema>;
 
+export const sourceRequiredErrorSchema = z.object({
+  error: z.literal("source_required"),
+  message: z.string(),
+  suggestedSource: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      authMode: z.enum(["automated", "interactive", "legacy"]).optional(),
+    })
+    .optional(),
+});
+export type SourceRequiredError = z.infer<typeof sourceRequiredErrorSchema>;
+
+export const datasetNotFoundErrorSchema = z.object({
+  error: z.literal("dataset_not_found"),
+  source: z.string(),
+  name: z.string().optional(),
+  message: z.string(),
+  nextSteps: z.array(z.string()).optional(),
+});
+export type DatasetNotFoundError = z.infer<typeof datasetNotFoundErrorSchema>;
+
+export const datasetReadFailedErrorSchema = z.object({
+  error: z.literal("dataset_read_failed"),
+  source: z.string(),
+  path: z.string(),
+  message: z.string(),
+});
+export type DatasetReadFailedError = z.infer<
+  typeof datasetReadFailedErrorSchema
+>;
+
 export const cliEventSchema = z.object({
   type: z.string(),
   source: z.string().optional(),

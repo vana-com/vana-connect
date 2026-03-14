@@ -4,8 +4,10 @@ import {
   cliDataPathSchema,
   cliDataShowSchema,
   cliDoctorSchema,
+  datasetNotFoundErrorSchema,
   cliSourcesSchema,
   cliStatusSchema,
+  sourceRequiredErrorSchema,
 } from "../../src/core/cli-types.js";
 
 const mockListAvailableSources = vi.fn();
@@ -770,9 +772,10 @@ describe("runCli", () => {
       "github",
       "--json",
     ]);
+    const parsed = datasetNotFoundErrorSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(1);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       error: "dataset_not_found",
       source: "github",
       message:
@@ -1042,9 +1045,10 @@ describe("runCli", () => {
       "github",
       "--json",
     ]);
+    const parsed = datasetNotFoundErrorSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(1);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       error: "dataset_not_found",
       source: "github",
       name: "GitHub",
@@ -1219,9 +1223,10 @@ describe("runCli", () => {
     ]);
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "--json"]);
+    const parsed = sourceRequiredErrorSchema.parse(JSON.parse(stdout));
 
     expect(exitCode).toBe(1);
-    expect(JSON.parse(stdout)).toEqual({
+    expect(parsed).toEqual({
       error: "source_required",
       message:
         "Specify a source. Start with `vana connect github`, or run `vana sources` to see available options.",
