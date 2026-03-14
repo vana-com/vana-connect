@@ -1,0 +1,11 @@
+Connect Steam
+
+→ Preparing
+Finding a connector for Steam...
+
+→ Not available yet
+No connector is available for Steam right now.
+
+→ Next
+  • Browse available sources with `vana sources`.
+  • Then connect one with `vana connect <source>`.

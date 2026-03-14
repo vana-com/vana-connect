@@ -112,6 +112,12 @@ async function main() {
       allowFailure: true,
     },
     {
+      name: "connect-steam.txt",
+      argv: ["vana", "connect", "steam"],
+      env: seededEnv,
+      allowFailure: true,
+    },
+    {
       name: "connect-steam-no-input.txt",
       argv: ["vana", "connect", "steam", "--no-input"],
       env: seededEnv,
