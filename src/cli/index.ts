@@ -595,8 +595,11 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
   try {
     source = await select({
       message: "Source",
+      pageSize: 8,
       choices: sources.map((item) => ({
-        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}${item.description ? ` - ${item.description}` : ""}`,
+        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}`,
+        description: item.description,
+        short: item.name,
         value: item.id,
       })),
     });
