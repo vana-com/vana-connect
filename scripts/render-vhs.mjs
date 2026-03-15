@@ -16,12 +16,13 @@ const linuxSeaBinaryPath = path.join(
   "vana-linux-x64",
   "vana",
 );
+const VHS_DOCKER_IMAGE = "ghcr.io/charmbracelet/vhs:latest";
 const tapes = [
   "status-and-sources.tape",
   "data-inspection.tape",
   "connect-success.tape",
 ];
-const DEFAULT_TAPE_TIMEOUT_MS = 120_000;
+const DEFAULT_TAPE_TIMEOUT_MS = 180_000;
 
 function main() {
   prepareFixtures();
@@ -75,6 +76,7 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
         )}. Build it first with \`pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana\`.`,
       );
     }
+    ensureDockerImage(VHS_DOCKER_IMAGE);
 
     const dockerEnvArgs = [
       "-e",
@@ -97,7 +99,7 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
         "-w",
         repoRoot,
         ...dockerEnvArgs,
-        "ghcr.io/charmbracelet/vhs",
+        VHS_DOCKER_IMAGE,
       ],
     };
   }
@@ -171,6 +173,19 @@ function commandExists(command) {
     return true;
   } catch {
     return false;
+  }
+}
+
+function ensureDockerImage(image) {
+  try {
+    execFileSync("docker", ["image", "inspect", image], {
+      stdio: "ignore",
+    });
+  } catch {
+    process.stdout.write(`[vhs] pulling ${image}\n`);
+    execFileSync("docker", ["pull", image], {
+      stdio: "inherit",
+    });
   }
 }
 
