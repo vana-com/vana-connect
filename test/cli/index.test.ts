@@ -336,6 +336,16 @@ describe("runCli", () => {
     expect(stdout).toContain("vana data show github --json | jq '.summary'");
   });
 
+  it("shows data help and exits successfully with no subcommand", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "data"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Inspect collected data");
+    expect(stdout).toContain("vana data list");
+    expect(stdout).toContain("vana data show github");
+  });
+
   it("prints structured doctor output in json mode", async () => {
     mockReadCliState.mockResolvedValue({
       version: 1,

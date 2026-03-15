@@ -222,6 +222,10 @@ Examples:
   vana data path github --json
 `,
   );
+  data.action(() => {
+    data.outputHelp();
+    process.exitCode = 0;
+  });
 
   const dataListCommand = data
     .command("list")
