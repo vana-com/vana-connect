@@ -3070,7 +3070,19 @@ function getCliVersion(): string {
 }
 
 function getCliChannel(version = getCliVersion()): "stable" | "canary" {
-  return version.includes("canary") ? "canary" : "stable";
+  if (version.includes("canary")) {
+    return "canary";
+  }
+
+  const candidates = [process.env.VANA_APP_ROOT ?? "", process.execPath].map(
+    (value) => value.replace(/\\/g, "/").toLowerCase(),
+  );
+
+  return candidates.some((normalizedPath) =>
+    /\/releases\/canary-[^/]+(?:\/app)?$/.test(normalizedPath),
+  )
+    ? "canary"
+    : "stable";
 }
 
 function getCliInstallMethod(execPath = process.execPath): CliInstallMethod {
