@@ -26,6 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-
   [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif),
   [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif),
   [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
+  (`connect github`, then inspect the collected GitHub data)
 
 Once installed, the best way to evaluate the CLI quickly is:
 
@@ -41,6 +42,8 @@ vana logs github
 ```
 
 Current reviewable transcripts:
+
+- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
 
 - [`status`](./docs/transcripts/status.txt)
 - [`doctor`](./docs/transcripts/doctor.txt)
@@ -304,6 +307,7 @@ Branch prerelease preview media:
 - [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 - [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
 - [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
+  - connects GitHub, then shows the collected dataset summary
 
 ![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 
