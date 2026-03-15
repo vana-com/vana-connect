@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { Separator, confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
 
-import { createHumanRenderer } from "./render/index.js";
+import { createHumanRenderer, createProgressHandle } from "./render/index.js";
 import {
   CliOutcomeStatus,
   getCliStatePath,
@@ -298,6 +298,9 @@ async function runConnect(
 ): Promise<number> {
   const runtime = new ManagedPlaywrightRuntime();
   const emit = createEmitter(options);
+  const progress = createProgressHandle({
+    enabled: !options.json && !options.quiet,
+  });
   const registrySources = await loadRegistrySources();
   const sourceLabels = createSourceLabelMap(registrySources);
   const displayName = displaySource(source, sourceLabels);
@@ -311,6 +314,7 @@ async function runConnect(
     emit.blank();
     emit.section("Preparing");
     emit.info(`Finding a connector for ${displayName}...`);
+    progress.start(`Preparing ${displayName}...`);
     const target = await detectPersonalServerTarget();
 
     if (runtime.state !== "installed") {
@@ -360,6 +364,7 @@ async function runConnect(
         logPath: installResult.logPath,
       });
       emit.success("Runtime ready.");
+      progress.update("Runtime ready.");
       if (installResult.logPath) {
         emit.detail(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
       }
@@ -390,6 +395,7 @@ async function runConnect(
         lastResultPath: null,
       });
       if (!options.json) {
+        progress.fail(`${displayName} is not available yet.`);
         const suggestedSource =
           registrySources.find((item) => item.authMode !== "legacy") ??
           registrySources[0];
@@ -430,6 +436,7 @@ async function runConnect(
       logPath: fetched.logPath,
     });
     emit.info("Connector ready.");
+    progress.update(`Connector ready for ${displayName}.`);
     if (sourceDetails?.description) {
       emit.info(sourceDetails.description);
     }
@@ -484,6 +491,7 @@ async function runConnect(
         source: resolution.source,
         reason: "display_server_unavailable",
       });
+      progress.fail(`Manual step required for ${displayName}.`);
       return 1;
     }
 
@@ -497,6 +505,7 @@ async function runConnect(
     emit.section("Connecting");
     emit.info(`Connecting to ${displayName}...`);
     emit.info("Collecting your data...");
+    progress.update(`Collecting ${displayName} data...`);
 
     let finalStatus: CliOutcome["status"] =
       CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR;
@@ -561,6 +570,7 @@ async function runConnect(
           source: resolution.source,
         });
         if (!options.json) {
+          progress.stop();
           emit.blank();
           emit.section("Input required");
           emit.info(
@@ -582,6 +592,7 @@ async function runConnect(
       if (event.type === "progress-update") {
         const progressLine = formatProgressUpdate(event);
         if (progressLine) {
+          progress.update(progressLine);
           emit.detail(progressLine);
         }
         continue;
@@ -589,6 +600,7 @@ async function runConnect(
 
       if (event.type === "status-update") {
         if (event.message && shouldRenderStatusUpdate(event.message)) {
+          progress.update(event.message);
           emit.detail(event.message);
         }
         continue;
@@ -601,6 +613,7 @@ async function runConnect(
           lastError: event.message ?? "Connector run failed.",
         });
         emit.blank();
+        progress.fail(`Problem connecting ${displayName}.`);
         emit.section("Problem");
         emit.info(event.message ?? "Connector run failed.");
         emit.event({
@@ -617,6 +630,7 @@ async function runConnect(
 
       if (event.type === "headed-required") {
         emit.blank();
+        progress.update(`Manual browser step required for ${displayName}.`);
         emit.section("Continue in your browser");
         if (event.message) {
           emit.info(event.message);
@@ -636,6 +650,7 @@ async function runConnect(
           lastResultPath: null,
         });
         emit.blank();
+        progress.stop();
         emit.section("Manual step required");
         emit.info(
           `${displayName} still needs a manual browser step on this machine.`,
@@ -750,6 +765,7 @@ async function runConnect(
         : `Collected your ${displayName} data and saved it locally.`;
 
     emit.success(`Connected ${displayName}.`);
+    progress.succeed(`Connected ${displayName}.`);
     emit.detail(successSummary);
 
     emit.blank();
@@ -822,6 +838,7 @@ async function runConnect(
         lastError: "Cancelled before input was completed.",
       });
       emit.blank();
+      progress.stop();
       emit.section("Cancelled");
       emit.info(`Stopped before ${displayName} finished collecting your data.`);
       emit.detail("No credentials were sent anywhere.");
@@ -842,6 +859,7 @@ async function runConnect(
     }
     const message =
       error instanceof Error ? error.message : "Unexpected error.";
+    progress.fail(`Problem connecting ${displayName}.`);
     emit.info(message);
     emit.event({
       type: "outcome",
@@ -857,6 +875,8 @@ async function runConnect(
       emit.detail(`Setup log: ${formatDisplayPath(setupLogPath)}`);
     }
     return 1;
+  } finally {
+    progress.stop();
   }
 }
 
