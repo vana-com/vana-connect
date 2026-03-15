@@ -205,6 +205,27 @@ export const progressPhaseSchema = z.object({
 });
 export type ProgressPhase = z.infer<typeof progressPhaseSchema>;
 
+export const cliEventTypeSchema = z.enum([
+  "collection-complete",
+  "connector-resolved",
+  "headed-required",
+  "ingest-complete",
+  "ingest-failed",
+  "ingest-skipped",
+  "ingest-started",
+  "jpeg",
+  "legacy-auth",
+  "needs-input",
+  "outcome",
+  "progress-update",
+  "run-started",
+  "runtime-error",
+  "setup-check",
+  "setup-complete",
+  "status-update",
+]);
+export type CliEventType = z.infer<typeof cliEventTypeSchema>;
+
 export const sourceRequiredErrorSchema = z.object({
   error: z.literal("source_required"),
   message: z.string(),
@@ -238,7 +259,7 @@ export type DatasetReadFailedError = z.infer<
 >;
 
 export const cliEventSchema = z.object({
-  type: z.string(),
+  type: cliEventTypeSchema,
   source: z.string().optional(),
   message: z.string().optional(),
   status: z.string().optional(),
