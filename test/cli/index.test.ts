@@ -527,7 +527,7 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Vana Connect status
 
-      need attention (1) • connected (1)
+      need attention (1) • local (1) • connected (1)
 
       → Environment
         Runtime:          installed

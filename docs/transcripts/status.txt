@@ -1,6 +1,6 @@
 Vana Connect status
 
-need attention (2) • connected (2)
+need attention (2) • local (2) • connected (2)
 
 → Environment
   Runtime:          installed

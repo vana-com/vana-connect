@@ -1105,7 +1105,15 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         "need attention",
         status.summary?.needsAttentionCount ?? 0,
       ),
-      formatCountLabel("connected", status.summary?.connectedCount ?? 0),
+      (status.summary?.localCount ?? 0) > 0
+        ? formatCountLabel("local", status.summary?.localCount ?? 0)
+        : "",
+      (status.summary?.syncedCount ?? 0) > 0
+        ? formatCountLabel("synced", status.summary?.syncedCount ?? 0)
+        : "",
+      (status.summary?.syncFailedCount ?? 0) > 0
+        ? formatCountLabel("sync failed", status.summary?.syncFailedCount ?? 0)
+        : formatCountLabel("connected", status.summary?.connectedCount ?? 0),
     ]),
   );
   emit.blank();
