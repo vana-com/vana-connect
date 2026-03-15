@@ -6,9 +6,12 @@ Let your users bring their own data to your app.
 
 This branch also carries the new `vana` collection CLI preview.
 
-For the dedicated CLI README, use [docs/CLI-README.md](./docs/CLI-README.md).
+Start with the dedicated CLI README:
 
-- install the current canary on macOS with Homebrew:
+- [CLI README](./docs/CLI-README.md)
+- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
+
+Install the current canary on macOS with Homebrew:
 
 ```bash
 brew tap vana-com/vana
@@ -16,19 +19,15 @@ brew install vana
 vana status
 ```
 
-- or use the hosted prerelease installer on macOS/Linux:
+Or use the hosted prerelease installer on macOS/Linux:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
 ```
 
-- branch release page:
-  `https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
-- demo media:
-  [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif),
-  [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif),
-  [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-  (`connect github`, then inspect the collected GitHub data)
+Branch prerelease:
+
+- `https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
 
 Once installed, the best way to evaluate the CLI quickly is:
 
@@ -43,28 +42,13 @@ vana data show github
 vana logs github
 ```
 
-Current reviewable transcripts:
+Key demo media:
 
-- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
+![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 
-- [`status`](./docs/transcripts/status.txt)
-- [`doctor`](./docs/transcripts/doctor.txt)
-- [`logs`](./docs/transcripts/logs.txt)
-- [`setup`](./docs/transcripts/setup.txt)
-- [`sources`](./docs/transcripts/sources.txt)
-- [`data list`](./docs/transcripts/data-list.txt)
-- [`data help`](./docs/transcripts/data-help.txt)
-- [`data list (empty)`](./docs/transcripts/data-list-empty.txt)
-- [`data show github`](./docs/transcripts/data-show-github.txt)
-- [`data show github (missing)`](./docs/transcripts/data-show-github-missing.txt)
-- [`data path github`](./docs/transcripts/data-path-github.txt)
-- [`connect github`](./docs/transcripts/connect-github-success.txt)
-- [`connect github --no-input`](./docs/transcripts/connect-github-no-input.txt)
-- [`connect github session reuse --no-input`](./docs/transcripts/connect-github-session-reuse-no-input.txt)
-- [`connect shop`](./docs/transcripts/connect-shop.txt)
-- [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
-- [`connect steam`](./docs/transcripts/connect-steam.txt)
-- [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
+![Vana data inspection demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
+
+![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
 ## What problem this solves
 
@@ -142,245 +126,11 @@ If you prefer to integrate the SDK into an existing project, follow the steps be
 
 If you only care about the CLI, start with [docs/CLI-README.md](./docs/CLI-README.md).
 
-### Install
-
-If you are evaluating this branch before it lands on `main`, use the prerelease path in the next section. The stable install commands below are the intended post-merge install path.
-
-macOS with Homebrew:
-
-```bash
-brew tap vana-com/vana
-brew install vana
-```
-
-macOS and Linux:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 -useb | iex
-```
-
-Both installers fetch the latest GitHub release asset for your platform, verify its checksum, and install `vana` without requiring Node or npm.
-
-### Canary / prerelease testing
-
-If you are testing an unreleased branch build, install from the branch installer and pass the prerelease tag explicitly.
-
-macOS with Homebrew:
-
-```bash
-brew tap vana-com/vana
-brew install vana
-```
-
-The current Homebrew tap is following the latest `vana-connect` canary while this CLI is still rolling out.
-
-macOS and Linux:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
-```
-
-Windows PowerShell:
-
-```powershell
-& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version canary-feat-connect-cli-v1
-```
-
-The current hosted prerelease is:
-
-`canary-feat-connect-cli-v1`
-
-Release page:
-
-`https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
-
-If you want the npm package path as a fallback:
-
-```bash
-npx -y @opendatalabs/connect status
-```
-
-### Commands
-
-```bash
-vana --version
-vana version
-vana doctor
-vana logs
-vana connect
-vana sources
-vana connect github
-vana connect github --json --no-input
-vana status
-vana setup
-vana data list
-vana data path github --json
-vana data show github --json | jq '.summary.lines'
-```
-
-- `vana connect` opens a guided source picker in human mode.
-- `vana connect <source>` runs the end-to-end collection flow.
-- `vana connect <source> --json --no-input` is the strict machine-safe path for agents and shell automation.
-- `vana sources` groups sources into ready-now vs manual-step flows.
-- `vana status` prioritizes sources that need attention before already-connected sources.
-- `vana doctor` checks the local install, browser runtime, and state directories.
-- `vana logs` lets you inspect the latest stored connector run logs without hunting through `~/.dataconnect/logs`.
-- `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
-
-### Shell contract
-
-- `--json` mode writes machine-readable output to stdout without human narration.
-- Successful command completion returns exit code `0`.
-- Actionable failures like missing source selection, unavailable connectors, or disabled prompting return exit code `1`.
-- `vana --version`, `vana version`, and `vana --help` return exit code `0`.
-- `vana doctor --json` includes `installMethod`, `channel`, and upgrade/uninstall commands so scripts can surface the right lifecycle guidance.
-
-### Shell examples
-
-```bash
-vana status --json | jq '.channel, .installMethod, .summary | {connectedCount, localCount, syncedCount}'
-vana sources --json | jq '.summary, .recommendedSource'
-vana data list --json | jq '.summary, .datasets[] | {source, dataState, path}'
-vana logs --json | jq '.latestLog, .logs[] | {source, path}'
-vana doctor --json | jq '.paths.executable, .paths.dataHome, .lifecycle'
-```
-
-### Upgrade, channels, and uninstall
-
-Upgrade with the same channel you installed from:
-
-You can always confirm the current install method and exact lifecycle commands with:
-
-```bash
-vana doctor
-```
-
-- Homebrew:
-  ```bash
-  brew update
-  brew upgrade vana
-  ```
-- macOS/Linux installer:
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
-  ```
-- Windows PowerShell installer:
-  ```powershell
-  iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 -useb | iex
-  ```
-
-Current channels:
-
-- `stable`: install from `main` or the eventual stable Homebrew tap state
-- `canary`: install from the latest prerelease assets while this CLI is still rolling out
-
-To remove the installed CLI:
-
-- Homebrew:
-  ```bash
-  brew uninstall vana
-  ```
-- macOS/Linux installer:
-  ```bash
-  rm -f ~/.local/bin/vana
-  rm -rf ~/.local/share/vana
-  ```
-- Windows PowerShell installer:
-  - remove `%USERPROFILE%\AppData\Local\Microsoft\WinGet\Links\vana.cmd`
-  - remove `%USERPROFILE%\AppData\Local\Vana`
-
-To remove local runtime and collected state as well:
-
-```bash
-rm -rf ~/.dataconnect
-```
-
-### CLI demos
-
-The branch also includes deterministic VHS demo scaffolding under
-[`docs/vhs/`](./docs/vhs/README.md).
-
-Branch prerelease preview media:
-
-- [`status-and-sources.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
-- [`data-inspection.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
-- [`connect-success.gif`](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-  - connects GitHub, then shows the collected dataset summary
-
-![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
-
-![Vana data inspection demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
-
-![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-
-Current reviewable transcripts:
-
-- [`status`](./docs/transcripts/status.txt)
-- [`doctor`](./docs/transcripts/doctor.txt)
-- [`logs`](./docs/transcripts/logs.txt)
-- [`setup`](./docs/transcripts/setup.txt)
-- [`sources`](./docs/transcripts/sources.txt)
-- [`data list`](./docs/transcripts/data-list.txt)
-- [`data list (empty)`](./docs/transcripts/data-list-empty.txt)
-- [`data show github`](./docs/transcripts/data-show-github.txt)
-- [`data show github (missing)`](./docs/transcripts/data-show-github-missing.txt)
-- [`data path github`](./docs/transcripts/data-path-github.txt)
-- [`connect github`](./docs/transcripts/connect-github-success.txt)
-- [`connect github --no-input`](./docs/transcripts/connect-github-no-input.txt)
-- [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
-- [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
-
-To seed the fixture home used by the first tapes:
-
-```bash
-pnpm demo:vhs:fixtures
-```
-
-To render the checked-in tapes once `vhs` or Docker is available:
-
-```bash
-pnpm demo:vhs
-```
-
-To capture deterministic human-mode transcripts for review:
-
-```bash
-pnpm demo:transcripts
-```
-
-To watch the branch release lane, trigger Homebrew sync, and verify the
-published installer automatically:
-
-```bash
-pnpm release:watch
-```
-
-### Local development
-
-From this repo:
-
-```bash
-pnpm install
-pnpm build
-node dist/cli/bin.js status
-```
-
-The CLI installs its local browser runtime under `~/.dataconnect/`.
-That runtime is bundled from `vana-connect` itself, so `vana setup` does not require a separate `data-connect` checkout.
-
-To build a standalone launcher plus app payload locally:
-
-```bash
-pnpm build
-pnpm build:sea
-./artifacts/sea/vana-linux-x64/vana status --json
-```
+For the full CLI review surface, use:
+
+- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
+- [CLI transcripts](./docs/transcripts/README.md)
+- [CLI demos](./docs/vhs/README.md)
 
 `pnpm build:sea` uses Node 25's `--build-sea` flow to create a small `vana` launcher and packages the real app payload next to it under `app/`.
 It produces a platform-specific release directory plus a release archive and matching checksum file under `artifacts/sea/`.
