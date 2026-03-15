@@ -1771,7 +1771,18 @@ describe("runCli", () => {
   });
 
   it("shows next steps when no connector exists in human mode", async () => {
-    mockListAvailableSources.mockResolvedValue([]);
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+      },
+    ]);
     fetchConnectorResult = undefined as never;
     const runtimeImport = await import("../../src/runtime/index.js");
     const fetchSpy = vi
@@ -1788,9 +1799,8 @@ describe("runCli", () => {
     expect(exitCode).toBe(1);
     expect(stdout).toContain("No connector is available for Steam right now.");
     expect(stdout).toContain("→ Next");
+    expect(stdout).toContain("Try GitHub with `vana connect github`.");
     expect(stdout).toContain("Browse available sources with `vana sources`.");
-    expect(stdout).toContain("Then connect one with `vana connect <source>`.");
-    expect(stdout).toContain("vana connect <source>");
   });
 
   it("mentions reusable sessions when a browser profile exists", async () => {

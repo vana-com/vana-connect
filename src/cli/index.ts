@@ -383,17 +383,24 @@ async function runConnect(
         lastResultPath: null,
       });
       if (!options.json) {
+        const suggestedSource =
+          registrySources.find((item) => item.authMode !== "legacy") ??
+          registrySources[0];
         emit.blank();
         emit.section("Not available yet");
-      }
-      emit.info(message);
-      if (!options.json) {
+        emit.info(message);
         emit.blank();
         emit.section("Next");
-        emit.bullet("Browse available sources with `vana sources`.");
+        if (suggestedSource) {
+          emit.bullet(
+            `Try ${suggestedSource.name} with ${emit.code(`vana connect ${suggestedSource.id}`)}.`,
+          );
+        }
         emit.bullet(
-          `Then connect one with ${emit.code("vana connect <source>")}.`,
+          `Browse available sources with ${emit.code("vana sources")}.`,
         );
+      } else {
+        emit.info(message);
       }
       emit.event({
         type: "outcome",
