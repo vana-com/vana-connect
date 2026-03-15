@@ -715,6 +715,46 @@ describe("runCli", () => {
     expect(stdout).not.toContain("LegacyAuthError");
   });
 
+  it("prints a human manual-step message for legacy connectors", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+        description: "Exports Shop data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "legacy-auth",
+        source: "shop",
+        message: "Shop requires a manual browser step",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "shop"]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain(
+      "Shop still needs a manual browser step on this machine.",
+    );
+    expect(stdout).toContain(
+      "Vana Connect could not continue this older connector flow automatically yet.",
+    );
+    expect(stdout).toContain(
+      "Complete the browser step locally, then rerun `vana connect shop`.",
+    );
+    expect(stdout).not.toContain(
+      "Because `--no-input` is enabled, Vana stopped before opening that session.",
+    );
+  });
+
   it("shows collected data in json mode", async () => {
     mockListAvailableSources.mockResolvedValue([
       {

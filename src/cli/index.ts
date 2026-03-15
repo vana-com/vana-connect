@@ -594,14 +594,26 @@ async function runConnect(
         emit.info(
           `${displayName} still needs a manual browser step on this machine.`,
         );
-        emit.detail(
-          `Because ${emit.code("--no-input")} is enabled, Vana stopped before opening that session.`,
-        );
+        if (options.noInput) {
+          emit.detail(
+            `Because ${emit.code("--no-input")} is enabled, Vana stopped before opening that session.`,
+          );
+        } else {
+          emit.detail(
+            "Vana Connect could not continue this older connector flow automatically yet.",
+          );
+        }
         emit.blank();
         emit.section("Next");
-        emit.bullet(
-          `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
-        );
+        if (options.noInput) {
+          emit.bullet(
+            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
+          );
+        } else {
+          emit.bullet(
+            `Complete the browser step locally, then rerun ${emit.code(`vana connect ${source}`)}.`,
+          );
+        }
         if (event.logPath) {
           emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
         }
