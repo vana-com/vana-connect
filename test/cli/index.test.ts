@@ -341,6 +341,30 @@ describe("runCli", () => {
     });
   });
 
+  it("detects installer metadata from VANA_APP_ROOT in json mode", async () => {
+    const originalAppRoot = process.env.VANA_APP_ROOT;
+    process.env.VANA_APP_ROOT = "/tmp/vana/current/app";
+
+    try {
+      const { runCli } = await import("../../src/cli/index.js");
+      const exitCode = await runCli(["node", "vana", "version", "--json"]);
+      const parsed = cliVersionInfoSchema.parse(JSON.parse(stdout));
+
+      expect(exitCode).toBe(0);
+      expect(parsed).toEqual({
+        cliVersion: "0.8.1",
+        channel: "stable",
+        installMethod: "installer",
+      });
+    } finally {
+      if (originalAppRoot === undefined) {
+        delete process.env.VANA_APP_ROOT;
+      } else {
+        process.env.VANA_APP_ROOT = originalAppRoot;
+      }
+    }
+  });
+
   it("shows operational commands in top-level help", async () => {
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "--help"]);

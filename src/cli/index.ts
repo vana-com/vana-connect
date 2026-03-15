@@ -3041,8 +3041,32 @@ function normalizeArgv(argv: string[]): string[] {
 }
 
 function getCliVersion(): string {
-  const packageJson = require("../../package.json") as { version?: string };
-  return packageJson.version ?? "0.0.0";
+  if (process.env.VANA_APP_ROOT) {
+    try {
+      const packageJson = JSON.parse(
+        fs.readFileSync(
+          path.join(process.env.VANA_APP_ROOT, "package.json"),
+          "utf8",
+        ),
+      ) as { version?: string };
+      if (packageJson.version) {
+        return packageJson.version;
+      }
+    } catch {
+      // Fall through to the repo/dev package metadata.
+    }
+  }
+
+  try {
+    const packageJson = require("../../package.json") as { version?: string };
+    if (packageJson.version) {
+      return packageJson.version;
+    }
+  } catch {
+    // Fall through to the hard default.
+  }
+
+  return "0.0.0";
 }
 
 function getCliChannel(version = getCliVersion()): "stable" | "canary" {
@@ -3050,24 +3074,34 @@ function getCliChannel(version = getCliVersion()): "stable" | "canary" {
 }
 
 function getCliInstallMethod(execPath = process.execPath): CliInstallMethod {
-  const normalizedPath = execPath.replace(/\\/g, "/").toLowerCase();
-  if (normalizedPath.includes("/cellar/vana/")) {
-    return "homebrew";
-  }
-  if (
-    normalizedPath.includes("/.local/share/vana/") ||
-    normalizedPath.includes("/appdata/local/vana/")
-  ) {
-    return "installer";
-  }
-  if (
-    normalizedPath.endsWith("/node") ||
-    normalizedPath.endsWith("/node.exe") ||
-    normalizedPath.includes("/.nvm/") ||
-    normalizedPath.includes("/volta/") ||
-    normalizedPath.includes("/pnpm/")
-  ) {
-    return "development";
+  const candidates = [process.env.VANA_APP_ROOT ?? "", execPath].map((value) =>
+    value.replace(/\\/g, "/").toLowerCase(),
+  );
+
+  for (const normalizedPath of candidates) {
+    if (!normalizedPath) {
+      continue;
+    }
+    if (normalizedPath.includes("/cellar/vana/")) {
+      return "homebrew";
+    }
+    if (
+      normalizedPath.includes("/.local/share/vana/") ||
+      normalizedPath.includes("/appdata/local/vana/") ||
+      normalizedPath.endsWith("/current/app") ||
+      /\/releases\/[^/]+\/app$/.test(normalizedPath)
+    ) {
+      return "installer";
+    }
+    if (
+      normalizedPath.endsWith("/node") ||
+      normalizedPath.endsWith("/node.exe") ||
+      normalizedPath.includes("/.nvm/") ||
+      normalizedPath.includes("/volta/") ||
+      normalizedPath.includes("/pnpm/")
+    ) {
+      return "development";
+    }
   }
   return "unknown";
 }

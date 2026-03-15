@@ -163,6 +163,7 @@ async function stageAppPayload(outputDir) {
   );
   const appPackage = {
     name: "@opendatalabs/connect-app",
+    version: rootPackage.version,
     private: true,
     type: "module",
     dependencies: rootPackage.dependencies,
