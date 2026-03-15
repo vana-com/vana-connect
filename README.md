@@ -228,7 +228,7 @@ vana data show github --json | jq '.summary.lines'
 ### Shell examples
 
 ```bash
-vana status --json | jq '.channel, .installMethod, .summary'
+vana status --json | jq '.channel, .installMethod, .summary | {connectedCount, localCount, syncedCount}'
 vana sources --json | jq '.summary, .recommendedSource'
 vana data list --json | jq '.summary, .datasets[] | {source, dataState, path}'
 vana doctor --json | jq '.paths.executable, .paths.appRoot, .lifecycle'

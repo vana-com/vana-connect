@@ -1073,6 +1073,15 @@ async function runStatus(options: GlobalOptions): Promise<number> {
           source.dataState === "ingest_failed",
       ).length,
       installedCount: sources.filter((source) => source.installed).length,
+      localCount: sources.filter(
+        (source) => source.dataState === "collected_local",
+      ).length,
+      syncedCount: sources.filter(
+        (source) => source.dataState === "ingested_personal_server",
+      ).length,
+      syncFailedCount: sources.filter(
+        (source) => source.dataState === "ingest_failed",
+      ).length,
     },
     sources,
   };

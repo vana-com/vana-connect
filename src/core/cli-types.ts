@@ -90,6 +90,9 @@ export const cliStatusSchema = z.object({
       needsAttentionCount: z.number(),
       connectedCount: z.number(),
       installedCount: z.number(),
+      localCount: z.number(),
+      syncedCount: z.number(),
+      syncFailedCount: z.number(),
     })
     .optional(),
   nextSteps: z.array(z.string()).optional(),

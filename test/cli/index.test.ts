@@ -261,6 +261,9 @@ describe("runCli", () => {
         needsAttentionCount: 0,
         connectedCount: 1,
         installedCount: 0,
+        localCount: 1,
+        syncedCount: 0,
+        syncFailedCount: 0,
       },
       sources: [
         {
