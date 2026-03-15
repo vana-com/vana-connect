@@ -1,6 +1,6 @@
 Vana Connect status
 
-need attention (2) • local (2) • connected (2)
+Need attention (2) • Connected (2) • Local only (2)
 
 → Environment
   Runtime:          installed
@@ -11,9 +11,11 @@ need attention (2) • local (2) • connected (2)
 Shop [legacy] [manual step]
   Run `vana connect shop` without `--no-input` to complete the manual browser step.
   Updated:          Mar 14, 2026, 8:11 AM
+  Run log:          ~/.dataconnect/logs/run-shop-demo.log
 Steam [unavailable]
   No connector is available for Steam right now.
   Updated:          Mar 14, 2026, 8:12 AM
+  Run log:          ~/.dataconnect/logs/fetch-steam-demo.log
 
 → Connected (2)
 GitHub [interactive] [local]
@@ -30,4 +32,5 @@ Spotify [interactive] [local]
 
 → Next
   • Complete the manual browser step for Shop with `vana connect shop`.
+  • Inspect the latest run log with `vana logs shop`.
   • Review the data you already collected with `vana data list`.

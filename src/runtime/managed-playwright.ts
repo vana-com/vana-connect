@@ -1,6 +1,8 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import {
   ensureParentDir,
@@ -12,6 +14,7 @@ import {
 } from "../core/index.js";
 import type { CliEvent, RuntimeState } from "../core/cli-types.js";
 import { fetchConnectorToCache } from "../connectors/registry.js";
+import type { RuntimeCapabilities } from "./core/index.js";
 import {
   getBrowserCacheDir,
   resolveBrowserPath,
@@ -20,6 +23,7 @@ import {
 import { findDataConnectorsDir } from "./repo-paths.js";
 
 const require = createRequire(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 export interface RuntimeInstallResult {
   runtime: RuntimeState;
@@ -46,6 +50,17 @@ export interface NeedInputEvent {
 }
 
 export class ManagedPlaywrightRuntime {
+  get capabilities(): RuntimeCapabilities {
+    return {
+      supportsHeaded:
+        process.platform !== "linux" ||
+        Boolean(process.env.DISPLAY) ||
+        Boolean(process.env.WAYLAND_DISPLAY),
+      supportsManagedProfiles: true,
+      supportsScreenshots: true,
+    };
+  }
+
   get runtimePath(): string | null {
     return getResolvedRuntimePath();
   }
@@ -110,6 +125,9 @@ export class ManagedPlaywrightRuntime {
         `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
         "utf8",
       );
+      if (error && typeof error === "object") {
+        Object.assign(error, { logPath });
+      }
       throw error;
     }
   }
@@ -130,7 +148,7 @@ export class ManagedPlaywrightRuntime {
   }
 }
 
-async function installChromium(logPath: string): Promise<void> {
+export async function installChromium(logPath: string): Promise<void> {
   const browserCacheDir = getBrowserCacheDir();
   const previousBrowserPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   const previousSkipGc = process.env.PLAYWRIGHT_SKIP_BROWSER_GC;
@@ -139,36 +157,46 @@ async function installChromium(logPath: string): Promise<void> {
     process.env.PLAYWRIGHT_BROWSERS_PATH = browserCacheDir;
     process.env.PLAYWRIGHT_SKIP_BROWSER_GC = "1";
 
-    const { registry } = require(
-      require.resolve("playwright-core/lib/server/registry/index", {
-        paths: [path.dirname(require.resolve("playwright/package.json"))],
-      }),
-    ) as {
-      registry: {
-        findExecutable(name: string): {
-          name: string;
-          installType: string;
-        };
-        install(
-          executables: Array<unknown>,
-          options?: { force?: boolean },
-        ): Promise<void>;
-      };
-    };
-
-    const executables: Array<unknown> = [];
-    if (process.platform === "win32") {
-      executables.push(registry.findExecutable("winldd"));
-    }
-    executables.push(registry.findExecutable("chromium"));
-
     await ensureParentDir(logPath);
     await fsp.writeFile(
       logPath,
       `Installing Chromium into ${browserCacheDir}\n`,
       "utf8",
     );
-    await registry.install(executables);
+    const cliInstalled = await installChromiumViaPackagedCli(
+      logPath,
+      browserCacheDir,
+    );
+    if (!cliInstalled) {
+      await fsp.appendFile(
+        logPath,
+        "Falling back to Playwright internal registry install.\n",
+        "utf8",
+      );
+      const { registry } = require(
+        require.resolve("playwright-core/lib/server/registry/index", {
+          paths: [path.dirname(require.resolve("playwright/package.json"))],
+        }),
+      ) as {
+        registry: {
+          findExecutable(name: string): {
+            name: string;
+            installType: string;
+          };
+          install(
+            executables: Array<unknown>,
+            options?: { force?: boolean },
+          ): Promise<void>;
+        };
+      };
+
+      const executables: Array<unknown> = [];
+      if (process.platform === "win32") {
+        executables.push(registry.findExecutable("winldd"));
+      }
+      executables.push(registry.findExecutable("chromium"));
+      await registry.install(executables);
+    }
     await fsp.appendFile(logPath, "Chromium installation complete.\n", "utf8");
   } catch (error) {
     await ensureParentDir(logPath);
@@ -190,6 +218,63 @@ async function installChromium(logPath: string): Promise<void> {
     } else {
       process.env.PLAYWRIGHT_SKIP_BROWSER_GC = previousSkipGc;
     }
+  }
+}
+
+export async function installChromiumViaPackagedCli(
+  logPath: string,
+  browserCacheDir: string,
+): Promise<boolean> {
+  const playwrightCliPath = getPlaywrightCliPath();
+  if (!playwrightCliPath) {
+    await fsp.appendFile(
+      logPath,
+      "Playwright packaged CLI not found. Skipping CLI install path.\n",
+      "utf8",
+    );
+    return false;
+  }
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [playwrightCliPath, "install", "chromium"],
+      {
+        env: {
+          ...process.env,
+          PLAYWRIGHT_BROWSERS_PATH: browserCacheDir,
+          PLAYWRIGHT_SKIP_BROWSER_GC: "1",
+        },
+        windowsHide: true,
+      },
+    );
+    if (stdout) {
+      await fsp.appendFile(logPath, stdout, "utf8");
+    }
+    if (stderr) {
+      await fsp.appendFile(logPath, stderr, "utf8");
+    }
+    return true;
+  } catch (error) {
+    const details =
+      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    await fsp.appendFile(
+      logPath,
+      `Playwright packaged CLI install failed.\n${details}\n`,
+      "utf8",
+    );
+    return false;
+  }
+}
+
+export function getPlaywrightCliPath(): string | null {
+  try {
+    const playwrightPackagePath = require.resolve("playwright/package.json");
+    const playwrightRoot = path.dirname(playwrightPackagePath);
+    const cliPath = path.join(playwrightRoot, "cli.js");
+    return cliPath;
+  } catch {
+    return null;
   }
 }
 

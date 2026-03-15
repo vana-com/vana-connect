@@ -18,3 +18,5 @@ GitHub needs additional input before it can connect.
 
 → Next
   • Run `vana connect github` without `--no-input`.
+  • Inspect the latest run log with `vana logs github`.
+  • Or check overall status with `vana status`.

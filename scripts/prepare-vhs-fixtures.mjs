@@ -40,6 +40,12 @@ async function seedDemoHome() {
     },
   );
   await fs.mkdir(path.join(dataConnectRoot, "logs"), { recursive: true });
+  await fs.mkdir(
+    path.join(dataConnectRoot, "browser-profiles", "github-playwright"),
+    {
+      recursive: true,
+    },
+  );
 
   await fs.writeFile(
     path.join(dataConnectRoot, "connectors", "github", "github-playwright.js"),
@@ -81,17 +87,20 @@ async function seedDemoHome() {
         lastRunOutcome: "connected_local_only",
         dataState: "collected_local",
         lastResultPath: path.join(dataConnectRoot, "last-result.json"),
+        lastLogPath: path.join(dataConnectRoot, "logs", "run-github-demo.log"),
       },
       shop: {
         lastRunAt: "2026-03-14T13:11:10.000Z",
         lastRunOutcome: "legacy_auth",
         dataState: "none",
+        lastLogPath: path.join(dataConnectRoot, "logs", "run-shop-demo.log"),
       },
       steam: {
         lastRunAt: "2026-03-14T13:12:00.000Z",
         lastRunOutcome: "connector_unavailable",
         dataState: "none",
         lastError: "No connector is available for steam right now.",
+        lastLogPath: path.join(dataConnectRoot, "logs", "fetch-steam-demo.log"),
       },
       spotify: {
         lastRunAt: "2026-03-13T21:23:00.000Z",
@@ -131,6 +140,21 @@ async function seedDemoHome() {
       null,
       2,
     )}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(dataConnectRoot, "logs", "run-github-demo.log"),
+    "[runtime] GitHub demo log\n[data] status=Complete\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(dataConnectRoot, "logs", "run-shop-demo.log"),
+    "[runtime] Shop demo log\n[data] status=Manual step required\n",
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(dataConnectRoot, "logs", "fetch-steam-demo.log"),
+    "[runtime] Steam demo log\n[data] status=Connector unavailable\n",
     "utf8",
   );
 }

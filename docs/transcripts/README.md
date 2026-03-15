@@ -18,6 +18,7 @@ Current generated surfaces include:
 - `data-help.txt`
 - `status.txt`
 - `doctor.txt`
+- `logs.txt`
 - `setup.txt`
 - `sources.txt`
 - `data-list.txt`

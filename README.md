@@ -35,23 +35,30 @@ vana doctor
 vana status
 vana sources
 vana connect github
+vana data list
 vana data show github
+vana logs github
 ```
 
 Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
 - [`doctor`](./docs/transcripts/doctor.txt)
+- [`logs`](./docs/transcripts/logs.txt)
 - [`setup`](./docs/transcripts/setup.txt)
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)
+- [`data help`](./docs/transcripts/data-help.txt)
 - [`data list (empty)`](./docs/transcripts/data-list-empty.txt)
 - [`data show github`](./docs/transcripts/data-show-github.txt)
 - [`data show github (missing)`](./docs/transcripts/data-show-github-missing.txt)
 - [`data path github`](./docs/transcripts/data-path-github.txt)
 - [`connect github`](./docs/transcripts/connect-github-success.txt)
 - [`connect github --no-input`](./docs/transcripts/connect-github-no-input.txt)
+- [`connect github session reuse --no-input`](./docs/transcripts/connect-github-session-reuse-no-input.txt)
+- [`connect shop`](./docs/transcripts/connect-shop.txt)
 - [`connect shop --no-input`](./docs/transcripts/connect-shop-no-input.txt)
+- [`connect steam`](./docs/transcripts/connect-steam.txt)
 - [`connect steam --no-input`](./docs/transcripts/connect-steam-no-input.txt)
 
 ## What problem this solves
@@ -198,6 +205,7 @@ npx -y @opendatalabs/connect status
 vana --version
 vana version
 vana doctor
+vana logs
 vana connect
 vana sources
 vana connect github
@@ -215,6 +223,7 @@ vana data show github --json | jq '.summary.lines'
 - `vana sources` groups sources into ready-now vs manual-step flows.
 - `vana status` prioritizes sources that need attention before already-connected sources.
 - `vana doctor` checks the local install, browser runtime, and state directories.
+- `vana logs` lets you inspect the latest stored connector run logs without hunting through `~/.dataconnect/logs`.
 - `vana data ...` lets you inspect collected local datasets without opening the raw JSON file yourself.
 
 ### Shell contract
@@ -231,7 +240,8 @@ vana data show github --json | jq '.summary.lines'
 vana status --json | jq '.channel, .installMethod, .summary | {connectedCount, localCount, syncedCount}'
 vana sources --json | jq '.summary, .recommendedSource'
 vana data list --json | jq '.summary, .datasets[] | {source, dataState, path}'
-vana doctor --json | jq '.paths.executable, .paths.appRoot, .lifecycle'
+vana logs --json | jq '.latestLog, .logs[] | {source, path}'
+vana doctor --json | jq '.paths.executable, .paths.dataHome, .lifecycle'
 ```
 
 ### Upgrade, channels, and uninstall
@@ -305,6 +315,7 @@ Current reviewable transcripts:
 
 - [`status`](./docs/transcripts/status.txt)
 - [`doctor`](./docs/transcripts/doctor.txt)
+- [`logs`](./docs/transcripts/logs.txt)
 - [`setup`](./docs/transcripts/setup.txt)
 - [`sources`](./docs/transcripts/sources.txt)
 - [`data list`](./docs/transcripts/data-list.txt)

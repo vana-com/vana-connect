@@ -1,6 +1,6 @@
 Collected data (2)
 
-local dataset (2) • synced dataset (0)
+Dataset (2) • Local only (2) • Synced (0)
 
 GitHub [local]
   Profile: tnunamak

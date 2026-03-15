@@ -5,6 +5,7 @@ Finding a connector for GitHub...
 Connector ready.
 Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
   If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.
+  Found an existing GitHub session. Reusing it if it is still valid...
 
 → Connecting
 Connecting to GitHub...
@@ -31,4 +32,5 @@ Collecting your data...
 → Next
   • Inspect the data with `vana data show github`
   • Connect another source with `vana sources`
+  • Inspect the run log with `vana logs github`.
   • Or check overall status with `vana status`

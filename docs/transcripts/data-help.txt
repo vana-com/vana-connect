@@ -1,6 +1,6 @@
 Usage: vana data [options] [command]
 
-Inspect collected data
+Inspect collected datasets, paths, and summaries
 
 Options:
   -h, --help               display help for command

@@ -14,3 +14,5 @@ Shop still needs a manual browser step on this machine.
 → Next
   • Run this command in a desktop session.
   • Or retry with `xvfb-run -a vana connect shop`.
+  • Inspect the latest run log with `vana logs shop`.
+  • Or check overall status with `vana status`.

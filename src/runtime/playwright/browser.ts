@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 import { chromium, type BrowserContext } from "playwright";
 
@@ -199,10 +199,24 @@ export function getChromeProfileDir(chromeRoot: string): string | null {
   return fs.existsSync(defaultDir) ? defaultDir : null;
 }
 
+export function supportsSystemChromeCookieImport(): boolean {
+  if (process.env.VANA_ENABLE_SYSTEM_COOKIE_IMPORT === "1") {
+    return true;
+  }
+
+  // Treat this as a macOS-only enhancement until we have explicit
+  // validation for other platforms. The core CLI path should not depend on it.
+  return process.platform === "darwin";
+}
+
 export function importChromeCookies(
   userDataDir: string,
   browserPath: string | null,
 ): void {
+  if (!supportsSystemChromeCookieImport()) {
+    return;
+  }
+
   if (!isSystemChrome(browserPath)) {
     return;
   }
@@ -232,8 +246,7 @@ export function importChromeCookies(
     return;
   }
 
-  const sourceDb = sourceCookies.replace(/'/g, "'\\''");
-  const targetDb = targetCookies.replace(/'/g, "'\\''");
+  const sourceDb = sourceCookies.replace(/'/g, "''");
   const sql = `
 ATTACH DATABASE '${sourceDb}' AS src;
 INSERT OR REPLACE INTO main.cookies
@@ -242,7 +255,7 @@ DETACH DATABASE src;
 `;
 
   try {
-    execSync(`sqlite3 '${targetDb}' "${sql.replace(/\n/g, " ")}"`, {
+    execFileSync("sqlite3", [targetCookies, sql.replace(/\n/g, " ")], {
       stdio: "ignore",
     });
     fs.writeFileSync(markerFile, `${new Date().toISOString()}\n`, "utf8");

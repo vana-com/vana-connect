@@ -16,4 +16,6 @@ Shop still needs a manual browser step on this machine.
 
 → Next
   • Run `vana connect shop` without `--no-input`.
+  • Inspect the latest run log with `vana logs shop`.
+  • Or check overall status with `vana status`.
   Run log:          ~/.dataconnect/logs/run-shop-<timestamp>.log

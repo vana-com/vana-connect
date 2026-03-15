@@ -7,23 +7,37 @@ Vana Connect doctor
   Runtime:          installed
   Personal Server:  unavailable
   Tracked sources:  4
+  Attention:        2
+  Connected:        2
+  Headed sessions:  Unavailable
+  Managed profiles: Available
+  Screenshots:      Available
 
 → Checks
   CLI:              Version 0.8.1
   Runtime:          Browser available at /opt/playwright/chromium-1200/chrome-linux64/chrome
   Personal Server:  Unavailable. Connects will stay local until a Personal Server is reachable.
   Executable:       Present at /usr/local/bin/node
-  App root:         Missing at /usr/local/bin/app
   Data home:        Present at ~/.dataconnect
   State file:       Present at ~/.dataconnect/vana-connect-state.json
   Connector cache:  Present at ~/.dataconnect/connectors
-  Browser profiles: Missing at ~/.dataconnect/browser-profiles
+  Browser profiles: Present at ~/.dataconnect/browser-profiles
   Logs:             Present at ~/.dataconnect/logs
   Tracked sources:  4 sources in local state
+  Latest issue:     Shop: manual step
+
+→ Needs attention
+Shop [legacy] [manual step]
+  Run `vana connect shop` without `--no-input` to complete the manual browser step.
+  Updated:          Mar 14, 2026, 8:11 AM
+  Run log:          ~/.dataconnect/logs/run-shop-demo.log
+Steam [unavailable]
+  No connector is available for Steam right now.
+  Updated:          Mar 14, 2026, 8:12 AM
+  Run log:          ~/.dataconnect/logs/fetch-steam-demo.log
 
 → Paths
   Executable:       /usr/local/bin/node
-  App root:         /usr/local/bin/app
   Data home:        ~/.dataconnect
   State file:       ~/.dataconnect/vana-connect-state.json
   Connector cache:  ~/.dataconnect/connectors
@@ -37,3 +51,4 @@ Vana Connect doctor
 → Next
   • Your Personal Server is unavailable, so successful runs will stay local.
   • Check overall status with `vana status`.
+  • Inspect the latest issue log with `vana logs shop`.

@@ -39,6 +39,13 @@ export const cliInstallMethodSchema = z.enum([
 ]);
 export type CliInstallMethod = z.infer<typeof cliInstallMethodSchema>;
 
+export const cliVersionInfoSchema = z.object({
+  cliVersion: z.string(),
+  channel: cliChannelSchema,
+  installMethod: cliInstallMethodSchema,
+});
+export type CliVersionInfo = z.infer<typeof cliVersionInfoSchema>;
+
 export const dataStateSchema = z.enum([
   "none",
   "collected_local",
@@ -61,6 +68,7 @@ export const sourceStatusSchema = z.object({
   dataState: dataStateSchema.optional(),
   lastError: z.string().nullable().optional(),
   lastResultPath: z.string().nullable().optional(),
+  lastLogPath: z.string().nullable().optional(),
 });
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 
@@ -72,6 +80,9 @@ export const listedSourceSchema = z
     description: z.string().optional(),
     authMode: z.enum(["automated", "interactive", "legacy"]).optional(),
     installed: z.boolean(),
+    dataState: dataStateSchema.optional(),
+    lastRunOutcome: z.string().nullable().optional(),
+    sessionPresent: z.boolean().optional(),
   })
   .passthrough();
 export type ListedSource = z.infer<typeof listedSourceSchema>;
@@ -116,9 +127,14 @@ export const cliDoctorSchema = z.object({
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  capabilities: z.object({
+    supportsHeaded: z.boolean(),
+    supportsManagedProfiles: z.boolean(),
+    supportsScreenshots: z.boolean(),
+  }),
   paths: z.object({
     executable: z.string(),
-    appRoot: z.string(),
+    appRoot: z.string().nullable(),
     dataHome: z.string(),
     stateFile: z.string(),
     connectorCache: z.string(),
@@ -129,6 +145,12 @@ export const cliDoctorSchema = z.object({
     upgrade: z.string(),
     uninstall: z.string(),
   }),
+  summary: z.object({
+    trackedSourceCount: z.number(),
+    attentionCount: z.number(),
+    connectedCount: z.number(),
+  }),
+  recentSources: z.array(sourceStatusSchema),
   checks: z.array(cliDoctorCheckSchema),
   nextSteps: z.array(z.string()),
 });
@@ -137,8 +159,10 @@ export type CliDoctor = z.infer<typeof cliDoctorSchema>;
 export const cliSourcesSchema = z.object({
   count: z.number(),
   recommendedSource: listedSourceSchema.nullable(),
+  nextSteps: z.array(z.string()).optional(),
   summary: z
     .object({
+      connectedCount: z.number(),
       readyCount: z.number(),
       manualCount: z.number(),
       installedCount: z.number(),
@@ -170,6 +194,7 @@ export type DatasetRecord = z.infer<typeof datasetRecordSchema>;
 export const cliDataListSchema = z.object({
   count: z.number(),
   latestDataset: datasetRecordSchema.nullable(),
+  nextSteps: z.array(z.string()).optional(),
   summary: z
     .object({
       localCount: z.number(),
@@ -187,8 +212,35 @@ export const cliDataPathSchema = z.object({
   path: z.string(),
   lastRunAt: z.string().nullable(),
   dataState: dataStateSchema.nullable(),
+  nextSteps: z.array(z.string()).optional(),
 });
 export type CliDataPath = z.infer<typeof cliDataPathSchema>;
+
+export const logRecordSchema = z.object({
+  source: z.string(),
+  name: z.string(),
+  path: z.string(),
+  lastRunAt: z.string().nullable(),
+  lastRunOutcome: z.string().nullable(),
+  dataState: dataStateSchema.nullable(),
+});
+export type LogRecord = z.infer<typeof logRecordSchema>;
+
+export const cliLogsSchema = z.object({
+  count: z.number(),
+  latestLog: logRecordSchema.nullable(),
+  nextSteps: z.array(z.string()).optional(),
+  summary: z
+    .object({
+      attentionCount: z.number(),
+      successfulCount: z.number(),
+      localCount: z.number(),
+      syncedCount: z.number(),
+    })
+    .optional(),
+  logs: z.array(logRecordSchema),
+});
+export type CliLogs = z.infer<typeof cliLogsSchema>;
 
 export const cliDataShowSchema = z.object({
   source: z.string(),
@@ -197,6 +249,7 @@ export const cliDataShowSchema = z.object({
   summary: datasetSummarySchema.nullable(),
   lastRunAt: z.string().nullable(),
   dataState: dataStateSchema.nullable(),
+  nextSteps: z.array(z.string()).optional(),
   data: z.record(z.string(), z.unknown()),
 });
 export type CliDataShow = z.infer<typeof cliDataShowSchema>;
@@ -260,6 +313,14 @@ export const datasetReadFailedErrorSchema = z.object({
 export type DatasetReadFailedError = z.infer<
   typeof datasetReadFailedErrorSchema
 >;
+
+export const logNotFoundErrorSchema = z.object({
+  error: z.literal("log_not_found"),
+  source: z.string().optional(),
+  message: z.string(),
+  nextSteps: z.array(z.string()).optional(),
+});
+export type LogNotFoundError = z.infer<typeof logNotFoundErrorSchema>;
 
 export const cliEventSchema = z.object({
   type: cliEventTypeSchema,

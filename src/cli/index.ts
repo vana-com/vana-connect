@@ -1,4 +1,3 @@
-import os from "node:os";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -7,7 +6,11 @@ import { createRequire } from "node:module";
 import { Separator, confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
 
-import { createHumanRenderer, createProgressHandle } from "./render/index.js";
+import {
+  createHumanRenderer,
+  createProgressHandle,
+  formatDisplayPath,
+} from "./render/index.js";
 import {
   CliOutcomeStatus,
   getCliStatePath,
@@ -103,16 +106,26 @@ export async function runCli(argv = process.argv): Promise<number> {
   const program = new Command();
   program
     .name("vana")
-    .description("Vana Connect CLI")
+    .description("Connect sources, collect data, and inspect it locally.")
     .version(cliVersion, "-v, --version", "Print CLI version")
     .addHelpText(
       "after",
       `
-Examples:
+Start here:
+  vana connect
   vana status
-  vana connect github
-  vana data show github
+  vana data list
+
+Automation:
+  vana connect github --json --no-input
+  vana sources --json | jq '.sources[] | {id, authMode}'
+
+Support:
   vana doctor
+  vana logs
+
+Version:
+  ${cliVersion} (${getCliChannel(cliVersion)}, ${formatInstallMethodLabel(getCliInstallMethod()).toLowerCase()})
 `,
     );
   program.exitOverride();
@@ -120,8 +133,23 @@ Examples:
   program
     .command("version")
     .description("Print CLI version")
+    .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.stdout.write(`${cliVersion}\n`);
+      if (parsedOptions.json) {
+        process.stdout.write(
+          `${JSON.stringify({
+            cliVersion,
+            channel: getCliChannel(cliVersion),
+            installMethod: getCliInstallMethod(),
+          })}\n`,
+        );
+        process.exitCode = 0;
+        return;
+      }
+
+      process.stdout.write(
+        `${cliVersion} (${getCliChannel(cliVersion)}, ${formatInstallMethodLabel(getCliInstallMethod()).toLowerCase()})\n`,
+      );
       process.exitCode = 0;
     });
 
@@ -212,7 +240,9 @@ Examples:
 `,
   );
 
-  const data = program.command("data").description("Inspect collected data");
+  const data = program
+    .command("data")
+    .description("Inspect collected datasets, paths, and summaries");
   data.addHelpText(
     "after",
     `
@@ -272,6 +302,23 @@ Examples:
 Examples:
   vana data path github
   vana data path github --json | jq -r '.path'
+`,
+  );
+
+  const logsCommand = program
+    .command("logs [source]")
+    .description("Inspect stored connector run logs")
+    .option("--json", "Output machine-readable JSON")
+    .action(async (source?: string) => {
+      process.exitCode = await runLogs(source, parsedOptions);
+    });
+  logsCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana logs
+  vana logs github
+  vana logs github --json | jq
 `,
   );
 
@@ -393,6 +440,7 @@ async function runConnect(
         dataState: "none",
         lastError: message,
         lastResultPath: null,
+        lastLogPath: getErrorLogPath(error),
       });
       if (!options.json) {
         progress.fail(`${displayName} is not available yet.`);
@@ -411,6 +459,9 @@ async function runConnect(
         }
         emit.bullet(
           `Browse available sources with ${emit.code("vana sources")}.`,
+        );
+        emit.bullet(
+          `Or check overall status with ${emit.code("vana status")}.`,
         );
       } else {
         emit.info(message);
@@ -472,6 +523,7 @@ async function runConnect(
         dataState: "none",
         lastError: message,
         lastResultPath: null,
+        lastLogPath: fetchLogPath ?? null,
       });
       emit.blank();
       emit.section("Manual step required");
@@ -485,6 +537,12 @@ async function runConnect(
       emit.bullet(
         `Or retry with ${emit.code(`xvfb-run -a vana connect ${source}`)}.`,
       );
+      if (fetchLogPath) {
+        emit.bullet(
+          `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+        );
+      }
+      emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.LEGACY_AUTH,
@@ -499,6 +557,7 @@ async function runConnect(
       connectorInstalled: true,
       sessionPresent: fs.existsSync(profilePath),
       lastError: null,
+      lastLogPath: fetchLogPath ?? null,
     });
 
     emit.blank();
@@ -563,6 +622,7 @@ async function runConnect(
           lastRunAt: new Date().toISOString(),
           lastRunOutcome: CliOutcomeStatus.NEEDS_INPUT,
           lastError: event.message ?? "Input required.",
+          lastLogPath: event.logPath,
         });
         emit.event({
           type: "outcome",
@@ -583,6 +643,14 @@ async function runConnect(
           emit.section("Next");
           emit.bullet(
             `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
+          );
+          if (event.logPath || fetchLogPath) {
+            emit.bullet(
+              `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+            );
+          }
+          emit.bullet(
+            `Or check overall status with ${emit.code("vana status")}.`,
           );
         }
         terminalExitCode = 1;
@@ -611,6 +679,7 @@ async function runConnect(
           lastRunAt: new Date().toISOString(),
           lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
           lastError: event.message ?? "Connector run failed.",
+          lastLogPath: event.logPath,
         });
         emit.blank();
         progress.fail(`Problem connecting ${displayName}.`);
@@ -621,6 +690,18 @@ async function runConnect(
           status: CliOutcomeStatus.RUNTIME_ERROR,
           source: resolution.source,
         });
+        emit.blank();
+        emit.section("Next");
+        emit.bullet(`Retry with ${emit.code(`vana connect ${source}`)}.`);
+        if (event.logPath || fetchLogPath || setupLogPath) {
+          emit.bullet(
+            `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+          );
+        }
+        emit.bullet(`Inspect install health with ${emit.code("vana doctor")}.`);
+        emit.bullet(
+          `Or check overall status with ${emit.code("vana status")}.`,
+        );
         if (event.logPath) {
           emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
         }
@@ -648,6 +729,7 @@ async function runConnect(
           lastError: event.message ?? "Legacy authentication is required.",
           dataState: "none",
           lastResultPath: null,
+          lastLogPath: event.logPath,
         });
         emit.blank();
         progress.stop();
@@ -675,6 +757,14 @@ async function runConnect(
             `Complete the browser step locally, then rerun ${emit.code(`vana connect ${source}`)}.`,
           );
         }
+        if (event.logPath || fetchLogPath) {
+          emit.bullet(
+            `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+          );
+        }
+        emit.bullet(
+          `Or check overall status with ${emit.code("vana status")}.`,
+        );
         if (event.logPath) {
           emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
         }
@@ -733,6 +823,7 @@ async function runConnect(
         dataState: "none",
         lastError: "Connector run ended without a result.",
         lastResultPath: null,
+        lastLogPath: runLogPath ?? fetchLogPath ?? null,
       });
       emit.event({
         type: "outcome",
@@ -754,6 +845,7 @@ async function runConnect(
       dataState: finalDataState,
       lastError: ingestFailureMessage,
       lastResultPath: resultPath,
+      lastLogPath: runLogPath ?? fetchLogPath ?? setupLogPath ?? null,
     });
 
     const resultSummary = await readResultSummary(resultPath);
@@ -819,6 +911,11 @@ async function runConnect(
     emit.section("Next");
     emit.bullet(`Inspect the data with ${dataCommand}`);
     emit.bullet(`Connect another source with ${emit.code("vana sources")}`);
+    if (runLogPath) {
+      emit.bullet(
+        `Inspect the run log with ${emit.code(`vana logs ${source}`)}.`,
+      );
+    }
     emit.bullet(`Or check overall status with ${statusCommand}`);
     emit.event({
       type: "outcome",
@@ -836,6 +933,7 @@ async function runConnect(
         lastRunAt: new Date().toISOString(),
         lastRunOutcome: CliOutcomeStatus.NEEDS_INPUT,
         lastError: "Cancelled before input was completed.",
+        lastLogPath: runLogPath ?? null,
       });
       emit.blank();
       progress.stop();
@@ -845,6 +943,11 @@ async function runConnect(
       emit.blank();
       emit.section("Next");
       emit.bullet(`Resume with ${emit.code(`vana connect ${source}`)}.`);
+      if (runLogPath) {
+        emit.bullet(
+          `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+        );
+      }
       emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
       emit.event({
         type: "outcome",
@@ -867,6 +970,15 @@ async function runConnect(
       source,
       reason: message,
     });
+    emit.blank();
+    emit.section("Next");
+    if (runLogPath || fetchLogPath || setupLogPath) {
+      emit.bullet(
+        `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
+      );
+    }
+    emit.bullet(`Inspect install health with ${emit.code("vana doctor")}.`);
+    emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
     if (runLogPath) {
       emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
     } else if (fetchLogPath) {
@@ -883,8 +995,26 @@ async function runConnect(
 async function runConnectEntry(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const sources = await loadRegistrySources();
+  const state = await readCliState();
+  const sourceMetadata = createSourceMetadataMap(sources);
+  const statuses = await gatherSourceStatuses(state.sources, sourceMetadata);
+  const statusMap = new Map(statuses.map((source) => [source.source, source]));
+  const enrichedSources = sources.map((source) => {
+    const status = statusMap.get(source.id);
+    return {
+      ...source,
+      dataState: status?.dataState,
+      lastRunOutcome: status?.lastRunOutcome ?? null,
+      sessionPresent: status?.sessionPresent ?? false,
+    };
+  });
   const suggestedSource =
-    sources.find((source) => source.authMode !== "legacy") ?? sources[0];
+    enrichedSources.find(
+      (source) =>
+        source.authMode !== "legacy" && !hasCollectedData(source.dataState),
+    ) ??
+    enrichedSources.find((source) => source.authMode !== "legacy") ??
+    enrichedSources[0];
   const missingSourceMessage =
     formatMissingConnectSourceMessage(suggestedSource);
 
@@ -915,7 +1045,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
-  if (sources.length === 0) {
+  if (enrichedSources.length === 0) {
     emit.info("No sources are available right now.");
     emit.info("Run `vana sources` to verify the local connector registry.");
     return 1;
@@ -923,12 +1053,24 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
 
   emit.title("Connect data");
   emit.blank();
-  const readyNowCount = sources.filter(
-    (source) => source.authMode !== "legacy",
+  const connectedCount = enrichedSources.filter((source) =>
+    hasCollectedData(source.dataState),
   ).length;
-  const manualCount = sources.length - readyNowCount;
-  if (readyNowCount > 0 || manualCount > 0) {
+  const readyNowCount = enrichedSources.filter(
+    (source) =>
+      source.authMode !== "legacy" && !hasCollectedData(source.dataState),
+  ).length;
+  const manualCount = enrichedSources.filter(
+    (source) =>
+      source.authMode === "legacy" && !hasCollectedData(source.dataState),
+  ).length;
+  if (connectedCount > 0 || readyNowCount > 0 || manualCount > 0) {
     const parts = [];
+    if (connectedCount > 0) {
+      parts.push(
+        `${connectedCount} connected ${connectedCount === 1 ? "source" : "sources"}`,
+      );
+    }
     if (readyNowCount > 0) {
       parts.push(
         `${readyNowCount} ready ${readyNowCount === 1 ? "source" : "sources"}`,
@@ -942,15 +1084,25 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     emit.detail(parts.join(" • "));
   }
   emit.info("Choose a source to connect:");
-  emit.detail(
-    `Or jump straight in with ${emit.code("vana connect <source>")}.`,
-  );
+  if (connectedCount > 0) {
+    emit.detail(
+      `Inspect what you already collected with ${emit.code("vana data list")}, or reconnect any source below.`,
+    );
+  } else {
+    emit.detail(
+      `Or jump straight in with ${emit.code("vana connect <source>")}.`,
+    );
+  }
   let source: string;
   try {
     source = await select({
       message: "Source",
       pageSize: 8,
-      choices: buildConnectChoices(sources, emit),
+      choices: buildConnectChoices(
+        enrichedSources,
+        emit,
+        suggestedSource?.id ?? null,
+      ),
     });
   } catch (error) {
     if (isPromptCancelled(error)) {
@@ -966,29 +1118,61 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
 
 async function runList(options: GlobalOptions): Promise<number> {
   const sources = await loadRegistrySources();
+  const state = await readCliState();
+  const sourceMetadata = createSourceMetadataMap(sources);
+  const statuses = await gatherSourceStatuses(state.sources, sourceMetadata);
+  const statusMap = new Map(statuses.map((source) => [source.source, source]));
   const installedSourceIds = new Set(
     (await listInstalledConnectorFiles()).map((source) => source.source),
   );
-  const enrichedSources = sources.map((source) => ({
-    ...source,
-    installed: installedSourceIds.has(source.id),
-  }));
+  const enrichedSources = sources.map((source) => {
+    const status = statusMap.get(source.id);
+    return {
+      ...source,
+      installed: installedSourceIds.has(source.id),
+      dataState: status?.dataState,
+      lastRunOutcome: status?.lastRunOutcome ?? null,
+      sessionPresent: status?.sessionPresent ?? false,
+    };
+  });
   const readyCount = enrichedSources.filter(
-    (source) => source.authMode !== "legacy",
+    (source) =>
+      source.authMode !== "legacy" && !hasCollectedData(source.dataState),
   ).length;
   const manualCount = enrichedSources.filter(
-    (source) => source.authMode === "legacy",
+    (source) =>
+      source.authMode === "legacy" && !hasCollectedData(source.dataState),
+  ).length;
+  const connectedCount = enrichedSources.filter(
+    (source) =>
+      source.dataState === "collected_local" ||
+      source.dataState === "ingested_personal_server" ||
+      source.dataState === "ingest_failed",
   ).length;
   const recommendedSource =
-    enrichedSources.find((source) => source.authMode !== "legacy") ??
-    enrichedSources[0] ??
+    enrichedSources.find(
+      (source) =>
+        source.authMode !== "legacy" &&
+        source.dataState !== "collected_local" &&
+        source.dataState !== "ingested_personal_server" &&
+        source.dataState !== "ingest_failed",
+    ) ??
+    enrichedSources.find(
+      (source) =>
+        source.dataState !== "collected_local" &&
+        source.dataState !== "ingested_personal_server" &&
+        source.dataState !== "ingest_failed",
+    ) ??
     null;
+  const nextSteps = buildSourcesNextSteps(recommendedSource, connectedCount);
   if (options.json) {
     process.stdout.write(
       `${JSON.stringify({
         count: enrichedSources.length,
         recommendedSource,
+        nextSteps,
         summary: {
+          connectedCount,
           readyCount,
           manualCount,
           installedCount: enrichedSources.filter((source) => source.installed)
@@ -1010,7 +1194,8 @@ async function runList(options: GlobalOptions): Promise<number> {
   if (enrichedSources.length > 0) {
     emit.info(
       joinOverviewParts([
-        formatCountLabel("ready now", readyCount),
+        connectedCount > 0 ? formatCountLabel("connected", connectedCount) : "",
+        readyCount > 0 ? formatCountLabel("ready now", readyCount) : "",
         manualCount > 0
           ? formatCountLabel("with manual step", manualCount)
           : "",
@@ -1020,12 +1205,33 @@ async function runList(options: GlobalOptions): Promise<number> {
   }
   const groups = [
     {
+      title: "Connected",
+      items: enrichedSources.filter(
+        (source) =>
+          source.dataState === "collected_local" ||
+          source.dataState === "ingested_personal_server" ||
+          source.dataState === "ingest_failed",
+      ),
+    },
+    {
       title: "Ready now",
-      items: enrichedSources.filter((source) => source.authMode !== "legacy"),
+      items: enrichedSources.filter(
+        (source) =>
+          source.authMode !== "legacy" &&
+          source.dataState !== "collected_local" &&
+          source.dataState !== "ingested_personal_server" &&
+          source.dataState !== "ingest_failed",
+      ),
     },
     {
       title: "Manual steps",
-      items: enrichedSources.filter((source) => source.authMode === "legacy"),
+      items: enrichedSources.filter(
+        (source) =>
+          source.authMode === "legacy" &&
+          source.dataState !== "collected_local" &&
+          source.dataState !== "ingested_personal_server" &&
+          source.dataState !== "ingest_failed",
+      ),
     },
   ].filter((group) => group.items.length > 0);
 
@@ -1036,10 +1242,29 @@ async function runList(options: GlobalOptions): Promise<number> {
     emit.section(formatCountLabel(group.title, group.items.length));
     for (const source of group.items) {
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
+      if (
+        source.dataState === "ingested_personal_server" ||
+        source.dataState === "collected_local" ||
+        source.dataState === "ingest_failed"
+      ) {
+        if (source.dataState === "ingested_personal_server") {
+          badges.push({ text: "synced", tone: "success" });
+        } else if (source.dataState === "ingest_failed") {
+          badges.push({ text: "sync failed", tone: "warning" });
+        } else {
+          badges.push({ text: "local", tone: "muted" });
+        }
+      }
       if (source.authMode === "interactive") {
         badges.push({ text: "interactive", tone: "info" });
       } else if (source.authMode === "legacy") {
         badges.push({ text: "legacy", tone: "warning" });
+      }
+      if (
+        recommendedSource?.id === source.id &&
+        recommendedSource.authMode !== "legacy"
+      ) {
+        badges.push({ text: "recommended", tone: "accent" });
       }
       if (source.installed) {
         badges.push({ text: "installed", tone: "success" });
@@ -1048,23 +1273,28 @@ async function runList(options: GlobalOptions): Promise<number> {
       if (source.description) {
         emit.detail(source.description);
       }
-      emit.detail(describeSourceFlow(source.authMode));
+      if (
+        source.dataState === "collected_local" ||
+        source.dataState === "ingested_personal_server" ||
+        source.dataState === "ingest_failed"
+      ) {
+        emit.detail(
+          `Inspect with ${emit.code(`vana data show ${source.id}`)}.`,
+        );
+      } else {
+        emit.detail(describeSourceFlow(source.authMode));
+      }
     }
   });
   if (groups.length === 0) {
     emit.info("No sources are available right now.");
   } else {
-    if (recommendedSource) {
+    if (nextSteps.length > 0) {
       emit.blank();
       emit.section("Next");
-      emit.bullet(
-        `Start with ${recommendedSource.name} using ${emit.code(
-          `vana connect ${recommendedSource.id}`,
-        )}.`,
-      );
-      emit.bullet(
-        `Or browse the guided picker with ${emit.code("vana connect")}.`,
-      );
+      for (const step of nextSteps) {
+        emit.bullet(step);
+      }
     }
   }
   return 0;
@@ -1128,19 +1358,28 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   emit.blank();
   emit.info(
     joinOverviewParts([
-      formatCountLabel(
-        "need attention",
-        status.summary?.needsAttentionCount ?? 0,
-      ),
+      (status.summary?.needsAttentionCount ?? 0) > 0
+        ? formatCountLabel(
+            "need attention",
+            status.summary?.needsAttentionCount ?? 0,
+          )
+        : "",
+      (status.summary?.connectedCount ?? 0) > 0
+        ? formatCountLabel("connected", status.summary?.connectedCount ?? 0)
+        : "",
       (status.summary?.localCount ?? 0) > 0
-        ? formatCountLabel("local", status.summary?.localCount ?? 0)
+        ? formatCountLabel("local only", status.summary?.localCount ?? 0)
         : "",
       (status.summary?.syncedCount ?? 0) > 0
         ? formatCountLabel("synced", status.summary?.syncedCount ?? 0)
         : "",
       (status.summary?.syncFailedCount ?? 0) > 0
         ? formatCountLabel("sync failed", status.summary?.syncFailedCount ?? 0)
-        : formatCountLabel("connected", status.summary?.connectedCount ?? 0),
+        : "",
+      (status.summary?.connectedCount ?? 0) === 0 &&
+      (status.summary?.installedCount ?? 0) > 0
+        ? formatCountLabel("installed", status.summary?.installedCount ?? 0)
+        : "",
     ]),
   );
   emit.blank();
@@ -1223,10 +1462,31 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   const runtime = new ManagedPlaywrightRuntime();
   const personalServer = await detectPersonalServerTarget();
   const state = await readCliState();
+  const registrySources = await loadRegistrySources();
+  const sourceMetadata = createSourceMetadataMap(registrySources);
+  const sourceLabels = createSourceLabelMap(registrySources);
+  const sources = await gatherSourceStatuses(state.sources, sourceMetadata);
   const cliVersion = getCliVersion();
   const cliChannel = getCliChannel(cliVersion);
   const installMethod = getCliInstallMethod();
   const lifecycle = getLifecycleCommands(installMethod, cliChannel);
+  const appRootPath = getDoctorAppRootPath(installMethod);
+  const recentSources = [...sources]
+    .filter((source) => Boolean(source.lastRunAt))
+    .sort(compareSourceStatusOrder)
+    .slice(0, 3);
+  const attentionSources = recentSources.filter(
+    (source) => rankSourceStatus(source) <= 4,
+  );
+  const connectedCount = sources.filter(
+    (source) =>
+      source.dataState === "collected_local" ||
+      source.dataState === "ingested_personal_server" ||
+      source.dataState === "ingest_failed",
+  ).length;
+  const attentionCount = sources.filter(
+    (source) => rankSourceStatus(source) <= 4,
+  ).length;
 
   const directories = [
     {
@@ -1235,12 +1495,16 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       path: process.execPath,
       present: fs.existsSync(process.execPath),
     },
-    {
-      key: "appRoot",
-      label: "App root",
-      path: getCliAppRoot(),
-      present: fs.existsSync(getCliAppRoot()),
-    },
+    ...(appRootPath
+      ? [
+          {
+            key: "appRoot",
+            label: "App root",
+            path: appRootPath,
+            present: fs.existsSync(appRootPath),
+          },
+        ]
+      : []),
     {
       key: "dataHome",
       label: "Data home",
@@ -1310,6 +1574,16 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       status: "ok" as const,
       detail: `${Object.keys(state.sources).length} source${Object.keys(state.sources).length === 1 ? "" : "s"} in local state`,
     },
+    ...(attentionSources[0]
+      ? [
+          {
+            key: "latestIssue",
+            label: "Latest issue",
+            status: "warn" as const,
+            detail: `${displaySource(attentionSources[0].source, sourceLabels)}: ${attentionSources[0].lastError ?? getSourceStatusPresentation(attentionSources[0]).label}`,
+          },
+        ]
+      : []),
   ];
 
   const nextSteps = [
@@ -1324,6 +1598,15 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     ...(Object.keys(state.sources).length === 0
       ? ["Connect your first source with `vana connect`."]
       : ["Check overall status with `vana status`."]),
+    ...(attentionSources[0]?.lastLogPath
+      ? [
+          `Inspect the latest issue log with \`vana logs ${attentionSources[0].source}\`.`,
+        ]
+      : recentSources[0]?.lastLogPath
+        ? [
+            `Inspect the latest run log with \`vana logs ${recentSources[0].source}\`.`,
+          ]
+        : []),
   ];
 
   const payload: CliDoctor = {
@@ -1334,9 +1617,10 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
+    capabilities: runtime.capabilities,
     paths: {
       executable: process.execPath,
-      appRoot: getCliAppRoot(),
+      appRoot: appRootPath,
       dataHome: getDataConnectHome(),
       stateFile: getCliStatePath(),
       connectorCache: getConnectorCacheDir(),
@@ -1344,6 +1628,12 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       logs: getLogsDir(),
     },
     lifecycle,
+    summary: {
+      trackedSourceCount: Object.keys(state.sources).length,
+      attentionCount,
+      connectedCount,
+    },
+    recentSources,
     checks,
     nextSteps,
   };
@@ -1371,6 +1661,31 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     String(Object.keys(state.sources).length),
     "muted",
   );
+  emit.keyValue(
+    "Attention",
+    String(attentionCount),
+    attentionCount > 0 ? "warning" : "muted",
+  );
+  emit.keyValue(
+    "Connected",
+    String(connectedCount),
+    connectedCount > 0 ? "success" : "muted",
+  );
+  emit.keyValue(
+    "Headed sessions",
+    runtime.capabilities.supportsHeaded ? "Available" : "Unavailable",
+    runtime.capabilities.supportsHeaded ? "success" : "warning",
+  );
+  emit.keyValue(
+    "Managed profiles",
+    runtime.capabilities.supportsManagedProfiles ? "Available" : "Unavailable",
+    runtime.capabilities.supportsManagedProfiles ? "success" : "warning",
+  );
+  emit.keyValue(
+    "Screenshots",
+    runtime.capabilities.supportsScreenshots ? "Available" : "Unavailable",
+    runtime.capabilities.supportsScreenshots ? "success" : "warning",
+  );
   emit.blank();
   emit.section("Checks");
   for (const check of checks) {
@@ -1382,10 +1697,41 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
           : "error";
     emit.keyValue(check.label, check.detail, tone);
   }
+  if (recentSources.length > 0) {
+    emit.blank();
+    emit.section(
+      attentionSources.length > 0
+        ? "Needs attention"
+        : "Recent source activity",
+    );
+    for (const source of attentionSources.length > 0
+      ? attentionSources
+      : recentSources) {
+      const status = getSourceStatusPresentation(source);
+      const badges: Array<{ text: string; tone?: RenderTone }> = [];
+      if (source.authMode === "interactive") {
+        badges.push({ text: "interactive", tone: "info" });
+      } else if (source.authMode === "legacy") {
+        badges.push({ text: "legacy", tone: "warning" });
+      }
+      badges.push({ text: status.label, tone: status.tone });
+      emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
+      const details = formatSourceStatusDetails(source);
+      for (const detail of details) {
+        if (detail.kind === "row") {
+          emit.keyValue(detail.label, detail.value, detail.tone ?? "muted");
+        } else {
+          emit.detail(detail.message);
+        }
+      }
+    }
+  }
   emit.blank();
   emit.section("Paths");
   emit.keyValue("Executable", formatDisplayPath(process.execPath), "muted");
-  emit.keyValue("App root", formatDisplayPath(getCliAppRoot()), "muted");
+  if (appRootPath) {
+    emit.keyValue("App root", formatDisplayPath(appRootPath), "muted");
+  }
   emit.keyValue("Data home", formatDisplayPath(getDataConnectHome()), "muted");
   emit.keyValue("State file", formatDisplayPath(getCliStatePath()), "muted");
   emit.keyValue(
@@ -1493,12 +1839,14 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       })),
   );
   datasetRecords.sort(compareDatasetOrder);
+  const nextSteps = buildDataListNextSteps(datasetRecords, registrySources);
 
   if (options.json) {
     process.stdout.write(
       `${JSON.stringify({
         count: datasetRecords.length,
         latestDataset: datasetRecords[0] ?? null,
+        nextSteps,
         summary: {
           localCount: datasetRecords.filter(
             (dataset) => dataset.dataState !== "ingested_personal_server",
@@ -1547,18 +1895,27 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   emit.blank();
   emit.info(
     joinOverviewParts([
+      formatCountLabel("dataset", datasetRecords.length),
       formatCountLabel(
-        "local dataset",
+        "local only",
         datasetRecords.filter(
           (dataset) => dataset.dataState !== "ingested_personal_server",
         ).length,
       ),
       formatCountLabel(
-        "synced dataset",
+        "synced",
         datasetRecords.filter(
           (dataset) => dataset.dataState === "ingested_personal_server",
         ).length,
       ),
+      datasetRecords.some((dataset) => dataset.dataState === "ingest_failed")
+        ? formatCountLabel(
+            "sync failed",
+            datasetRecords.filter(
+              (dataset) => dataset.dataState === "ingest_failed",
+            ).length,
+          )
+        : "",
     ]),
   );
   emit.blank();
@@ -1594,15 +1951,9 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   });
   emit.blank();
   emit.section("Next");
-  emit.bullet(
-    `Inspect ${datasetRecords[0].name ?? displaySource(datasetRecords[0].source)} with ${emit.code(
-      `vana data show ${datasetRecords[0].source}`,
-    )}.`,
-  );
-  emit.bullet(
-    `Or print its path with ${emit.code(`vana data path ${datasetRecords[0].source}`)}.`,
-  );
-  emit.bullet(`Connect another source with ${emit.code("vana sources")}.`);
+  for (const step of nextSteps) {
+    emit.bullet(step);
+  }
   return 0;
 }
 
@@ -1654,6 +2005,11 @@ async function runDataShow(
     const raw = await fsp.readFile(resultPath, "utf8");
     const data = JSON.parse(raw) as Record<string, unknown>;
     const summary = summarizeResultData(data);
+    const nextSteps = buildDataShowNextSteps(
+      source,
+      datasetCount,
+      sourceLabels,
+    );
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({
@@ -1663,6 +2019,7 @@ async function runDataShow(
           summary,
           lastRunAt: record?.lastRunAt ?? null,
           dataState: record?.dataState ?? null,
+          nextSteps,
           data,
         })}\n`,
       );
@@ -1691,19 +2048,9 @@ async function runDataShow(
     }
     emit.blank();
     emit.section("Next");
-    emit.bullet(
-      `Print the path with ${emit.code(`vana data path ${source}`)}.`,
-    );
-    emit.bullet(
-      `Reconnect ${displaySource(source, sourceLabels)} with ${emit.code(`vana connect ${source}`)}.`,
-    );
-    emit.bullet(`Connect another source with ${emit.code("vana sources")}.`);
-    if (datasetCount > 1) {
-      emit.bullet(
-        `Inspect other datasets with ${emit.code("vana data list")}.`,
-      );
+    for (const step of nextSteps) {
+      emit.bullet(step);
     }
-    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   } catch (error) {
     const message =
@@ -1753,10 +2100,176 @@ async function runDataPath(
         path: resultPath,
         lastRunAt: state.sources[source]?.lastRunAt ?? null,
         dataState: state.sources[source]?.dataState ?? null,
+        nextSteps: [
+          `Inspect the dataset with \`vana data show ${source}\`.`,
+          `Reconnect ${displaySource(source, sourceLabels)} with \`vana connect ${source}\`.`,
+        ],
       })}\n`,
     );
   } else {
     process.stdout.write(`${formatDisplayPath(resultPath)}\n`);
+  }
+  return 0;
+}
+
+async function runLogs(
+  source: string | undefined,
+  options: GlobalOptions,
+): Promise<number> {
+  const sourceLabels = createSourceLabelMap(await loadRegistrySources());
+  const state = await readCliState();
+  const records = Object.entries(state.sources)
+    .filter(([, entry]) => Boolean(entry?.lastLogPath))
+    .map(([sourceId, entry]) => ({
+      source: sourceId,
+      name: displaySource(sourceId, sourceLabels),
+      path: entry?.lastLogPath ?? "",
+      lastRunAt: entry?.lastRunAt ?? null,
+      lastRunOutcome: entry?.lastRunOutcome ?? null,
+      dataState: (entry?.dataState === "collected_local" ||
+      entry?.dataState === "ingested_personal_server" ||
+      entry?.dataState === "ingest_failed"
+        ? entry.dataState
+        : null) as SourceStatus["dataState"] | null,
+    }))
+    .sort(compareLogRecordOrder);
+  const logSummary = {
+    attentionCount: records.filter((record) =>
+      isAttentionLog(record.lastRunOutcome, record.dataState),
+    ).length,
+    successfulCount: records.filter(
+      (record) =>
+        record.dataState === "collected_local" ||
+        record.dataState === "ingested_personal_server",
+    ).length,
+    localCount: records.filter(
+      (record) => record.dataState === "collected_local",
+    ).length,
+    syncedCount: records.filter(
+      (record) => record.dataState === "ingested_personal_server",
+    ).length,
+  };
+
+  if (source) {
+    const match = records.find((record) => record.source === source);
+    if (!match) {
+      const payload = {
+        error: "log_not_found",
+        source,
+        message: `No stored run log found for ${displaySource(source, sourceLabels)}.`,
+        nextSteps: [
+          `Run \`vana connect ${source}\` to create a new log.`,
+          ...(records.length > 0
+            ? ["Run `vana logs` to inspect other logs."]
+            : []),
+        ],
+      };
+      if (options.json) {
+        process.stdout.write(`${JSON.stringify(payload)}\n`);
+      } else {
+        const emit = createEmitter(options);
+        emit.info(payload.message);
+        emit.blank();
+        emit.section("Next");
+        for (const step of payload.nextSteps) {
+          emit.bullet(step);
+        }
+      }
+      return 1;
+    }
+
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(match)}\n`);
+    } else {
+      process.stdout.write(`${formatDisplayPath(match.path)}\n`);
+    }
+    return 0;
+  }
+
+  const nextSteps = buildLogsNextSteps(records);
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        count: records.length,
+        latestLog: records[0] ?? null,
+        nextSteps,
+        summary: logSummary,
+        logs: records,
+      })}\n`,
+    );
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  emit.title(records.length > 0 ? `Run logs (${records.length})` : "Run logs");
+  emit.blank();
+
+  if (records.length === 0) {
+    emit.info("No stored run logs yet.");
+    emit.blank();
+    emit.section("Next");
+    for (const step of nextSteps) {
+      emit.bullet(step);
+    }
+    return 0;
+  }
+
+  emit.info(
+    joinOverviewParts([
+      logSummary.attentionCount > 0
+        ? formatCountLabel("need attention", logSummary.attentionCount)
+        : "",
+      logSummary.successfulCount > 0
+        ? formatCountLabel("successful", logSummary.successfulCount)
+        : "",
+      logSummary.localCount > 0
+        ? formatCountLabel("local", logSummary.localCount)
+        : "",
+      logSummary.syncedCount > 0
+        ? formatCountLabel("synced", logSummary.syncedCount)
+        : "",
+    ]),
+  );
+  emit.blank();
+
+  const groups = [
+    {
+      title: "Needs attention",
+      items: records.filter((record) =>
+        isAttentionLog(record.lastRunOutcome, record.dataState),
+      ),
+    },
+    {
+      title: "Successful runs",
+      items: records.filter(
+        (record) => !isAttentionLog(record.lastRunOutcome, record.dataState),
+      ),
+    },
+  ].filter((group) => group.items.length > 0);
+
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      emit.blank();
+    }
+    emit.section(formatCountLabel(group.title, group.items.length));
+    for (const record of group.items) {
+      emit.sourceTitle(record.name, [
+        {
+          text: formatLogOutcomeLabel(record.lastRunOutcome, record.dataState),
+          tone: toneForLogOutcome(record.lastRunOutcome, record.dataState),
+        },
+      ]);
+      emit.keyValue("Path", formatDisplayPath(record.path), "muted");
+      if (record.lastRunAt) {
+        emit.keyValue("Updated", formatTimestamp(record.lastRunAt), "muted");
+      }
+    }
+  });
+
+  emit.blank();
+  emit.section("Next");
+  for (const step of nextSteps) {
+    emit.bullet(step);
   }
   return 0;
 }
@@ -1846,7 +2359,8 @@ function displaySource(source: string, labels: SourceLabelMap = {}): string {
 }
 
 function formatCountLabel(label: string, count: number): string {
-  return `${label} (${count})`;
+  const normalizedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+  return `${normalizedLabel} (${count})`;
 }
 
 function joinOverviewParts(parts: string[]): string {
@@ -1877,6 +2391,19 @@ function formatHumanSourceMessage(
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getErrorLogPath(error: unknown): string | null {
+  if (
+    error &&
+    typeof error === "object" &&
+    "logPath" in error &&
+    typeof (error as { logPath?: unknown }).logPath === "string"
+  ) {
+    return (error as { logPath: string }).logPath;
+  }
+
+  return null;
 }
 
 async function gatherSourceStatuses(
@@ -1919,6 +2446,7 @@ async function gatherSourceStatuses(
         dataState,
         lastError: stored.lastError ?? null,
         lastResultPath: stored.lastResultPath ?? null,
+        lastLogPath: stored.lastLogPath ?? null,
       };
     })
     .sort(compareSourceStatusOrder);
@@ -2107,6 +2635,20 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
     });
   }
 
+  if (
+    source.lastLogPath &&
+    source.lastRunOutcome &&
+    source.lastRunOutcome !== CliOutcomeStatus.CONNECTED_LOCAL_ONLY &&
+    source.lastRunOutcome !== CliOutcomeStatus.CONNECTED_AND_INGESTED
+  ) {
+    details.push({
+      kind: "row",
+      label: "Run log",
+      value: formatDisplayPath(source.lastLogPath),
+      tone: "muted",
+    });
+  }
+
   return details;
 }
 
@@ -2153,14 +2695,29 @@ function buildStatusNextSteps(
     nextSteps.push(
       `Continue ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
     );
+    if (highestPriority.lastLogPath) {
+      nextSteps.push(
+        `Inspect the latest run log with \`vana logs ${highestPriority.source}\`.`,
+      );
+    }
   } else if (highestPriority.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
     nextSteps.push(
       `Complete the manual browser step for ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
     );
+    if (highestPriority.lastLogPath) {
+      nextSteps.push(
+        `Inspect the latest run log with \`vana logs ${highestPriority.source}\`.`,
+      );
+    }
   } else if (
     highestPriority.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
   ) {
     nextSteps.push("Browse available sources with `vana sources`.");
+    if (highestPriority.lastLogPath) {
+      nextSteps.push(
+        `Inspect the latest run log with \`vana logs ${highestPriority.source}\`.`,
+      );
+    }
   } else if (
     highestPriority.dataState === "collected_local" ||
     highestPriority.dataState === "ingested_personal_server" ||
@@ -2204,6 +2761,114 @@ function buildStatusNextSteps(
   return [...new Set(nextSteps)];
 }
 
+function buildSourcesNextSteps(
+  recommendedSource:
+    | {
+        id: string;
+        name: string;
+        authMode?: "automated" | "interactive" | "legacy";
+      }
+    | null
+    | undefined,
+  connectedCount: number,
+): string[] {
+  const nextSteps: string[] = [];
+
+  if (connectedCount > 0) {
+    nextSteps.push("Inspect what you already collected with `vana data list`.");
+  }
+  if (recommendedSource) {
+    nextSteps.push(
+      `${
+        recommendedSource.authMode === "legacy" ? "Complete" : "Connect"
+      } ${recommendedSource.name} with \`vana connect ${recommendedSource.id}\`.`,
+    );
+  }
+  nextSteps.push("Or browse the guided picker with `vana connect`.");
+
+  return [...new Set(nextSteps)];
+}
+
+function buildDataListNextSteps(
+  datasetRecords: Array<{
+    source: string;
+    name?: string | null;
+  }>,
+  registrySources: Array<{
+    id: string;
+    authMode?: "automated" | "interactive" | "legacy";
+  }>,
+): string[] {
+  if (datasetRecords.length === 0) {
+    const suggestedSource =
+      registrySources.find((source) => source.authMode !== "legacy") ??
+      registrySources[0];
+
+    return [
+      suggestedSource
+        ? `Collect your first dataset with \`vana connect ${suggestedSource.id}\`.`
+        : "Collect your first dataset with `vana connect`.",
+      "Check overall status with `vana status`.",
+    ];
+  }
+
+  return [
+    `Inspect ${datasetRecords[0].name ?? displaySource(datasetRecords[0].source)} with \`vana data show ${datasetRecords[0].source}\`.`,
+    `Or print its path with \`vana data path ${datasetRecords[0].source}\`.`,
+    "Connect another source with `vana sources`.",
+  ];
+}
+
+function buildDataShowNextSteps(
+  source: string,
+  datasetCount: number,
+  sourceLabels: SourceLabelMap = {},
+): string[] {
+  return [
+    `Print the path with \`vana data path ${source}\`.`,
+    `Use \`vana data show ${source} --json | jq\` for structured inspection.`,
+    `Reconnect ${displaySource(source, sourceLabels)} with \`vana connect ${source}\`.`,
+    "Connect another source with `vana sources`.",
+    ...(datasetCount > 1
+      ? ["Inspect other datasets with `vana data list`."]
+      : []),
+    "Check overall status with `vana status`.",
+  ];
+}
+
+function buildLogsNextSteps(
+  records: Array<{
+    source: string;
+    lastRunOutcome: string | null;
+    dataState: SourceStatus["dataState"] | null;
+  }>,
+): string[] {
+  if (records.length === 0) {
+    return [
+      "Run `vana connect <source>` to create a connector run log.",
+      "Check overall status with `vana status`.",
+    ];
+  }
+
+  const attentionRecord = records.find((record) =>
+    isAttentionLog(record.lastRunOutcome, record.dataState),
+  );
+  const successfulRecord = records.find(
+    (record) => !isAttentionLog(record.lastRunOutcome, record.dataState),
+  );
+  return [
+    attentionRecord
+      ? `Inspect the latest issue log with \`vana logs ${attentionRecord.source}\`.`
+      : `Print the latest log path with \`vana logs ${records[0].source}\`.`,
+    ...(successfulRecord
+      ? [
+          `Inspect a successful run with \`vana logs ${successfulRecord.source}\`.`,
+        ]
+      : []),
+    "Check overall status with `vana status`.",
+  ];
+}
+
 function formatSetupConnectStep(
   emit: Pick<Emitter, "code">,
   source:
@@ -2240,11 +2905,24 @@ function buildConnectChoices(
     name: string;
     description?: string;
     authMode?: "automated" | "interactive" | "legacy";
+    dataState?: SourceStatus["dataState"];
+    lastRunOutcome?: string | null;
+    sessionPresent?: boolean;
   }>,
   emit: Pick<Emitter, "badge">,
+  recommendedSourceId: string | null = null,
 ) {
-  const readyNow = sources.filter((source) => source.authMode !== "legacy");
-  const manualSteps = sources.filter((source) => source.authMode === "legacy");
+  const connected = sources.filter((source) =>
+    hasCollectedData(source.dataState),
+  );
+  const readyNow = sources.filter(
+    (source) =>
+      source.authMode !== "legacy" && !hasCollectedData(source.dataState),
+  );
+  const manualSteps = sources.filter(
+    (source) =>
+      source.authMode === "legacy" && !hasCollectedData(source.dataState),
+  );
   const choices: Array<
     | Separator
     | {
@@ -2265,7 +2943,11 @@ function buildConnectChoices(
     choices.push(new Separator(label));
     for (const item of items) {
       choices.push({
-        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}`,
+        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}${
+          item.id === recommendedSourceId && item.authMode !== "legacy"
+            ? ` ${emit.badge("recommended", "accent")}`
+            : ""
+        }`,
         description: formatSourcePickerDescription(item),
         short: item.name,
         value: item.id,
@@ -2273,6 +2955,7 @@ function buildConnectChoices(
     }
   };
 
+  appendGroup("Connected", connected);
   appendGroup("Ready now", readyNow);
   appendGroup("Manual steps", manualSteps);
 
@@ -2311,7 +2994,28 @@ function describeSourceFlow(
 function formatSourcePickerDescription(source: {
   description?: string;
   authMode?: "automated" | "interactive" | "legacy";
+  dataState?: SourceStatus["dataState"];
+  lastRunOutcome?: string | null;
+  sessionPresent?: boolean;
+  id?: string;
 }): string {
+  if (hasCollectedData(source.dataState) && source.id) {
+    const savedState =
+      source.dataState === "ingested_personal_server"
+        ? "Already connected and synced."
+        : source.dataState === "ingest_failed"
+          ? "Already connected locally; Personal Server sync failed."
+          : "Already connected locally.";
+    const reconnectHint = source.sessionPresent
+      ? " Saved session available for faster reconnects."
+      : "";
+    return `${savedState} Inspect with \`vana data show ${source.id}\` or reconnect now.${reconnectHint}`;
+  }
+
+  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH && source.id) {
+    return `Needs a manual browser step on this machine. Continue with \`vana connect ${source.id}\`.`;
+  }
+
   const flow = describeSourceFlow(source.authMode);
   if (!source.description) {
     return flow;
@@ -2372,6 +3076,19 @@ function getCliAppRoot(execPath = process.execPath): string {
   return process.env.VANA_APP_ROOT ?? path.join(path.dirname(execPath), "app");
 }
 
+function getDoctorAppRootPath(
+  installMethod: CliInstallMethod,
+  execPath = process.execPath,
+): string | null {
+  if (process.env.VANA_APP_ROOT) {
+    return process.env.VANA_APP_ROOT;
+  }
+  if (installMethod === "homebrew" || installMethod === "installer") {
+    return getCliAppRoot(execPath);
+  }
+  return null;
+}
+
 function formatInstallMethodLabel(method: CliInstallMethod): string {
   switch (method) {
     case "homebrew":
@@ -2417,19 +3134,6 @@ function getLifecycleCommands(
           "Remove the installed vana binary and any ~/.dataconnect state you no longer need.",
       };
   }
-}
-
-function formatDisplayPath(filePath: string): string {
-  const homeDir = os.homedir();
-  if (filePath === homeDir) {
-    return "~";
-  }
-
-  if (filePath.startsWith(`${homeDir}${path.sep}`)) {
-    return `~${filePath.slice(homeDir.length)}`;
-  }
-
-  return filePath;
 }
 
 function extractGlobalOptions(argv: string[]): GlobalOptions {
@@ -2784,6 +3488,100 @@ function compareDatasetOrder(
       },
     )
   );
+}
+
+function compareLogRecordOrder(
+  left: {
+    source: string;
+    lastRunAt: string | null;
+  },
+  right: {
+    source: string;
+    lastRunAt: string | null;
+  },
+): number {
+  const leftTimestamp = left.lastRunAt ? Date.parse(left.lastRunAt) : 0;
+  const rightTimestamp = right.lastRunAt ? Date.parse(right.lastRunAt) : 0;
+  return (
+    rightTimestamp - leftTimestamp ||
+    left.source.localeCompare(right.source, undefined, {
+      sensitivity: "base",
+    })
+  );
+}
+
+function hasCollectedData(
+  dataState: SourceStatus["dataState"] | null | undefined,
+): boolean {
+  return (
+    dataState === "collected_local" ||
+    dataState === "ingested_personal_server" ||
+    dataState === "ingest_failed"
+  );
+}
+
+function formatLogOutcomeLabel(
+  lastRunOutcome: string | null,
+  dataState: SourceStatus["dataState"] | null,
+): string {
+  if (lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    return "unavailable";
+  }
+  if (lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+    return "manual step";
+  }
+  if (lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+    return "error";
+  }
+  if (lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+    return "needs input";
+  }
+  if (dataState === "ingested_personal_server") {
+    return "synced";
+  }
+  if (dataState === "ingest_failed") {
+    return "sync failed";
+  }
+  if (dataState === "collected_local") {
+    return "local";
+  }
+  return "recent";
+}
+
+function isAttentionLog(
+  lastRunOutcome: string | null,
+  dataState: SourceStatus["dataState"] | null,
+): boolean {
+  return !(
+    dataState === "collected_local" ||
+    dataState === "ingested_personal_server" ||
+    lastRunOutcome === CliOutcomeStatus.CONNECTED_LOCAL_ONLY ||
+    lastRunOutcome === CliOutcomeStatus.CONNECTED_AND_INGESTED
+  );
+}
+
+function toneForLogOutcome(
+  lastRunOutcome: string | null,
+  dataState: SourceStatus["dataState"] | null,
+): RenderTone {
+  if (lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+    return "error";
+  }
+  if (
+    lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE ||
+    lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH ||
+    lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT ||
+    dataState === "ingest_failed"
+  ) {
+    return "warning";
+  }
+  if (dataState === "ingested_personal_server") {
+    return "success";
+  }
+  if (dataState === "collected_local") {
+    return "muted";
+  }
+  return "muted";
 }
 
 function isPromptCancelled(error: unknown): boolean {

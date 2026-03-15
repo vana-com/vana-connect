@@ -54,6 +54,23 @@ Not:
 - a coding-agent TUI clone
 - a flashy branded terminal demo
 
+Important:
+
+This plan by itself is **necessary but not sufficient** for best-in-class
+quality.
+
+Beauty work can make the CLI feel premium, but it does not automatically close:
+
+- cold-install trust
+- degraded/manual-flow excellence
+- post-success payoff quality
+- public-artifact truth
+
+Those are tracked explicitly in:
+
+- [CLI-EXECUTION-PLAYBOOK.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXECUTION-PLAYBOOK.md)
+  under **Batch 8A: Best-In-Class Finish**
+
 ## Brand palette anchor
 
 The CLI should not invent its own theme. It should derive its semantic color

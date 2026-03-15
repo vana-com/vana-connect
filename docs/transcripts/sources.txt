@@ -1,14 +1,14 @@
 Available sources (3)
 
-ready now (2) • with manual step (1)
+Connected (2) • With manual step (1)
 
-→ Ready now (2)
-GitHub [interactive] [installed]
+→ Connected (2)
+GitHub [local] [interactive] [installed]
   Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
-  Flow: prompts in this terminal when the source needs input.
-Spotify [interactive] [installed]
+  Inspect with `vana data show github`.
+Spotify [local] [interactive] [installed]
   Exports your Spotify playlists using Playwright browser automation.
-  Flow: prompts in this terminal when the source needs input.
+  Inspect with `vana data show spotify`.
 
 → Manual steps (1)
 Shop [legacy] [installed]
@@ -16,5 +16,6 @@ Shop [legacy] [installed]
   Flow: finishes with a manual browser step on this machine.
 
 → Next
-  • Start with GitHub using `vana connect github`.
+  • Inspect what you already collected with `vana data list`.
+  • Complete Shop with `vana connect shop`.
   • Or browse the guided picker with `vana connect`.

@@ -1,3 +1,6 @@
+import os from "node:os";
+import path from "node:path";
+
 import {
   type RenderCapabilities,
   detectRenderCapabilities,
@@ -68,6 +71,21 @@ export function createHumanRenderer(): HumanRenderer {
       return `${theme.muted("[")}${applyTone(theme, tone, text)}${theme.muted("]")}`;
     },
   };
+}
+
+export function formatDisplayPath(
+  filePath: string,
+  homeDir = os.homedir(),
+): string {
+  if (filePath === homeDir) {
+    return "~";
+  }
+
+  if (filePath.startsWith(`${homeDir}${path.sep}`)) {
+    return `~${filePath.slice(homeDir.length)}`;
+  }
+
+  return filePath;
 }
 
 function applyTone(theme: RenderTheme, tone: Tone, text: string): string {

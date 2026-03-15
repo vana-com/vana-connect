@@ -10,6 +10,7 @@ It should be read after:
 
 - [CLI-FINAL-PRODUCT-SPEC.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-FINAL-PRODUCT-SPEC.md)
 - [CLI-BEAUTY-IMPLEMENTATION-PLAN.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-BEAUTY-IMPLEMENTATION-PLAN.md)
+- [CLI-RUNTIME-PORTABILITY-NOTES.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-RUNTIME-PORTABILITY-NOTES.md)
 
 If this document conflicts with casual conversational guidance, this document
 wins.
@@ -28,15 +29,22 @@ Already true on this branch:
 - published canary assets work
 - `status`, `sources`, `data`, and guided `connect` have been materially
   upgraded
+- `doctor`, `version`, and `logs` are now real first-class CLI surfaces
 - guided `connect` now has clearer entry, cancellation, and continuation copy
 - `status` now points users toward `vana data list` when that is the right next step
 - `data show` / `data path` JSON surfaces are more useful for shell tooling
+- `logs` now exposes stored run-log paths in both human and `--json` modes
 - `sources`, `status`, `data`, and success summaries now use more structured factual rows
 - source discovery surfaces now explain whether a source prompts in-terminal or requires a manual browser step
+- source discovery now exposes a recommended path in both JSON and human mode
 - `data` empty/missing states now include concrete next steps instead of dead-end copy
 - `sources --json`, `status --json`, and `data list --json` now expose more top-level guidance metadata
+- `doctor --json` now exposes runtime capabilities, lifecycle commands, summary counts, and recent source activity
 - successful connects now explicitly mention the saved browser session payoff
 - structured runtime `status-update` and `progress-update` events exist
+- display-path rendering is now centralized and regression-tested
+- CLI state writes now use a lock + atomic-write path with concurrency regression coverage
+- runtime footprint measurement now exists via `pnpm runtime:footprint`
 - README-facing VHS demos and transcripts are publishing from CI
 - local transcript/demo scripts now rebuild first so review artifacts cannot silently drift behind `dist`
 
@@ -46,6 +54,36 @@ It is:
 1. make the human product feel fully truthful and coherent
 2. deepen beauty on top of that stable surface
 3. keep release work efficient instead of churning many tiny deploy cycles
+
+## Immediate Local Sequence
+
+Until explicitly told otherwise, the next model should stay in the **local-only
+execution lane** and defer:
+
+- canary polling
+- Homebrew/tap sync
+- hosted installer verification
+- published artifact checks
+
+The immediate local sequence is:
+
+1. finish the remaining **Batch 8A: Best-In-Class Finish** local work
+2. continue any remaining **Batch 2 / Batch 3** connect-journey and static-surface polish
+3. continue local README / transcript / VHS alignment work
+4. continue bounded **Batch 5B** work only where it does **not** require external platform validation
+5. only switch to external validation once the known local backlog is genuinely exhausted
+
+When deciding what to do next locally, prefer this order:
+
+1. improve the human `connect` journey
+2. improve post-success payoff and `vana data`
+3. improve first-run/help/discovery coherence
+4. improve degraded/manual-flow grace
+5. improve operator affordances that are already justified by existing runtime data
+
+Do **not** start external validation just because it is possible.
+Only start it when it becomes an input to remaining work or when the local
+backlog is meaningfully exhausted.
 
 ## Operating Rules
 
@@ -119,6 +157,27 @@ Good subagent work:
 - static surface rendering changes in one command area
 - README/demo asset plumbing
 - acceptance test harnesses
+
+### 6. Research before product judgment
+
+If a later batch depends on claims about:
+
+- best-in-class CLI prior art
+- current Playwright/Node/browser-install support
+- current platform behavior on Windows/macOS/Linux
+- public release-channel expectations or install norms
+
+then the model executing that batch should research current primary sources
+first instead of relying on memory.
+
+Examples:
+
+- official docs
+- maintained upstream repos
+- current release artifacts
+- current platform behavior observed directly
+
+Do not make "best-in-class" or portability decisions from stale assumptions.
 
 ## Release Efficiency Lane
 
@@ -455,6 +514,86 @@ Primary-agent integration:
 - deciding what version information belongs in normal human surfaces
 - protecting the CLI from “helpful” additions that bloat the contract
 
+## Batch 5B: Runtime And Portability Validation
+
+Do this after the main local feature/beauty work is coherent, but before stable
+promotion and before spending serious time on deployment polish.
+
+### Why this batch exists
+
+The current code review uncovered a few concerns that are more fundamental than
+copy or presentation:
+
+- `src/core/state-store.ts` currently does an uncoordinated read-modify-write of
+  `vana-connect-state.json`
+- `src/runtime/playwright/browser.ts` opportunistically shells out to
+  `sqlite3` for cookie import
+- `src/runtime/managed-playwright.ts` intentionally avoids user-facing `npx`,
+  but reaches into Playwright internals for browser installation
+
+Those should not derail the current CLI feature work, but they also should not
+be left to vague “later” follow-up.
+
+### Goals
+
+- validate correctness and portability risks before stable
+- distinguish real problems from speculative LLM concern
+- prefer bounded, defensible fixes over reactive dependency churn
+
+### Work items
+
+1. Lock the display-path invariant.
+   - Confirm that `~` is presentation-only.
+   - Add a narrow regression test or audit proving that display strings never
+     feed filesystem APIs.
+
+2. Add a concurrency regression for CLI state writes.
+   - Reproduce the failure mode, if any, against `updateSourceState(...)`.
+   - Choose the fix based on that reproduction.
+   - Prefer atomic-write discipline or a more fundamental state-model change
+     over reflexively adding a lockfile package.
+
+3. Audit `sqlite3` portability explicitly.
+   - Treat this as a Windows concern first.
+   - Current code already tolerates `sqlite3` absence, so the question is
+     product impact, not “does the CLI boot”.
+   - Decide whether opportunistic best-effort is acceptable for stable or
+     whether cookie import must move to an embedded JS/WASM path.
+
+4. Revalidate the Playwright browser-install strategy.
+   - Playwright’s official docs still present CLI-driven browser installation as
+     the normal path.
+   - Our current internal-registry approach may still be the right product
+     choice because we cannot require user-facing `npx`.
+   - Before stable, confirm whether a cleaner package-owned install path exists
+     on current Playwright.
+
+5. Measure browser/runtime asset growth before designing cleanup.
+   - Use actual size/update data.
+   - If cleanup is needed, design it as an intentional lifecycle feature, not a
+     reactionary installer workaround.
+
+### Exit criteria
+
+- the `~` concern is either dismissed with proof or fixed
+- state writes have a defended concurrency story
+- Windows/sqlite behavior is understood and intentionally accepted or replaced
+- the Playwright install path is defended for stable
+- size/bloat concerns are based on measurement, not guesswork
+
+### Good subagent slices
+
+1. path invariant audit + tests
+2. state-store concurrency reproduction
+3. Windows/sqlite portability audit
+4. Playwright install-strategy note with code references
+5. runtime/browser size measurement script or report
+
+Primary-agent integration:
+
+- deciding whether a concern changes architecture, needs a bounded fix, or can
+  remain an explicit non-goal
+
 ## Batch 6: Debuggability And Operator Affordances
 
 This batch is for connector authors, agents, and support/debug workflows.
@@ -532,6 +671,84 @@ Primary-agent integration:
 - final public-facing quality bar
 - deciding when canary quality is good enough to promote
 
+## Batch 8A: Best-In-Class Finish
+
+This batch exists because "strong CLI" and "best-in-class CLI" are not the
+same thing.
+
+Earlier batches improve components:
+
+- command surfaces
+- machine contracts
+- diagnostics
+- demos
+- install paths
+
+But best-in-class quality only exists when those parts feel excellent **as one
+product**.
+
+### Goals
+
+- the installed CLI should feel premium to a cold user, not just correct
+- the human journey should feel great in both the happy path and the degraded path
+- the CLI should feel unusually complete compared with typical product CLIs
+
+### Work items
+
+1. Close the cold-start delight gap.
+   - install / first-run / first-value path should feel tight and intentional
+   - help, version, doctor, and status should reinforce trust immediately
+
+2. Close the connect-journey excellence gap.
+   - migrated/requestInput flows should feel calm and premium
+   - legacy/manual flows should feel gracefully supported, not second-class
+   - success, cancel, unavailable, and runtime-error states should all land well
+
+3. Close the post-success payoff gap.
+   - `vana data` should feel like a real reward surface, not just a path printer
+   - the first successful run should create obvious momentum for the second
+
+4. Close the public-artifact truth gap.
+   - Homebrew / installer / README / demos should reflect the same quality bar
+   - no meaningful gap should remain between local branch quality and published experience
+
+5. Compare against real best-in-class expectations, not just the old branch.
+   - use the existing beauty brief/research as a bar
+   - judge the CLI against `gh` / Vercel / Stripe-style expectations:
+     - confidence
+     - restraint
+     - clarity
+     - quality of degraded states
+
+### Exit criteria
+
+- a cold evaluator can discover, install, connect, inspect, and troubleshoot
+  without extra context and come away impressed
+- the CLI feels premium in:
+  - help
+  - connect
+  - status
+  - data inspection
+  - diagnostics
+- manual/legacy connectors are handled gracefully enough that they do not
+  materially undermine the product impression
+- published artifact quality matches local branch quality closely enough that
+  the README can be trusted as a live product surface
+
+### Good subagent slices
+
+1. cold-start acceptance script and checklist
+2. post-success payoff transcript/demo review
+3. degraded-state transcript review and polish
+4. README/demo/public-surface consistency review
+5. prior-art / official-doc research packet for final judgment
+
+Primary-agent integration:
+
+- deciding whether the CLI is merely "good" or actually "best-in-class"
+- deciding whether degraded paths are graceful enough
+- deciding when the product impression is strong enough to promote beyond canary
+
 ## Batch 9: Stable-Release Readiness
 
 Do not start this early.
@@ -550,6 +767,88 @@ This is the final readiness lane after the product feels right.
 ### Exit criteria
 
 - there is a clear, defensible reason to promote beyond canary
+
+## Deferred Validation Concerns
+
+These are not active batch redirects. Revisit them deliberately once the main
+feature/UX work is complete or if current implementation work touches the same
+area.
+
+### 1. Display-path tilde handling
+
+Current read:
+
+- likely overstated as a current bug
+- functional paths already come from `os.homedir()`-backed helpers in
+  `src/core/paths.ts`
+- `~` currently appears mainly in human-facing display rendering via
+  `formatDisplayPath(...)`
+
+What to validate later:
+
+- confirm no filesystem write/read path is ever sourced from a display string
+- keep `~` strictly as a presentation concern
+
+### 2. Concurrent state-file writes
+
+Current read:
+
+- real concern
+- today `updateSourceState(...)` does a read-modify-write on
+  `vana-connect-state.json` with no coordination
+- this can plausibly lose updates under concurrent CLI runs
+
+What to validate later:
+
+- write a concurrency regression test first
+- prefer deciding between atomic-write discipline, sharded state, or locking
+  based on the actual failure mode
+- do not add a lockfile dependency by reflex
+
+### 3. Playwright/browser asset growth
+
+Current read:
+
+- concern may be real, but is unmeasured right now
+- not a reason to regress to user-visible `npx`/system-Node assumptions
+
+What to validate later:
+
+- measure installed size and update churn across a few releases
+- if bloat is real, prefer managed cache cleanup/lifecycle commands over
+  reinstall-heavy behavior
+
+### 4. External `sqlite3` dependency
+
+Current read:
+
+- real cross-platform portability concern
+- `src/runtime/playwright/browser.ts` opportunistically shells out to
+  `sqlite3` for cookie import
+- the code already tolerates failure, so this is not a universal blocker, but
+  it may create uneven behavior across machines
+
+What to validate later:
+
+- confirm actual behavior on Windows/macOS/Linux
+- decide whether opportunistic best-effort is acceptable or whether the feature
+  should move to an embedded JS/WASM approach
+
+### 5. Playwright browser-install API usage
+
+Current read:
+
+- worth re-validating before stable
+- current implementation intentionally avoids user-facing `npx`
+- it currently reaches into Playwright internals via the registry module in
+  `src/runtime/managed-playwright.ts`
+
+What to validate later:
+
+- confirm this remains the best supported path on current Playwright/Node
+- if Playwright exposes a cleaner package-owned install entrypoint, prefer that
+  over private internals
+- do not reintroduce user prerequisites just to become “more official”
 
 ## Recommended Execution Pattern
 
