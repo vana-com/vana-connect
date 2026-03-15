@@ -59,16 +59,17 @@ whether data stayed local or synced to a Personal Server.
 
 ## Demo
 
-![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
-
-![Vana data inspection demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
-
-![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-
-The `connect` demo is intentionally a short payoff story:
+The hero demo is intentionally a short payoff story:
 
 1. connect GitHub
 2. inspect the collected dataset
+
+![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
+
+Supporting demos:
+
+- [status-and-sources.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
+- [data-inspection.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
 
 ## Core Commands
 
