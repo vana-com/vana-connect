@@ -470,12 +470,19 @@ async function runConnect(
         );
 
         const values: Record<string, string> = {};
-        for (const field of needInput.fields) {
-          if (field.toLowerCase().includes("password")) {
-            values[field] = await password({ message: humanizeField(field) });
-          } else {
-            values[field] = await input({ message: humanizeField(field) });
+        try {
+          for (const field of needInput.fields) {
+            if (field.toLowerCase().includes("password")) {
+              values[field] = await password({ message: humanizeField(field) });
+            } else {
+              values[field] = await input({ message: humanizeField(field) });
+            }
           }
+        } catch (error) {
+          if (isPromptCancelled(error)) {
+            throw new Error("__vana_prompt_cancelled__");
+          }
+          throw error;
         }
         return values;
       },
@@ -740,6 +747,34 @@ async function runConnect(
     });
     return 0;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "__vana_prompt_cancelled__"
+    ) {
+      await updateSourceState(source, {
+        lastRunAt: new Date().toISOString(),
+        lastRunOutcome: CliOutcomeStatus.NEEDS_INPUT,
+        lastError: "Cancelled before input was completed.",
+      });
+      emit.blank();
+      emit.section("Cancelled");
+      emit.info(`Stopped before ${displayName} finished collecting your data.`);
+      emit.detail("No credentials were sent anywhere.");
+      emit.blank();
+      emit.section("Next");
+      emit.bullet(`Resume with ${emit.code(`vana connect ${source}`)}.`);
+      emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
+      emit.event({
+        type: "outcome",
+        status: CliOutcomeStatus.NEEDS_INPUT,
+        source,
+        reason: "prompt_cancelled",
+      });
+      if (runLogPath) {
+        emit.keyValue("Run log", formatDisplayPath(runLogPath), "muted");
+      }
+      return 1;
+    }
     const message =
       error instanceof Error ? error.message : "Unexpected error.";
     emit.info(message);

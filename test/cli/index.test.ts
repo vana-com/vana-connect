@@ -17,6 +17,8 @@ const mockIngestResult = vi.fn();
 const mockReadCliState = vi.fn();
 const mockUpdateSourceState = vi.fn();
 const mockConfirm = vi.fn();
+const mockInput = vi.fn();
+const mockPassword = vi.fn();
 const mockSelect = vi.fn();
 const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
@@ -53,8 +55,30 @@ vi.mock("../../src/runtime/index.js", () => ({
       return fetchConnectorResult;
     }
 
-    async *runConnector() {
+    async *runConnector(options?: {
+      noInput?: boolean;
+      onNeedInput?: (payload: {
+        message?: string;
+        fields: string[];
+      }) => Promise<Record<string, string>>;
+    }) {
       for (const event of runConnectorEvents) {
+        if (
+          event.type === "needs-input" &&
+          !options?.noInput &&
+          options?.onNeedInput
+        ) {
+          await options.onNeedInput({
+            message:
+              typeof event.message === "string" ? event.message : undefined,
+            fields: Array.isArray(event.fields)
+              ? event.fields.filter(
+                  (field): field is string => typeof field === "string",
+                )
+              : [],
+          });
+          continue;
+        }
         yield event;
       }
     }
@@ -75,8 +99,8 @@ vi.mock("@inquirer/prompts", () => ({
     }
   },
   confirm: mockConfirm,
-  input: vi.fn(),
-  password: vi.fn(),
+  input: mockInput,
+  password: mockPassword,
   select: mockSelect,
 }));
 
@@ -1554,6 +1578,50 @@ describe("runCli", () => {
     expect(stdout).toContain("Next");
     expect(stdout).toContain("vana data show github");
     expect(stdout).toContain("vana sources");
+  });
+
+  it("handles cancelled terminal input cleanly during connect", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "github",
+        message: "Log in to GitHub",
+        fields: ["username", "password"],
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    const promptError = new Error("prompt aborted");
+    promptError.name = "ExitPromptError";
+    mockInput.mockRejectedValueOnce(promptError);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("→ Cancelled");
+    expect(stdout).toContain(
+      "Stopped before GitHub finished collecting your data.",
+    );
+    expect(stdout).toContain("No credentials were sent anywhere.");
+    expect(stdout).toContain("Resume with `vana connect github`.");
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        lastRunOutcome: "needs_input",
+        lastError: "Cancelled before input was completed.",
+      }),
+    );
   });
 
   it("records ingest failures as local data with sync failure state", async () => {
