@@ -689,33 +689,34 @@ async function runConnect(
     }
 
     emit.blank();
+    emit.section(
+      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
+        ? "Saved and synced"
+        : "Saved locally",
+    );
+    emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
+    emit.keyValue("Session", "Saved for faster reconnects.", "muted");
     if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
-      emit.section("Synced");
       emit.keyValue(
         "Server",
         "Your data is now available in your Personal Server.",
         "success",
       );
-    } else {
-      emit.section("Saved locally");
-      emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
-      emit.keyValue("Session", "Saved for faster reconnects.", "muted");
-      if (
-        finalStatus === CliOutcomeStatus.INGEST_FAILED &&
-        ingestFailureMessage
-      ) {
-        emit.keyValue(
-          "Server",
-          `Sync failed: ${ingestFailureMessage}`,
-          "warning",
-        );
-      } else if (target.state !== "available") {
-        emit.keyValue(
-          "Server",
-          "Unavailable, so this run stayed local.",
-          "muted",
-        );
-      }
+    } else if (
+      finalStatus === CliOutcomeStatus.INGEST_FAILED &&
+      ingestFailureMessage
+    ) {
+      emit.keyValue(
+        "Server",
+        `Sync failed: ${ingestFailureMessage}`,
+        "warning",
+      );
+    } else if (target.state !== "available") {
+      emit.keyValue(
+        "Server",
+        "Unavailable, so this run stayed local.",
+        "muted",
+      );
     }
 
     if (runLogPath) {

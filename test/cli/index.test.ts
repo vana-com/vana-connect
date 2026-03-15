@@ -1607,6 +1607,65 @@ describe("runCli", () => {
     );
   });
 
+  it("shows saved and synced details when Personal Server ingest succeeds", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.dataconnect/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-complete",
+        source: "github",
+        target: "http://localhost:8080",
+      },
+    ]);
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tnunamak" },
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(
+      "Collected your GitHub data and synced it to your Personal Server.",
+    );
+    expect(stdout).toContain("Saved and synced");
+    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
+    expect(stdout).toContain("Saved for faster reconnects.");
+    expect(stdout).toContain(
+      "Your data is now available in your Personal Server.",
+    );
+    expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
+      "github",
+      expect.objectContaining({
+        lastRunOutcome: "connected_and_ingested",
+        dataState: "ingested_personal_server",
+      }),
+    );
+  });
+
   it("returns connector_unavailable when no connector exists", async () => {
     mockListAvailableSources.mockResolvedValue([]);
     fetchConnectorResult = undefined as never;
