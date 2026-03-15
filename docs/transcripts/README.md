@@ -26,6 +26,7 @@ Current generated surfaces include:
 - `connect-github-success.txt`
 - `connect-github-no-input.txt`
 - `connect-github-session-reuse-no-input.txt`
+- `connect-shop.txt`
 - `connect-shop-no-input.txt`
 - `connect-steam.txt`
 - `connect-steam-no-input.txt`

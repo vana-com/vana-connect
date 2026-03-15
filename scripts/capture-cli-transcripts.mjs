@@ -112,6 +112,12 @@ async function main() {
       allowFailure: true,
     },
     {
+      name: "connect-shop.txt",
+      argv: ["vana", "connect", "shop"],
+      env: seededEnv,
+      allowFailure: true,
+    },
+    {
       name: "connect-steam.txt",
       argv: ["vana", "connect", "steam"],
       env: seededEnv,

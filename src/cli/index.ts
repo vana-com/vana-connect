@@ -441,6 +441,45 @@ async function runConnect(
       );
     }
 
+    if (
+      sourceDetails?.authMode === "legacy" &&
+      !options.noInput &&
+      process.platform === "linux" &&
+      !process.env.DISPLAY &&
+      !process.env.WAYLAND_DISPLAY
+    ) {
+      const message =
+        "This source needs a manual browser step, but no local display server is available. Run this command in a desktop session or use xvfb-run.";
+      await updateSourceState(resolution.source, {
+        connectorInstalled: true,
+        sessionPresent: fs.existsSync(profilePath),
+        lastRunAt: new Date().toISOString(),
+        lastRunOutcome: CliOutcomeStatus.LEGACY_AUTH,
+        dataState: "none",
+        lastError: message,
+        lastResultPath: null,
+      });
+      emit.blank();
+      emit.section("Manual step required");
+      emit.info(
+        `${displayName} still needs a manual browser step on this machine.`,
+      );
+      emit.detail(message);
+      emit.blank();
+      emit.section("Next");
+      emit.bullet("Run this command in a desktop session.");
+      emit.bullet(
+        `Or retry with ${emit.code(`xvfb-run -a vana connect ${source}`)}.`,
+      );
+      emit.event({
+        type: "outcome",
+        status: CliOutcomeStatus.LEGACY_AUTH,
+        source: resolution.source,
+        reason: "display_server_unavailable",
+      });
+      return 1;
+    }
+
     await updateSourceState(resolution.source, {
       connectorInstalled: true,
       sessionPresent: fs.existsSync(profilePath),

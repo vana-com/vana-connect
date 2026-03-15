@@ -736,9 +736,19 @@ describe("runCli", () => {
         logPath: "/tmp/logs/run.log",
       },
     ];
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: "darwin",
+    });
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "shop"]);
+
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: originalPlatform,
+    });
 
     expect(exitCode).toBe(1);
     expect(stdout).toContain(
@@ -753,6 +763,56 @@ describe("runCli", () => {
     expect(stdout).not.toContain(
       "Because `--no-input` is enabled, Vana stopped before opening that session.",
     );
+  });
+
+  it("fails gracefully for legacy connectors without a local display server", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+        description: "Exports Shop data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    mockExistsSync.mockImplementation(
+      (target: string) =>
+        typeof target === "string" && target.includes("shop-playwright"),
+    );
+    const originalPlatform = process.platform;
+    const originalDisplay = process.env.DISPLAY;
+    const originalWayland = process.env.WAYLAND_DISPLAY;
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: "linux",
+    });
+    delete process.env.DISPLAY;
+    delete process.env.WAYLAND_DISPLAY;
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "shop"]);
+
+    Object.defineProperty(process, "platform", {
+      configurable: true,
+      value: originalPlatform,
+    });
+    if (originalDisplay) {
+      process.env.DISPLAY = originalDisplay;
+    }
+    if (originalWayland) {
+      process.env.WAYLAND_DISPLAY = originalWayland;
+    }
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("→ Manual step required");
+    expect(stdout).toContain(
+      "no local display server is available. Run this command in a desktop session or use xvfb-run.",
+    );
+    expect(stdout).toContain("Run this command in a desktop session.");
+    expect(stdout).toContain("xvfb-run -a vana connect shop");
   });
 
   it("shows collected data in json mode", async () => {
