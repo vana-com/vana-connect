@@ -6,6 +6,8 @@ Let your users bring their own data to your app.
 
 This branch also carries the new `vana` collection CLI preview.
 
+For the dedicated CLI README, use [docs/CLI-README.md](./docs/CLI-README.md).
+
 - install the current canary on macOS with Homebrew:
 
 ```bash
@@ -137,6 +139,8 @@ If you prefer to integrate the SDK into an existing project, follow the steps be
 ## Headless CLI
 
 `vana-connect` now also ships a local collection CLI for connector setup and data export flows.
+
+If you only care about the CLI, start with [docs/CLI-README.md](./docs/CLI-README.md).
 
 ### Install
 
