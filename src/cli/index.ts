@@ -3457,6 +3457,10 @@ function summarizeResultData(
 
   if (Array.isArray(data.repositories)) {
     lines.push(`Repositories: ${data.repositories.length}`);
+    const preview = summarizeNamedItems(data.repositories, "Latest repos");
+    if (preview) {
+      lines.push(preview);
+    }
   }
 
   if (Array.isArray(data.starred)) {
@@ -3469,6 +3473,10 @@ function summarizeResultData(
 
   if (Array.isArray(data.playlists)) {
     lines.push(`Playlists: ${data.playlists.length}`);
+    const preview = summarizeNamedItems(data.playlists, "Playlists");
+    if (preview) {
+      lines.push(preview);
+    }
   }
 
   if (
@@ -3484,6 +3492,33 @@ function summarizeResultData(
   }
 
   return lines.length > 0 ? { lines } : null;
+}
+
+function summarizeNamedItems(
+  items: unknown[],
+  label: string,
+  maxItems = 2,
+): string | null {
+  const names = items
+    .map((item) => {
+      if (
+        typeof item === "object" &&
+        item &&
+        "name" in item &&
+        typeof (item as { name?: unknown }).name === "string"
+      ) {
+        return (item as { name: string }).name;
+      }
+      return null;
+    })
+    .filter((value): value is string => Boolean(value))
+    .slice(0, maxItems);
+
+  if (names.length === 0) {
+    return null;
+  }
+
+  return `${label}: ${names.join(", ")}`;
 }
 
 function formatTimestamp(value: string): string {

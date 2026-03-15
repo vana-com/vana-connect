@@ -1056,7 +1056,11 @@ describe("runCli", () => {
       name: "GitHub",
       path: "/tmp/.dataconnect/github-result.json",
       summary: {
-        lines: ["Profile: tnunamak", "Repositories: 1"],
+        lines: [
+          "Profile: tnunamak",
+          "Repositories: 1",
+          "Latest repos: vana-connect",
+        ],
       },
       lastRunAt: "2026-03-14T13:10:03.677Z",
       dataState: "collected_local",
@@ -1112,6 +1116,7 @@ describe("runCli", () => {
       → Summary
         • Profile: tnunamak
         • Repositories: 2
+        • Latest repos: vana-connect, data-connectors
         • Starred: 0
 
         Path:             /tmp/.dataconnect/github-result.json
@@ -1337,6 +1342,7 @@ describe("runCli", () => {
       GitHub [local]
         Profile: tnunamak
         Repositories: 2
+        Latest repos: vana-connect, data-connect
         Starred: 0
         State:            Saved locally
         Updated: <timestamp>
@@ -1345,6 +1351,7 @@ describe("runCli", () => {
       Spotify [local]
         Profile: tnunamak
         Playlists: 2
+        Playlists: Focus, Deep Work
         State:            Saved locally
         Updated: <timestamp>
         Path:             /tmp/.dataconnect/spotify-result.json

@@ -3,6 +3,7 @@ GitHub data
 → Summary
   • Profile: tnunamak
   • Repositories: 2
+  • Latest repos: vana-connect, data-connectors
   • Starred: 0
 
   Path:             ~/.dataconnect/last-result.json
