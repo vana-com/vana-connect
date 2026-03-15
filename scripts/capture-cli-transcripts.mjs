@@ -43,6 +43,16 @@ async function main() {
 
   const commands = [
     {
+      name: "help.txt",
+      argv: ["vana"],
+      env: seededEnv,
+    },
+    {
+      name: "data-help.txt",
+      argv: ["vana", "data"],
+      env: seededEnv,
+    },
+    {
       name: "status.txt",
       argv: ["vana", "status"],
       env: seededEnv,

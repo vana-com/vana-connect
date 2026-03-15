@@ -14,6 +14,8 @@ pnpm demo:transcripts
 
 Current generated surfaces include:
 
+- `help.txt`
+- `data-help.txt`
 - `status.txt`
 - `doctor.txt`
 - `setup.txt`

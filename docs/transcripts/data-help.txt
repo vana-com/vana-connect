@@ -1,0 +1,17 @@
+Usage: vana data [options] [command]
+
+Inspect collected data
+
+Options:
+  -h, --help               display help for command
+
+Commands:
+  list [options]           List locally available collected datasets
+  show [options] <source>  Show a collected dataset
+  path [options] <source>  Print the local path for a collected dataset
+
+Examples:
+  vana data list
+  vana data show github
+  vana data path github --json
+

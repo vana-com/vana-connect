@@ -1,0 +1,24 @@
+Usage: vana [options] [command]
+
+Vana Connect CLI
+
+Options:
+  -v, --version               Print CLI version
+  -h, --help                  display help for command
+
+Commands:
+  version                     Print CLI version
+  connect [options] [source]  Connect a source and collect data
+  sources [options]           List supported sources
+  status [options]            Show runtime and Personal Server status
+  doctor [options]            Inspect local CLI, runtime, and install health
+  setup [options]             Install or repair the local runtime
+  data                        Inspect collected data
+  help [command]              display help for command
+
+Examples:
+  vana status
+  vana connect github
+  vana data show github
+  vana doctor
+
