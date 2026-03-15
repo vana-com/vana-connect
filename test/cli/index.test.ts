@@ -306,6 +306,16 @@ describe("runCli", () => {
     expect(stdout).toContain("vana connect github");
   });
 
+  it("shows top-level help and exits successfully with no arguments", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Vana Connect CLI");
+    expect(stdout).toContain("Commands:");
+    expect(stdout).toContain("vana status");
+  });
+
   it("shows examples in connect help", async () => {
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "--help"]);

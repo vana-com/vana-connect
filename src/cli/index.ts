@@ -95,6 +95,9 @@ type SourceStatusDetail =
 
 export async function runCli(argv = process.argv): Promise<number> {
   const normalizedArgv = normalizeArgv(argv);
+  if (normalizedArgv.length <= 2) {
+    normalizedArgv.push("--help");
+  }
   const parsedOptions = extractGlobalOptions(normalizedArgv);
   const cliVersion = getCliVersion();
   const program = new Command();
