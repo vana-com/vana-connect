@@ -1,16 +1,13 @@
 # Vana CLI
 
+Collect user data locally, inspect it immediately, and keep the flow scriptable.
+
 `vana` is the local collection CLI for connector setup, browser automation, and
 dataset inspection.
 
-This page is the CLI-first entrypoint. Use it instead of the SDK README when
-you want to install, try, or review the CLI itself.
+## Start Here
 
-## Install
-
-Current branch prerelease tag:
-
-`canary-feat-connect-cli-v1`
+Install the current canary:
 
 macOS with Homebrew:
 
@@ -19,46 +16,48 @@ brew tap vana-com/vana
 brew install vana
 ```
 
-macOS and Linux hosted installer:
+macOS and Linux:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
 ```
 
-Windows PowerShell hosted installer:
+Windows PowerShell:
 
 ```powershell
 & ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version canary-feat-connect-cli-v1
 ```
 
-Release page:
-
-`https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
-
-## Start Here
+Then run:
 
 ```bash
 vana --version
 vana doctor
-vana status
-vana sources
 vana connect github
 vana data show github
-vana logs github
 ```
 
-What to expect:
+Current prerelease tag:
+
+`canary-feat-connect-cli-v1`
+
+Release page:
+
+`https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
+
+## What It Feels Like
 
 - `vana connect` opens a guided source picker in human mode.
-- `vana connect <source>` runs the end-to-end collection flow.
+- `vana connect <source>` runs the full collection flow.
 - `vana connect <source> --json --no-input` is the strict machine-safe path.
-- `vana doctor` inspects install, runtime, and local state health.
+- `vana doctor` checks install, runtime, and local state health.
 - `vana data ...` inspects collected datasets without opening raw JSON.
 - `vana logs` exposes stored connector run logs.
 
-## Demo
+Credentials stay local to this machine. Successful runs are explicit about
+whether data stayed local or synced to a Personal Server.
 
-The current prerelease demos are published from CI:
+## Demo
 
 ![Vana status and sources demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
 
@@ -66,14 +65,14 @@ The current prerelease demos are published from CI:
 
 ![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
 
-The `connect` demo is meant to show a short payoff story:
+The `connect` demo is intentionally a short payoff story:
 
-- connect GitHub
-- then inspect the collected dataset
+1. connect GitHub
+2. inspect the collected dataset
 
-## Shell Use
+## Core Commands
 
-Useful human commands:
+Human mode:
 
 ```bash
 vana version
@@ -86,7 +85,7 @@ vana data show github
 vana logs github
 ```
 
-Useful machine-readable commands:
+Machine mode:
 
 ```bash
 vana version --json | jq
@@ -96,14 +95,15 @@ vana data show github --json | jq '.summary, .data.profile'
 vana connect github --json --no-input
 ```
 
-Contract notes:
+Contract:
 
 - `--json` writes machine-readable output to stdout without human narration.
 - successful completion returns exit code `0`
 - actionable non-success outcomes return exit code `1`
 
-For the full exit-code and shell contract, use
-[CLI-EXIT-CODE-MATRIX.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXIT-CODE-MATRIX.md).
+Full contract:
+
+- [CLI exit code matrix](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXIT-CODE-MATRIX.md)
 
 ## Review Surface
 
@@ -111,12 +111,12 @@ If you want to review the CLI systematically, start here:
 
 - [CLI review surface](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-REVIEW-SURFACE.md)
 
-Supporting review artifacts:
+Supporting artifacts:
 
 - [CLI transcripts](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/README.md)
 - [CLI VHS demos](/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/README.md)
 
-## Upgrade And Uninstall
+## Lifecycle
 
 Check the exact lifecycle commands for your install with:
 
