@@ -37,6 +37,10 @@ That creates:
 - `data-inspection.tape`
 - `connect-success.tape`
 
+The public `connect-success` tape should end on user value, not only progress
+output. In practice that means a successful `vana connect github` run followed
+by `vana data show github`.
+
 ## Rendering
 
 The preferred renderer is `vhs` from Charm.

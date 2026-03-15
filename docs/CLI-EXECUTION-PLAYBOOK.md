@@ -231,6 +231,8 @@ Do not start deep beauty work before this is externally proven.
 
 - the human CLI should feel truthful after success
 - the README should be able to show a real successful connect flow
+- the public `connect` demo should end on visible payoff, not just progress
+  output or fallback guidance
 - `status`, `data`, and success summaries should agree with each other
 
 ### Work items
@@ -242,7 +244,10 @@ Do not start deep beauty work before this is externally proven.
    - a demo connector fixture under the fixture home
 
 2. Add a README-quality successful connect tape.
-   Likely files:
+   It should show a short success story, not just connector mechanics:
+   - `vana connect github`
+   - `vana data show github`
+     Likely files:
    - `docs/vhs/*.tape`
    - `README.md`
    - `docs/vhs/README.md`

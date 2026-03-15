@@ -11,4 +11,8 @@ Set LoopOffset 45%
 
 Type "vana connect github"
 Enter
-Sleep 5600ms
+Sleep 4200ms
+
+Type "vana data show github"
+Enter
+Sleep 3800ms
