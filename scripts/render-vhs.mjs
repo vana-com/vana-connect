@@ -172,6 +172,11 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
       baseArgs: [
         "run",
         "--rm",
+        // Run as the host user so VHS doesn't create root-owned files
+        // in mounted volumes (fixture HOME, temp dir). Without this,
+        // re-preparing fixtures fails with EACCES on .cache/ etc.
+        "--user",
+        `${process.getuid()}:${process.getgid()}`,
         "-v",
         `${repoRoot}:${repoRoot}`,
         "-v",
