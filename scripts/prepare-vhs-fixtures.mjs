@@ -184,7 +184,7 @@ async function seedDemoDataConnectors() {
             name: "GitHub",
             company: "github",
             description:
-              "Exports your GitHub profile, repositories, and starred repositories via Playwright.",
+              "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
             files: {
               script: "connectors/github/github-playwright.js",
             },
@@ -194,7 +194,7 @@ async function seedDemoDataConnectors() {
             name: "Shop",
             company: "shop",
             description:
-              "Exports your Shop app order history via Playwright.",
+              "Exports your Shop app order history using Playwright browser automation.",
             files: {
               script: "connectors/shop/shop-playwright.js",
             },
@@ -204,7 +204,7 @@ async function seedDemoDataConnectors() {
             name: "Spotify",
             company: "spotify",
             description:
-              "Exports your Spotify playlists via Playwright.",
+              "Exports your Spotify playlists using Playwright browser automation.",
             files: {
               script: "connectors/spotify/spotify-playwright.js",
             },

@@ -2148,7 +2148,7 @@ describe("runCli", () => {
         id: "github",
         name: "GitHub",
         description:
-          "Exports your GitHub profile, repositories, and starred repositories via Playwright.",
+          "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
         authMode: "interactive",
       },
     ]);
