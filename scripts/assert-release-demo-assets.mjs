@@ -1,15 +1,25 @@
 import { execFileSync } from "node:child_process";
 
 const REQUIRED_ASSETS = [
-  "status-and-sources.gif",
-  "data-inspection.gif",
-  "connect-success.gif",
-  "status.txt",
-  "sources.txt",
-  "data-list.txt",
-  "data-show-github.txt",
-  "connect-github-success.txt",
-  "connect-steam-no-input.txt",
+  "help.gif",
+  "data-help.gif",
+  "setup.gif",
+  "status.gif",
+  "doctor.gif",
+  "logs.gif",
+  "sources.gif",
+  "data-list.gif",
+  "data-list-empty.gif",
+  "data-show-github.gif",
+  "data-show-github-missing.gif",
+  "data-path-github.gif",
+  "connect-github-no-input.gif",
+  "connect-github-session-reuse-no-input.gif",
+  "connect-shop-no-input.gif",
+  "connect-shop.gif",
+  "connect-steam.gif",
+  "connect-steam-no-input.gif",
+  "connect-github-success.gif",
 ];
 
 function getArgMap(argv) {
