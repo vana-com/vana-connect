@@ -186,35 +186,79 @@ in the runtime. Three distinct code paths are affected:
 **This is now a product decision, not a research question.** See the
 Tim + Claude section for the product model discussion.
 
-### Personal server integration → **Research complete, partial coverage exists**
+### Personal server integration → **Research complete, significant gaps**
 
-The CLI already has more Personal Server integration than expected:
+The CLI is intended to become a primary user-facing interface for managing
+Personal Servers — appearing in status, doctor, connect flows, and
+eventually its own command group (`vana server`). Current code has a
+localhost-only happy path but lacks the configuration, auth, and tunnel
+awareness needed for real-world use.
 
-**What already works:**
+**What exists today:**
 
-- `detectPersonalServerTarget()` scans `localhost:8080-8085` for a running
-  Personal Server instance
-- On successful `vana connect`, `ingestResult()` auto-syncs data to the
-  Personal Server if detected
-- State tracking distinguishes `connected_and_ingested` (synced) vs
-  `connected_local_only` (data exists but not synced)
-- `vana status` and `vana doctor` report Personal Server presence
+- `detectPersonalServerTarget()` (`src/personal-server/index.ts:12-28`)
+  scans `localhost:8080-8085` or uses `VANA_PERSONAL_SERVER_URL` env var
+- `ingestResult()` POSTs collected data to `{url}/v1/data/{scope}` with
+  **no auth headers** — just `Content-Type: application/json`
+- `vana status` and `vana doctor` report server presence/absence
+- State tracking distinguishes `connected_and_ingested` vs
+  `connected_local_only`
 
-**What's missing:**
+**Why this isn't enough:**
 
-| Gap                                | Impact                                            |
-| ---------------------------------- | ------------------------------------------------- |
-| Manual sync retry (`vana ps sync`) | User can't re-sync after a failed ingest          |
-| Grant management                   | No way to view/revoke data grants from CLI        |
-| Tunnel URL reporting               | User can't see their Personal Server's public URL |
-| Per-scope sync status              | Can't tell which scopes synced vs which didn't    |
+The Personal Server ecosystem has three deployment modes the CLI needs
+to support:
 
-**What to do:** The existing integration covers the happy path. The gaps
-are all "power user / agent" features. Prioritize `vana ps sync` (manual
-retry) as the most impactful — it unblocks the case where auto-sync
-failed silently. The rest can wait for user demand.
+1. **Local** — DataConnect desktop runs the server on localhost, port
+   probing works, no auth needed (current happy path)
+2. **Tunneled** — DataConnect uses FRP (`frpc.server.vana.org`) to
+   expose a public `https://{subdomain}.server.vana.org` URL. The CLI
+   has zero awareness of this tunnel or how to discover the URL.
+3. **Cloud-hosted** (future) — server runs remotely, requires auth,
+   URL must be configured and persisted
 
-**This could move to Iterate** once Tim confirms which gaps matter for v1.
+**Specific gaps:**
+
+| Gap                          | Why it matters                                                                                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No persistent URL config** | `VANA_PERSONAL_SERVER_URL` is env-only. Users must set it every session. No `~/.dataconnect` or `~/.vana` config file stores the URL.                                                                                             |
+| **No auth on ingest**        | POST `/v1/data/{scope}` is open on the server side today. For public/tunnel URLs, anyone who knows the URL can write data. The server supports Web3Signed auth (EIP-191) for reads and dev tokens for dev — the CLI uses neither. |
+| **No tunnel awareness**      | DataConnect creates FRP tunnels and shows the public URL in its UI. The CLI can't discover or display this URL. The tunnel config lives at `~/.dataconnect/personal-server/tunnel/frpc.toml`.                                     |
+| **No gateway registration**  | The personal server self-registers with the Data Gateway via EIP-712 signed messages through an account signing service. The CLI doesn't participate in this flow.                                                                |
+| **No manual sync retry**     | If auto-ingest fails after `vana connect`, there's no `vana server sync` to retry.                                                                                                                                                |
+| **No grant management**      | Can't view/revoke data access grants from CLI.                                                                                                                                                                                    |
+| **No per-scope sync status** | Can't tell which scopes synced vs which didn't.                                                                                                                                                                                   |
+
+**Auth architecture (from personal-server-ts):**
+
+- **Web3Signed**: `Authorization: Web3Signed {base64url_payload}.{signature}` —
+  EIP-191 signed, includes audience/method/uri/bodyHash/expiry. Used for
+  read endpoints. The CLI would need a private key to sign requests.
+- **Dev token**: `Authorization: Bearer {token}` — 32-byte random hex,
+  generated per session, emitted to DataConnect UI. Bypasses Web3Signed.
+  Ephemeral, not persisted.
+- **Ingest endpoint**: Currently **no auth** on POST `/v1/data/{scope}`.
+  This needs to change before public URLs are standard.
+
+**What needs to happen (staged):**
+
+1. **Config persistence** — `vana server set-url <url>` that writes to
+   `~/.dataconnect/personal-server-url` or similar. Fall back to env var,
+   then port scan.
+2. **Auth integration** — decide whether CLI uses Web3Signed (needs
+   private key management) or dev tokens (needs discovery from
+   DataConnect). For cloud-hosted, likely Web3Signed.
+3. **Tunnel URL discovery** — read from FRP config at
+   `~/.dataconnect/personal-server/tunnel/frpc.toml`, or query the
+   running server for its public URL.
+4. **Server command group** — `vana server status`, `vana server sync`,
+   `vana server url` as the management interface.
+5. **Transcripts and demos** — Personal Server state should appear in
+   `vana status`, `vana doctor`, and eventually its own demo GIFs.
+
+**This is a Brainstorm → Tim + Claude pipeline.** The deployment mode
+spectrum (local → tunneled → cloud) and auth model need product decisions
+before implementation.
 
 ---
 
