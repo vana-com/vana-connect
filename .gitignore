@@ -14,3 +14,6 @@ __pycache__/
 .cursor
 .agents
 .agent
+docs/vhs/fixtures/demo-home/.cache/
+docs/vhs/fixtures/demo-home/.config/
+docs/vhs/fixtures/demo-home/.pki/

@@ -13,7 +13,7 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 600
+Set Height 714
 
 Type "vana data show github"
 Sleep 500ms

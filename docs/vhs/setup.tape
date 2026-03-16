@@ -13,7 +13,7 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 400
+Set Height 434
 
 Type "vana setup"
 Sleep 500ms

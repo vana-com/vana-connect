@@ -13,7 +13,7 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 600
+Set Height 686
 
 Type "vana connect shop"
 Sleep 500ms

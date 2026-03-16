@@ -13,7 +13,7 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 500
+Set Height 518
 
 Type "vana connect steam --no-input"
 Sleep 500ms

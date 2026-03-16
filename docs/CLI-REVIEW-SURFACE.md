@@ -101,7 +101,7 @@ Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
 
 #### `vana --help`
 
-<img src="vhs/help.gif" width="600" alt="vana --help" />
+<img src="vhs/help.gif" width="800" alt="vana --help" />
 
 #### `vana data --help`
 
@@ -115,11 +115,11 @@ Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
 
 #### `vana status`
 
-<img src="vhs/status.gif" width="600" alt="status" />
+<img src="vhs/status.gif" width="800" alt="status" />
 
 #### `vana doctor`
 
-<img src="vhs/doctor.gif" width="600" alt="doctor" />
+<img src="vhs/doctor.gif" width="800" alt="doctor" />
 
 #### `vana logs`
 
@@ -157,7 +157,7 @@ Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
 
 #### Successful interactive path
 
-<img src="vhs/connect-github-success.gif" width="600" alt="connect-github-success" />
+<img src="vhs/connect-github-success.gif" width="800" alt="connect-github-success" />
 
 #### `--no-input` path (no session)
 

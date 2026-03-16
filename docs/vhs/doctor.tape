@@ -13,7 +13,7 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 700
+Set Height 1694
 
 Type "vana doctor"
 Sleep 500ms

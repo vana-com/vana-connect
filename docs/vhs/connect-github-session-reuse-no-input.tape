@@ -13,9 +13,9 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 700
+Set Height 798
 
 Type "vana connect github --no-input"
 Sleep 500ms
 Enter
-Sleep 5000ms
+Sleep 4000ms

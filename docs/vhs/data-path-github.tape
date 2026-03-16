@@ -13,9 +13,9 @@ Set Margin 20
 Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
-Set Height 300
+Set Height 350
 
 Type "vana data path github"
 Sleep 500ms
 Enter
-Sleep 2000ms
+Sleep 4000ms

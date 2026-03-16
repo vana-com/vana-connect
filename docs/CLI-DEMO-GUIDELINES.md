@@ -44,9 +44,10 @@ Set BorderRadius 10
 Set LoopOffset 50%
 ```
 
-Adjust `Height` per demo to fit the expected output without excess whitespace.
-Maximum recommended height: **700px**. If output exceeds that, let it scroll —
-the GIF loops and the viewer catches it on replay.
+Adjust `Height` per demo to fit the **full expected output** without scrolling.
+Use the formula: `(output_lines + 4) * 28 + 70`. This ensures no content is
+cut off. For tall GIFs (height > 1000px), use `width="800"` in the `<img>` tag
+instead of the standard `width="600"` to keep text readable.
 
 ## Timing recipe
 
@@ -64,21 +65,29 @@ Sleep 3s
 | Moment                      | Duration |
 | --------------------------- | -------- |
 | After typing, before Enter  | 500ms    |
-| Short output (< 15 lines)   | 2-3s     |
-| Complex output (15+ lines)  | 4-5s     |
+| Short output (< 15 lines)   | 3-4s     |
+| Complex output (15+ lines)  | 4-6s     |
 | Between commands (if multi) | 1-2s     |
 
-Do **not** scale sleep proportionally to line count. Execution time and reading
-time are different things.
+**Minimum 3s post-Enter sleep.** Node.js cold start in VHS takes ~2s, so
+anything shorter risks the command output not appearing before the recording
+ends. Do **not** scale sleep proportionally to line count — execution time and
+reading time are different things.
 
 ## Display in markdown
 
 Use `<img>` tags with explicit width for consistent sizing:
 
 ```html
-<img src="vhs/status.gif" width="600" alt="vana status" />
+<!-- Standard (height <= 1000px) -->
+<img src="vhs/sources.gif" width="600" alt="vana sources" />
+
+<!-- Tall output (height > 1000px) -->
+<img src="vhs/doctor.gif" width="800" alt="vana doctor" />
 ```
 
+Use `width="600"` for most GIFs. Use `width="800"` for GIFs with height
+exceeding 1000px (e.g., `help`, `status`, `doctor`, `connect-github-success`).
 Raw `![](...)` markdown gives the browser full control over sizing, which makes
 tall GIFs render with tiny text.
 
