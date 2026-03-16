@@ -96,92 +96,96 @@ Related contract docs:
 ## Demo Media
 
 Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
+GIFs are rendered by CI and attached to the
+[canary release](https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1).
+
+[release]: https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1
 
 ### Foundational
 
 #### `vana --help`
 
-<img src="vhs/help.gif" width="800" alt="vana --help" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/help.gif" width="800" alt="vana --help" />
 
 #### `vana data --help`
 
-<img src="vhs/data-help.gif" width="600" alt="data-help" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-help.gif" width="600" alt="data-help" />
 
 #### `vana setup`
 
-<img src="vhs/setup.gif" width="600" alt="setup" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/setup.gif" width="600" alt="setup" />
 
 ### State and diagnostics
 
 #### `vana status`
 
-<img src="vhs/status.gif" width="800" alt="status" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status.gif" width="800" alt="status" />
 
 #### `vana doctor`
 
-<img src="vhs/doctor.gif" width="800" alt="doctor" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/doctor.gif" width="800" alt="doctor" />
 
 #### `vana logs`
 
-<img src="vhs/logs.gif" width="600" alt="logs" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/logs.gif" width="600" alt="logs" />
 
 ### Discovery
 
 #### `vana sources`
 
-<img src="vhs/sources.gif" width="600" alt="sources" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/sources.gif" width="600" alt="sources" />
 
 ### Post-success data surfaces
 
 #### `vana data list`
 
-<img src="vhs/data-list.gif" width="600" alt="data-list" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-list.gif" width="600" alt="data-list" />
 
 #### `vana data list` (clean machine)
 
-<img src="vhs/data-list-empty.gif" width="600" alt="data-list-empty" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-list-empty.gif" width="600" alt="data-list-empty" />
 
 #### `vana data show github`
 
-<img src="vhs/data-show-github.gif" width="600" alt="data-show-github" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-show-github.gif" width="600" alt="data-show-github" />
 
 #### `vana data show github` (missing)
 
-<img src="vhs/data-show-github-missing.gif" width="600" alt="data-show-github-missing" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-show-github-missing.gif" width="600" alt="data-show-github-missing" />
 
 #### `vana data path github`
 
-<img src="vhs/data-path-github.gif" width="600" alt="data-path-github" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-path-github.gif" width="600" alt="data-path-github" />
 
 ### Connect flows
 
 #### Successful interactive path
 
-<img src="vhs/connect-github-success.gif" width="800" alt="connect-github-success" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-github-success.gif" width="800" alt="connect-github-success" />
 
 #### `--no-input` path (no session)
 
-<img src="vhs/connect-github-no-input.gif" width="600" alt="connect-github-no-input" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-github-no-input.gif" width="600" alt="connect-github-no-input" />
 
 #### `--no-input` path (session reuse attempt)
 
-<img src="vhs/connect-github-session-reuse-no-input.gif" width="600" alt="connect-github-session-reuse-no-input" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-github-session-reuse-no-input.gif" width="600" alt="connect-github-session-reuse-no-input" />
 
 #### Legacy/manual interactive path (Shop)
 
-<img src="vhs/connect-shop.gif" width="600" alt="connect-shop" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-shop.gif" width="600" alt="connect-shop" />
 
 #### Legacy/manual `--no-input` path (Shop)
 
-<img src="vhs/connect-shop-no-input.gif" width="600" alt="connect-shop-no-input" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-shop-no-input.gif" width="600" alt="connect-shop-no-input" />
 
 #### Unavailable connector (Steam)
 
-<img src="vhs/connect-steam.gif" width="600" alt="connect-steam" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-steam.gif" width="600" alt="connect-steam" />
 
 #### Unavailable connector `--no-input` (Steam)
 
-<img src="vhs/connect-steam-no-input.gif" width="600" alt="connect-steam-no-input" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-steam-no-input.gif" width="600" alt="connect-steam-no-input" />
 
 ## Acceptance Commands
 

@@ -78,11 +78,22 @@ Use `<img>` tags with explicit width for consistent sizing:
 
 ```html
 <!-- Standard (height <= 1000px) -->
-<img src="vhs/sources.gif" width="600" alt="vana sources" />
+<img
+  src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/sources.gif"
+  width="600"
+  alt="vana sources"
+/>
 
 <!-- Tall output (height > 1000px) -->
-<img src="vhs/doctor.gif" width="800" alt="vana doctor" />
+<img
+  src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/doctor.gif"
+  width="800"
+  alt="vana doctor"
+/>
 ```
+
+GIFs are rendered by CI and attached to the canary release as assets. Use
+release download URLs, not relative paths, so images are always fresh.
 
 Use `width="600"` for most GIFs. Use `width="800"` for GIFs with height
 exceeding 1000px (e.g., `help`, `status`, `doctor`, `connect-github-success`).
