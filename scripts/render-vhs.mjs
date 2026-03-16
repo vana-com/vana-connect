@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -169,7 +168,8 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
     ensureDockerImage(VHS_DOCKER_IMAGE);
     return {
       command: "docker",
-      args: [
+      isDocker: true,
+      baseArgs: [
         "run",
         "--rm",
         "-v",
@@ -178,7 +178,6 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
         `${tempRoot}:${tempRoot}`,
         "-w",
         repoRoot,
-        VHS_DOCKER_IMAGE,
       ],
     };
   }
@@ -190,12 +189,34 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
 function runTape(runner, tapePath, env) {
   const timeout = resolveTapeTimeout();
   try {
-    execFileSync(runner.command, [...runner.args, tapePath], {
-      cwd: repoRoot,
-      env,
-      stdio: "inherit",
-      timeout,
-    });
+    if (runner.isDocker) {
+      // Docker needs env vars passed explicitly via -e flags so VHS
+      // inside the container sees HOME, PATH, and other overrides.
+      const dockerEnvArgs = [];
+      const forwardKeys = [
+        "HOME",
+        "PATH",
+        "VANA_DEMO_FAST_SUCCESS",
+        "VANA_DATA_CONNECTORS_DIR",
+      ];
+      for (const key of forwardKeys) {
+        if (env[key] != null) {
+          dockerEnvArgs.push("-e", `${key}=${env[key]}`);
+        }
+      }
+      execFileSync(
+        runner.command,
+        [...runner.baseArgs, ...dockerEnvArgs, VHS_DOCKER_IMAGE, tapePath],
+        { cwd: repoRoot, stdio: "inherit", timeout },
+      );
+    } else {
+      execFileSync(runner.command, [...runner.args, tapePath], {
+        cwd: repoRoot,
+        env,
+        stdio: "inherit",
+        timeout,
+      });
+    }
   } catch (error) {
     if (isTimeoutError(error)) {
       throw new Error(
