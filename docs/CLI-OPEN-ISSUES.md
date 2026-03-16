@@ -96,66 +96,125 @@ output.
 Issues where we need to investigate code, compare implementations, or gather
 data before we can act.
 
-### `vana data show` schema assumptions
+### `vana data show` schema assumptions → **Research complete, needs design**
 
-`vana data show github` produces human-readable lines like "Latest repos:
-vana-connect, data-connectors". Where does this come from?
+`summarizeResultData()` in `src/cli/index.ts:3453-3507` is **entirely
+hardcoded**. It checks for specific field names: `profile.username`,
+`repositories`, `starred`, `orders`, `playlists`, and
+`exportSummary.details`. `summarizeNamedItems()` assumes array items have
+a `name` field. Zero runtime validation against schemas.
 
-**Questions:**
+**Findings:**
 
-- Is the summary logic generic (walks any JSON) or does it hardcode field
-  names like `repositories[].name`?
-- What happens when a connector returns data in a shape the CLI doesn't
-  expect?
-- Do connector schemas define enough metadata for the CLI to produce
-  summaries mechanically?
-- List every place the CLI assumes specific field names or data shapes.
+- If a connector returns data in an unexpected shape, summary lines are
+  **silently skipped**. No warning to the user — they just see less info.
+- `data-connectors/schemas/` has 25+ JSON Schema files that define
+  connector output (e.g. `github.repositories.json` defines `name`, `url`,
+  `description`, etc.) — but the CLI doesn't read or validate against them.
+- Every new connector requires adding hardcoded field names to
+  `summarizeResultData()`. This won't scale.
 
-**Status:** Research agent running. Update this section with findings.
+**Brittle assumptions (every instance):**
 
-### Color palette verification
+| Line | Assumption                                    | Risk                           |
+| ---- | --------------------------------------------- | ------------------------------ |
+| 3466 | `data.profile?.username` string               | Silently skipped if missing    |
+| 3470 | `data.repositories` is array                  | Silently skipped if wrong type |
+| 3472 | Repo items have `.name` string                | Preview line disappears        |
+| 3478 | `data.starred` is array                       | Silently skipped               |
+| 3482 | `data.orders` is array                        | Silently skipped               |
+| 3486 | `data.playlists` is array, items have `.name` | Silently skipped               |
+| 3495 | `data.exportSummary?.details` string          | Fallback only                  |
 
-Does the CLI use the official Vana brand colors from `~/code/vana-app`?
+**What needs to happen:** Design a mechanical summary system. Options:
 
-**Questions:**
+1. Use `exportSummary` from connectors (already returned by some)
+2. Read JSON Schema metadata to auto-generate summaries
+3. Define a `displayHints` field in registry.json per connector
+4. Walk the JSON generically (count arrays, show top-level keys)
 
-- What colors does the CLI actually use (hex values, chalk calls)?
-- What does the vana-app CSS define as the brand palette?
-- Do they match? Where are the mismatches?
-- Does the VHS "Catppuccin Mocha" theme reasonably represent the brand?
+**This is now a design question, not a research question.** Moves to
+Tim + Claude for the approach decision.
 
-**Status:** Research agent running. Update this section with findings.
+### Color palette verification → **Research complete, partial match**
 
-### `--no-input` vs input-up-front
+The CLI theme lives in `src/cli/render/theme.ts`. Brand colors were
+compared against `vana-app/packages/ui/src/styles/shadcn.css`.
 
-Can an agent pre-supply answers to connector `requestInput` calls?
+**Findings:**
 
-**Questions:**
+| Role                | CLI hex   | Brand hex        | Match?                                    |
+| ------------------- | --------- | ---------------- | ----------------------------------------- |
+| Accent / primary    | `#4141fc` | `#4141fc`        | Yes                                       |
+| Success             | `#00d50b` | `#00d50b`        | Yes                                       |
+| Destructive / error | `#C73636` | `#E7000B`        | No — CLI is muted red, brand is vivid red |
+| Warning             | `#BA8B00` | _(not in brand)_ | No — CLI invented this color              |
 
-- What does `--no-input` actually do in the code path?
-- Is there a mechanism for passing credentials as env vars, flags, or config?
-- How do `requestInput`, `showBrowser`, and `promptUser` behave with
-  `--no-input`?
-- What's the actual code difference between "legacy" and "interactive" auth?
-- What's the gap between "skip all prompts" and "provide answers ahead of
-  time"?
+- The **VHS Catppuccin Mocha** theme is a generic dark theme with no Vana
+  brand colors. It's fine for recording demos but shouldn't be cited as
+  "brand-accurate."
+- Accent and success are spot-on. Destructive and warning diverge.
 
-**Status:** Research agent running. Update this section with findings.
+**What to do:** Align destructive to `#E7000B`. Decide whether warning
+needs a brand-sanctioned color or if `#BA8B00` is acceptable as a
+functional color with no brand equivalent. This is a small Iterate task
+once Tim confirms the direction.
 
-### Personal server integration
+### `--no-input` vs input-up-front → **Research complete, gap confirmed**
 
-What would it take to add minimal Personal Server functionality to the CLI?
+`--no-input` propagates through the CLI as `allowHeaded = !request.noInput`
+in the runtime. Three distinct code paths are affected:
 
-**Questions:**
+| API              | With `--no-input`                                    | Without                    |
+| ---------------- | ---------------------------------------------------- | -------------------------- |
+| `requestInput()` | Throws `NeedsInputError`                             | Prompts user interactively |
+| `promptUser()`   | Emits `legacy-auth` event, returns early             | Shows prompt               |
+| `showBrowser()`  | Emits `legacy-auth` event, returns `{headed: false}` | Opens browser              |
 
-- What is a Personal Server and how does DataConnect desktop use it?
-  (Check ~/code/data-connect)
-- Does the CLI already report personal server state in `status`/`doctor`?
-- What's the gap between `connected_local_only` and `connected_and_synced`?
-- What would "minimal functionality" look like? (check if running, sync
-  status, trigger sync)
+**Key findings:**
 
-**Status:** Research agent running. Update this section with findings.
+- **No mechanism exists for pre-supplying input.** There are no env vars,
+  flags, config files, or stdin pipes that let an agent provide credentials
+  ahead of time. The only options are "interactive" or "skip entirely."
+- **Auth mode is detected by regex on connector script content**, not by a
+  declared property. The runtime scans for `requestInput` calls to classify
+  connectors as "interactive" vs "legacy."
+- **The gap between "skip all prompts" and "provide answers ahead of time"
+  is real and unaddressed.** An agent that has GitHub credentials cannot
+  pass them to `vana connect github --no-input` — it can only fail.
+
+**This is now a product decision, not a research question.** See the
+Tim + Claude section for the product model discussion.
+
+### Personal server integration → **Research complete, partial coverage exists**
+
+The CLI already has more Personal Server integration than expected:
+
+**What already works:**
+
+- `detectPersonalServerTarget()` scans `localhost:8080-8085` for a running
+  Personal Server instance
+- On successful `vana connect`, `ingestResult()` auto-syncs data to the
+  Personal Server if detected
+- State tracking distinguishes `connected_and_ingested` (synced) vs
+  `connected_local_only` (data exists but not synced)
+- `vana status` and `vana doctor` report Personal Server presence
+
+**What's missing:**
+
+| Gap                                | Impact                                            |
+| ---------------------------------- | ------------------------------------------------- |
+| Manual sync retry (`vana ps sync`) | User can't re-sync after a failed ingest          |
+| Grant management                   | No way to view/revoke data grants from CLI        |
+| Tunnel URL reporting               | User can't see their Personal Server's public URL |
+| Per-scope sync status              | Can't tell which scopes synced vs which didn't    |
+
+**What to do:** The existing integration covers the happy path. The gaps
+are all "power user / agent" features. Prioritize `vana ps sync` (manual
+retry) as the most impactful — it unblocks the case where auto-sync
+failed silently. The rest can wait for user demand.
+
+**This could move to Iterate** once Tim confirms which gaps matter for v1.
 
 ---
 
