@@ -101,87 +101,87 @@ Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
 
 #### `vana --help`
 
-![help](vhs/help.gif)
+<img src="vhs/help.gif" width="600" alt="vana --help" />
 
 #### `vana data --help`
 
-![data-help](vhs/data-help.gif)
+<img src="vhs/data-help.gif" width="600" alt="data-help" />
 
 #### `vana setup`
 
-![setup](vhs/setup.gif)
+<img src="vhs/setup.gif" width="600" alt="setup" />
 
 ### State and diagnostics
 
 #### `vana status`
 
-![status](vhs/status.gif)
+<img src="vhs/status.gif" width="600" alt="status" />
 
 #### `vana doctor`
 
-![doctor](vhs/doctor.gif)
+<img src="vhs/doctor.gif" width="600" alt="doctor" />
 
 #### `vana logs`
 
-![logs](vhs/logs.gif)
+<img src="vhs/logs.gif" width="600" alt="logs" />
 
 ### Discovery
 
 #### `vana sources`
 
-![sources](vhs/sources.gif)
+<img src="vhs/sources.gif" width="600" alt="sources" />
 
 ### Post-success data surfaces
 
 #### `vana data list`
 
-![data-list](vhs/data-list.gif)
+<img src="vhs/data-list.gif" width="600" alt="data-list" />
 
 #### `vana data list` (clean machine)
 
-![data-list-empty](vhs/data-list-empty.gif)
+<img src="vhs/data-list-empty.gif" width="600" alt="data-list-empty" />
 
 #### `vana data show github`
 
-![data-show-github](vhs/data-show-github.gif)
+<img src="vhs/data-show-github.gif" width="600" alt="data-show-github" />
 
 #### `vana data show github` (missing)
 
-![data-show-github-missing](vhs/data-show-github-missing.gif)
+<img src="vhs/data-show-github-missing.gif" width="600" alt="data-show-github-missing" />
 
 #### `vana data path github`
 
-![data-path-github](vhs/data-path-github.gif)
+<img src="vhs/data-path-github.gif" width="600" alt="data-path-github" />
 
 ### Connect flows
 
 #### Successful interactive path
 
-![connect-github-success](vhs/connect-github-success.gif)
+<img src="vhs/connect-github-success.gif" width="600" alt="connect-github-success" />
 
 #### `--no-input` path (no session)
 
-![connect-github-no-input](vhs/connect-github-no-input.gif)
+<img src="vhs/connect-github-no-input.gif" width="600" alt="connect-github-no-input" />
 
 #### `--no-input` path (session reuse attempt)
 
-![connect-github-session-reuse-no-input](vhs/connect-github-session-reuse-no-input.gif)
+<img src="vhs/connect-github-session-reuse-no-input.gif" width="600" alt="connect-github-session-reuse-no-input" />
 
 #### Legacy/manual interactive path (Shop)
 
-![connect-shop](vhs/connect-shop.gif)
+<img src="vhs/connect-shop.gif" width="600" alt="connect-shop" />
 
 #### Legacy/manual `--no-input` path (Shop)
 
-![connect-shop-no-input](vhs/connect-shop-no-input.gif)
+<img src="vhs/connect-shop-no-input.gif" width="600" alt="connect-shop-no-input" />
 
 #### Unavailable connector (Steam)
 
-![connect-steam](vhs/connect-steam.gif)
+<img src="vhs/connect-steam.gif" width="600" alt="connect-steam" />
 
 #### Unavailable connector `--no-input` (Steam)
 
-![connect-steam-no-input](vhs/connect-steam-no-input.gif)
+<img src="vhs/connect-steam-no-input.gif" width="600" alt="connect-steam-no-input" />
 
 ## Acceptance Commands
 
