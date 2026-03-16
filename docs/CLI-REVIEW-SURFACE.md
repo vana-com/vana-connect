@@ -47,15 +47,16 @@ JSON / agent-safe surfaces:
 
 ## Review Order
 
-If you only have a few minutes, review in this order:
+If you only have a few minutes, review the
+[CLI transcripts](CLI-TRANSCRIPTS.md) in this order:
 
-1. [help.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/help.txt)
-2. [doctor.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/doctor.txt)
-3. [status.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/status.txt)
-4. [sources.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/sources.txt)
-5. [connect-github-success.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-github-success.txt)
-6. [data-show-github.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-show-github.txt)
-7. [logs.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/logs.txt)
+1. [`vana --help`](CLI-TRANSCRIPTS.md#vana---help)
+2. [`vana doctor`](CLI-TRANSCRIPTS.md#vana-doctor)
+3. [`vana status`](CLI-TRANSCRIPTS.md#vana-status)
+4. [`vana sources`](CLI-TRANSCRIPTS.md#vana-sources)
+5. [Successful connect](CLI-TRANSCRIPTS.md#successful-interactive-path)
+6. [`vana data show github`](CLI-TRANSCRIPTS.md#vana-data-show-github)
+7. [`vana logs`](CLI-TRANSCRIPTS.md#vana-logs)
 
 That sequence covers:
 
@@ -68,80 +69,9 @@ That sequence covers:
 
 ## Human Review Surfaces
 
-Foundational:
-
-- `vana`
-  - [help.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/help.txt)
-- `vana data`
-  - [data-help.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-help.txt)
-- `vana setup`
-  - [setup.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/setup.txt)
-
-State and diagnostics:
-
-- `vana status`
-  - [status.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/status.txt)
-- `vana doctor`
-  - [doctor.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/doctor.txt)
-- `vana logs`
-  - [logs.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/logs.txt)
-
-Discovery:
-
-- `vana sources`
-  - [sources.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/sources.txt)
-
-Post-success data surfaces:
-
-- `vana data list`
-  - [data-list.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-list.txt)
-- `vana data list` on a clean machine
-  - [data-list-empty.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-list-empty.txt)
-- `vana data show github`
-  - [data-show-github.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-show-github.txt)
-- `vana data show github` when missing
-  - [data-show-github-missing.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-show-github-missing.txt)
-- `vana data path github`
-  - [data-path-github.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/data-path-github.txt)
-
-Connect flows:
-
-- successful interactive path
-  - [connect-github-success.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-github-success.txt)
-- interactive-required / machine-safe path
-  - [connect-github-no-input.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-github-no-input.txt)
-- session reuse attempt in machine-safe path
-  - [connect-github-session-reuse-no-input.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-github-session-reuse-no-input.txt)
-- legacy/manual interactive path
-  - [connect-shop.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-shop.txt)
-- legacy/manual no-input path
-  - [connect-shop-no-input.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-shop-no-input.txt)
-- unavailable connector interactive path
-  - [connect-steam.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-steam.txt)
-- unavailable connector no-input path
-  - [connect-steam-no-input.txt](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/connect-steam-no-input.txt)
-
-## Demo Media
-
-Current published canary demo assets:
-
-- [status-and-sources.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
-- [data-inspection.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
-- [connect-success.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-
-What each demo should prove:
-
-- `status-and-sources.gif`
-  - first impression
-  - runtime clarity
-  - source maturity and recommendation quality
-- `data-inspection.gif`
-  - post-success payoff
-  - useful summaries, not raw dumps
-- `connect-success.gif`
-  - success journey
-  - clear end state
-  - visible value after connection
+All transcripts are in [CLI-TRANSCRIPTS.md](CLI-TRANSCRIPTS.md), organized by
+category: foundational, state/diagnostics, discovery, data surfaces, and
+connect flows.
 
 ## Machine Review Surfaces
 
@@ -160,8 +90,98 @@ Use these when reviewing shell composability and agent behavior:
 
 Related contract docs:
 
-- [CLI-EXIT-CODE-MATRIX.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXIT-CODE-MATRIX.md)
-- [CLI-EXECUTION-PLAYBOOK.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXECUTION-PLAYBOOK.md)
+- [CLI-EXIT-CODE-MATRIX.md](CLI-EXIT-CODE-MATRIX.md)
+- [CLI-EXECUTION-PLAYBOOK.md](CLI-EXECUTION-PLAYBOOK.md)
+
+## Demo Media
+
+Animated recordings of every CLI surface. Regenerate with `pnpm demo:vhs`.
+
+### Foundational
+
+#### `vana --help`
+
+![help](vhs/help.gif)
+
+#### `vana data --help`
+
+![data-help](vhs/data-help.gif)
+
+#### `vana setup`
+
+![setup](vhs/setup.gif)
+
+### State and diagnostics
+
+#### `vana status`
+
+![status](vhs/status.gif)
+
+#### `vana doctor`
+
+![doctor](vhs/doctor.gif)
+
+#### `vana logs`
+
+![logs](vhs/logs.gif)
+
+### Discovery
+
+#### `vana sources`
+
+![sources](vhs/sources.gif)
+
+### Post-success data surfaces
+
+#### `vana data list`
+
+![data-list](vhs/data-list.gif)
+
+#### `vana data list` (clean machine)
+
+![data-list-empty](vhs/data-list-empty.gif)
+
+#### `vana data show github`
+
+![data-show-github](vhs/data-show-github.gif)
+
+#### `vana data show github` (missing)
+
+![data-show-github-missing](vhs/data-show-github-missing.gif)
+
+#### `vana data path github`
+
+![data-path-github](vhs/data-path-github.gif)
+
+### Connect flows
+
+#### Successful interactive path
+
+![connect-github-success](vhs/connect-github-success.gif)
+
+#### `--no-input` path (no session)
+
+![connect-github-no-input](vhs/connect-github-no-input.gif)
+
+#### `--no-input` path (session reuse attempt)
+
+![connect-github-session-reuse-no-input](vhs/connect-github-session-reuse-no-input.gif)
+
+#### Legacy/manual interactive path (Shop)
+
+![connect-shop](vhs/connect-shop.gif)
+
+#### Legacy/manual `--no-input` path (Shop)
+
+![connect-shop-no-input](vhs/connect-shop-no-input.gif)
+
+#### Unavailable connector (Steam)
+
+![connect-steam](vhs/connect-steam.gif)
+
+#### Unavailable connector `--no-input` (Steam)
+
+![connect-steam-no-input](vhs/connect-steam-no-input.gif)
 
 ## Acceptance Commands
 
@@ -196,10 +216,9 @@ vana connect github --json --no-input
 
 ## Regeneration
 
-Refresh transcripts:
+Refresh transcripts (updates [CLI-TRANSCRIPTS.md](CLI-TRANSCRIPTS.md) in place):
 
 ```bash
-pnpm demo:vhs:fixtures
 pnpm demo:transcripts
 ```
 

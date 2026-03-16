@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -7,7 +8,6 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const tapesDir = path.join(repoRoot, "docs", "vhs");
-const fixtureHome = path.join(tapesDir, "fixtures", "demo-home");
 const fixturesRoot = path.join(tapesDir, "fixtures");
 const linuxSeaBinaryPath = path.join(
   repoRoot,
@@ -17,30 +17,100 @@ const linuxSeaBinaryPath = path.join(
   "vana",
 );
 const VHS_DOCKER_IMAGE = "ghcr.io/charmbracelet/vhs:latest";
-const tapes = [
-  "status-and-sources.tape",
-  "data-inspection.tape",
-  "connect-success.tape",
-];
 const DEFAULT_TAPE_TIMEOUT_MS = 180_000;
 
-function main() {
+/**
+ * Each tape entry specifies the tape file name and which environment it needs.
+ *
+ * Environment types:
+ *   "seeded"       — fixture HOME with data, VANA_DEMO_FAST_SUCCESS=1
+ *   "fresh"        — empty HOME (no prior state)
+ *   "seeded-input" — fixture HOME with data, NO VANA_DEMO_FAST_SUCCESS
+ */
+const tapes = [
+  { tape: "help.tape", env: "seeded" },
+  { tape: "data-help.tape", env: "seeded" },
+  { tape: "setup.tape", env: "seeded" },
+  { tape: "status.tape", env: "seeded" },
+  { tape: "doctor.tape", env: "seeded" },
+  { tape: "logs.tape", env: "seeded" },
+  { tape: "sources.tape", env: "seeded" },
+  { tape: "data-list.tape", env: "seeded" },
+  { tape: "data-list-empty.tape", env: "fresh" },
+  { tape: "data-show-github.tape", env: "seeded" },
+  { tape: "data-show-github-missing.tape", env: "fresh" },
+  { tape: "data-path-github.tape", env: "seeded" },
+  { tape: "connect-github-no-input.tape", env: "fresh" },
+  {
+    tape: "connect-github-session-reuse-no-input.tape",
+    env: "seeded-input",
+  },
+  { tape: "connect-shop-no-input.tape", env: "seeded" },
+  { tape: "connect-shop.tape", env: "seeded" },
+  { tape: "connect-steam.tape", env: "seeded" },
+  { tape: "connect-steam-no-input.tape", env: "seeded" },
+  // Runs last — mutates fixture state by writing a new result file
+  { tape: "connect-github-success.tape", env: "seeded", resetFixtures: true },
+];
+
+async function main() {
   prepareFixtures();
   const connectorsDir = resolveDataConnectorsDir();
-  const { env, cleanup, tempRoot, binDir } = prepareRenderEnv(connectorsDir);
-  env.VANA_DEMO_FAST_SUCCESS = "1";
-  if (connectorsDir) {
-    env.VANA_DATA_CONNECTORS_DIR = connectorsDir;
-  }
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vana-vhs-"));
+  const binDir = path.join(tempRoot, "bin");
+  prepareBinDir(binDir);
+
+  // Create a fresh HOME for "fresh" env tapes
+  const freshHome = path.join(tempRoot, "fresh-home");
+  fs.mkdirSync(freshHome, { recursive: true });
+
+  const fixtureHome = path.join(fixturesRoot, "demo-home");
+
+  const basePath = `${binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+  const baseEnvFields = {
+    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
+  };
+
+  // Build the three environment variants
+  const envs = {
+    seeded: {
+      ...process.env,
+      HOME: fixtureHome,
+      PATH: basePath,
+      VANA_DEMO_FAST_SUCCESS: "1",
+      ...baseEnvFields,
+    },
+    fresh: {
+      ...process.env,
+      HOME: freshHome,
+      PATH: basePath,
+      ...baseEnvFields,
+    },
+    "seeded-input": {
+      ...process.env,
+      HOME: fixtureHome,
+      PATH: basePath,
+      ...baseEnvFields,
+    },
+  };
+  // Ensure VANA_DEMO_FAST_SUCCESS is NOT set for seeded-input
+  delete envs["seeded-input"].VANA_DEMO_FAST_SUCCESS;
+
   const runner = resolveRunner({ tempRoot, binDir, connectorsDir });
+
   try {
-    for (const tape of tapes) {
-      const tapePath = path.join(tapesDir, tape);
+    for (const entry of tapes) {
+      if (entry.resetFixtures) {
+        process.stdout.write(`[vhs] re-preparing fixtures before ${entry.tape}\n`);
+        prepareFixtures();
+      }
+      const tapePath = path.join(tapesDir, entry.tape);
       const outputPath = tapePath.replace(/\.tape$/, ".gif");
       if (fs.existsSync(outputPath)) {
         fs.rmSync(outputPath, { force: true });
       }
-      process.stdout.write(`[vhs] rendering ${tape}\n`);
+      const env = envs[entry.env];
+      process.stdout.write(`[vhs] rendering ${entry.tape} (${entry.env})\n`);
       runTape(runner, tapePath, env);
       if (!fs.existsSync(outputPath)) {
         throw new Error(
@@ -52,7 +122,7 @@ function main() {
       );
     }
   } finally {
-    cleanup();
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 }
 
@@ -61,6 +131,26 @@ function prepareFixtures() {
     cwd: repoRoot,
     stdio: "inherit",
   });
+}
+
+function prepareBinDir(binDir) {
+  fs.mkdirSync(binDir, { recursive: true });
+  const launcherPath = path.join(binDir, "vana");
+  const launcherTarget = fs.existsSync(linuxSeaBinaryPath)
+    ? linuxSeaBinaryPath
+    : path.join(repoRoot, "dist", "cli", "bin.js");
+  const launcherExec = fs.existsSync(linuxSeaBinaryPath)
+    ? `exec "${launcherTarget}" "$@"`
+    : `exec node "${launcherTarget}" "$@"`;
+  fs.writeFileSync(
+    launcherPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+${launcherExec}
+`,
+    "utf8",
+  );
+  fs.chmodSync(launcherPath, 0o755);
 }
 
 function resolveRunner({ tempRoot, binDir, connectorsDir }) {
@@ -77,16 +167,6 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
       );
     }
     ensureDockerImage(VHS_DOCKER_IMAGE);
-
-    const dockerEnvArgs = [
-      "-e",
-      `HOME=${fixtureHome}`,
-      "-e",
-      `PATH=${binDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
-      ...(connectorsDir
-        ? ["-e", `VANA_DATA_CONNECTORS_DIR=${connectorsDir}`]
-        : []),
-    ];
     return {
       command: "docker",
       args: [
@@ -98,7 +178,6 @@ function resolveRunner({ tempRoot, binDir, connectorsDir }) {
         `${tempRoot}:${tempRoot}`,
         "-w",
         repoRoot,
-        ...dockerEnvArgs,
         VHS_DOCKER_IMAGE,
       ],
     };
@@ -125,44 +204,6 @@ function runTape(runner, tapePath, env) {
     }
     throw error;
   }
-}
-
-function prepareRenderEnv(connectorsDir) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vana-vhs-"));
-  const binDir = path.join(tempRoot, "bin");
-  fs.mkdirSync(binDir, { recursive: true });
-  const launcherPath = path.join(binDir, "vana");
-  const launcherTarget = fs.existsSync(linuxSeaBinaryPath)
-    ? linuxSeaBinaryPath
-    : path.join(repoRoot, "dist", "cli", "bin.js");
-  const launcherExec = fs.existsSync(linuxSeaBinaryPath)
-    ? `exec "${launcherTarget}" "$@"`
-    : `exec node "${launcherTarget}" "$@"`;
-  fs.writeFileSync(
-    launcherPath,
-    `#!/usr/bin/env bash
-set -euo pipefail
-${launcherExec}
-`,
-    "utf8",
-  );
-  fs.chmodSync(launcherPath, 0o755);
-
-  const env = {
-    ...process.env,
-    HOME: fixtureHome,
-    PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
-    ...(connectorsDir ? { VANA_DATA_CONNECTORS_DIR: connectorsDir } : {}),
-  };
-
-  return {
-    env,
-    tempRoot,
-    binDir,
-    cleanup() {
-      fs.rmSync(tempRoot, { recursive: true, force: true });
-    },
-  };
 }
 
 function commandExists(command) {

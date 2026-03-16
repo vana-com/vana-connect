@@ -32,7 +32,7 @@ Scored against the standards implied by `uv`, `gh`, Vercel CLI, Stripe DX, and t
 
 ### 1. Runner protocol
 
-The best part of the current system is [run-connector.cjs](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs).
+The best part of the current system is [run-connector.cjs](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs).
 
 What is strong:
 
@@ -44,11 +44,11 @@ What is strong:
 
 Relevant code:
 
-- usage and event framing at [run-connector.cjs:3](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs#L3)
-- output contract at [run-connector.cjs:13](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs#L13)
-- human-readable formatting at [run-connector.cjs:72](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs#L72)
-- request-input handling at [run-connector.cjs:196](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs#L196)
-- file-based continuation at [run-connector.cjs:214](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/run-connector.cjs#L214)
+- usage and event framing at [run-connector.cjs:3](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs#L3)
+- output contract at [run-connector.cjs:13](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs#L13)
+- human-readable formatting at [run-connector.cjs:72](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs#L72)
+- request-input handling at [run-connector.cjs:196](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs#L196)
+- file-based continuation at [run-connector.cjs:214](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/run-connector.cjs#L214)
 
 Why this matters:
 
@@ -79,7 +79,7 @@ What is good:
 
 Relevant docs:
 
-- [SETUP.md](/home/tnunamak/code/data-connectors/skills/vana-connect/SETUP.md)
+- [SETUP.md](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/SETUP.md)
 
 Why this matters:
 
@@ -102,9 +102,9 @@ The validator is more substantial than a vibe-coded placeholder.
 
 Relevant code:
 
-- report model at [validate.cjs:23](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/validate.cjs#L23)
-- metadata checks at [validate.cjs:185](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/validate.cjs#L185)
-- script pattern checks at [validate.cjs:227](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/validate.cjs#L227)
+- report model at [validate.cjs:23](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/validate.cjs#L23)
+- metadata checks at [validate.cjs:185](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/validate.cjs#L185)
+- script pattern checks at [validate.cjs:227](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/validate.cjs#L227)
 
 Why it matters:
 
@@ -125,14 +125,14 @@ Verdict:
 
 ### 1. Setup flow
 
-[setup.sh](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/setup.sh) is useful but nowhere near `uv` / Vercel quality.
+[setup.sh](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/setup.sh) is useful but nowhere near `uv` / Vercel quality.
 
 Relevant code:
 
-- bootstrap flow at [setup.sh:19](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/setup.sh#L19)
-- cross-repo clone at [setup.sh:27](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/setup.sh#L27)
-- dependency install at [setup.sh:35](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/setup.sh#L35)
-- browser install at [setup.sh:38](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/setup.sh#L38)
+- bootstrap flow at [setup.sh:19](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/setup.sh#L19)
+- cross-repo clone at [setup.sh:27](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/setup.sh#L27)
+- dependency install at [setup.sh:35](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/setup.sh#L35)
+- browser install at [setup.sh:38](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/setup.sh#L38)
 
 What’s weak:
 
@@ -156,13 +156,13 @@ Verdict:
 
 ### 2. Connector discovery
 
-[fetch-connector.cjs](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/fetch-connector.cjs) works, but it is not yet a strong user-facing discovery experience.
+[fetch-connector.cjs](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/fetch-connector.cjs) works, but it is not yet a strong user-facing discovery experience.
 
 Relevant code:
 
-- raw GitHub registry fetch at [fetch-connector.cjs:24](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/fetch-connector.cjs#L24)
-- partial match search at [fetch-connector.cjs:57](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/fetch-connector.cjs#L57)
-- download flow at [fetch-connector.cjs:70](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts/fetch-connector.cjs#L70)
+- raw GitHub registry fetch at [fetch-connector.cjs:24](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/fetch-connector.cjs#L24)
+- partial match search at [fetch-connector.cjs:57](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/fetch-connector.cjs#L57)
+- download flow at [fetch-connector.cjs:70](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts/fetch-connector.cjs#L70)
 
 What’s weak:
 

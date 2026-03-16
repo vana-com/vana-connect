@@ -59,17 +59,8 @@ whether data stayed local or synced to a Personal Server.
 
 ## Demo
 
-The hero demo is intentionally a short payoff story:
-
-1. connect GitHub
-2. inspect the collected dataset
-
-![Vana successful connect demo](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-success.gif)
-
-Supporting demos:
-
-- [status-and-sources.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status-and-sources.gif)
-- [data-inspection.gif](https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-inspection.gif)
+See all CLI surfaces with their exact output in the
+[CLI transcripts](CLI-TRANSCRIPTS.md).
 
 ## Core Commands
 
@@ -104,18 +95,17 @@ Contract:
 
 Full contract:
 
-- [CLI exit code matrix](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXIT-CODE-MATRIX.md)
+- [CLI exit code matrix](CLI-EXIT-CODE-MATRIX.md)
 
 ## Review Surface
 
 If you want to review the CLI systematically, start here:
 
-- [CLI review surface](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-REVIEW-SURFACE.md)
+- [CLI review surface](CLI-REVIEW-SURFACE.md)
 
 Supporting artifacts:
 
-- [CLI transcripts](/home/tnunamak/code/vana-connect-cli-pr/docs/transcripts/README.md)
-- [CLI VHS demos](/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/README.md)
+- [CLI transcripts](CLI-TRANSCRIPTS.md)
 
 ## Lifecycle
 
@@ -173,14 +163,7 @@ node dist/cli/bin.js status
 Refresh local review artifacts:
 
 ```bash
-pnpm demo:vhs:fixtures
 pnpm demo:transcripts
-```
-
-Render demo media once `vhs` or Docker is available:
-
-```bash
-pnpm demo:vhs
 ```
 
 Watch the release lane and canary publication:

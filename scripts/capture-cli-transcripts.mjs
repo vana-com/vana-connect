@@ -7,11 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
-const transcriptsDir = path.join(repoRoot, "docs", "transcripts");
+const transcriptsMd = path.join(repoRoot, "docs", "CLI-TRANSCRIPTS.md");
 const fixturesRoot = path.join(repoRoot, "docs", "vhs", "fixtures");
 
 async function main() {
-  await fsp.mkdir(transcriptsDir, { recursive: true });
   const tempRoot = await fsp.mkdtemp(
     path.join(os.tmpdir(), "vana-transcripts-"),
   );
@@ -42,122 +41,114 @@ async function main() {
   delete seededInputEnv.VANA_DEMO_FAST_SUCCESS;
 
   const commands = [
+    { marker: "help", argv: ["vana"], env: seededEnv },
+    { marker: "data-help", argv: ["vana", "data"], env: seededEnv },
+    { marker: "setup", argv: ["vana", "setup"], env: seededEnv },
+    { marker: "status", argv: ["vana", "status"], env: seededEnv },
+    { marker: "doctor", argv: ["vana", "doctor"], env: seededEnv },
+    { marker: "logs", argv: ["vana", "logs"], env: seededEnv },
+    { marker: "sources", argv: ["vana", "sources"], env: seededEnv },
+    { marker: "data-list", argv: ["vana", "data", "list"], env: seededEnv },
     {
-      name: "help.txt",
-      argv: ["vana"],
-      env: seededEnv,
-    },
-    {
-      name: "data-help.txt",
-      argv: ["vana", "data"],
-      env: seededEnv,
-    },
-    {
-      name: "status.txt",
-      argv: ["vana", "status"],
-      env: seededEnv,
-    },
-    {
-      name: "doctor.txt",
-      argv: ["vana", "doctor"],
-      env: seededEnv,
-    },
-    {
-      name: "logs.txt",
-      argv: ["vana", "logs"],
-      env: seededEnv,
-    },
-    {
-      name: "setup.txt",
-      argv: ["vana", "setup"],
-      env: seededEnv,
-    },
-    {
-      name: "sources.txt",
-      argv: ["vana", "sources"],
-      env: seededEnv,
-    },
-    {
-      name: "data-list.txt",
-      argv: ["vana", "data", "list"],
-      env: seededEnv,
-    },
-    {
-      name: "data-list-empty.txt",
+      marker: "data-list-empty",
       argv: ["vana", "data", "list"],
       env: freshEnv,
     },
     {
-      name: "data-show-github.txt",
+      marker: "data-show-github",
       argv: ["vana", "data", "show", "github"],
       env: seededEnv,
     },
     {
-      name: "data-show-github-missing.txt",
+      marker: "data-show-github-missing",
       argv: ["vana", "data", "show", "github"],
       env: freshEnv,
       allowFailure: true,
     },
     {
-      name: "data-path-github.txt",
+      marker: "data-path-github",
       argv: ["vana", "data", "path", "github"],
       env: seededEnv,
     },
     {
-      name: "connect-github-success.txt",
+      marker: "connect-github-success",
       argv: ["vana", "connect", "github"],
       env: seededEnv,
     },
     {
-      name: "connect-github-no-input.txt",
+      marker: "connect-github-no-input",
       argv: ["vana", "connect", "github", "--no-input"],
       env: freshEnv,
       allowFailure: true,
     },
     {
-      name: "connect-github-session-reuse-no-input.txt",
+      marker: "connect-github-session-reuse-no-input",
       argv: ["vana", "connect", "github", "--no-input"],
       env: seededInputEnv,
       allowFailure: true,
     },
     {
-      name: "connect-shop-no-input.txt",
+      marker: "connect-shop-no-input",
       argv: ["vana", "connect", "shop", "--no-input"],
       env: seededEnv,
       allowFailure: true,
     },
     {
-      name: "connect-shop.txt",
+      marker: "connect-shop",
       argv: ["vana", "connect", "shop"],
       env: seededEnv,
       allowFailure: true,
     },
     {
-      name: "connect-steam.txt",
+      marker: "connect-steam",
       argv: ["vana", "connect", "steam"],
       env: seededEnv,
       allowFailure: true,
     },
     {
-      name: "connect-steam-no-input.txt",
+      marker: "connect-steam-no-input",
       argv: ["vana", "connect", "steam", "--no-input"],
       env: seededEnv,
       allowFailure: true,
     },
   ];
 
+  let mdContent = await fsp.readFile(transcriptsMd, "utf8");
+
   for (const command of commands) {
+    const cmdLine = `$ ${command.argv.join(" ")}`;
     const output = normalizeTranscript(
       run(command.argv, command.env, command.allowFailure),
     );
-    const filePath = path.join(transcriptsDir, command.name);
-    await fsp.writeFile(filePath, output, "utf8");
-    process.stdout.write(
-      `[transcript] wrote ${path.relative(repoRoot, filePath)}\n`,
+    const block = `\`\`\`\n${cmdLine}\n\n${output.trimEnd()}\n\`\`\``;
+
+    const beginTag = `<!-- BEGIN:${command.marker} -->`;
+    const endTag = `<!-- END:${command.marker} -->`;
+    const pattern = new RegExp(
+      `${escapeRegex(beginTag)}[\\s\\S]*?${escapeRegex(endTag)}`,
     );
+
+    if (!pattern.test(mdContent)) {
+      process.stderr.write(
+        `[transcript] WARNING: marker ${command.marker} not found in CLI-TRANSCRIPTS.md\n`,
+      );
+      continue;
+    }
+
+    mdContent = mdContent.replace(pattern, `${beginTag}\n${block}\n${endTag}`);
+    process.stdout.write(`[transcript] updated ${command.marker}\n`);
   }
 
+  await fsp.writeFile(transcriptsMd, mdContent, "utf8");
+  process.stdout.write(
+    `[transcript] wrote ${path.relative(repoRoot, transcriptsMd)}\n`,
+  );
+
   await fsp.rm(tempRoot, { recursive: true, force: true });
+}
+
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function prepareFixtures(homeRoot) {

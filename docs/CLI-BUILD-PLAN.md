@@ -27,8 +27,8 @@ Why:
 
 Relevant files:
 
-- [package.json](/home/tnunamak/code/vana-connect/package.json)
-- [pnpm-workspace.yaml](/home/tnunamak/code/vana-connect/pnpm-workspace.yaml)
+- [package.json](../package.json)
+- [pnpm-workspace.yaml](../pnpm-workspace.yaml)
 
 ### `data-connectors`
 
@@ -42,8 +42,8 @@ Remain the source of truth for:
 
 Relevant files:
 
-- [registry.json](/home/tnunamak/code/data-connectors/registry.json)
-- [skills/vana-connect/scripts](/home/tnunamak/code/data-connectors/skills/vana-connect/scripts)
+- [registry.json](https://github.com/vana-com/data-connectors/blob/main/registry.json)
+- [skills/vana-connect/scripts](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/scripts)
 
 ### `data-connect`
 
@@ -55,7 +55,7 @@ Reference implementation and integration source for:
 
 Relevant file:
 
-- [personalServerIngest.ts](/home/tnunamak/code/data-connect/src/services/personalServerIngest.ts)
+- `data-connect/src/services/personalServerIngest.ts`
 
 ## Practical conclusion
 

@@ -8,9 +8,9 @@ all prior design context.
 
 It should be read after:
 
-- [CLI-FINAL-PRODUCT-SPEC.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-FINAL-PRODUCT-SPEC.md)
-- [CLI-BEAUTY-IMPLEMENTATION-PLAN.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-BEAUTY-IMPLEMENTATION-PLAN.md)
-- [CLI-RUNTIME-PORTABILITY-NOTES.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-RUNTIME-PORTABILITY-NOTES.md)
+- [CLI-FINAL-PRODUCT-SPEC.md](CLI-FINAL-PRODUCT-SPEC.md)
+- [CLI-BEAUTY-IMPLEMENTATION-PLAN.md](CLI-BEAUTY-IMPLEMENTATION-PLAN.md)
+- [CLI-RUNTIME-PORTABILITY-NOTES.md](CLI-RUNTIME-PORTABILITY-NOTES.md)
 
 If this document conflicts with casual conversational guidance, this document
 wins.

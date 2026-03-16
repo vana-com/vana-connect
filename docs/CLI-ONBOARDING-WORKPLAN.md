@@ -17,7 +17,7 @@ These are not small assets. They should be treated as the foundation, not throwa
 
 ### Operational building blocks already present
 
-- one-shot setup flow in [SETUP.md](/home/tnunamak/code/data-connectors/skills/vana-connect/SETUP.md)
+- one-shot setup flow in [SETUP.md](https://github.com/vana-com/data-connectors/blob/main/skills/vana-connect/SETUP.md)
 - connector discovery in `skills/vana-connect/scripts/fetch-connector.cjs`
 - execution wrapper in `skills/vana-connect/scripts/run-connector.cjs`
 - validator in `skills/vana-connect/scripts/validate.cjs`

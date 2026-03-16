@@ -70,7 +70,7 @@ Typical usage once `vhs` is available locally:
 
 ```bash
 HOME="$PWD/docs/vhs/fixtures/demo-home" \
-VANA_DATA_CONNECTORS_DIR="/home/tnunamak/code/data-connectors" \
+VANA_DATA_CONNECTORS_DIR="/path/to/data-connectors" \
 vhs docs/vhs/status-and-sources.tape
 ```
 

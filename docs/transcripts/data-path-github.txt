@@ -1,1 +1,0 @@
-~/.dataconnect/last-result.json

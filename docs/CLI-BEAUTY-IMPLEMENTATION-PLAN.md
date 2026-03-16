@@ -17,12 +17,12 @@ the human-facing CLI feel best-in-class while preserving:
 
 It should be read together with:
 
-- [CLI-UX-QUALITY-BAR.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-UX-QUALITY-BAR.md)
-- [CLI-AUDIENCE-CONTRACT.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-AUDIENCE-CONTRACT.md)
-- [CLI-ONBOARDING-COPY.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-ONBOARDING-COPY.md)
-- [CLI-UX-SIMULATION.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-UX-SIMULATION.md)
-- [CLI-EXECUTION-PLAYBOOK.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXECUTION-PLAYBOOK.md)
-- [Terminal CLI Beauty Memo](/home/tnunamak/code/data-connectors/skills/vana-connect/docs/cli-beauty-research/terminal-cli-visual-and-emotional-beauty-memo.md)
+- [CLI-UX-QUALITY-BAR.md](CLI-UX-QUALITY-BAR.md)
+- [CLI-AUDIENCE-CONTRACT.md](CLI-AUDIENCE-CONTRACT.md)
+- [CLI-ONBOARDING-COPY.md](CLI-ONBOARDING-COPY.md)
+- [CLI-UX-SIMULATION.md](CLI-UX-SIMULATION.md)
+- [CLI-EXECUTION-PLAYBOOK.md](CLI-EXECUTION-PLAYBOOK.md)
+- Terminal CLI Beauty Memo (data-connectors/skills/vana-connect/docs/cli-beauty-research/terminal-cli-visual-and-emotional-beauty-memo.md)
 
 ## Final Recommendation
 
@@ -68,7 +68,7 @@ Beauty work can make the CLI feel premium, but it does not automatically close:
 
 Those are tracked explicitly in:
 
-- [CLI-EXECUTION-PLAYBOOK.md](/home/tnunamak/code/vana-connect-cli-pr/docs/CLI-EXECUTION-PLAYBOOK.md)
+- [CLI-EXECUTION-PLAYBOOK.md](CLI-EXECUTION-PLAYBOOK.md)
   under **Batch 8A: Best-In-Class Finish**
 
 ## Brand palette anchor
@@ -76,7 +76,7 @@ Those are tracked explicitly in:
 The CLI should not invent its own theme. It should derive its semantic color
 choices from the shared Vana product palette in:
 
-- [shadcn.css](/home/tnunamak/code/vana-app/packages/ui/src/styles/shadcn.css)
+- [shadcn.css](https://github.com/vana-com/vana-app/blob/main/packages/ui/src/styles/shadcn.css)
 
 Important tokens in that file:
 
