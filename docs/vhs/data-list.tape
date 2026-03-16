@@ -9,8 +9,6 @@ Set CursorBlink false
 Set Theme "Catppuccin Mocha"
 Set WindowBar Colorful
 Set Padding 20
-Set Margin 20
-Set MarginFill "#7983FF"
 Set BorderRadius 10
 Set LoopOffset 50%
 Set Height 882

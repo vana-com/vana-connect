@@ -4,7 +4,7 @@
       "id": "github",
       "name": "GitHub",
       "company": "github",
-      "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
+      "description": "Exports your GitHub profile, repositories, and starred repositories via Playwright.",
       "files": {
         "script": "connectors/github/github-playwright.js"
       }
@@ -13,7 +13,7 @@
       "id": "shop",
       "name": "Shop",
       "company": "shop",
-      "description": "Exports your Shop app order history using Playwright browser automation.",
+      "description": "Exports your Shop app order history via Playwright.",
       "files": {
         "script": "connectors/shop/shop-playwright.js"
       }
@@ -22,7 +22,7 @@
       "id": "spotify",
       "name": "Spotify",
       "company": "spotify",
-      "description": "Exports your Spotify playlists using Playwright browser automation.",
+      "description": "Exports your Spotify playlists via Playwright.",
       "files": {
         "script": "connectors/spotify/spotify-playwright.js"
       }
