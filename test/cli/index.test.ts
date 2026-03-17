@@ -409,14 +409,13 @@ describe("runCli", () => {
     expect(stdout).toContain(
       "connect [options] [source]  Connect a source and collect data",
     );
-    expect(stdout).toContain("Start here:");
-    expect(stdout).toContain("Automation:");
-    expect(stdout).toContain("Support:");
-    expect(stdout).toContain("Version:");
-    expect(stdout).toContain("0.8.1 (stable, development checkout)");
+    expect(stdout).toContain("Quick start:");
+    expect(stdout).toContain("Data:");
+    expect(stdout).toContain("Server:");
+    expect(stdout).toContain("More:");
     expect(stdout).toContain("vana doctor");
-    expect(stdout).toContain("vana connect github");
     expect(stdout).toContain("vana data list");
+    expect(stdout).toContain("vana data show <src>");
   });
 
   it("shows top-level help and exits successfully with no arguments", async () => {
@@ -578,10 +577,9 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
       "Vana Connect setup
-
       → Runtime
       The local runtime is already installed.
-        Browser:          /tmp/playwright/chrome
+        Browser:       /tmp/playwright/chrome
 
       → Next
         • Check overall status with \`vana status\`.
@@ -606,7 +604,6 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
       "Vana Connect setup
-
       → Runtime
       ✓ Runtime ready.
         Setup log: /tmp/logs/setup.log
@@ -699,30 +696,29 @@ describe("runCli", () => {
       Need attention (1) • Connected (1) • Local only (1)
 
       → Environment
-        Runtime:          installed
-        Browser:          /tmp/playwright/chrome
-        Personal Server:  not connected
+        Runtime:       installed
+        Browser:       /tmp/playwright/chrome
+        Personal Server: not connected
         Run \`vana server set-url <url>\` to configure
 
       → Needs attention (1)
       Shop [legacy] [manual step]
         Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
         Updated: <timestamp>
-        Run log:          /tmp/.dataconnect/logs/run-shop.log
+        Run log:       /tmp/.dataconnect/logs/run-shop.log
 
       → Connected (1)
       GitHub [interactive] [local]
         Inspect the latest local dataset with \`vana data show github\`.
-        Session:          Saved for faster reconnects.
-        State:            Saved locally
+        Session:       Session cached.
+        State:         Saved locally
         Updated: <timestamp>
-        Path:             /tmp/.dataconnect/github-result.json
+        Path:          /tmp/.dataconnect/github-result.json
 
       → Next
         • Complete the manual browser step for Shop with \`vana connect shop\`.
         • Inspect the latest run log with \`vana logs shop\`.
         • Inspect the data you already collected with \`vana data show github\`.
-        • Sync 1 pending dataset(s) with \`vana server sync\`.
       "
     `);
   });
@@ -1098,10 +1094,8 @@ describe("runCli", () => {
       dataState: "collected_local",
       nextSteps: [
         "Print the path with `vana data path github`.",
-        "Use `vana data show github --json | jq` for structured inspection.",
         "Reconnect GitHub with `vana connect github`.",
         "Connect another source with `vana sources`.",
-        "Check overall status with `vana status`.",
       ],
       data: {
         profile: { username: "tnunamak" },
@@ -1151,16 +1145,14 @@ describe("runCli", () => {
         • Latest repos: vana-connect, data-connectors
         • Starred: 0
 
-        Path:             /tmp/.dataconnect/github-result.json
+        Path:          /tmp/.dataconnect/github-result.json
         Updated: <timestamp>
-        State:            Saved locally
+        State:         Saved locally
 
       → Next
         • Print the path with \`vana data path github\`.
-        • Use \`vana data show github --json | jq\` for structured inspection.
         • Reconnect GitHub with \`vana connect github\`.
         • Connect another source with \`vana sources\`.
-        • Check overall status with \`vana status\`.
       "
     `);
   });
@@ -1376,17 +1368,17 @@ describe("runCli", () => {
         Repositories: 2
         Latest repos: vana-connect, data-connect
         Starred: 0
-        State:            Saved locally
+        State:         Saved locally
         Updated: <timestamp>
-        Path:             /tmp/.dataconnect/github-result.json
+        Path:          /tmp/.dataconnect/github-result.json
 
       Spotify [local]
         Profile: tnunamak
         Playlists: 2
         Playlists: Focus, Deep Work
-        State:            Saved locally
+        State:         Saved locally
         Updated: <timestamp>
-        Path:             /tmp/.dataconnect/spotify-result.json
+        Path:          /tmp/.dataconnect/spotify-result.json
 
       → Next
         • Inspect GitHub with \`vana data show github\`.
@@ -1613,12 +1605,12 @@ describe("runCli", () => {
 
       → Needs attention (1)
       Shop [manual step]
-        Path:             /tmp/.dataconnect/logs/run-shop.log
+        Path:          /tmp/.dataconnect/logs/run-shop.log
         Updated: <timestamp>
 
       → Successful runs (1)
       GitHub [local]
-        Path:             /tmp/.dataconnect/logs/run-github.log
+        Path:          /tmp/.dataconnect/logs/run-github.log
         Updated: <timestamp>
 
       → Next
@@ -1785,15 +1777,12 @@ describe("runCli", () => {
       → Ready now (2)
       GitHub [interactive] [recommended]
         Exports GitHub data.
-        Flow: prompts in this terminal when the source needs input.
       Spotify [interactive]
         Exports Spotify data.
-        Flow: prompts in this terminal when the source needs input.
 
       → Manual steps (1)
       ChatGPT [legacy]
         Exports ChatGPT data.
-        Flow: finishes with a manual browser step on this machine.
 
       → Next
         • Connect GitHub with \`vana connect github\`.
@@ -2217,7 +2206,7 @@ describe("runCli", () => {
     expect(stdout).toContain("Saved locally");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
     expect(stdout).toContain("Session:");
-    expect(stdout).toContain("Saved for faster reconnects.");
+    expect(stdout).toContain("Session cached.");
     expect(stdout).toContain("Server:");
     expect(stdout).toContain("Data saved locally.");
     expect(stdout).toContain("Next");
@@ -2366,7 +2355,7 @@ describe("runCli", () => {
     );
     expect(stdout).toContain("Saved and synced");
     expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain("Saved for faster reconnects.");
+    expect(stdout).toContain("Session cached.");
     expect(stdout).toContain(
       "Your data is now available in your Personal Server.",
     );

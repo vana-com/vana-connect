@@ -69,6 +69,10 @@ interface SourceMetadataMap {
   };
 }
 
+function cleanDescription(desc: string): string {
+  return desc.replace(/ using Playwright browser automation\.?/i, ".");
+}
+
 interface Emitter {
   event(event: CliEvent | CliOutcome): void;
   info(message: string): void;
@@ -118,25 +122,22 @@ export async function runCli(argv = process.argv): Promise<number> {
     .addHelpText(
       "after",
       `
-Start here:
-  vana connect
-  vana status
-  vana data list
+Quick start:
+  vana connect           Connect a source and collect data
+  vana sources           Browse available sources
+  vana status            Check system health
 
-Automation:
-  vana connect github --json --no-input
-  vana sources --json | jq '.sources[] | {id, authMode}'
+Data:
+  vana data list         List collected datasets
+  vana data show <src>   Inspect a dataset
 
-Personal Server:
-  vana server
-  vana server set-url <url>
+Server:
+  vana server            Personal Server status and management
 
-Support:
-  vana doctor
-  vana logs
-
-Version:
-  ${cliVersion} (${getCliChannel(cliVersion)}, ${formatInstallMethodLabel(getCliInstallMethod()).toLowerCase()})
+More:
+  vana doctor            Detailed diagnostics
+  vana logs [source]     View run logs
+  vana setup             Install or repair runtime
 `,
     );
   program.exitOverride();
@@ -456,7 +457,6 @@ async function runConnect(
 
   try {
     emit.title(`Connect ${displayName}`);
-    emit.blank();
     emit.section("Preparing");
     emit.info(`Finding a connector for ${displayName}...`);
     progress.start(`Preparing ${displayName}...`);
@@ -587,7 +587,7 @@ async function runConnect(
     emit.info("Connector ready.");
     progress.update(`Connector ready for ${displayName}.`);
     if (sourceDetails?.description) {
-      emit.info(sourceDetails.description);
+      emit.info(cleanDescription(sourceDetails.description));
     }
     const connectTrustMessage = describeConnectTrust(sourceDetails?.authMode);
     if (connectTrustMessage) {
@@ -981,7 +981,6 @@ async function runConnect(
     });
 
     const resultSummary = await readResultSummary(resultPath);
-    const statusCommand = emit.code("vana status");
     const dataCommand = emit.code(`vana data show ${source}`);
 
     // Build scope-aware success summary
@@ -1040,7 +1039,7 @@ async function runConnect(
         : "Saved locally",
     );
     emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
-    emit.keyValue("Session", "Saved for faster reconnects.", "muted");
+    emit.keyValue("Session", "Session cached.", "muted");
     if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       emit.keyValue(
         "Server",
@@ -1076,12 +1075,6 @@ async function runConnect(
     emit.section("Next");
     emit.bullet(`Inspect the data with ${dataCommand}`);
     emit.bullet(`Connect another source with ${emit.code("vana sources")}`);
-    if (runLogPath) {
-      emit.bullet(
-        `Inspect the run log with ${emit.code(`vana logs ${source}`)}.`,
-      );
-    }
-    emit.bullet(`Or check overall status with ${statusCommand}`);
     emit.event({
       type: "outcome",
       status: finalStatus,
@@ -1108,12 +1101,6 @@ async function runConnect(
       emit.blank();
       emit.section("Next");
       emit.bullet(`Resume with ${emit.code(`vana connect ${source}`)}.`);
-      if (runLogPath) {
-        emit.bullet(
-          `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-        );
-      }
-      emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.NEEDS_INPUT,
@@ -1143,7 +1130,6 @@ async function runConnect(
       );
     }
     emit.bullet(`Inspect install health with ${emit.code("vana doctor")}.`);
-    emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
     if (runLogPath) {
       emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
     } else if (fetchLogPath) {
@@ -1436,7 +1422,7 @@ async function runList(options: GlobalOptions): Promise<number> {
       }
       emit.sourceTitle(source.name, badges);
       if (source.description) {
-        emit.detail(source.description);
+        emit.detail(cleanDescription(source.description));
       }
       if (
         source.dataState === "collected_local" ||
@@ -1446,8 +1432,6 @@ async function runList(options: GlobalOptions): Promise<number> {
         emit.detail(
           `Inspect with ${emit.code(`vana data show ${source.id}`)}.`,
         );
-      } else {
-        emit.detail(describeSourceFlow(source.authMode));
       }
     }
   });
@@ -1664,7 +1648,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   if (nextSteps.length > 0) {
     emit.blank();
     emit.section("Next");
-    for (const step of nextSteps) {
+    for (const step of nextSteps.slice(0, 3)) {
       emit.bullet(step);
     }
   }
@@ -1868,7 +1852,6 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
 
   const emit = createEmitter(options);
   emit.title("Vana Connect doctor");
-  emit.blank();
   emit.section("Summary");
   emit.keyValue("CLI", cliVersion, "muted");
   emit.keyValue("Channel", cliChannel, "muted");
@@ -2063,9 +2046,7 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
 
   if (target.source === "scan" && target.url) {
     emit.blank();
-    emit.detail(
-      `Tip: Run ${emit.code(`vana server set-url ${target.url}`)} to save this connection.`,
-    );
+    emit.detail(`Save with ${emit.code(`vana server set-url ${target.url}`)}.`);
   }
 
   if (target.state !== "available") {
@@ -2075,6 +2056,11 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
     emit.bullet("Or set VANA_PERSONAL_SERVER_URL environment variable.");
     emit.bullet("Or start a Personal Server on localhost:8080.");
   }
+
+  emit.blank();
+  emit.detail(
+    `More: ${emit.code("vana server sync")} | ${emit.code("vana server data")} | ${emit.code("vana server --help")}`,
+  );
 
   return 0;
 }
@@ -2182,7 +2168,6 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     registrySources[0];
 
   emit.title("Vana Connect setup");
-  emit.blank();
   emit.section("Runtime");
 
   if (runtime.state === "installed") {
@@ -2760,7 +2745,7 @@ async function runSourceDetail(
   emit.sourceTitle(`${iconPrefix}${match.name}`, badgeList);
   emit.blank();
   if (match.description) {
-    emit.info(match.description);
+    emit.info(cleanDescription(match.description));
     emit.blank();
   }
   emit.keyValue("Version", displayVersion, "muted");
@@ -2778,7 +2763,7 @@ async function runSourceDetail(
     for (const scope of scopes) {
       emit.bullet(scope.label);
       if (scope.description) {
-        emit.detail(scope.description);
+        emit.detail(cleanDescription(scope.description));
       }
     }
   }
@@ -3477,7 +3462,7 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
     details.push({
       kind: "row",
       label: "Session",
-      value: "Saved for faster reconnects.",
+      value: "Session cached.",
       tone: "muted",
     });
   }
@@ -3735,13 +3720,10 @@ function buildDataShowNextSteps(
 ): string[] {
   return [
     `Print the path with \`vana data path ${source}\`.`,
-    `Use \`vana data show ${source} --json | jq\` for structured inspection.`,
     `Reconnect ${displaySource(source, sourceLabels)} with \`vana connect ${source}\`.`,
-    "Connect another source with `vana sources`.",
     ...(datasetCount > 1
-      ? ["Inspect other datasets with `vana data list`."]
-      : []),
-    "Check overall status with `vana status`.",
+      ? ["See all datasets with `vana data list`."]
+      : ["Connect another source with `vana sources`."]),
   ];
 }
 
@@ -3886,20 +3868,6 @@ function formatMissingConnectSourceMessage(
   return "Specify a source. Run `vana sources` to see available options.";
 }
 
-function describeSourceFlow(
-  authMode: "automated" | "interactive" | "legacy" | undefined,
-): string {
-  if (authMode === "legacy") {
-    return "Flow: finishes with a manual browser step on this machine.";
-  }
-
-  if (authMode === "interactive") {
-    return "Flow: prompts in this terminal when the source needs input.";
-  }
-
-  return "Flow: runs without extra input when the source supports it.";
-}
-
 function formatSourcePickerDescription(source: {
   description?: string;
   authMode?: "automated" | "interactive" | "legacy";
@@ -3915,9 +3883,7 @@ function formatSourcePickerDescription(source: {
         : source.dataState === "ingest_failed"
           ? "Already connected locally; Personal Server sync failed."
           : "Already connected locally.";
-    const reconnectHint = source.sessionPresent
-      ? " Saved session available for faster reconnects."
-      : "";
+    const reconnectHint = source.sessionPresent ? " Session cached." : "";
     return `${savedState} Inspect with \`vana data show ${source.id}\` or reconnect now.${reconnectHint}`;
   }
 
@@ -3925,12 +3891,11 @@ function formatSourcePickerDescription(source: {
     return `Needs a manual browser step on this machine. Continue with \`vana connect ${source.id}\`.`;
   }
 
-  const flow = describeSourceFlow(source.authMode);
   if (!source.description) {
-    return flow;
+    return "";
   }
 
-  return `${source.description} ${flow}`;
+  return cleanDescription(source.description);
 }
 
 function normalizeArgv(argv: string[]): string[] {

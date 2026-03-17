@@ -9,7 +9,7 @@ import { createSymbols, type RenderSymbols } from "./symbols.js";
 import { createTheme, type RenderTheme } from "./theme.js";
 
 type Tone = "accent" | "success" | "warning" | "error" | "muted" | "info";
-const KEY_VALUE_LABEL_WIDTH = 17;
+const KEY_VALUE_LABEL_WIDTH = 14;
 
 export interface HumanRenderer {
   readonly capabilities: RenderCapabilities;
