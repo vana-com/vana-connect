@@ -114,6 +114,7 @@ export async function runCli(argv = process.argv): Promise<number> {
     .name("vana")
     .description("Connect sources, collect data, and inspect it locally.")
     .version(cliVersion, "-v, --version", "Print CLI version")
+    .showSuggestionAfterError(true)
     .addHelpText(
       "after",
       `
@@ -360,7 +361,8 @@ Examples:
   const server = program
     .command("server")
     .description("Manage Personal Server connection")
-    .option("--json", "Output machine-readable JSON");
+    .option("--json", "Output machine-readable JSON")
+    .showSuggestionAfterError(true);
   server.addHelpText(
     "after",
     `
@@ -418,14 +420,19 @@ Examples:
   try {
     await program.parseAsync(normalizedArgv);
   } catch (error) {
-    if (
-      error instanceof CommanderError &&
-      (error.code === "commander.help" ||
+    if (error instanceof CommanderError) {
+      if (
+        error.code === "commander.help" ||
         error.code === "commander.helpDisplayed" ||
-        error.code === "commander.version")
-    ) {
+        error.code === "commander.version"
+      ) {
+        process.exitCode = error.exitCode;
+        return Number(process.exitCode ?? 0);
+      }
+      // Commander already prints the error message to stderr via configureOutput,
+      // so just set the exit code without reprinting.
       process.exitCode = error.exitCode;
-      return Number(process.exitCode ?? 0);
+      return Number(process.exitCode ?? 1);
     }
     throw error;
   }
