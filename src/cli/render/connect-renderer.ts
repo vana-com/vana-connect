@@ -57,6 +57,7 @@ export function createConnectRenderer(): ConnectRenderer {
   let spinnerInterval: ReturnType<typeof setInterval> | null = null;
   let lastRenderedLineCount = 0;
   let isComplete = false;
+  let isFailure = false;
 
   function rgb(r: number, g: number, b: number, text: string): string {
     if (!useColor) return text;
@@ -110,7 +111,10 @@ export function createConnectRenderer(): ConnectRenderer {
     // If complete, show success/failure + details
     if (isComplete && successMessage) {
       lines.push("");
-      lines.push(`  ${bold(successMessage)}`);
+      const prefix = isFailure
+        ? rgb(...ERROR, "\u2717")
+        : rgb(...ACCENT, "\u2713");
+      lines.push(`  ${prefix} ${bold(successMessage)}`);
       for (const line of detailLines) {
         lines.push(`  ${dim(line)}`);
       }
@@ -228,7 +232,8 @@ export function createConnectRenderer(): ConnectRenderer {
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
-        process.stderr.write(`\n  ${bold(message)}\n`);
+        const check = rgb(...ACCENT, "\u2713");
+        process.stderr.write(`\n  ${check} ${bold(message)}\n`);
       }
       paint();
     },
@@ -251,6 +256,7 @@ export function createConnectRenderer(): ConnectRenderer {
 
     fail(message: string): void {
       stopSpinner();
+      isFailure = true;
       // Resolve any still-active scopes to failed
       for (const scope of scopes) {
         if (scope.state === "active") {
@@ -260,7 +266,8 @@ export function createConnectRenderer(): ConnectRenderer {
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
-        process.stderr.write(`\n  ${message}\n`);
+        const x = rgb(...ERROR, "\u2717");
+        process.stderr.write(`\n  ${x} ${message}\n`);
       }
       paint();
     },

@@ -8,14 +8,13 @@ import { Command, CommanderError } from "commander";
 
 // Vana-branded theme for inquirer prompts — matches brand palette
 const VANA_BLUE = "\x1b[38;2;65;65;252m";
-const VANA_GREEN = "\x1b[38;2;0;213;11m";
 const VANA_MUTED = "\x1b[38;2;112;112;112m";
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const BOLD_RESET = "\x1b[22m";
 const vanaPromptTheme = {
   theme: {
-    prefix: { idle: `${VANA_BLUE}?${RESET}`, done: `${VANA_GREEN}✓${RESET}` },
+    prefix: { idle: `${VANA_BLUE}?${RESET}`, done: `${VANA_BLUE}✓${RESET}` },
     style: {
       answer: (text: string) => `${BOLD}${text}${BOLD_RESET}`,
       message: (text: string, status: "idle" | "done" | "loading") =>
