@@ -26,8 +26,13 @@ export interface StoredSourceState {
   lastLogPath?: string | null;
 }
 
+export interface CliConfig {
+  personalServerUrl?: string;
+}
+
 export interface CliStateFile {
   version: 1;
+  config?: CliConfig;
   sources: Record<string, StoredSourceState>;
 }
 
@@ -50,6 +55,27 @@ export async function updateSourceState(
     const state = await readCliState();
     const current = state.sources[source] ?? {};
     state.sources[source] = { ...current, ...patch };
+    await testHooks?.beforeWrite?.();
+    await atomicWriteFile(
+      getCliStatePath(),
+      `${JSON.stringify(state, null, 2)}\n`,
+    );
+  });
+}
+
+export async function readCliConfig(): Promise<CliConfig> {
+  const state = await readCliState();
+  return state.config ?? {};
+}
+
+export async function updateCliConfig(
+  patch: Partial<CliConfig>,
+): Promise<void> {
+  await fs.mkdir(getDataConnectHome(), { recursive: true });
+  await withStateFileLock(async () => {
+    await testHooks?.beforeRead?.();
+    const state = await readCliState();
+    state.config = { ...(state.config ?? {}), ...patch };
     await testHooks?.beforeWrite?.();
     await atomicWriteFile(
       getCliStatePath(),

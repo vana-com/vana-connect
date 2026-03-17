@@ -18,9 +18,12 @@ export {
 } from "./paths.js";
 export {
   readCliState,
+  readCliConfig,
+  updateCliConfig,
   updateSourceState,
   ensureParentDir,
 } from "./state-store.js";
+export type { CliConfig } from "./state-store.js";
 export type {
   ConnectionStatus,
   SessionInitParams,

@@ -20,6 +20,8 @@ import {
   getLastResultPath,
   getLogsDir,
   readCliState,
+  readCliConfig,
+  updateCliConfig,
   updateSourceState,
 } from "../core/index.js";
 import type {
@@ -119,6 +121,10 @@ Start here:
 Automation:
   vana connect github --json --no-input
   vana sources --json | jq '.sources[] | {id, authMode}'
+
+Personal Server:
+  vana server
+  vana server set-url <url>
 
 Support:
   vana doctor
@@ -321,6 +327,48 @@ Examples:
   vana logs github --json | jq
 `,
   );
+
+  const server = program
+    .command("server")
+    .description("Manage Personal Server connection")
+    .option("--json", "Output machine-readable JSON");
+  server.addHelpText(
+    "after",
+    `
+Examples:
+  vana server
+  vana server set-url http://localhost:8080
+  vana server set-url https://ps-abc123.server.vana.org
+  vana server clear-url
+`,
+  );
+  server.action(async () => {
+    process.exitCode = await runServerStatus(parsedOptions);
+  });
+
+  server
+    .command("status")
+    .description("Show Personal Server status")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runServerStatus(parsedOptions);
+    });
+
+  server
+    .command("set-url <url>")
+    .description("Save a Personal Server URL")
+    .option("--json", "Output machine-readable JSON")
+    .action(async (url: string) => {
+      process.exitCode = await runServerSetUrl(url, parsedOptions);
+    });
+
+  server
+    .command("clear-url")
+    .description("Remove the saved Personal Server URL")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runServerClearUrl(parsedOptions);
+    });
 
   try {
     await program.parseAsync(normalizedArgv);
@@ -1318,6 +1366,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
+    personalServerSource: personalServer.source,
     summary: {
       sourceCount: sources.length,
       needsAttentionCount: sources.filter(
@@ -1390,11 +1439,13 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
   emit.keyValue(
     "Personal Server",
-    status.personalServer,
+    status.personalServer === "available"
+      ? `available (${status.personalServerUrl ?? "unknown"})`
+      : "not connected",
     status.personalServer === "available" ? "success" : "muted",
   );
-  if (status.personalServerUrl) {
-    emit.detail(status.personalServerUrl);
+  if (status.personalServer !== "available" && !status.personalServerUrl) {
+    emit.detail("Run `vana server set-url <url>` to configure");
   }
   const sourceGroups = [
     {
@@ -1617,6 +1668,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     runtimePath: runtime.runtimePath,
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
+    personalServerSource: personalServer.source,
     capabilities: runtime.capabilities,
     paths: {
       executable: process.execPath,
@@ -1758,6 +1810,154 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   }
 
   return 0;
+}
+
+async function runServerStatus(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+  const target = await detectPersonalServerTarget();
+
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        state: target.state,
+        url: target.url,
+        source: target.source,
+        health: target.health,
+      })}\n`,
+    );
+    return 0;
+  }
+
+  emit.title("Personal Server");
+  emit.blank();
+
+  const stateLabel =
+    target.state === "available" ? "Connected" : "Not connected";
+  emit.keyValue(
+    "Status",
+    stateLabel,
+    target.state === "available" ? "success" : "warning",
+  );
+
+  if (target.url) {
+    emit.keyValue("URL", target.url, "muted");
+  }
+  if (target.source) {
+    const sourceLabel: Record<string, string> = {
+      config: "Saved config",
+      env: "VANA_PERSONAL_SERVER_URL",
+      scan: "Localhost scan",
+    };
+    emit.keyValue(
+      "Resolved via",
+      sourceLabel[target.source] ?? target.source,
+      "muted",
+    );
+  }
+
+  if (target.health) {
+    emit.blank();
+    emit.section("Server");
+    emit.keyValue("Version", target.health.version, "muted");
+    emit.keyValue("Uptime", formatUptime(target.health.uptime), "muted");
+    if (target.health.owner) {
+      emit.keyValue("Owner", target.health.owner, "muted");
+    }
+  }
+
+  if (target.state !== "available") {
+    emit.blank();
+    emit.section("Next");
+    emit.bullet("Set a URL: `vana server set-url <url>`");
+    emit.bullet("Or set VANA_PERSONAL_SERVER_URL environment variable");
+    emit.bullet("Or start a Personal Server on localhost:8080");
+  }
+
+  return 0;
+}
+
+async function runServerSetUrl(
+  url: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+
+  try {
+    new URL(url);
+  } catch {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: false, error: "Invalid URL" })}\n`,
+      );
+    } else {
+      emit.info(`Invalid URL: ${url}`);
+    }
+    return 1;
+  }
+
+  await updateCliConfig({ personalServerUrl: url });
+
+  const target = await detectPersonalServerTarget();
+
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        ok: true,
+        url,
+        reachable: target.state === "available",
+        health: target.health,
+      })}\n`,
+    );
+    return 0;
+  }
+
+  emit.info(`Saved Personal Server URL: ${url}`);
+  if (target.state === "available") {
+    emit.info(
+      `Server is reachable (${target.health?.version ?? "unknown version"}).`,
+    );
+  } else {
+    emit.info("Server is not reachable yet. It will be used when available.");
+  }
+
+  return 0;
+}
+
+async function runServerClearUrl(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+  const config = await readCliConfig();
+
+  if (!config.personalServerUrl) {
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify({ ok: true, cleared: false })}\n`);
+    } else {
+      emit.info("No saved Personal Server URL to clear.");
+    }
+    return 0;
+  }
+
+  await updateCliConfig({ personalServerUrl: undefined });
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ ok: true, cleared: true })}\n`);
+  } else {
+    emit.info("Cleared saved Personal Server URL.");
+  }
+
+  return 0;
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 }
 
 async function runSetup(options: GlobalOptions): Promise<number> {

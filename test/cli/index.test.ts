@@ -696,7 +696,8 @@ describe("runCli", () => {
       → Environment
         Runtime:          installed
         Browser:          /tmp/playwright/chrome
-        Personal Server:  unavailable
+        Personal Server:  not connected
+        Run \`vana server set-url <url>\` to configure
 
       → Needs attention (1)
       Shop [legacy] [manual step]

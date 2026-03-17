@@ -87,6 +87,11 @@ export const listedSourceSchema = z
   .passthrough();
 export type ListedSource = z.infer<typeof listedSourceSchema>;
 
+export const personalServerSourceSchema = z
+  .enum(["config", "env", "scan"])
+  .nullable()
+  .optional();
+
 export const cliStatusSchema = z.object({
   cliVersion: z.string().optional(),
   channel: cliChannelSchema.optional(),
@@ -95,6 +100,7 @@ export const cliStatusSchema = z.object({
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  personalServerSource: personalServerSourceSchema,
   summary: z
     .object({
       sourceCount: z.number(),
@@ -127,6 +133,7 @@ export const cliDoctorSchema = z.object({
   runtimePath: z.string().nullable(),
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
+  personalServerSource: personalServerSourceSchema,
   capabilities: z.object({
     supportsHeaded: z.boolean(),
     supportsManagedProfiles: z.boolean(),
