@@ -72,11 +72,10 @@ and what to do next. The labels should be context-aware if needed.
 
 **Ref:** CLI-TRANSCRIPTS.md (status, connect-shop sections)
 
-### "What I would do next" specificity
+### "What I would do next" specificity → **Done**
 
-The previous "next steps" suggestions were vague. Need to compare each
-command's output against CLI-UX-QUALITY-BAR.md and ensure every next-step
-suggestion is a concrete, copy-pasteable command.
+Next-step suggestions now use specific source names and copy-pasteable
+commands throughout. See Done section.
 
 **Ref:** CLI-UX-QUALITY-BAR.md, CLI-TRANSCRIPTS.md
 
@@ -136,52 +135,32 @@ a `name` field. Zero runtime validation against schemas.
 **This is now a design question, not a research question.** Moves to
 Tim + Claude for the approach decision.
 
-### Connector metadata utilization → **Research complete, design needed**
+### Connector metadata utilization → **Mostly done**
 
-The CLI fetches connector scripts but largely ignores the rich metadata
-that data-connectors provides. Each connector has a metadata JSON file
-(e.g. `github/github-playwright.json`) and the registry itself carries
-per-connector fields that the CLI doesn't read.
+The CLI now fetches and uses connector metadata extensively. Scopes,
+versions, checksums, export frequency, and icons are used in
+`vana sources`, `vana sources --detail`, `vana status`, and the new
+`vana collect` command.
 
-**What data-connectors provides, what the CLI ignores:**
+**What's implemented:**
 
-| Field                  | Source              | Potential CLI use                                                                                           |
-| ---------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `version`              | registry + metadata | Track installed version, detect updates, show "update available" in `vana sources`                          |
-| `checksums`            | registry            | Verify script integrity after download, detect tampering                                                    |
-| `scopes[].label`       | metadata            | Replace hardcoded `summarizeResultData()` — display "Your repositories (2)" instead of guessing field names |
-| `scopes[].description` | metadata            | Show what a connector collects _before_ running: `vana sources --detail`                                    |
-| `iconURL`              | metadata            | Inline icons in terminals that support Kitty/iTerm2 graphics protocol (Kitty, WezTerm, Ghostty, iTerm2)     |
-| `connectURL`           | metadata            | Open the correct login page directly during `vana connect`                                                  |
-| `connectSelector`      | metadata            | Verify login state before running the connector                                                             |
-| `exportFrequency`      | metadata            | Tell users how often to re-collect ("daily", "weekly")                                                      |
-| `runtime`              | metadata            | Validate runtime compatibility before attempting a run                                                      |
+| Field                  | Status  | Where used                                                   |
+| ---------------------- | ------- | ------------------------------------------------------------ |
+| `scopes[].label`       | Done    | Sources detail view, status badges, Personal Server sync     |
+| `scopes[].description` | Done    | `vana sources --detail` view                                 |
+| `version`              | Done    | Displayed in sources/status views                            |
+| `checksums`            | Done    | Displayed in sources views                                   |
+| `iconURL`              | Done    | Rendered in sources/status views for capable terminals       |
+| `exportFrequency`      | Done    | Shown in sources detail view                                 |
+| `connectURL`           | Not yet | Could open the correct login page during `vana connect`      |
+| `connectSelector`      | Not yet | Could verify login state before running the connector        |
+| `runtime`              | Not yet | Could validate runtime compatibility before attempting a run |
 
-**Why this matters:**
+**Remaining items:**
 
-- **Solves the schema assumptions problem.** The `scopes` field has
-  human-readable labels for every data type a connector exports. Using
-  these instead of hardcoded field names in `summarizeResultData()` makes
-  the CLI automatically correct for every connector, present and future.
-- **Enables version-aware updates.** The registry has `version` and
-  `checksums` per connector. The CLI could store the installed version
-  in state and show "update available" without re-downloading.
-- **Richer discovery.** `vana sources` could show scope previews,
-  export frequency, and icons — making source selection more informed.
-
-**Relationship to other issues:** This subsumes the `vana data show`
-schema assumptions issue above — scope metadata is the answer to that
-design question. It also informs the connector description copy issue
-(scope labels are better descriptions than the registry `description`
-field).
-
-**What needs to happen:** Tim + Claude decision on which metadata fields
-to use first. Suggested priority:
-
-1. `scopes` — fixes summarization, enriches `vana sources`
-2. `version` + `checksums` — integrity and update awareness
-3. `iconURL` — terminal image support for capable terminals
-4. `connectURL` / `connectSelector` — smarter connect flows
+- `connectURL` / `connectSelector` — smarter connect flows (pre-auth)
+- `runtime` — pre-run compatibility validation
+- Update-available detection (version comparison against installed)
 
 **Research docs:**
 
@@ -190,29 +169,26 @@ to use first. Suggested priority:
 - [Pre-Auth Patterns](research/PRE-AUTH-PATTERNS-RESEARCH.md)
 - [Scope Display](research/SCOPE-DISPLAY-RESEARCH.md)
 
-### Color palette verification → **Research complete, partial match**
+### Color palette verification → **Done (destructive aligned)**
 
 The CLI theme lives in `src/cli/render/theme.ts`. Brand colors were
 compared against `vana-app/packages/ui/src/styles/shadcn.css`.
 
-**Findings:**
+**Current state:**
 
-| Role                | CLI hex   | Brand hex        | Match?                                    |
-| ------------------- | --------- | ---------------- | ----------------------------------------- |
-| Accent / primary    | `#4141fc` | `#4141fc`        | Yes                                       |
-| Success             | `#00d50b` | `#00d50b`        | Yes                                       |
-| Destructive / error | `#C73636` | `#E7000B`        | No — CLI is muted red, brand is vivid red |
-| Warning             | `#BA8B00` | _(not in brand)_ | No — CLI invented this color              |
+| Role                | CLI hex   | Brand hex        | Match?                                             |
+| ------------------- | --------- | ---------------- | -------------------------------------------------- |
+| Accent / primary    | `#4141fc` | `#4141fc`        | Yes                                                |
+| Success             | `#00d50b` | `#00d50b`        | Yes                                                |
+| Destructive / error | `#E7000B` | `#E7000B`        | Yes — updated to Vana brand vivid red              |
+| Warning             | `#BA8B00` | _(not in brand)_ | Acceptable — functional color with no brand equiv. |
 
 - The **VHS Catppuccin Mocha** theme is a generic dark theme with no Vana
   brand colors. It's fine for recording demos but shouldn't be cited as
   "brand-accurate."
-- Accent and success are spot-on. Destructive and warning diverge.
 
-**What to do:** Align destructive to `#E7000B`. Decide whether warning
-needs a brand-sanctioned color or if `#BA8B00` is acceptable as a
-functional color with no brand equivalent. This is a small Iterate task
-once Tim confirms the direction.
+**Remaining:** Decide whether warning needs a brand-sanctioned color or
+if `#BA8B00` is acceptable long-term.
 
 ### `--no-input` vs input-up-front → **Research complete, gap confirmed**
 
@@ -240,38 +216,27 @@ in the runtime. Three distinct code paths are affected:
 **This is now a product decision, not a research question.** See the
 Tim + Claude section for the product model discussion.
 
-### Personal server integration → **Research complete, significant gaps**
+### Personal server integration → **Partially done**
 
-The CLI is intended to become a primary user-facing interface for managing
-Personal Servers — appearing in status, doctor, connect flows, and
-eventually its own command group (`vana server`). Current code has a
-localhost-only happy path but lacks the configuration, auth, and tunnel
-awareness needed for real-world use.
+Significant progress on the CLI's Personal Server integration. Scope-aware
+ingest, per-scope state tracking, honest sync badges, and a full
+`vana server` command group are now implemented. Auth and tunnel awareness
+remain as gaps.
 
-**What exists today:**
+**What's implemented:**
 
-- `detectPersonalServerTarget()` (`src/personal-server/index.ts:12-28`)
-  scans `localhost:8080-8085` or uses `VANA_PERSONAL_SERVER_URL` env var
-- `ingestResult()` POSTs collected data to `{url}/v1/data/{scope}` with
-  **no auth headers** — just `Content-Type: application/json`
-- `vana status` and `vana doctor` report server presence/absence
-- State tracking distinguishes `connected_and_ingested` vs
-  `connected_local_only`
+- Scope-aware ingest with proper scope resolver (maps connector output
+  fields to PS scopes)
+- Personal Server client with per-scope POST to `/v1/data/{scope}`
+- Per-scope sync state tracking (which scopes synced, which failed)
+- Honest sync badges in status views
+- `vana server status` — shows server URL (with source clarity: auto-detected
+  vs saved vs env var), connection state, and sync status
+- `vana server data` — shows what data is stored on the server
+- `vana server sync` — manual sync retry for previously collected data
+- Server status URL source labeling (auto-detected vs saved vs env var)
 
-**Why this isn't enough:**
-
-The Personal Server ecosystem has three deployment modes the CLI needs
-to support:
-
-1. **Local** — DataConnect desktop runs the server on localhost, port
-   probing works, no auth needed (current happy path)
-2. **Tunneled** — DataConnect uses FRP (`frpc.server.vana.org`) to
-   expose a public `https://{subdomain}.server.vana.org` URL. The CLI
-   has zero awareness of this tunnel or how to discover the URL.
-3. **Cloud-hosted** (future) — server runs remotely, requires auth,
-   URL must be configured and persisted
-
-**Specific gaps:**
+**Remaining gaps:**
 
 | Gap                          | Why it matters                                                                                                                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -279,9 +244,7 @@ to support:
 | **No auth on ingest**        | POST `/v1/data/{scope}` is open on the server side today. For public/tunnel URLs, anyone who knows the URL can write data. The server supports Web3Signed auth (EIP-191) for reads and dev tokens for dev — the CLI uses neither. |
 | **No tunnel awareness**      | DataConnect creates FRP tunnels and shows the public URL in its UI. The CLI can't discover or display this URL. The tunnel config lives at `~/.dataconnect/personal-server/tunnel/frpc.toml`.                                     |
 | **No gateway registration**  | The personal server self-registers with the Data Gateway via EIP-712 signed messages through an account signing service. The CLI doesn't participate in this flow.                                                                |
-| **No manual sync retry**     | If auto-ingest fails after `vana connect`, there's no `vana server sync` to retry.                                                                                                                                                |
 | **No grant management**      | Can't view/revoke data access grants from CLI.                                                                                                                                                                                    |
-| **No per-scope sync status** | Can't tell which scopes synced vs which didn't.                                                                                                                                                                                   |
 
 **Auth architecture (from personal-server-ts):**
 
@@ -294,7 +257,7 @@ to support:
 - **Ingest endpoint**: Currently **no auth** on POST `/v1/data/{scope}`.
   This needs to change before public URLs are standard.
 
-**What needs to happen (staged):**
+**What still needs to happen:**
 
 1. **Config persistence** — `vana server set-url <url>` that writes to
    `~/.dataconnect/personal-server-url` or similar. Fall back to env var,
@@ -305,14 +268,9 @@ to support:
 3. **Tunnel URL discovery** — read from FRP config at
    `~/.dataconnect/personal-server/tunnel/frpc.toml`, or query the
    running server for its public URL.
-4. **Server command group** — `vana server status`, `vana server sync`,
-   `vana server url` as the management interface.
-5. **Transcripts and demos** — Personal Server state should appear in
-   `vana status`, `vana doctor`, and eventually its own demo GIFs.
 
-**This is a Brainstorm → Tim + Claude pipeline.** The deployment mode
-spectrum (local → tunneled → cloud) and auth model need product decisions
-before implementation.
+**This is a Brainstorm → Tim + Claude pipeline.** The auth model and
+tunnel discovery need product decisions before implementation.
 
 ---
 
@@ -482,3 +440,20 @@ already has that version.
 - [x] ~~Purple box around GIFs~~ — removed MarginFill from all VHS tapes
 - [x] ~~GIF CI automation~~ — CI renders GIFs and attaches to canary release;
       all markdown now uses release URLs
+- [x] ~~Personal Server integration~~ — scope-aware ingest with proper scope
+      resolver, PS client, per-scope state tracking, honest sync badges,
+      `vana server status/data/sync` commands (auth and tunnel gaps remain,
+      tracked above)
+- [x] ~~Connector metadata utilization~~ — scopes, versions, checksums, export
+      frequency, icons used in sources/status/detail views, `vana collect`
+      command (connectURL/connectSelector/runtime remain, tracked above)
+- [x] ~~Next-step specificity~~ — suggestions now use specific source names and
+      copy-pasteable commands
+- [x] ~~Color palette alignment~~ — destructive color updated to Vana brand
+      `#E7000B`
+- [x] ~~VHS demos for new commands~~ — collect, sources detail, server
+      status/sync/data tapes created
+- [x] ~~Server status URL source clarity~~ — auto-detected vs saved vs env var
+      labeled clearly
+- [x] ~~Clean error handling for command typos~~ — no stack traces on unknown
+      commands
