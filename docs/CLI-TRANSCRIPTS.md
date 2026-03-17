@@ -33,29 +33,33 @@ Options:
 Commands:
   version [options]           Print CLI version
   connect [options] [source]  Connect a source and collect data
-  sources [options]           List supported sources
+  sources [options] [source]  List supported sources, or show detail for one
+                              source
+  collect [options] [source]  Re-collect data from a previously connected source
   status [options]            Show runtime and Personal Server status
   doctor [options]            Inspect local CLI, runtime, and install health
   setup [options]             Install or repair the local runtime
   data                        Inspect collected datasets, paths, and summaries
   logs [options] [source]     Inspect stored connector run logs
+  server [options]            Manage Personal Server connection
   help [command]              display help for command
 
-Start here:
-  vana connect
-  vana status
-  vana data list
+Quick start:
+  vana connect           Connect a source and collect data
+  vana sources           Browse available sources
+  vana status            Check system health
 
-Automation:
-  vana connect github --json --no-input
-  vana sources --json | jq '.sources[] | {id, authMode}'
+Data:
+  vana data list         List collected datasets
+  vana data show <src>   Inspect a dataset
 
-Support:
-  vana doctor
-  vana logs
+Server:
+  vana server            Personal Server status and management
 
-Version:
-  0.8.1 (stable, development checkout)
+More:
+  vana doctor            Detailed diagnostics
+  vana logs [source]     View run logs
+  vana setup             Install or repair runtime
 ```
 
 <!-- END:help -->
@@ -95,14 +99,11 @@ Examples:
 $ vana setup
 
 Vana Connect setup
-
-→ Runtime
+Runtime
 The local runtime is already installed.
-  Browser:          /opt/playwright/chromium-1200/chrome-linux64/chrome
+  Browser:       /opt/playwright/chromium-1208/chrome-linux64/chrome
 
-→ Next
-  • Check overall status with `vana status`.
-  • Connect GitHub with `vana connect github`.
+  Next: `vana connect github`
 ```
 
 <!-- END:setup -->
@@ -118,42 +119,13 @@ The local runtime is already installed.
 ```
 $ vana status
 
-Vana Connect status
+Vana Connect
 
-Need attention (2) • Connected (2) • Local only (2)
+  Runtime:       installed
+  Personal Server: not connected
+  Sources:       0 connected, 1 needs attention
 
-→ Environment
-  Runtime:          installed
-  Browser:          /opt/playwright/chromium-1200/chrome-linux64/chrome
-  Personal Server:  unavailable
-
-→ Needs attention (2)
-Shop [legacy] [manual step]
-  Run `vana connect shop` without `--no-input` to complete the manual browser step.
-  Updated:          Mar 14, 2026, 8:11 AM
-  Run log:          ~/.dataconnect/logs/run-shop-demo.log
-Steam [unavailable]
-  No connector is available for Steam right now.
-  Updated:          Mar 14, 2026, 8:12 AM
-  Run log:          ~/.dataconnect/logs/fetch-steam-demo.log
-
-→ Connected (2)
-GitHub [interactive] [local]
-  Inspect the latest local dataset with `vana data show github`.
-  Session:          Saved for faster reconnects.
-  State:            Saved locally
-  Updated:          Mar 14, 2026, 8:10 AM
-  Path:             ~/.dataconnect/last-result.json
-Spotify [interactive] [local]
-  Inspect the latest local dataset with `vana data show spotify`.
-  State:            Saved locally
-  Updated:          Mar 13, 2026, 4:23 PM
-  Path:             ~/.dataconnect/spotify-result.json
-
-→ Next
-  • Complete the manual browser step for Shop with `vana connect shop`.
-  • Inspect the latest run log with `vana logs shop`.
-  • Review the data you already collected with `vana data list`.
+  Next: Browse available sources with `vana sources`.
 ```
 
 <!-- END:status -->
@@ -166,59 +138,51 @@ Spotify [interactive] [local]
 $ vana doctor
 
 Vana Connect doctor
-
-→ Summary
-  CLI:              0.8.1
-  Channel:          stable
-  Install:          Development checkout
-  Runtime:          installed
-  Personal Server:  unavailable
-  Tracked sources:  4
-  Attention:        2
-  Connected:        2
-  Headed sessions:  Unavailable
+Summary
+  CLI:           0.8.1
+  Channel:       stable
+  Install:       Development checkout
+  Runtime:       installed
+  Personal Server: available
+  Tracked sources: 1
+  Attention:     1
+  Connected:     0
+  Headed sessions: Unavailable
   Managed profiles: Available
-  Screenshots:      Available
+  Screenshots:   Available
 
-→ Checks
-  CLI:              Version 0.8.1
-  Runtime:          Browser available at /opt/playwright/chromium-1200/chrome-linux64/chrome
-  Personal Server:  Unavailable. Connects will stay local until a Personal Server is reachable.
-  Executable:       Present at /usr/local/bin/node
-  Data home:        Present at ~/.dataconnect
-  State file:       Present at ~/.dataconnect/vana-connect-state.json
-  Connector cache:  Present at ~/.dataconnect/connectors
-  Browser profiles: Present at ~/.dataconnect/browser-profiles
-  Logs:             Present at ~/.dataconnect/logs
-  Tracked sources:  4 sources in local state
-  Latest issue:     Shop: manual step
+Checks
+  CLI:           Version 0.8.1
+  Runtime:       Browser available at /opt/playwright/chromium-1208/chrome-linux64/chrome
+  Personal Server: http://localhost:8080
+  Executable:    Present at /usr/local/bin/node
+  Data home:     Present at ~/.dataconnect
+  State file:    Present at ~/.dataconnect/vana-connect-state.json
+  Connector cache: Present at ~/.dataconnect/connectors
+  Browser profiles: Missing at ~/.dataconnect/browser-profiles
+  Logs:          Present at ~/.dataconnect/logs
+  Tracked sources: 1 source in local state
+  Latest issue:  GitHub: Checksum mismatch
 
-→ Needs attention
-Shop [legacy] [manual step]
-  Run `vana connect shop` without `--no-input` to complete the manual browser step.
-  Updated:          Mar 14, 2026, 8:11 AM
-  Run log:          ~/.dataconnect/logs/run-shop-demo.log
-Steam [unavailable]
-  No connector is available for Steam right now.
-  Updated:          Mar 14, 2026, 8:12 AM
-  Run log:          ~/.dataconnect/logs/fetch-steam-demo.log
+Needs attention
+GitHub unavailable
+  Checksum mismatch for GitHub connector script.
+  Updated:       <timestamp>
+  Run log:       ~/.dataconnect/logs/fetch-github-<timestamp>.log
 
-→ Paths
-  Executable:       /usr/local/bin/node
-  Data home:        ~/.dataconnect
-  State file:       ~/.dataconnect/vana-connect-state.json
-  Connector cache:  ~/.dataconnect/connectors
+Paths
+  Executable:    /usr/local/bin/node
+  Data home:     ~/.dataconnect
+  State file:    ~/.dataconnect/vana-connect-state.json
+  Connector cache: ~/.dataconnect/connectors
   Browser profiles: ~/.dataconnect/browser-profiles
-  Logs:             ~/.dataconnect/logs
+  Logs:          ~/.dataconnect/logs
 
-→ Lifecycle
-  Upgrade:          git pull && pnpm install && pnpm build
-  Uninstall:        Remove the local checkout and any generated ~/.dataconnect state.
+Lifecycle
+  Upgrade:       git pull && pnpm install && pnpm build
+  Uninstall:     Remove the local checkout and any generated ~/.dataconnect state.
 
-→ Next
-  • Your Personal Server is unavailable, so successful runs will stay local.
-  • Check overall status with `vana status`.
-  • Inspect the latest issue log with `vana logs shop`.
+  Next: Check overall status with `vana status`.
 ```
 
 <!-- END:doctor -->
@@ -230,27 +194,16 @@ Steam [unavailable]
 ```
 $ vana logs
 
-Run logs (3)
+Run logs (1)
 
-Need attention (2) • Successful (1) • Local (1)
+Need attention (1)
 
-→ Needs attention (2)
-Steam [unavailable]
-  Path:             ~/.dataconnect/logs/fetch-steam-demo.log
-  Updated:          Mar 14, 2026, 8:12 AM
-Shop [manual step]
-  Path:             ~/.dataconnect/logs/run-shop-demo.log
-  Updated:          Mar 14, 2026, 8:11 AM
+Needs attention (1)
+GitHub unavailable
+  Path:          ~/.dataconnect/logs/fetch-github-<timestamp>.log
+  Updated:       <timestamp>
 
-→ Successful runs (1)
-GitHub [local]
-  Path:             ~/.dataconnect/logs/run-github-demo.log
-  Updated:          Mar 14, 2026, 8:10 AM
-
-→ Next
-  • Inspect the latest issue log with `vana logs steam`.
-  • Inspect a successful run with `vana logs github`.
-  • Check overall status with `vana status`.
+  Next: Inspect the latest issue log with `vana logs github`.
 ```
 
 <!-- END:logs -->
@@ -266,27 +219,33 @@ GitHub [local]
 ```
 $ vana sources
 
-Available sources (3)
+Available sources (9)
 
-Connected (2) • With manual step (1)
+Ready now (1) · Browser login (8)
 
-→ Connected (2)
-GitHub [local] [interactive] [installed]
-  Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
-  Inspect with `vana data show github`.
-Spotify [local] [interactive] [installed]
-  Exports your Spotify playlists using Playwright browser automation.
-  Inspect with `vana data show spotify`.
+Ready now (1)
+GitHub recommended
+  Your GitHub profile, repositories, and starred repositories.
 
-→ Manual steps (1)
-Shop [legacy] [installed]
-  Exports your Shop app order history using Playwright browser automation.
-  Flow: finishes with a manual browser step on this machine.
+Browser login (8)
+ChatGPT
+  Your email, memories, and all conversations from ChatGPT.
+Instagram
+  Your Instagram profile, posts, and ad interests.
+LinkedIn
+  Your LinkedIn profile, experience, education, skills, languages, and connections.
+Oura Ring
+  Your Oura Ring readiness scores, sleep data, and daily activity.
+Shop
+  Your Shop app order history.
+Spotify
+  Your Spotify library, playlists, listening history, and preferences.
+Uber
+  Your Uber trip history and receipts.
+YouTube
+  Your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history.
 
-→ Next
-  • Inspect what you already collected with `vana data list`.
-  • Complete Shop with `vana connect shop`.
-  • Or browse the guided picker with `vana connect`.
+  Next: `vana connect github`
 ```
 
 <!-- END:sources -->
@@ -298,18 +257,16 @@ Shop [legacy] [installed]
 ```
 $ vana sources github
 
-GitHub [connected]
+GitHub new
 
-Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+Your GitHub profile, repositories, and starred repositories.
 
-  Version:          unknown
+  Version:       1.1.3
   Export frequency: unknown
-  Auth mode:        interactive
-  Company:          github
+  Auth mode:     terminal
+  Company:       github
 
-→ Next
-  • Connect with `vana connect github`.
-  • Inspect collected data with `vana data show github`.
+  Next: `vana connect github`
 ```
 
 <!-- END:sources-github -->
@@ -327,29 +284,22 @@ $ vana data list
 
 Collected data (2)
 
-Dataset (2) • Local only (2) • Synced (0)
-
-GitHub [local]
+GitHub [synced]
   Profile: tnunamak
   Repositories: 2
   Latest repos: vana-connect, data-connectors
   Starred: 0
-  State:            Saved locally
-  Updated:          Mar 14, 2026, 8:10 AM
-  Path:             ~/.dataconnect/last-result.json
+  Updated:       Mar 14, 2026, 8:10 AM
+  Path:          ~/.dataconnect/last-result.json
 
 Spotify [local]
   Profile: tnunamak
   Playlists: 2
   Playlists: Data Portability, Build Flow
-  State:            Saved locally
-  Updated:          Mar 13, 2026, 4:23 PM
-  Path:             ~/.dataconnect/spotify-result.json
+  Updated:       Mar 13, 2026, 4:23 PM
+  Path:          ~/.dataconnect/spotify-result.json
 
-→ Next
-  • Inspect GitHub with `vana data show github`.
-  • Or print its path with `vana data path github`.
-  • Connect another source with `vana sources`.
+  Next: `vana data show github`
 ```
 
 <!-- END:data-list -->
@@ -363,11 +313,9 @@ $ vana data list
 
 Collected data
 
-No local datasets collected yet.
+  No datasets yet.
 
-→ Next
-  • Collect your first dataset with `vana connect github`.
-  • Check overall status with `vana status`.
+  Next: `vana connect github`
 ```
 
 <!-- END:data-list-empty -->
@@ -381,23 +329,15 @@ $ vana data show github
 
 GitHub data
 
-→ Summary
-  • Profile: tnunamak
-  • Repositories: 2
-  • Latest repos: vana-connect, data-connectors
-  • Starred: 0
+  Profile: tnunamak
+  Repositories: 2
+  Latest repos: vana-connect, data-connectors
+  Starred: 0
 
-  Path:             ~/.dataconnect/last-result.json
-  Updated:          Mar 14, 2026, 8:10 AM
-  State:            Saved locally
+  Path:          ~/.dataconnect/last-result.json
+  Updated:       Mar 14, 2026, 8:10 AM
 
-→ Next
-  • Print the path with `vana data path github`.
-  • Use `vana data show github --json | jq` for structured inspection.
-  • Reconnect GitHub with `vana connect github`.
-  • Connect another source with `vana sources`.
-  • Inspect other datasets with `vana data list`.
-  • Check overall status with `vana status`.
+  Next: `vana data path github`
 ```
 
 <!-- END:data-show-github -->
@@ -411,8 +351,7 @@ $ vana data show github
 
 No collected dataset found for GitHub. Run `vana connect github` first.
 
-→ Next
-  • Collect data with `vana connect github`.
+  Next: `vana connect github`
 ```
 
 <!-- END:data-show-github-missing -->
@@ -440,43 +379,17 @@ $ vana data path github
 ```
 $ vana connect github
 
-Connect GitHub
+  Connect GitHub
 
-→ Preparing
-Finding a connector for GitHub...
-Connector ready.
-Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
-  If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.
-  Found an existing GitHub session. Reusing it if it is still valid...
+  ✓ Signed in
+  ✓ Profile
+  ✓ Repositories — 8 found
+  ✓ Starred — 0 found
 
-→ Connecting
-Connecting to GitHub...
-Collecting your data...
-  Checking GitHub login...
-  Login confirmed. Collecting data in background...
-  Profile (1/3): Fetching profile...
-  Repositories (2/3): Fetched 2 repositories
-  Starred (3/3): Fetched 0 starred repositories
-✓ Connected GitHub.
-  Collected your GitHub data and saved it locally.
+  ✓ Connected GitHub.
+  Collected your GitHub data and synced it to your Personal Server.
 
-→ Collected
-  • Profile: tnunamak
-  • Repositories: 2
-  • Latest repos: vana-connect, data-connectors
-  • Starred: 0
-
-→ Saved locally
-  Path:             ~/.dataconnect/last-result.json
-  Session:          Saved for faster reconnects.
-  Server:           Unavailable, so this run stayed local.
-  Run log:          ~/.dataconnect/logs/run-github-<timestamp>.log
-
-→ Next
-  • Inspect the data with `vana data show github`
-  • Connect another source with `vana sources`
-  • Inspect the run log with `vana logs github`.
-  • Or check overall status with `vana status`
+  Next: vana data show github
 ```
 
 <!-- END:connect-github-success -->
@@ -486,146 +399,41 @@ Collecting your data...
 <!-- BEGIN:connect-github-no-input -->
 
 ```
-$ vana connect github --json --no-input
+$ vana connect github --no-input
 
-Connect GitHub
+  Connect GitHub
 
-→ Preparing
-Finding a connector for GitHub...
-Connector ready.
-Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
-  If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.
 
-→ Connecting
-Connecting to GitHub...
-Collecting your data...
-  Checking GitHub login...
-
-→ Input required
-GitHub needs additional input before it can connect.
-  Because `--no-input` is enabled, Vana stopped before prompting in this terminal.
-
-→ Next
-  • Run `vana connect github` without `--no-input`.
-  • Inspect the latest run log with `vana logs github`.
-  • Or check overall status with `vana status`.
+  ✕ GitHub needs credentials. Run without --no-input to authenticate.
 ```
 
 <!-- END:connect-github-no-input -->
 
-### Session reuse attempt in `--no-input` path
+### `--json --no-input` path
 
-<!-- BEGIN:connect-github-session-reuse-no-input -->
+<!-- BEGIN:connect-github-json-no-input -->
 
 ```
 $ vana connect github --json --no-input
 
-Connect GitHub
-
-→ Preparing
-Finding a connector for GitHub...
-Connector ready.
-Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
-  If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.
-  Found an existing GitHub session. Reusing it if it is still valid...
-
-→ Connecting
-Connecting to GitHub...
-Collecting your data...
-  Checking GitHub login...
-
-→ Input required
-GitHub needs additional input before it can connect.
-  Because `--no-input` is enabled, Vana stopped before prompting in this terminal.
-
-→ Next
-  • Run `vana connect github` without `--no-input`.
-  • Inspect the latest run log with `vana logs github`.
-  • Or check overall status with `vana status`.
+{"type":"setup-check","runtime":"installed"}
+{"type":"outcome","status":"connector_unavailable","source":"github","reason":"..."}
 ```
 
-<!-- END:connect-github-session-reuse-no-input -->
+<!-- END:connect-github-json-no-input -->
 
-### Legacy/manual interactive path
-
-<!-- BEGIN:connect-shop -->
-
-```
-$ vana connect shop
-
-Connect Shop
-
-→ Preparing
-Finding a connector for Shop...
-Connector ready.
-Exports your Shop app order history using Playwright browser automation.
-  If needed, Vana Connect will open a local browser session on this machine.
-  Found an existing Shop session. Reusing it if it is still valid...
-
-→ Manual step required
-Shop still needs a manual browser step on this machine.
-  This source needs a manual browser step, but no local display server is available. Run this command in a desktop session or use xvfb-run.
-
-→ Next
-  • Run this command in a desktop session.
-  • Or retry with `xvfb-run -a vana connect shop`.
-  • Inspect the latest run log with `vana logs shop`.
-  • Or check overall status with `vana status`.
-```
-
-<!-- END:connect-shop -->
-
-### Legacy/manual `--no-input` path
-
-<!-- BEGIN:connect-shop-no-input -->
-
-```
-$ vana connect shop --json --no-input
-
-Connect Shop
-
-→ Preparing
-Finding a connector for Shop...
-Connector ready.
-Exports your Shop app order history using Playwright browser automation.
-  If needed, Vana Connect will open a local browser session on this machine.
-
-→ Connecting
-Connecting to Shop...
-Collecting your data...
-
-→ Manual step required
-Shop still needs a manual browser step on this machine.
-  Because `--no-input` is enabled, Vana stopped before opening that session.
-
-→ Next
-  • Run `vana connect shop` without `--no-input`.
-  • Inspect the latest run log with `vana logs shop`.
-  • Or check overall status with `vana status`.
-  Run log:          ~/.dataconnect/logs/run-shop-<timestamp>.log
-```
-
-<!-- END:connect-shop-no-input -->
-
-### Unavailable connector interactive path
+### Unavailable connector
 
 <!-- BEGIN:connect-steam -->
 
 ```
 $ vana connect steam
 
-Connect Steam
+  Connect Steam
 
-→ Preparing
-Finding a connector for Steam...
 
-→ Not available yet
-No connector is available for Steam right now.
-
-→ Next
-  • Try GitHub with `vana connect github`.
-  • Browse available sources with `vana sources`.
-  • Or check overall status with `vana status`.
+  ✕ Steam is not available.
+  See what's ready: vana sources
 ```
 
 <!-- END:connect-steam -->
@@ -635,23 +443,49 @@ No connector is available for Steam right now.
 <!-- BEGIN:connect-steam-no-input -->
 
 ```
-$ vana connect steam --json --no-input
+$ vana connect steam --no-input
 
-Connect Steam
+  Connect Steam
 
-→ Preparing
-Finding a connector for Steam...
 
-→ Not available yet
-No connector is available for Steam right now.
-
-→ Next
-  • Try GitHub with `vana connect github`.
-  • Browse available sources with `vana sources`.
-  • Or check overall status with `vana status`.
+  ✕ Steam is not available.
+  See what's ready: vana sources
 ```
 
 <!-- END:connect-steam-no-input -->
+
+### Runtime error
+
+<!-- BEGIN:connect-runtime-error -->
+
+```
+$ vana connect github
+
+  Connect GitHub
+
+
+  ✕ Problem connecting GitHub.
+  Connector run failed.
+  Retry: vana connect github
+```
+
+<!-- END:connect-runtime-error -->
+
+### Legacy/manual step required
+
+<!-- BEGIN:connect-shop -->
+
+```
+$ vana connect shop
+
+  Connect Shop
+
+
+  ✕ Manual step required for Shop.
+  Complete the browser step locally, then rerun vana connect shop.
+```
+
+<!-- END:connect-shop -->
 
 ---
 
@@ -685,6 +519,37 @@ Source "github" has not been connected yet. Run `vana connect github` first.
 
 ## Server management
 
+### `vana server --help`
+
+<!-- BEGIN:server-help -->
+
+```
+$ vana server --help
+
+Usage: vana server [options] [command]
+
+Manage Personal Server connection
+
+Options:
+  --json                   Output machine-readable JSON
+  -h, --help               display help for command
+
+Commands:
+  status [options]         Show Personal Server status
+  set-url [options] <url>  Save a Personal Server URL
+  clear-url [options]      Remove the saved Personal Server URL
+  sync [options]           Sync all local-only datasets to your Personal Server
+  data [options] [scope]   List scopes stored in your Personal Server
+
+Examples:
+  vana server
+  vana server set-url http://localhost:8080
+  vana server set-url https://ps-abc123.server.vana.org
+  vana server clear-url
+```
+
+<!-- END:server-help -->
+
 ### `vana server status`
 
 <!-- BEGIN:server-status -->
@@ -694,12 +559,15 @@ $ vana server status
 
 Personal Server
 
-  URL:              http://localhost:8080 (auto-detected)
-  Status:           healthy
-  Version:          0.0.1
-  Scopes:           2 stored
-  Uptime:           6h 10m
-  Owner:            0x2AC93684679a5bdA03C6160def908CdB8D46792f
+  URL:           http://localhost:8080 (auto-detected)
+  Status:        healthy
+  Version:       0.0.1
+  Uptime:        15h 22m
+  Owner:         0x2AC93684679a5bdA03C6160def908CdB8D46792f
+
+  Save with `vana server set-url http://localhost:8080`.
+
+  More: `vana server sync` | `vana server data` | `vana server --help`
 ```
 
 <!-- END:server-status -->
@@ -713,12 +581,11 @@ $ vana server status
 
 Personal Server
 
-  Status:           Not connected
+  Status:        Not connected
 
-→ Next
-  • Set a URL: `vana server set-url <url>`
-  • Or set VANA_PERSONAL_SERVER_URL environment variable
-  • Or start a Personal Server on localhost:8080
+  Set a URL: `vana server set-url <url>`
+  Or set VANA_PERSONAL_SERVER_URL environment variable
+  Or start a Personal Server on localhost:8080
 ```
 
 <!-- END:server-status-not-connected -->
