@@ -77,7 +77,9 @@ interface SourceMetadataMap {
 }
 
 function cleanDescription(desc: string): string {
-  return desc.replace(/ using Playwright browser automation\.?/i, ".");
+  return desc
+    .replace(/ using Playwright browser automation\.?/i, ".")
+    .replace(/^Exports\b\s*(your\s+)?/i, "Your ");
 }
 
 interface Emitter {
@@ -1192,19 +1194,11 @@ async function runList(options: GlobalOptions): Promise<number> {
           badges.push({ text: "local", tone: "muted" });
         }
       }
-      if (source.authMode === "interactive") {
-        badges.push({ text: "terminal", tone: "info" });
-      } else if (source.authMode === "legacy") {
-        badges.push({ text: "browser", tone: "warning" });
-      }
       if (
         recommendedSource?.id === source.id &&
         recommendedSource.authMode !== "legacy"
       ) {
         badges.push({ text: "recommended", tone: "accent" });
-      }
-      if (source.installed) {
-        badges.push({ text: "installed", tone: "success" });
       }
       emit.sourceTitle(source.name, badges);
       if (source.description) {
@@ -1224,12 +1218,9 @@ async function runList(options: GlobalOptions): Promise<number> {
   if (groups.length === 0) {
     emit.info("No sources are available right now.");
   } else {
-    if (nextSteps.length > 0) {
+    if (recommendedSource) {
       emit.blank();
-      emit.section("Next");
-      for (const step of nextSteps) {
-        emit.bullet(step);
-      }
+      emit.detail(`Next: ${emit.code(`vana connect ${recommendedSource.id}`)}`);
     }
   }
   return 0;
@@ -1340,7 +1331,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
-  emit.title("Vana Connect status");
+  emit.title("Vana Connect");
   emit.blank();
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
   if (status.personalServer === "available") {
@@ -1367,7 +1358,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   );
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.bullet(nextSteps[0]);
+    emit.detail(`Next: ${nextSteps[0]}`);
   }
   return 0;
 }
@@ -1632,11 +1623,6 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       : recentSources) {
       const status = getSourceStatusPresentation(source);
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
-      if (source.authMode === "interactive") {
-        badges.push({ text: "terminal", tone: "info" });
-      } else if (source.authMode === "legacy") {
-        badges.push({ text: "browser", tone: "warning" });
-      }
       badges.push({ text: status.label, tone: status.tone });
       emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
       const details = formatSourceStatusDetails(source);
@@ -1674,10 +1660,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   emit.keyValue("Uninstall", lifecycle.uninstall, "muted");
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.section("Next");
-    for (const step of nextSteps) {
-      emit.bullet(step);
-    }
+    emit.detail(`Next: ${nextSteps[0]}`);
   }
 
   return 0;
@@ -1768,10 +1751,7 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
 
   if (target.state !== "available") {
     emit.blank();
-    emit.section("Next");
-    emit.bullet(`Set a URL with ${emit.code("vana server set-url <url>")}.`);
-    emit.bullet("Or set VANA_PERSONAL_SERVER_URL environment variable.");
-    emit.bullet("Or start a Personal Server on localhost:8080.");
+    emit.detail(`Next: ${emit.code("vana server set-url <url>")}`);
   }
 
   emit.blank();
@@ -1893,9 +1873,11 @@ async function runSetup(options: GlobalOptions): Promise<number> {
       emit.keyValue("Browser", formatDisplayPath(runtime.runtimePath), "muted");
     }
     emit.blank();
-    emit.section("Next");
-    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
-    emit.bullet(formatSetupConnectStep(emit, suggestedSource));
+    if (suggestedSource) {
+      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
+    } else {
+      emit.detail(`Next: ${emit.code("vana connect")}`);
+    }
     emit.event({ type: "setup-check", runtime: runtime.state });
     return 0;
   }
@@ -1907,9 +1889,11 @@ async function runSetup(options: GlobalOptions): Promise<number> {
       emit.detail(`Setup log: ${formatDisplayPath(result.logPath)}`);
     }
     emit.blank();
-    emit.section("Next");
-    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
-    emit.bullet(formatSetupConnectStep(emit, suggestedSource));
+    if (suggestedSource) {
+      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
+    } else {
+      emit.detail(`Next: ${emit.code("vana connect")}`);
+    }
     emit.event({
       type: "setup-complete",
       runtime: result.runtime,
@@ -1986,19 +1970,13 @@ async function runDataList(options: GlobalOptions): Promise<number> {
       registrySources[0];
     emit.title("Collected data");
     emit.blank();
-    emit.info("No local datasets collected yet.");
+    emit.info("  No datasets yet.");
     emit.blank();
-    emit.section("Next");
     if (suggestedSource) {
-      emit.bullet(
-        `Collect your first dataset with ${emit.code(`vana connect ${suggestedSource.id}`)}.`,
-      );
+      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
     } else {
-      emit.bullet(
-        `Collect your first dataset with ${emit.code("vana connect")}.`,
-      );
+      emit.detail(`Next: ${emit.code("vana connect")}`);
     }
-    emit.bullet(`Check overall status with ${emit.code("vana status")}.`);
     return 0;
   }
 
@@ -2065,9 +2043,10 @@ async function runDataList(options: GlobalOptions): Promise<number> {
     }
   });
   emit.blank();
-  emit.section("Next");
-  for (const step of nextSteps) {
-    emit.bullet(step);
+  if (datasetRecords.length > 0) {
+    emit.detail(
+      `Next: ${emit.code(`vana data show ${datasetRecords[0].source}`)}`,
+    );
   }
   return 0;
 }
@@ -2105,13 +2084,7 @@ async function runDataShow(
         `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
       );
       emit.blank();
-      emit.section("Next");
-      emit.bullet(`Collect data with ${emit.code(`vana connect ${source}`)}.`);
-      if (datasetCount > 0) {
-        emit.bullet(
-          `Inspect other datasets with ${emit.code("vana data list")}.`,
-        );
-      }
+      emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
     }
     return 1;
   }
@@ -2144,9 +2117,8 @@ async function runDataShow(
     emit.title(`${displaySource(source, sourceLabels)} data`);
     emit.blank();
     if (summary) {
-      emit.section("Summary");
       for (const line of summary.lines) {
-        emit.bullet(line);
+        emit.detail(line);
       }
       emit.blank();
     }
@@ -2162,9 +2134,10 @@ async function runDataShow(
       emit.keyValue("State", "Saved locally", "muted");
     }
     emit.blank();
-    emit.section("Next");
-    for (const step of nextSteps) {
-      emit.bullet(step);
+    if (datasetCount > 1) {
+      emit.detail(`Next: ${emit.code("vana data list")}`);
+    } else {
+      emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
     }
     return 0;
   } catch (error) {
@@ -2285,10 +2258,7 @@ async function runLogs(
         const emit = createEmitter(options);
         emit.info(payload.message);
         emit.blank();
-        emit.section("Next");
-        for (const step of payload.nextSteps) {
-          emit.bullet(step);
-        }
+        emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
       }
       return 1;
     }
@@ -2322,10 +2292,7 @@ async function runLogs(
   if (records.length === 0) {
     emit.info("No stored run logs yet.");
     emit.blank();
-    emit.section("Next");
-    for (const step of nextSteps) {
-      emit.bullet(step);
-    }
+    emit.detail(`Next: ${emit.code("vana connect")}`);
     return 0;
   }
 
@@ -2382,9 +2349,8 @@ async function runLogs(
   });
 
   emit.blank();
-  emit.section("Next");
-  for (const step of nextSteps) {
-    emit.bullet(step);
+  if (nextSteps.length > 0) {
+    emit.detail(`Next: ${nextSteps[0]}`);
   }
   return 0;
 }
@@ -2503,11 +2469,7 @@ async function runSourceDetail(
   }
 
   emit.blank();
-  emit.section("Next");
-  emit.bullet(`Connect with \`vana connect ${match.id}\`.`);
-  if (stored?.lastResultPath) {
-    emit.bullet(`Inspect collected data with \`vana data show ${match.id}\`.`);
-  }
+  emit.detail(`Next: ${emit.code(`vana connect ${match.id}`)}`);
   return 0;
 }
 
@@ -2671,19 +2633,20 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       `${JSON.stringify({ message: `Synced ${syncedCount} dataset(s).`, syncedCount })}\n`,
     );
   } else {
-    // Show per-scope results in human mode
+    // Show per-scope results with scope manifest style
     for (const entry of allScopeResults) {
       if (entry.scopeResults && entry.scopeResults.length > 0) {
         emit.info(`${entry.source}:`);
         for (const sr of entry.scopeResults) {
           if (sr.status === "stored") {
-            emit.detail(`  ${sr.scope} \u2713`);
+            emit.info(`  \u2713 ${sr.scope}`);
           } else {
-            emit.detail(`  ${sr.scope} \u2717 (${sr.error ?? "failed"})`);
+            emit.info(`  \u2717 ${sr.scope} \u2014 ${sr.error ?? "failed"}`);
           }
         }
       }
     }
+    emit.blank();
     emit.info(`Synced ${syncedCount} dataset(s).`);
   }
   return 0;
@@ -2970,7 +2933,7 @@ function formatCountLabel(label: string, count: number): string {
 }
 
 function joinOverviewParts(parts: string[]): string {
-  return parts.filter(Boolean).join(" • ");
+  return parts.filter(Boolean).join(" · ");
 }
 
 function humanizeField(value: string): string {
@@ -3481,22 +3444,6 @@ function buildLogsNextSteps(
       : []),
     "Check overall status with `vana status`.",
   ];
-}
-
-function formatSetupConnectStep(
-  emit: Pick<Emitter, "code">,
-  source:
-    | {
-        id: string;
-        name: string;
-      }
-    | undefined,
-): string {
-  if (source) {
-    return `Connect ${source.name} with ${emit.code(`vana connect ${source.id}`)}.`;
-  }
-
-  return `Connect a source with ${emit.code("vana connect")}.`;
 }
 
 // describeConnectTrust and buildConnectChoices removed — replaced by clack-based picker

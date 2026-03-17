@@ -45,7 +45,7 @@ export function createHumanRenderer(): HumanRenderer {
       return `${theme.success(symbols.success)} ${theme.heading(text)}`;
     },
     section(text) {
-      return `${theme.accent(symbols.arrow)} ${theme.heading(text)}`;
+      return `${theme.heading(text)}`;
     },
     keyValue(label, value, tone = "muted") {
       const rawLabel = `${label}:`;
@@ -68,7 +68,7 @@ export function createHumanRenderer(): HumanRenderer {
       return `  ${theme.muted(symbols.bullet)} ${text}`;
     },
     badge(text, tone = "muted") {
-      return `${theme.muted("[")}${applyTone(theme, tone, text)}${theme.muted("]")}`;
+      return applyTone(theme, tone, text);
     },
   };
 }

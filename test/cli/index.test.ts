@@ -589,13 +589,11 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
       "Vana Connect setup
-      → Runtime
+      Runtime
       The local runtime is already installed.
         Browser:       /tmp/playwright/chrome
 
-      → Next
-        • Check overall status with \`vana status\`.
-        • Connect GitHub with \`vana connect github\`.
+        Next: \`vana connect github\`
       "
     `);
   });
@@ -616,13 +614,11 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
       "Vana Connect setup
-      → Runtime
+      Runtime
       ✓ Runtime ready.
         Setup log: /tmp/logs/setup.log
 
-      → Next
-        • Check overall status with \`vana status\`.
-        • Connect GitHub with \`vana connect github\`.
+        Next: \`vana connect github\`
       "
     `);
   });
@@ -700,13 +696,13 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
-      "Vana Connect status
+      "Vana Connect
 
         Runtime:       installed
         Personal Server: not connected
         Sources:       1 connected, 1 needs attention
 
-        • Complete the manual browser step for Shop with \`vana connect shop\`.
+        Next: Complete the manual browser step for Shop with \`vana connect shop\`.
       "
     `);
   });
@@ -1083,20 +1079,16 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "GitHub data
 
-      → Summary
-        • Profile: tnunamak
-        • Repositories: 2
-        • Latest repos: vana-connect, data-connectors
-        • Starred: 0
+        Profile: tnunamak
+        Repositories: 2
+        Latest repos: vana-connect, data-connectors
+        Starred: 0
 
         Path:          /tmp/.dataconnect/github-result.json
         Updated: <timestamp>
         State:         Saved locally
 
-      → Next
-        • Print the path with \`vana data path github\`.
-        • Reconnect GitHub with \`vana connect github\`.
-        • Connect another source with \`vana sources\`.
+        Next: \`vana connect github\`
       "
     `);
   });
@@ -1162,9 +1154,7 @@ describe("runCli", () => {
     expect(stdout).toContain(
       "No collected dataset found for GitHub. Run `vana connect github` first.",
     );
-    expect(stdout).toContain("→ Next");
-    expect(stdout).toContain("Collect data with `vana connect github`.");
-    expect(stdout).toContain("Inspect other datasets with `vana data list`.");
+    expect(stdout).toContain("Next: `vana connect github`");
   });
 
   it("renders a stable human transcript for data path", async () => {
@@ -1305,9 +1295,9 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Collected data (2)
 
-      Dataset (2) • Local only (2) • Synced (0)
+      Dataset (2) · Local only (2) · Synced (0)
 
-      GitHub [local]
+      GitHub local
         Profile: tnunamak
         Repositories: 2
         Latest repos: vana-connect, data-connect
@@ -1316,7 +1306,7 @@ describe("runCli", () => {
         Updated: <timestamp>
         Path:          /tmp/.dataconnect/github-result.json
 
-      Spotify [local]
+      Spotify local
         Profile: tnunamak
         Playlists: 2
         Playlists: Focus, Deep Work
@@ -1324,10 +1314,7 @@ describe("runCli", () => {
         Updated: <timestamp>
         Path:          /tmp/.dataconnect/spotify-result.json
 
-      → Next
-        • Inspect GitHub with \`vana data show github\`.
-        • Or print its path with \`vana data path github\`.
-        • Connect another source with \`vana sources\`.
+        Next: \`vana data show github\`
       "
     `);
   });
@@ -1345,12 +1332,8 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "data", "list"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("No local datasets collected yet.");
-    expect(stdout).toContain("→ Next");
-    expect(stdout).toContain(
-      "Collect your first dataset with `vana connect github`.",
-    );
-    expect(stdout).toContain("Check overall status with `vana status`.");
+    expect(stdout).toContain("No datasets yet.");
+    expect(stdout).toContain("Next: `vana connect github`");
   });
 
   it("shows collected data paths in json mode", async () => {
@@ -1545,22 +1528,19 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Run logs (2)
 
-      Need attention (1) • Successful (1) • Local (1)
+      Need attention (1) · Successful (1) · Local (1)
 
-      → Needs attention (1)
-      Shop [manual step]
+      Needs attention (1)
+      Shop manual step
         Path:          /tmp/.dataconnect/logs/run-shop.log
         Updated: <timestamp>
 
-      → Successful runs (1)
-      GitHub [local]
+      Successful runs (1)
+      GitHub local
         Path:          /tmp/.dataconnect/logs/run-github.log
         Updated: <timestamp>
 
-      → Next
-        • Inspect the latest issue log with \`vana logs shop\`.
-        • Inspect a successful run with \`vana logs github\`.
-        • Check overall status with \`vana status\`.
+        Next: Inspect the latest issue log with \`vana logs shop\`.
       "
     `);
   });
@@ -1716,21 +1696,19 @@ describe("runCli", () => {
     expect(stdout).toMatchInlineSnapshot(`
       "Available sources (3)
 
-      Ready now (2) • Browser login (1)
+      Ready now (2) · Browser login (1)
 
-      → Ready now (2)
-      GitHub [terminal] [recommended]
-        Exports GitHub data.
-      Spotify [terminal]
-        Exports Spotify data.
+      Ready now (2)
+      GitHub recommended
+        Your GitHub data.
+      Spotify
+        Your Spotify data.
 
-      → Browser login (1)
-      ChatGPT [browser]
-        Exports ChatGPT data.
+      Browser login (1)
+      ChatGPT
+        Your ChatGPT data.
 
-      → Next
-        • Connect GitHub with \`vana connect github\`.
-        • Or browse the guided picker with \`vana connect\`.
+        Next: \`vana connect github\`
       "
     `);
   });
