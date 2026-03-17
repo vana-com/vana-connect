@@ -136,6 +136,53 @@ a `name` field. Zero runtime validation against schemas.
 **This is now a design question, not a research question.** Moves to
 Tim + Claude for the approach decision.
 
+### Connector metadata utilization → **Research complete, design needed**
+
+The CLI fetches connector scripts but largely ignores the rich metadata
+that data-connectors provides. Each connector has a metadata JSON file
+(e.g. `github/github-playwright.json`) and the registry itself carries
+per-connector fields that the CLI doesn't read.
+
+**What data-connectors provides, what the CLI ignores:**
+
+| Field                  | Source              | Potential CLI use                                                                                           |
+| ---------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `version`              | registry + metadata | Track installed version, detect updates, show "update available" in `vana sources`                          |
+| `checksums`            | registry            | Verify script integrity after download, detect tampering                                                    |
+| `scopes[].label`       | metadata            | Replace hardcoded `summarizeResultData()` — display "Your repositories (2)" instead of guessing field names |
+| `scopes[].description` | metadata            | Show what a connector collects _before_ running: `vana sources --detail`                                    |
+| `iconURL`              | metadata            | Inline icons in terminals that support Kitty/iTerm2 graphics protocol (Kitty, WezTerm, Ghostty, iTerm2)     |
+| `connectURL`           | metadata            | Open the correct login page directly during `vana connect`                                                  |
+| `connectSelector`      | metadata            | Verify login state before running the connector                                                             |
+| `exportFrequency`      | metadata            | Tell users how often to re-collect ("daily", "weekly")                                                      |
+| `runtime`              | metadata            | Validate runtime compatibility before attempting a run                                                      |
+
+**Why this matters:**
+
+- **Solves the schema assumptions problem.** The `scopes` field has
+  human-readable labels for every data type a connector exports. Using
+  these instead of hardcoded field names in `summarizeResultData()` makes
+  the CLI automatically correct for every connector, present and future.
+- **Enables version-aware updates.** The registry has `version` and
+  `checksums` per connector. The CLI could store the installed version
+  in state and show "update available" without re-downloading.
+- **Richer discovery.** `vana sources` could show scope previews,
+  export frequency, and icons — making source selection more informed.
+
+**Relationship to other issues:** This subsumes the `vana data show`
+schema assumptions issue above — scope metadata is the answer to that
+design question. It also informs the connector description copy issue
+(scope labels are better descriptions than the registry `description`
+field).
+
+**What needs to happen:** Tim + Claude decision on which metadata fields
+to use first. Suggested priority:
+
+1. `scopes` — fixes summarization, enriches `vana sources`
+2. `version` + `checksums` — integrity and update awareness
+3. `iconURL` — terminal image support for capable terminals
+4. `connectURL` / `connectSelector` — smarter connect flows
+
 ### Color palette verification → **Research complete, partial match**
 
 The CLI theme lives in `src/cli/render/theme.ts`. Brand colors were
