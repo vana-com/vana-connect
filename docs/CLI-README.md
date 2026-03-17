@@ -1,173 +1,218 @@
-# Vana CLI
+# vana
 
-Collect user data locally, inspect it immediately, and keep the flow scriptable.
+**Portable personal data, from the terminal.**
 
-`vana` is the local collection CLI for connector setup, browser automation, and
-dataset inspection.
+[![Release](https://img.shields.io/github/v/release/vana-com/cli)](https://github.com/vana-com/cli/releases)
+![macOS · Linux · Windows](https://img.shields.io/badge/platform-macOS%20·%20Linux%20·%20Windows-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Start Here
+<p align="center">
+  <img src="docs/assets/demo.gif" width="720" />
+  <br />
+  <sub>Connecting GitHub and inspecting the results. Credentials never leave your machine.</sub>
+</p>
 
-Install the current canary:
+`vana` collects your data from platforms you use. You log in through a browser
+on your machine, and the CLI saves it locally as JSON.
 
-macOS with Homebrew:
+### Highlights
+
+- **Fully local**: credentials and collected data never leave your machine
+- **Any platform**: connects through a browser session, not a restricted API
+- **Inspectable**: collected data is JSON you can summarize, query, or pipe
+- **Agent-ready**: `--json` and `--no-input` flags for scripts and AI agents
+- **Session caching**: log in once, reconnect faster next time
+- **Extensible**: connectors are standalone modules; add new platforms without touching the core
+
+## Install
+
+macOS (Homebrew):
 
 ```bash
-brew tap vana-com/vana
-brew install vana
+brew install vana-com/tap/vana
 ```
 
 macOS and Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
+curl -fsSL https://cli.vana.com/install.sh | sh
 ```
 
-Windows PowerShell:
+Windows (PowerShell):
 
 ```powershell
-& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.ps1 -useb).Content)) --version canary-feat-connect-cli-v1
+irm https://cli.vana.com/install.ps1 | iex
 ```
 
-Then run:
+Verify with `vana --version`.
+
+## Quick start
+
+```console
+$ vana connect github
+
+Connect GitHub
+
+→ Connecting
+  Checking GitHub login...
+  Login confirmed. Collecting data in background...
+  Profile (1/3): Fetching profile...
+  Repositories (2/3): Fetched 2 repositories
+  Starred (3/3): Fetched 0 starred repositories
+✓ Connected GitHub. Saved locally.
+  Path: ~/.dataconnect/last-result.json
+```
+
+```console
+$ vana data show github
+
+GitHub data
+
+→ Summary
+  Profile: tnunamak
+  Repositories: 2
+  Latest repos: vana-connect, data-connectors
+  Starred: 0
+
+  Path: ~/.dataconnect/last-result.json
+  Updated: Mar 14, 2026, 8:10 AM
+```
+
+Your data is on disk at `~/.dataconnect/`.
 
 ```bash
-vana --version
-vana doctor
-vana connect github
-vana data show github
+vana data show github --json | jq '.summary'
 ```
 
-Current prerelease tag:
-
-`canary-feat-connect-cli-v1`
-
-Release page:
-
-`https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
-
-## What It Feels Like
-
-- `vana connect` opens a guided source picker in human mode.
-- `vana connect <source>` runs the full collection flow.
-- `vana connect <source> --json --no-input` is the strict machine-safe path.
-- `vana doctor` checks install, runtime, and local state health.
-- `vana data ...` inspects collected datasets without opening raw JSON.
-- `vana logs` exposes stored connector run logs.
-
-Credentials stay local to this machine. Successful runs are explicit about
-whether data stayed local or synced to a Personal Server.
-
-## Demo
-
-See all CLI surfaces with their exact output in the
-[CLI transcripts](CLI-TRANSCRIPTS.md).
-
-## Core Commands
-
-Human mode:
+Explore further:
 
 ```bash
-vana version
-vana doctor
-vana status
-vana sources
-vana connect github
-vana data list
-vana data show github
-vana logs github
+vana sources               # See all available platforms
+vana connect               # Interactive source picker
+vana status                # What's connected, what needs attention
 ```
 
-Machine mode:
+## How it works
+
+1. `vana connect <source>` launches a browser on your machine
+2. You log in (credentials stay on your machine)
+3. The CLI collects your data and saves it to `~/.dataconnect/`
+4. `vana data show <source>` summarizes what was collected
+
+Sessions are cached, so reconnecting is faster next time. Your data is files
+on disk. Inspect, move, or delete them whenever you want.
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `vana connect [source]` | Connect a platform and export your data |
+| `vana sources` | List available platforms |
+| `vana data list` | Show all collected datasets |
+| `vana data show <source>` | Summarize a collected dataset |
+| `vana data path <source>` | Print the file path for a dataset |
+| `vana status` | Overview of connections and anything that needs attention |
+| `vana doctor` | Diagnose installation and runtime health |
+| `vana logs [source]` | View run logs |
+| `vana setup` | Install or repair the browser runtime |
+
+Run `vana <command> --help` for detailed usage.
+
+### For scripts and AI agents
+
+Commands support structured output:
 
 ```bash
-vana version --json | jq
-vana status --json | jq '.summary'
-vana sources --json | jq '.summary, .recommendedSource'
-vana data show github --json | jq '.summary, .data.profile'
-vana connect github --json --no-input
+vana connect github --json --no-input    # Machine-safe — never prompts
+vana data show github --json | jq        # Pipe collected data anywhere
+vana sources --json                      # Discover platforms programmatically
 ```
 
-Contract:
+`--json` writes structured output to stdout. `--no-input` guarantees no
+interactive prompts. The CLI exits `1` if input is needed. See the
+[exit code reference](docs/CLI-EXIT-CODE-MATRIX.md) for the full contract.
 
-- `--json` writes machine-readable output to stdout without human narration.
-- successful completion returns exit code `0`
-- actionable non-success outcomes return exit code `1`
+## Sources
 
-Full contract:
+`vana` connects to any platform that has a web login. Connectors handle the
+automation for each source.
 
-- [CLI exit code matrix](CLI-EXIT-CODE-MATRIX.md)
+The CLI shares its connector format with
+[DataConnect](https://github.com/vana-com/data-connect) and the
+[data-connectors](https://github.com/vana-com/data-connectors) repository.
 
-## Review Surface
+Tested in the CLI: **GitHub**, **Spotify**.
+Available in the connector ecosystem: **ChatGPT**, **Instagram**, **LinkedIn**,
+**YouTube**, **Shop**, and more.
 
-If you want to review the CLI systematically, start here:
+Run `vana sources` to see what's available on your install.
 
-- [CLI review surface](CLI-REVIEW-SURFACE.md)
+Missing a platform?
+[Request one](https://github.com/vana-com/cli/issues/new?template=source-request.yml)
+· [Build a connector](docs/building-connectors.md)
 
-Supporting artifacts:
+## Ecosystem
 
-- [CLI transcripts](CLI-TRANSCRIPTS.md)
+`vana` is the CLI for [Vana](https://vana.org)'s data portability network. It
+shares connectors and local storage with
+[DataConnect](https://github.com/vana-com/data-connect), the desktop app. For
+building apps that request user data, see the
+[Connect SDK](https://github.com/vana-com/vana-connect).
 
-## Lifecycle
+## Privacy
 
-Check the exact lifecycle commands for your install with:
+**Credentials**: You log in through a browser on your machine. Vana never
+sees your password, token, or session cookie.
+
+**Collected data**: Saved to `~/.dataconnect/` as local files. Nothing is
+uploaded.
+
+**Browser sessions**: Cached in `~/.dataconnect/browser-profiles/` for faster
+reconnects. Delete them any time.
+
+**Telemetry**: None.
+
+## Troubleshooting
 
 ```bash
-vana doctor
+vana doctor              # Runtime, browser, and state health
+vana logs <source>       # Latest run log for a source
 ```
 
-Typical upgrades:
+| Problem | Fix |
+|---------|-----|
+| Browser runtime missing | `vana setup` |
+| Login expired | `vana connect <source>` to re-authenticate |
+| Connector fails | `vana logs <source>` for details |
 
-- Homebrew:
-  ```bash
-  brew update
-  brew upgrade vana
-  ```
-- macOS/Linux installer:
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
-  ```
-- Windows installer:
-  ```powershell
-  iwr https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 -useb | iex
-  ```
+## Uninstall
 
-Typical removal:
+Remove the CLI:
 
-- Homebrew:
-  ```bash
-  brew uninstall vana
-  ```
-- macOS/Linux installer:
-  ```bash
-  rm -f ~/.local/bin/vana
-  rm -rf ~/.local/share/vana
-  ```
-- Windows installer:
-  - remove `%USERPROFILE%\\AppData\\Local\\Microsoft\\WinGet\\Links\\vana.cmd`
-  - remove `%USERPROFILE%\\AppData\\Local\\Vana`
+```bash
+brew uninstall vana                  # Homebrew
+rm -f ~/.local/bin/vana              # Script install (macOS / Linux)
+```
 
-To remove local runtime and collected state too:
+Remove collected data and state:
 
 ```bash
 rm -rf ~/.dataconnect
 ```
 
-## Local Development
+## Documentation
 
-```bash
-pnpm install
-pnpm build
-node dist/cli/bin.js status
-```
+- [Building connectors](docs/building-connectors.md)
+- [Exit code reference](docs/CLI-EXIT-CODE-MATRIX.md)
+- [Architecture](docs/architecture.md)
 
-Refresh local review artifacts:
+## Community
 
-```bash
-pnpm demo:transcripts
-```
+- [Issues](https://github.com/vana-com/cli/issues): bugs and source requests
+- [Discussions](https://github.com/vana-com/cli/discussions): questions and ideas
+- [Discord](https://discord.gg/vana): chat with the team
+- [Contributing](CONTRIBUTING.md)
 
-Watch the release lane and canary publication:
+## License
 
-```bash
-pnpm release:watch
-```
+MIT

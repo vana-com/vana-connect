@@ -1,1 +1,2 @@
 pnpm exec lint-staged
+./scripts/check-demo-freshness.sh 2>/dev/null || true
