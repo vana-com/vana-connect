@@ -11,6 +11,7 @@ export interface ConnectRenderer {
   scopeFailed(scope: string, error: string): void;
   success(message: string): void;
   detail(message: string): void;
+  next(command: string): void;
   fail(message: string): void;
   bell(): void;
   cleanup(): void;
@@ -116,6 +117,10 @@ export function createConnectRenderer(): ConnectRenderer {
 
     detail(message: string): void {
       writeLine(`  ${theme.muted(message)}`);
+    },
+
+    next(command: string): void {
+      writeLine(`  ${theme.muted("Next:")} ${theme.heading(command)}`);
     },
 
     fail(message: string): void {

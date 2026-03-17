@@ -91,6 +91,7 @@ interface Emitter {
   section(message: string): void;
   keyValue(label: string, value: string, tone?: RenderTone): void;
   detail(message: string): void;
+  next(command: string): void;
   bullet(message: string): void;
   sourceTitle(
     name: string,
@@ -917,9 +918,9 @@ async function runConnect(
 
     renderer?.detail("");
     if (connectedSourceCount > 1) {
-      renderer?.detail(`Next: vana sources`);
+      renderer?.next("vana sources");
     } else {
-      renderer?.detail(`Next: vana data show ${source}`);
+      renderer?.next(`vana data show ${source}`);
     }
 
     renderer?.bell();
@@ -1220,7 +1221,7 @@ async function runList(options: GlobalOptions): Promise<number> {
   } else {
     if (recommendedSource) {
       emit.blank();
-      emit.detail(`Next: ${emit.code(`vana connect ${recommendedSource.id}`)}`);
+      emit.next(`vana connect ${recommendedSource.id}`);
     }
   }
   return 0;
@@ -1341,7 +1342,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       "success",
     );
   } else {
-    emit.keyValue("Personal Server", "not connected", "muted");
+    emit.keyValue("Personal Server", "not connected", "warning");
   }
   const connectedCount = status.summary?.connectedCount ?? 0;
   const attentionCount = status.summary?.needsAttentionCount ?? 0;
@@ -1354,11 +1355,11 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   emit.keyValue(
     "Sources",
     sourceParts.join(", "),
-    connectedCount > 0 ? "success" : "muted",
+    attentionCount > 0 ? "warning" : connectedCount > 0 ? "success" : "muted",
   );
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.detail(`Next: ${nextSteps[0]}`);
+    emit.info(`  Next: ${nextSteps[0]}`);
   }
   return 0;
 }
@@ -1660,7 +1661,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   emit.keyValue("Uninstall", lifecycle.uninstall, "muted");
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.detail(`Next: ${nextSteps[0]}`);
+    emit.info(`  Next: ${nextSteps[0]}`);
   }
 
   return 0;
@@ -1751,7 +1752,7 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
 
   if (target.state !== "available") {
     emit.blank();
-    emit.detail(`Next: ${emit.code("vana server set-url <url>")}`);
+    emit.next("vana server set-url <url>");
   }
 
   emit.blank();
@@ -1874,9 +1875,9 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     }
     emit.blank();
     if (suggestedSource) {
-      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
+      emit.next(`vana connect ${suggestedSource.id}`);
     } else {
-      emit.detail(`Next: ${emit.code("vana connect")}`);
+      emit.next("vana connect");
     }
     emit.event({ type: "setup-check", runtime: runtime.state });
     return 0;
@@ -1890,9 +1891,9 @@ async function runSetup(options: GlobalOptions): Promise<number> {
     }
     emit.blank();
     if (suggestedSource) {
-      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
+      emit.next(`vana connect ${suggestedSource.id}`);
     } else {
-      emit.detail(`Next: ${emit.code("vana connect")}`);
+      emit.next("vana connect");
     }
     emit.event({
       type: "setup-complete",
@@ -1973,9 +1974,9 @@ async function runDataList(options: GlobalOptions): Promise<number> {
     emit.info("  No datasets yet.");
     emit.blank();
     if (suggestedSource) {
-      emit.detail(`Next: ${emit.code(`vana connect ${suggestedSource.id}`)}`);
+      emit.next(`vana connect ${suggestedSource.id}`);
     } else {
-      emit.detail(`Next: ${emit.code("vana connect")}`);
+      emit.next("vana connect");
     }
     return 0;
   }
@@ -2044,9 +2045,7 @@ async function runDataList(options: GlobalOptions): Promise<number> {
   });
   emit.blank();
   if (datasetRecords.length > 0) {
-    emit.detail(
-      `Next: ${emit.code(`vana data show ${datasetRecords[0].source}`)}`,
-    );
+    emit.next(`vana data show ${datasetRecords[0].source}`);
   }
   return 0;
 }
@@ -2084,7 +2083,7 @@ async function runDataShow(
         `No collected dataset found for ${displaySource(source, sourceLabels)}. Run \`vana connect ${source}\` first.`,
       );
       emit.blank();
-      emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
+      emit.next(`vana connect ${source}`);
     }
     return 1;
   }
@@ -2135,9 +2134,9 @@ async function runDataShow(
     }
     emit.blank();
     if (datasetCount > 1) {
-      emit.detail(`Next: ${emit.code("vana data list")}`);
+      emit.next("vana data list");
     } else {
-      emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
+      emit.next(`vana connect ${source}`);
     }
     return 0;
   } catch (error) {
@@ -2258,7 +2257,7 @@ async function runLogs(
         const emit = createEmitter(options);
         emit.info(payload.message);
         emit.blank();
-        emit.detail(`Next: ${emit.code(`vana connect ${source}`)}`);
+        emit.next(`vana connect ${source}`);
       }
       return 1;
     }
@@ -2292,7 +2291,7 @@ async function runLogs(
   if (records.length === 0) {
     emit.info("No stored run logs yet.");
     emit.blank();
-    emit.detail(`Next: ${emit.code("vana connect")}`);
+    emit.next("vana connect");
     return 0;
   }
 
@@ -2350,7 +2349,7 @@ async function runLogs(
 
   emit.blank();
   if (nextSteps.length > 0) {
-    emit.detail(`Next: ${nextSteps[0]}`);
+    emit.info(`  Next: ${nextSteps[0]}`);
   }
   return 0;
 }
@@ -2469,7 +2468,7 @@ async function runSourceDetail(
   }
 
   emit.blank();
-  emit.detail(`Next: ${emit.code(`vana connect ${match.id}`)}`);
+  emit.next(`vana connect ${match.id}`);
   return 0;
 }
 
@@ -2893,6 +2892,14 @@ function createEmitter(options: GlobalOptions): Emitter {
         return;
       }
       process.stdout.write(`${renderer.detail(message)}\n`);
+    },
+    next(command: string) {
+      if (options.json || options.quiet) {
+        return;
+      }
+      process.stdout.write(
+        `  ${renderer.theme.muted("Next:")} ${renderer.theme.code(command)}\n`,
+      );
     },
     bullet(message: string) {
       if (options.json || options.quiet) {
