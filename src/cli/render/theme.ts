@@ -4,7 +4,7 @@ import type { RenderCapabilities } from "./capabilities.js";
 
 const VANA_ACCENT = [65, 65, 252] as const;
 const VANA_SUCCESS = [0, 213, 11] as const;
-const VANA_DESTRUCTIVE = [199, 54, 54] as const;
+const VANA_DESTRUCTIVE = [251, 44, 54] as const;
 const VANA_MUTED = [112, 112, 112] as const;
 const VANA_WARNING = [186, 139, 0] as const;
 
