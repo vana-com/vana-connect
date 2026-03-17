@@ -449,9 +449,10 @@ Examples:
 }
 
 async function runConnect(
-  source: string,
+  rawSource: string,
   options: GlobalOptions,
 ): Promise<number> {
+  const source = rawSource.toLowerCase();
   const runtime = new ManagedPlaywrightRuntime();
   const emit = createEmitter(options);
   const renderer: ConnectRenderer | null =
@@ -537,6 +538,9 @@ async function runConnect(
         error instanceof Error
           ? error.message
           : `No connector is available for ${displayName} right now.`;
+      const isChecksumError =
+        rawMessage.toLowerCase().includes("checksum") ||
+        rawMessage.toLowerCase().includes("mismatch");
       const message = formatHumanSourceMessage(rawMessage, source, displayName);
       await updateSourceState(source, {
         connectorInstalled: false,
@@ -547,8 +551,17 @@ async function runConnect(
         lastResultPath: null,
         lastLogPath: getErrorLogPath(error),
       });
-      renderer?.fail(`${displayName} is not available.`);
-      renderer?.detail(`See what’s ready: vana sources`);
+      if (isChecksumError) {
+        renderer?.fail(
+          `${displayName} connector is outdated. Clear cache and retry.`,
+        );
+        renderer?.detail(
+          `rm -rf ~/.dataconnect/connectors && vana connect ${source}`,
+        );
+      } else {
+        renderer?.fail(`${displayName} is not available.`);
+        renderer?.detail(`See what’s ready: vana sources`);
+      }
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
