@@ -2,7 +2,6 @@ import { detectRenderCapabilities } from "./capabilities.js";
 
 // Vana accent blue
 const ACCENT = [65, 65, 252] as const;
-const SUCCESS = [0, 213, 11] as const;
 const ERROR = [231, 0, 11] as const;
 
 interface ScopeLine {
@@ -82,7 +81,7 @@ export function createConnectRenderer(): ConnectRenderer {
 
   function renderLine(scope: ScopeLine): string {
     if (scope.state === "done") {
-      const check = rgb(...SUCCESS, "\u2713");
+      const check = rgb(...ACCENT, "\u2713");
       const detail = scope.detail ? ` ${dim(`\u2014 ${scope.detail}`)}` : "";
       return `  ${check} ${scope.name}${detail}`;
     }
@@ -193,7 +192,7 @@ export function createConnectRenderer(): ConnectRenderer {
       spinnerElapsed = 0;
 
       if (!canAnimate) {
-        const check = rgb(...SUCCESS, "\u2713");
+        const check = rgb(...ACCENT, "\u2713");
         const detailStr = detail ? ` ${dim(`\u2014 ${detail}`)}` : "";
         process.stderr.write(`  ${check} ${scope}${detailStr}\n`);
       }

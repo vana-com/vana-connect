@@ -6,6 +6,27 @@ import { createRequire } from "node:module";
 import { confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
 
+// Vana-branded theme for inquirer prompts — matches brand palette
+const VANA_BLUE = "\x1b[38;2;65;65;252m";
+const VANA_GREEN = "\x1b[38;2;0;213;11m";
+const VANA_MUTED = "\x1b[38;2;112;112;112m";
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const BOLD_RESET = "\x1b[22m";
+const vanaPromptTheme = {
+  theme: {
+    prefix: { idle: `${VANA_BLUE}?${RESET}`, done: `${VANA_GREEN}✓${RESET}` },
+    style: {
+      answer: (text: string) => `${BOLD}${text}${BOLD_RESET}`,
+      message: (text: string, status: "idle" | "done" | "loading") =>
+        status === "done" ? `${VANA_MUTED}${text}${RESET}` : text,
+      highlight: (text: string) => `${VANA_BLUE}${text}${RESET}`,
+      help: (text: string) => `${VANA_MUTED}${text}${RESET}`,
+      error: (text: string) => `\x1b[38;2;231;0;11m${text}${RESET}`,
+    },
+  },
+};
+
 import {
   createConnectRenderer,
   createHumanRenderer,
@@ -493,6 +514,7 @@ async function runConnect(
         const shouldContinue = await confirm({
           message: "Continue?",
           default: true,
+          ...vanaPromptTheme,
         });
         if (!shouldContinue) {
           renderer?.fail("Cancelled.");
@@ -705,10 +727,12 @@ async function runConnect(
             if (isPasswordField) {
               values[field] = await password({
                 message: humanizeField(field),
+                ...vanaPromptTheme,
               });
             } else {
               values[field] = await input({
                 message: humanizeField(field),
+                ...vanaPromptTheme,
               });
             }
           }
@@ -1088,6 +1112,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
       message: "Choose a source to connect.",
       choices,
       default: suggestedSource?.id,
+      ...vanaPromptTheme,
     });
 
     return runConnect(source as string, options);
