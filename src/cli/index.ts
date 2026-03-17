@@ -44,6 +44,7 @@ import type {
 } from "../core/cli-types.js";
 import type { AvailableSource } from "../connectors/registry.js";
 import {
+  fetchConnectorToCache,
   listAvailableSources,
   readCachedConnectorMetadata,
 } from "../connectors/registry.js";
@@ -540,13 +541,23 @@ async function runConnect(
         firstMessage.toLowerCase().includes("checksum") ||
         firstMessage.toLowerCase().includes("mismatch");
 
-      // Auto-retry on stale cache: clear the cached connector and re-fetch.
+      // Auto-retry on stale cache: clear cached connector and re-fetch
+      // from remote (skip local data-connectors dir which may be stale).
       if (isChecksumError) {
         try {
           const cacheDir = getConnectorCacheDir();
           const sourceCacheDir = path.join(cacheDir, source);
           await fsp.rm(sourceCacheDir, { recursive: true, force: true });
-          fetched = await runtime.fetchConnector(source);
+          const resolution = await fetchConnectorToCache(
+            source,
+            cacheDir,
+            undefined, // force remote fetch, skip local data-connectors
+          );
+          fetched = {
+            connectorPath: resolution.connectorPath,
+            logPath: "",
+            version: resolution.version,
+          };
         } catch (retryError) {
           const retryMessage =
             retryError instanceof Error
