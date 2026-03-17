@@ -533,42 +533,75 @@ async function runConnect(
     >;
     try {
       fetched = await runtime.fetchConnector(source);
-    } catch (error) {
-      const rawMessage =
-        error instanceof Error
-          ? error.message
-          : `No connector is available for ${displayName} right now.`;
+    } catch (firstError) {
+      const firstMessage =
+        firstError instanceof Error ? firstError.message : "";
       const isChecksumError =
-        rawMessage.toLowerCase().includes("checksum") ||
-        rawMessage.toLowerCase().includes("mismatch");
-      const message = formatHumanSourceMessage(rawMessage, source, displayName);
-      await updateSourceState(source, {
-        connectorInstalled: false,
-        lastRunAt: new Date().toISOString(),
-        lastRunOutcome: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
-        dataState: "none",
-        lastError: message,
-        lastResultPath: null,
-        lastLogPath: getErrorLogPath(error),
-      });
+        firstMessage.toLowerCase().includes("checksum") ||
+        firstMessage.toLowerCase().includes("mismatch");
+
+      // Auto-retry on stale cache: clear the cached connector and re-fetch.
       if (isChecksumError) {
-        renderer?.fail(
-          `${displayName} connector is outdated. Clear cache and retry.`,
-        );
-        renderer?.detail(
-          `rm -rf ~/.dataconnect/connectors && vana connect ${source}`,
-        );
+        try {
+          const cacheDir = getConnectorCacheDir();
+          const sourceCacheDir = path.join(cacheDir, source);
+          await fsp.rm(sourceCacheDir, { recursive: true, force: true });
+          fetched = await runtime.fetchConnector(source);
+        } catch (retryError) {
+          const retryMessage =
+            retryError instanceof Error
+              ? retryError.message
+              : `Could not fetch ${displayName} connector.`;
+          const message = formatHumanSourceMessage(
+            retryMessage,
+            source,
+            displayName,
+          );
+          await updateSourceState(source, {
+            connectorInstalled: false,
+            lastRunAt: new Date().toISOString(),
+            lastRunOutcome: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+            dataState: "none",
+            lastError: message,
+            lastResultPath: null,
+            lastLogPath: getErrorLogPath(retryError),
+          });
+          renderer?.fail(`${displayName} connector could not be updated.`);
+          renderer?.detail(`Check your network connection and try again.`);
+          emit.event({
+            type: "outcome",
+            status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+            source,
+            reason: message,
+          });
+          return 1;
+        }
       } else {
+        const message = formatHumanSourceMessage(
+          firstMessage ||
+            `No connector is available for ${displayName} right now.`,
+          source,
+          displayName,
+        );
+        await updateSourceState(source, {
+          connectorInstalled: false,
+          lastRunAt: new Date().toISOString(),
+          lastRunOutcome: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+          dataState: "none",
+          lastError: message,
+          lastResultPath: null,
+          lastLogPath: getErrorLogPath(firstError),
+        });
         renderer?.fail(`${displayName} is not available.`);
         renderer?.detail(`See what’s ready: vana sources`);
+        emit.event({
+          type: "outcome",
+          status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
+          source,
+          reason: message,
+        });
+        return 1;
       }
-      emit.event({
-        type: "outcome",
-        status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
-        source,
-        reason: message,
-      });
-      return 1;
     }
     fetchLogPath = fetched.logPath;
     const sourceDetails = registrySources.find((item) => item.id === source);
