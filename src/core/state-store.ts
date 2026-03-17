@@ -27,6 +27,12 @@ export interface StoredSourceState {
   lastError?: string | null;
   lastResultPath?: string | null;
   lastLogPath?: string | null;
+  ingestScopes?: Array<{
+    scope: string;
+    status: "stored" | "failed";
+    syncedAt?: string;
+    error?: string;
+  }>;
 }
 
 export interface CliConfig {

@@ -407,6 +407,14 @@ Examples:
       process.exitCode = await runServerSync(parsedOptions);
     });
 
+  server
+    .command("data [scope]")
+    .description("List scopes stored in your Personal Server")
+    .option("--json", "Output machine-readable JSON")
+    .action(async (scope?: string) => {
+      process.exitCode = await runServerData(scope, parsedOptions);
+    });
+
   try {
     await program.parseAsync(normalizedArgv);
   } catch (error) {
@@ -657,6 +665,14 @@ async function runConnect(
     let ingestFailureMessage: string | null = null;
     let resultPath = getLastResultPath();
     let collectedResult = false;
+    let ingestScopeResults:
+      | Array<{
+          scope: string;
+          status: "stored" | "failed";
+          syncedAt?: string;
+          error?: string;
+        }>
+      | undefined;
 
     for await (const event of runtime.runConnector({
       connectorPath: resolution.connectorPath,
@@ -874,13 +890,26 @@ async function runConnect(
           emit.event(ingestEvent);
         }
 
+        const scopeResults = ingestEvents.find(
+          (e) =>
+            e.type === "ingest-complete" ||
+            e.type === "ingest-partial" ||
+            e.type === "ingest-failed",
+        )?.scopeResults;
+
         const ingestCompleted = ingestEvents.some(
           (ingestEvent) => ingestEvent.type === "ingest-complete",
+        );
+        const ingestPartial = ingestEvents.some(
+          (ingestEvent) => ingestEvent.type === "ingest-partial",
         );
         const ingestFailedEvent = ingestEvents.find(
           (ingestEvent) => ingestEvent.type === "ingest-failed",
         );
         if (ingestCompleted) {
+          finalStatus = CliOutcomeStatus.CONNECTED_AND_INGESTED;
+          finalDataState = "ingested_personal_server";
+        } else if (ingestPartial) {
           finalStatus = CliOutcomeStatus.CONNECTED_AND_INGESTED;
           finalDataState = "ingested_personal_server";
         } else if (ingestFailedEvent?.type === "ingest-failed") {
@@ -892,6 +921,15 @@ async function runConnect(
           finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
           finalDataState = "collected_local";
         }
+
+        // Store per-scope results in state
+        ingestScopeResults = scopeResults?.map((r) => ({
+          scope: r.scope,
+          status: r.status,
+          syncedAt:
+            r.status === "stored" ? new Date().toISOString() : undefined,
+          error: r.error,
+        }));
       }
     }
 
@@ -934,19 +972,53 @@ async function runConnect(
       lastError: ingestFailureMessage,
       lastResultPath: resultPath,
       lastLogPath: runLogPath ?? fetchLogPath ?? setupLogPath ?? null,
+      ingestScopes: ingestScopeResults,
     });
 
     const resultSummary = await readResultSummary(resultPath);
     const statusCommand = emit.code("vana status");
     const dataCommand = emit.code(`vana data show ${source}`);
-    const successSummary =
-      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
-        ? `Collected your ${displayName} data and synced it to your Personal Server.`
-        : `Collected your ${displayName} data and saved it locally.`;
+
+    // Build scope-aware success summary
+    const storedCount =
+      ingestScopeResults?.filter((r) => r.status === "stored").length ?? 0;
+    const failedCount =
+      ingestScopeResults?.filter((r) => r.status === "failed").length ?? 0;
+    const totalScopes = ingestScopeResults?.length ?? 0;
+
+    let successSummary: string;
+    if (
+      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED &&
+      totalScopes > 0
+    ) {
+      if (failedCount === 0) {
+        successSummary = `Connected ${displayName}. ${storedCount}/${totalScopes} scopes synced to Personal Server.`;
+      } else {
+        successSummary = `Connected ${displayName}. ${storedCount}/${totalScopes} scopes synced, ${failedCount} failed.`;
+      }
+    } else if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
+      successSummary = `Collected your ${displayName} data and synced it to your Personal Server.`;
+    } else {
+      successSummary = `Collected your ${displayName} data and saved it locally.`;
+    }
 
     emit.success(`Connected ${displayName}.`);
     progress.succeed(`Connected ${displayName}.`);
     emit.detail(successSummary);
+
+    // Show per-scope results if available
+    if (ingestScopeResults && ingestScopeResults.length > 0) {
+      for (const sr of ingestScopeResults) {
+        if (sr.status === "stored") {
+          emit.detail(`  ${sr.scope} \u2713`);
+        } else {
+          emit.detail(`  ${sr.scope} \u2717 (${sr.error ?? "failed"})`);
+        }
+      }
+      if (failedCount > 0 && storedCount > 0) {
+        emit.detail(`  Run ${emit.code("vana server sync")} to retry.`);
+      }
+    }
 
     emit.blank();
     if (resultSummary) {
@@ -980,10 +1052,10 @@ async function runConnect(
         "warning",
       );
     } else if (target.state !== "available") {
-      emit.keyValue(
-        "Server",
-        "Unavailable, so this run stayed local.",
-        "muted",
+      emit.keyValue("Server", "Data saved locally.", "muted");
+      emit.detail(`  Path: ${formatDisplayPath(resultPath)}`);
+      emit.detail(
+        `  Start your Personal Server, then run ${emit.code("vana server sync")}.`,
       );
     }
 
@@ -1402,6 +1474,16 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     (source) => source.dataState === "collected_local",
   ).length;
 
+  // Count stored scopes across all sources
+  let totalStoredScopes = 0;
+  for (const stored of Object.values(state.sources)) {
+    if (stored?.ingestScopes) {
+      totalStoredScopes += stored.ingestScopes.filter(
+        (s) => s.status === "stored",
+      ).length;
+    }
+  }
+
   const status: CliStatus = {
     cliVersion: getCliVersion(),
     channel: getCliChannel(),
@@ -1411,6 +1493,11 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
     personalServerSource: personalServer.source,
+    personalServerInfo: {
+      url: personalServer.url,
+      status: personalServer.state,
+      scopeCount: totalStoredScopes,
+    },
     pendingSyncCount,
     summary: {
       sourceCount: sources.length,
@@ -1502,14 +1589,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   if (status.runtimePath) {
     emit.keyValue("Browser", formatDisplayPath(status.runtimePath), "muted");
   }
-  emit.keyValue(
-    "Personal Server",
-    status.personalServer === "available"
-      ? `available (${status.personalServerUrl ?? "unknown"})`
-      : "not connected",
-    status.personalServer === "available" ? "success" : "muted",
-  );
-  if (status.personalServer !== "available" && !status.personalServerUrl) {
+  if (status.personalServer === "available") {
+    const psVersion = personalServer.health?.version
+      ? ` v${personalServer.health.version}`
+      : "";
+    const scopeInfo =
+      totalStoredScopes > 0 ? `, ${totalStoredScopes} scopes stored` : "";
+    emit.keyValue(
+      "Personal Server",
+      `available (${status.personalServerUrl ?? "unknown"}${psVersion}${scopeInfo})`,
+      "success",
+    );
+  } else {
+    emit.keyValue("Personal Server", "not connected", "muted");
     emit.detail("Run `vana server set-url <url>` to configure");
   }
   const sourceGroups = [
@@ -1880,6 +1972,17 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
 async function runServerStatus(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const target = await detectPersonalServerTarget();
+  const state = await readCliState();
+
+  // Count scopes from state
+  let totalScopeCount = 0;
+  for (const stored of Object.values(state.sources)) {
+    if (stored?.ingestScopes) {
+      totalScopeCount += stored.ingestScopes.filter(
+        (s) => s.status === "stored",
+      ).length;
+    }
+  }
 
   if (options.json) {
     process.stdout.write(
@@ -1888,6 +1991,7 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
         url: target.url,
         source: target.source,
         health: target.health,
+        scopeCount: totalScopeCount,
       })}\n`,
     );
     return 0;
@@ -1896,18 +2000,30 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
   emit.title("Personal Server");
   emit.blank();
 
-  const stateLabel =
-    target.state === "available" ? "Connected" : "Not connected";
+  if (target.url) {
+    emit.keyValue(
+      "URL",
+      `${target.url} (${target.source === "scan" ? "auto-detected" : (target.source ?? "unknown")})`,
+      "muted",
+    );
+  }
+
+  const stateLabel = target.state === "available" ? "healthy" : "Not connected";
   emit.keyValue(
     "Status",
     stateLabel,
     target.state === "available" ? "success" : "warning",
   );
 
-  if (target.url) {
-    emit.keyValue("URL", target.url, "muted");
+  if (target.health) {
+    emit.keyValue("Version", target.health.version, "muted");
   }
-  if (target.source) {
+
+  if (totalScopeCount > 0) {
+    emit.keyValue("Scopes", `${totalScopeCount} stored`, "muted");
+  }
+
+  if (target.source && !target.url) {
     const sourceLabel: Record<string, string> = {
       config: "Saved config",
       env: "VANA_PERSONAL_SERVER_URL",
@@ -1921,9 +2037,6 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
   }
 
   if (target.health) {
-    emit.blank();
-    emit.section("Server");
-    emit.keyValue("Version", target.health.version, "muted");
     emit.keyValue("Uptime", formatUptime(target.health.uptime), "muted");
     if (target.health.owner) {
       emit.keyValue("Owner", target.health.owner, "muted");
@@ -2737,9 +2850,13 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
   }
 
   const state = await readCliState();
+  // Find sources that are local-only OR have failed ingest scopes
   const pendingSources = Object.entries(state.sources).filter(
     ([, stored]) =>
-      stored?.lastResultPath && stored.dataState === "collected_local",
+      stored?.lastResultPath &&
+      (stored.dataState === "collected_local" ||
+        stored.dataState === "ingest_failed" ||
+        stored?.ingestScopes?.some((s) => s.status === "failed")),
   );
 
   if (pendingSources.length === 0) {
@@ -2754,6 +2871,11 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
   }
 
   let syncedCount = 0;
+  const allScopeResults: Array<{
+    source: string;
+    scopeResults?: Array<{ scope: string; status: string; error?: string }>;
+  }> = [];
+
   for (const [source, stored] of pendingSources) {
     if (!stored?.lastResultPath) {
       continue;
@@ -2763,15 +2885,39 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       stored.lastResultPath,
       target,
     );
+
+    const resultEvent = ingestEvents.find(
+      (e) =>
+        e.type === "ingest-complete" ||
+        e.type === "ingest-partial" ||
+        e.type === "ingest-failed",
+    );
+    const scopeResults = resultEvent?.scopeResults;
+
     const ingestCompleted = ingestEvents.some(
       (e) => e.type === "ingest-complete",
     );
-    if (ingestCompleted) {
+    const ingestPartial = ingestEvents.some((e) => e.type === "ingest-partial");
+
+    if (ingestCompleted || ingestPartial) {
       syncedCount++;
+      const dataState =
+        ingestCompleted || ingestPartial
+          ? "ingested_personal_server"
+          : stored.dataState;
       await updateSourceState(source, {
-        dataState: "ingested_personal_server",
+        dataState,
+        ingestScopes: scopeResults?.map((r) => ({
+          scope: r.scope,
+          status: r.status,
+          syncedAt:
+            r.status === "stored" ? new Date().toISOString() : undefined,
+          error: r.error,
+        })),
       });
     }
+
+    allScopeResults.push({ source, scopeResults });
     for (const event of ingestEvents) {
       emit.event(event);
     }
@@ -2782,8 +2928,100 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       `${JSON.stringify({ message: `Synced ${syncedCount} dataset(s).`, syncedCount })}\n`,
     );
   } else {
+    // Show per-scope results in human mode
+    for (const entry of allScopeResults) {
+      if (entry.scopeResults && entry.scopeResults.length > 0) {
+        emit.info(`${entry.source}:`);
+        for (const sr of entry.scopeResults) {
+          if (sr.status === "stored") {
+            emit.detail(`  ${sr.scope} \u2713`);
+          } else {
+            emit.detail(`  ${sr.scope} \u2717 (${sr.error ?? "failed"})`);
+          }
+        }
+      }
+    }
     emit.info(`Synced ${syncedCount} dataset(s).`);
   }
+  return 0;
+}
+
+async function runServerData(
+  scope: string | undefined,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+  const target = await detectPersonalServerTarget();
+  const state = await readCliState();
+
+  // Gather locally-known scopes from state
+  const localScopes: Array<{ scope: string; source: string; status: string }> =
+    [];
+  for (const [src, stored] of Object.entries(state.sources)) {
+    if (stored?.ingestScopes) {
+      for (const is of stored.ingestScopes) {
+        localScopes.push({ scope: is.scope, source: src, status: is.status });
+      }
+    }
+  }
+
+  // If PS is available, try to list remote scopes via client
+  let remoteScopes: Array<{ scope: string; count: number }> = [];
+  if (target.state === "available" && target.url) {
+    try {
+      const { createPersonalServerClient: createClient } =
+        await import("../personal-server/client.js");
+      const client = createClient({ url: target.url });
+      remoteScopes = await client.listScopes(scope);
+    } catch {
+      // Auth required or PS unavailable — fall back to local
+    }
+  }
+
+  // Use remote scopes if available, otherwise fall back to local
+  const scopeList =
+    remoteScopes.length > 0
+      ? remoteScopes.map((s) => ({
+          scope: s.scope,
+          detail: `${s.count} version${s.count !== 1 ? "s" : ""}`,
+        }))
+      : localScopes
+          .filter((s) => s.status === "stored")
+          .filter((s) => !scope || s.scope.startsWith(scope))
+          .map((s) => ({ scope: s.scope, detail: "1 version" }));
+
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        count: scopeList.length,
+        scopes: scopeList,
+        source: remoteScopes.length > 0 ? "remote" : "local",
+      })}\n`,
+    );
+    return 0;
+  }
+
+  if (scopeList.length === 0) {
+    emit.info("No scopes found.");
+    if (target.state !== "available") {
+      emit.detail(
+        "Personal Server is not available. Showing locally-known scopes only.",
+      );
+    }
+    return 0;
+  }
+
+  for (const entry of scopeList) {
+    emit.keyValue(entry.scope, entry.detail, "muted");
+  }
+
+  if (remoteScopes.length === 0 && localScopes.length > 0) {
+    emit.blank();
+    emit.detail(
+      "Showing locally-known scopes. Connect your Personal Server for live data.",
+    );
+  }
+
   return 0;
 }
 
@@ -3057,6 +3295,11 @@ async function gatherSourceStatuses(
             : stored.dataState === "collected_local"
               ? "collected_local"
               : "none";
+      const ingestScopes = stored.ingestScopes;
+      const syncedScopeCount =
+        ingestScopes?.filter((s) => s.status === "stored").length ?? 0;
+      const failedScopeCount =
+        ingestScopes?.filter((s) => s.status === "failed").length ?? 0;
       return {
         source,
         name: details?.name,
@@ -3075,6 +3318,9 @@ async function gatherSourceStatuses(
         lastError: stored.lastError ?? null,
         lastResultPath: stored.lastResultPath ?? null,
         lastLogPath: stored.lastLogPath ?? null,
+        ingestScopes,
+        syncedScopeCount: syncedScopeCount > 0 ? syncedScopeCount : undefined,
+        failedScopeCount: failedScopeCount > 0 ? failedScopeCount : undefined,
       };
     })
     .sort(compareSourceStatusOrder);
@@ -3891,6 +4137,21 @@ function getSourceStatusPresentation(source: SourceStatus): {
   }
 
   if (source.dataState === "ingested_personal_server") {
+    // Check per-scope state for more granular badges
+    if (source.ingestScopes && source.ingestScopes.length > 0) {
+      const storedCount = source.ingestScopes.filter(
+        (s) => s.status === "stored",
+      ).length;
+      const failedCount = source.ingestScopes.filter(
+        (s) => s.status === "failed",
+      ).length;
+      if (failedCount > 0 && storedCount > 0) {
+        return { label: "partial sync", tone: "warning" };
+      }
+      if (failedCount > 0 && storedCount === 0) {
+        return { label: "sync failed", tone: "error" };
+      }
+    }
     return { label: "synced", tone: "success" };
   }
 
@@ -3899,7 +4160,7 @@ function getSourceStatusPresentation(source: SourceStatus): {
   }
 
   if (source.dataState === "ingest_failed") {
-    return { label: "sync failed", tone: "warning" };
+    return { label: "sync failed", tone: "error" };
   }
 
   return { label: "connected", tone: "success" };

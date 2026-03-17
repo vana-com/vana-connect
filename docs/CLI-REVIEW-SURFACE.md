@@ -22,8 +22,11 @@ Top level:
 - `vana status`
 - `vana doctor`
 - `vana sources`
+- `vana sources <source>`
 - `vana connect`
 - `vana connect <source>`
+- `vana collect`
+- `vana collect <source>`
 - `vana data`
 - `vana data list`
 - `vana data show <source>`
@@ -31,6 +34,13 @@ Top level:
 - `vana logs`
 - `vana logs <source>`
 - `vana setup`
+- `vana server`
+- `vana server status`
+- `vana server set-url <url>`
+- `vana server clear-url`
+- `vana server sync`
+- `vana server data`
+- `vana server data <scope>`
 
 JSON / agent-safe surfaces:
 
@@ -38,12 +48,22 @@ JSON / agent-safe surfaces:
 - `vana status --json`
 - `vana doctor --json`
 - `vana sources --json`
+- `vana sources <source> --json`
+- `vana connect <source> --json --no-input`
+- `vana collect --json`
+- `vana collect <source> --json --no-input`
 - `vana data list --json`
 - `vana data show <source> --json`
 - `vana data path <source> --json`
 - `vana logs --json`
 - `vana logs <source> --json`
-- `vana connect <source> --json --no-input`
+- `vana server --json`
+- `vana server status --json`
+- `vana server set-url <url> --json`
+- `vana server clear-url --json`
+- `vana server sync --json`
+- `vana server data --json`
+- `vana server data <scope> --json`
 
 ## Review Order
 
@@ -55,8 +75,11 @@ If you only have a few minutes, review the
 3. [`vana status`](CLI-TRANSCRIPTS.md#vana-status)
 4. [`vana sources`](CLI-TRANSCRIPTS.md#vana-sources)
 5. [Successful connect](CLI-TRANSCRIPTS.md#successful-interactive-path)
-6. [`vana data show github`](CLI-TRANSCRIPTS.md#vana-data-show-github)
-7. [`vana logs`](CLI-TRANSCRIPTS.md#vana-logs)
+6. [`vana collect`](CLI-TRANSCRIPTS.md#vana-collect)
+7. [`vana data show github`](CLI-TRANSCRIPTS.md#vana-data-show-github)
+8. [`vana server status`](CLI-TRANSCRIPTS.md#vana-server-status)
+9. [`vana server sync`](CLI-TRANSCRIPTS.md#vana-server-sync)
+10. [`vana logs`](CLI-TRANSCRIPTS.md#vana-logs)
 
 That sequence covers:
 
@@ -64,14 +87,16 @@ That sequence covers:
 - trust and diagnostics
 - source discovery
 - successful collection
+- re-collection of existing sources
 - post-success payoff
+- personal server integration
 - operator/debug follow-through
 
 ## Human Review Surfaces
 
 All transcripts are in [CLI-TRANSCRIPTS.md](CLI-TRANSCRIPTS.md), organized by
-category: foundational, state/diagnostics, discovery, data surfaces, and
-connect flows.
+category: foundational, state/diagnostics, discovery, data surfaces, connect
+flows, collect flows, and server management.
 
 ## Machine Review Surfaces
 
@@ -81,12 +106,22 @@ Use these when reviewing shell composability and agent behavior:
 - `vana status --json`
 - `vana doctor --json`
 - `vana sources --json`
+- `vana sources github --json`
 - `vana data list --json`
 - `vana data show github --json`
 - `vana data path github --json`
 - `vana logs --json`
 - `vana connect github --json --no-input`
 - `vana connect shop --json --no-input`
+- `vana collect --json`
+- `vana collect github --json --no-input`
+- `vana server --json`
+- `vana server status --json`
+- `vana server set-url https://ps-abc123.server.vana.org --json`
+- `vana server clear-url --json`
+- `vana server sync --json`
+- `vana server data --json`
+- `vana server data github --json`
 
 Related contract docs:
 
@@ -203,8 +238,12 @@ vana --version
 vana doctor
 vana status
 vana sources
+vana sources github
 vana connect github
+vana collect github
 vana data show github
+vana server status
+vana server sync
 vana logs github
 ```
 
@@ -214,8 +253,13 @@ Fast machine CLI spot-check:
 vana version --json | jq
 vana status --json | jq
 vana sources --json | jq '.summary, .recommendedSource'
+vana sources github --json | jq
 vana data show github --json | jq '.summary, .data.profile'
 vana connect github --json --no-input
+vana collect --json | jq
+vana server status --json | jq
+vana server sync --json | jq
+vana server data --json | jq
 ```
 
 ## Regeneration

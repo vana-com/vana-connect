@@ -73,6 +73,18 @@ export const sourceStatusSchema = z.object({
   lastError: z.string().nullable().optional(),
   lastResultPath: z.string().nullable().optional(),
   lastLogPath: z.string().nullable().optional(),
+  ingestScopes: z
+    .array(
+      z.object({
+        scope: z.string(),
+        status: z.enum(["stored", "failed"]),
+        syncedAt: z.string().optional(),
+        error: z.string().optional(),
+      }),
+    )
+    .optional(),
+  syncedScopeCount: z.number().optional(),
+  failedScopeCount: z.number().optional(),
 });
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 
@@ -105,6 +117,13 @@ export const cliStatusSchema = z.object({
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
   personalServerSource: personalServerSourceSchema,
+  personalServerInfo: z
+    .object({
+      url: z.string().nullable(),
+      status: personalServerStateSchema,
+      scopeCount: z.number(),
+    })
+    .optional(),
   pendingSyncCount: z.number().optional(),
   summary: z
     .object({
@@ -279,6 +298,7 @@ export const cliEventTypeSchema = z.enum([
   "headed-required",
   "ingest-complete",
   "ingest-failed",
+  "ingest-partial",
   "ingest-skipped",
   "ingest-started",
   "jpeg",
@@ -334,6 +354,14 @@ export const logNotFoundErrorSchema = z.object({
 });
 export type LogNotFoundError = z.infer<typeof logNotFoundErrorSchema>;
 
+export const scopeResultSchema = z.object({
+  scope: z.string(),
+  status: z.enum(["stored", "failed"]),
+  collectedAt: z.string().optional(),
+  error: z.string().optional(),
+});
+export type ScopeResult = z.infer<typeof scopeResultSchema>;
+
 export const cliEventSchema = z.object({
   type: cliEventTypeSchema,
   source: z.string().optional(),
@@ -349,6 +377,7 @@ export const cliEventSchema = z.object({
   reason: z.string().optional(),
   count: z.number().optional(),
   phase: progressPhaseSchema.optional(),
+  scopeResults: z.array(scopeResultSchema).optional(),
 });
 export type CliEvent = z.infer<typeof cliEventSchema>;
 

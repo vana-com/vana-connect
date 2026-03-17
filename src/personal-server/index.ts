@@ -2,6 +2,17 @@ import fs from "node:fs/promises";
 
 import type { CliEvent, PersonalServerState } from "../core/cli-types.js";
 import { readCliConfig } from "../core/state-store.js";
+import { resolveScopes } from "./scope-resolver.js";
+import { createPersonalServerClient } from "./client.js";
+import { readCachedConnectorMetadata } from "../connectors/registry.js";
+import { getConnectorCacheDir } from "../core/paths.js";
+
+export { createPersonalServerClient } from "./client.js";
+export type {
+  PersonalServerClient,
+  IngestScopeResult,
+  ScopeSummary,
+} from "./client.js";
 
 const DEFAULT_PORTS = [8080, 8081, 8082, 8083, 8084, 8085];
 
@@ -73,47 +84,61 @@ export async function ingestResult(
 
   const raw = await fs.readFile(resultPath, "utf8");
   const result = JSON.parse(raw) as Record<string, unknown>;
-  const scopes = Object.keys(result).filter(
-    (key) =>
-      key.includes(".") &&
-      !["exportSummary", "timestamp", "version", "platform"].includes(key),
+  const metadata = await readCachedConnectorMetadata(
+    source,
+    getConnectorCacheDir(),
   );
+  const scopeMappings = resolveScopes(source, result, metadata);
 
+  if (scopeMappings.length === 0) {
+    return [
+      {
+        type: "ingest-skipped",
+        source,
+        reason: "no_scopes_resolved",
+      },
+    ];
+  }
+
+  const client = createPersonalServerClient({ url: target.url });
   const events: CliEvent[] = [
-    {
-      type: "ingest-started",
-      source,
-      target: target.url,
-    },
+    { type: "ingest-started", source, target: target.url },
   ];
+  const scopeResults = [];
 
-  try {
-    for (const scope of scopes) {
-      const response = await fetch(`${target.url}/v1/data/${scope}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(result[scope]),
-      });
-      if (!response.ok) {
-        throw new Error(`Ingest failed for ${scope}: ${response.status}`);
-      }
-    }
+  for (const mapping of scopeMappings) {
+    const scopeResult = await client.ingestScope(mapping.scope, mapping.data);
+    scopeResults.push(scopeResult);
+  }
 
+  const allStored = scopeResults.every((r) => r.status === "stored");
+  const allFailed = scopeResults.every((r) => r.status === "failed");
+
+  if (allStored) {
     events.push({
       type: "ingest-complete",
       source,
       target: target.url,
+      scopeResults,
     });
-    return events;
-  } catch (error) {
+  } else if (allFailed) {
     events.push({
       type: "ingest-failed",
       source,
       target: target.url,
-      message: error instanceof Error ? error.message : "Ingest failed.",
+      message: scopeResults.map((r) => `${r.scope}: ${r.error}`).join("; "),
+      scopeResults,
     });
-    return events;
+  } else {
+    events.push({
+      type: "ingest-partial",
+      source,
+      target: target.url,
+      scopeResults,
+    });
   }
+
+  return events;
 }
 
 async function fetchHealth(
