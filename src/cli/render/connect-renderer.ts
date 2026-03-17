@@ -1,267 +1,146 @@
-import { createColors } from "picocolors";
+import ora, { type Ora } from "ora";
 
-// Vana accent blue
-const ACCENT = [65, 65, 252] as const;
-const SUCCESS = [0, 213, 11] as const;
-const ERROR = [231, 0, 11] as const;
+import { detectRenderCapabilities } from "./capabilities.js";
+import { createSymbols } from "./symbols.js";
+import { createTheme } from "./theme.js";
 
-interface ConnectRendererOptions {
-  isTTY: boolean;
-  color: boolean;
+export interface ConnectRenderer {
+  title(source: string): void;
+  scopeActive(scope: string): void;
+  scopeDone(scope: string, detail?: string): void;
+  scopeFailed(scope: string, error: string): void;
+  success(message: string): void;
+  detail(message: string): void;
+  fail(message: string): void;
+  bell(): void;
+  cleanup(): void;
+  /** Pause rendering for prompts (stops spinner) */
+  pauseForPrompt(): void;
+  /** Resume rendering after prompts */
+  resumeAfterPrompt(): void;
 }
 
-interface ScopeLine {
-  name: string;
-  state: "active" | "done" | "failed";
-  detail?: string; // e.g. "8 found" or error message
-}
+export function createConnectRenderer(): ConnectRenderer {
+  const capabilities = detectRenderCapabilities();
+  const theme = createTheme(capabilities);
+  const symbols = createSymbols(capabilities);
+  const isTTY = capabilities.interactive;
 
-export function createConnectRenderer(options: ConnectRendererOptions) {
-  const canAnimate = options.isTTY;
-  const _colors = createColors(options.color);
+  let spinner: Ora | null = null;
+  let activeScope: string | null = null;
 
-  // Smooth double-beat with dark pause between cycles
-  // dark → · → ✧ → ✦ (first beat) → ✧ → · → ✧ → ✦ (second beat, holds) → ✧ → · → dark
-  const SPINNER_FRAMES = [
-    { char: " ", duration: 180, dim: true },
-    { char: "·", duration: 150, dim: true },
-    { char: "✧", duration: 120, dim: false },
-    { char: "✦", duration: 200, dim: false },
-    { char: "✧", duration: 100, dim: false },
-    { char: "·", duration: 80, dim: true },
-    { char: "✧", duration: 120, dim: false },
-    { char: "✦", duration: 500, dim: false },
-    { char: "✧", duration: 120, dim: false },
-    { char: "·", duration: 150, dim: true },
-    { char: " ", duration: 120, dim: true },
-  ];
-
-  let title = "";
-  const scopes: ScopeLine[] = [];
-  let successMessage = "";
-  let detailLines: string[] = [];
-  let spinnerFrameIndex = 0;
-  let spinnerElapsed = 0;
-  let spinnerInterval: ReturnType<typeof setInterval> | null = null;
-  let lastRenderedLineCount = 0;
-  let isComplete = false;
-
-  function rgb(r: number, g: number, b: number, text: string): string {
-    if (!options.color) return text;
-    return `\x1b[38;2;${r};${g};${b}m${text}\x1b[39m`;
+  function writeLine(line: string): void {
+    process.stderr.write(`${line}\n`);
   }
 
-  function dim(text: string): string {
-    return options.color ? `\x1b[2m${text}\x1b[22m` : text;
-  }
-
-  function bold(text: string): string {
-    return options.color ? `\x1b[1m${text}\x1b[22m` : text;
-  }
-
-  function renderSpinnerChar(): string {
-    const frame = SPINNER_FRAMES[spinnerFrameIndex];
-    const char = frame.dim
-      ? dim(rgb(...ACCENT, frame.char))
-      : rgb(...ACCENT, frame.char);
-    return char;
-  }
-
-  function renderLine(scope: ScopeLine): string {
-    if (scope.state === "done") {
-      const check = rgb(...SUCCESS, "✓");
-      const detail = scope.detail ? ` ${dim(`— ${scope.detail}`)}` : "";
-      return `  ${check} ${scope.name}${detail}`;
+  /** Move cursor up one line and clear it */
+  function clearPreviousLine(): void {
+    if (isTTY) {
+      process.stderr.write("\x1b[1A\x1b[2K");
     }
-    if (scope.state === "failed") {
-      const x = rgb(...ERROR, "✗");
-      const detail = scope.detail ? ` ${dim(`— ${scope.detail}`)}` : "";
-      return `  ${x} ${scope.name}${detail}`;
-    }
-    // active
-    const spinner = renderSpinnerChar();
-    return `  ${spinner} ${scope.name}`;
   }
 
-  function render(): string {
-    const lines: string[] = [];
-
-    // Title
-    lines.push(`  ${bold(title)}`);
-    lines.push("");
-
-    // Scope lines
-    for (const scope of scopes) {
-      lines.push(renderLine(scope));
-    }
-
-    // If complete, show success
-    if (isComplete && successMessage) {
-      lines.push("");
-      lines.push(`  ${bold(successMessage)}`);
-      for (const line of detailLines) {
-        lines.push(`  ${dim(line)}`);
+  function stopSpinner(): void {
+    if (spinner) {
+      spinner.stop();
+      // Clear the spinner line
+      if (isTTY) {
+        clearPreviousLine();
       }
+      spinner = null;
     }
-
-    return lines.join("\n");
   }
 
-  function paint() {
-    if (!canAnimate) return;
-
-    // Clear previous render
-    if (lastRenderedLineCount > 0) {
-      process.stderr.write(`\x1b[${lastRenderedLineCount}A`);
-      for (let i = 0; i < lastRenderedLineCount; i++) {
-        process.stderr.write("\x1b[2K\n");
-      }
-      process.stderr.write(`\x1b[${lastRenderedLineCount}A`);
-    }
-
-    const output = render();
-    lastRenderedLineCount = output.split("\n").length;
-    process.stderr.write(output + "\n");
-  }
-
-  function startSpinner() {
-    if (!canAnimate || spinnerInterval) return;
-    spinnerInterval = setInterval(() => {
-      spinnerElapsed += 30;
-      const frame = SPINNER_FRAMES[spinnerFrameIndex];
-      if (spinnerElapsed >= frame.duration) {
-        spinnerElapsed = 0;
-        spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
-      }
-      paint();
-    }, 30);
-  }
-
-  function stopSpinner() {
-    if (spinnerInterval) {
-      clearInterval(spinnerInterval);
-      spinnerInterval = null;
-    }
+  function startScopeSpinner(scope: string): void {
+    if (!isTTY) return;
+    spinner = ora({
+      text: scope,
+      prefixText: " ",
+      color: "blue",
+      stream: process.stderr,
+      discardStdin: false,
+    }).start();
   }
 
   return {
-    /** Set the flow title (e.g., "Connect GitHub") */
-    setTitle(t: string) {
-      title = t;
-      if (!canAnimate) {
-        process.stderr.write(`  ${bold(t)}\n\n`);
-      }
+    title(source: string): void {
+      writeLine(`  ${theme.heading(`Connect ${source}`)}`);
+      writeLine("");
     },
 
-    /** A scope started being collected */
-    scopeStarted(name: string) {
-      scopes.push({ name, state: "active" });
-      startSpinner();
-      if (!canAnimate) {
-        // Non-TTY: nothing to print yet, wait for completion
+    scopeActive(scope: string): void {
+      // If there's an active scope that hasn't been completed yet, skip
+      if (activeScope === scope) return;
+
+      // If there's a previous active scope with a spinner, stop it
+      // (it will be replaced by a done/failed line from the caller)
+      if (activeScope && spinner) {
+        stopSpinner();
       }
-      paint();
+
+      activeScope = scope;
+      startScopeSpinner(scope);
     },
 
-    /** A scope completed successfully */
-    scopeCompleted(name: string, detail?: string) {
-      const scope = scopes.find((s) => s.name === name && s.state === "active");
-      if (scope) {
-        scope.state = "done";
-        scope.detail = detail;
-      } else {
-        // Scope appeared and completed immediately
-        scopes.push({ name, state: "done", detail });
+    scopeDone(scope: string, detail?: string): void {
+      // If this scope had an active spinner, clear it
+      if (activeScope === scope) {
+        stopSpinner();
+        activeScope = null;
       }
-      // Reset spinner for next active scope
-      spinnerFrameIndex = 0;
-      spinnerElapsed = 0;
 
-      if (!canAnimate) {
-        const check = rgb(...SUCCESS, "✓");
-        const detailStr = detail ? ` ${dim(`— ${detail}`)}` : "";
-        process.stderr.write(`  ${check} ${name}${detailStr}\n`);
-      }
-      paint();
+      const check = theme.success(symbols.success);
+      const detailSuffix = detail ? ` ${theme.muted(`\u2014 ${detail}`)}` : "";
+      writeLine(`  ${check} ${scope}${detailSuffix}`);
     },
 
-    /** A scope failed */
-    scopeFailed(name: string, error?: string) {
-      const scope = scopes.find((s) => s.name === name && s.state === "active");
-      if (scope) {
-        scope.state = "failed";
-        scope.detail = error;
-      } else {
-        scopes.push({ name, state: "failed", detail: error });
+    scopeFailed(scope: string, error: string): void {
+      if (activeScope === scope) {
+        stopSpinner();
+        activeScope = null;
       }
-      if (!canAnimate) {
-        const x = rgb(...ERROR, "✗");
-        const detailStr = error ? ` ${dim(`— ${error}`)}` : "";
-        process.stderr.write(`  ${x} ${name}${detailStr}\n`);
-      }
-      paint();
+
+      const x = theme.error(symbols.error);
+      const detailSuffix = error ? ` ${theme.muted(`\u2014 ${error}`)}` : "";
+      writeLine(`  ${x} ${scope}${detailSuffix}`);
     },
 
-    /** Mark an info line (like "Signed in") as completed */
-    phaseCompleted(label: string) {
-      scopes.push({ name: label, state: "done" });
-      if (!canAnimate) {
-        const check = rgb(...SUCCESS, "✓");
-        process.stderr.write(`  ${check} ${label}\n`);
-      }
-      paint();
-    },
-
-    /** Show success summary */
-    complete(message: string, details: string[]) {
+    success(message: string): void {
       stopSpinner();
-      isComplete = true;
-      successMessage = message;
-      detailLines = details;
-      if (!canAnimate) {
-        process.stderr.write(`\n  ${bold(message)}\n`);
-        for (const line of details) {
-          process.stderr.write(`  ${dim(line)}\n`);
-        }
-      }
-      paint();
-      // Terminal bell
+      activeScope = null;
+      writeLine("");
+      writeLine(
+        `  ${theme.success(symbols.success)} ${theme.heading(message)}`,
+      );
+    },
+
+    detail(message: string): void {
+      writeLine(`  ${theme.muted(message)}`);
+    },
+
+    fail(message: string): void {
+      stopSpinner();
+      activeScope = null;
+      writeLine("");
+      writeLine(`  ${theme.error(symbols.error)} ${message}`);
+    },
+
+    bell(): void {
       process.stderr.write("\x07");
     },
 
-    /** Show failure */
-    fail(message: string, details: string[]) {
+    cleanup(): void {
       stopSpinner();
-      isComplete = true;
-      successMessage = message;
-      detailLines = details;
-      if (!canAnimate) {
-        process.stderr.write(`\n  ${message}\n`);
-        for (const line of details) {
-          process.stderr.write(`  ${dim(line)}\n`);
-        }
+    },
+
+    pauseForPrompt(): void {
+      stopSpinner();
+    },
+
+    resumeAfterPrompt(): void {
+      if (activeScope) {
+        startScopeSpinner(activeScope);
       }
-      paint();
-    },
-
-    /** Clean up (call in finally block) */
-    destroy() {
-      stopSpinner();
-    },
-
-    /** Pause rendering for prompts (stops spinner, prints newlines) */
-    pauseForPrompt() {
-      stopSpinner();
-      // Final paint to show current state
-      paint();
-      process.stderr.write("\n");
-    },
-
-    /** Resume rendering after prompts */
-    resumeAfterPrompt() {
-      // Reset line count so next paint starts fresh below the prompt
-      lastRenderedLineCount = 0;
-      startSpinner();
     },
   };
 }

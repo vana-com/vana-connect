@@ -26,6 +26,12 @@ const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
 const mockExistsSync = vi.fn();
 
+const mockClackText = vi.fn();
+const mockClackPassword = vi.fn();
+const mockClackSelect = vi.fn();
+const mockClackConfirm = vi.fn();
+const CLACK_CANCEL = Symbol.for("cancel");
+
 let runtimeState = "installed";
 let fetchConnectorResult = {
   connectorPath: "/tmp/connectors/valve/steam-playwright.js",
@@ -117,6 +123,14 @@ vi.mock("@inquirer/prompts", () => ({
   select: mockSelect,
 }));
 
+vi.mock("@clack/prompts", () => ({
+  text: mockClackText,
+  password: mockClackPassword,
+  select: mockClackSelect,
+  confirm: mockClackConfirm,
+  isCancel: (value: unknown) => value === CLACK_CANCEL,
+}));
+
 vi.mock("../../src/personal-server/index.js", () => ({
   detectPersonalServerTarget: mockDetectPersonalServerTarget,
   ingestResult: mockIngestResult,
@@ -148,16 +162,25 @@ vi.mock("node:fs/promises", () => ({
 
 describe("runCli", () => {
   let stdout = "";
+  let stderr = "";
   let writeSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     stdout = "";
+    stderr = "";
     writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(((
       chunk: string | Uint8Array,
     ) => {
       stdout += chunk.toString();
       return true;
     }) as typeof process.stdout.write);
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(((
+      chunk: string | Uint8Array,
+    ) => {
+      stderr += chunk.toString();
+      return true;
+    }) as typeof process.stderr.write);
 
     mockListAvailableSources.mockReset();
     mockReadCachedConnectorMetadata.mockReset();
@@ -168,6 +191,10 @@ describe("runCli", () => {
     mockUpdateSourceState.mockReset();
     mockConfirm.mockReset();
     mockSelect.mockReset();
+    mockClackText.mockReset();
+    mockClackPassword.mockReset();
+    mockClackSelect.mockReset();
+    mockClackConfirm.mockReset();
     mockReaddir.mockReset();
     mockReadFile.mockReset();
     mockExistsSync.mockReset();
@@ -189,6 +216,10 @@ describe("runCli", () => {
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue("github");
+    mockClackText.mockResolvedValue("testuser");
+    mockClackPassword.mockResolvedValue("testpass");
+    mockClackSelect.mockResolvedValue("github");
+    mockClackConfirm.mockResolvedValue(true);
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
@@ -197,6 +228,7 @@ describe("runCli", () => {
 
   afterEach(() => {
     writeSpy.mockRestore();
+    stderrSpy.mockRestore();
     vi.clearAllMocks();
     vi.resetModules();
   });
@@ -788,18 +820,9 @@ describe("runCli", () => {
     ]);
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("→ Input required");
-    expect(stdout).toContain(
-      "GitHub needs additional input before it can connect.",
+    expect(stderr).toContain(
+      "GitHub needs credentials. Run without --no-input to authenticate.",
     );
-    expect(stdout).toContain(
-      "Because `--no-input` is enabled, Vana stopped before prompting in this terminal.",
-    );
-    expect(stdout).toContain("Run `vana connect github` without `--no-input`.");
-    expect(stdout).toContain(
-      "Inspect the latest run log with `vana logs github`.",
-    );
-    expect(stdout).toContain("Or check overall status with `vana status`.");
   });
 
   it("prints a clean manual-step message for legacy connectors in no-input mode", async () => {
@@ -835,20 +858,11 @@ describe("runCli", () => {
     ]);
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain(
-      "Shop still needs a manual browser step on this machine.",
+    expect(stderr).toContain("Manual step required for Shop.");
+    expect(stderr).toContain(
+      "Complete the browser step locally, then rerun vana connect shop.",
     );
-    expect(stdout).toContain(
-      "Because `--no-input` is enabled, Vana stopped before opening that session.",
-    );
-    expect(stdout).toContain("Run `vana connect shop` without `--no-input`.");
-    expect(stdout).toContain(
-      "Inspect the latest run log with `vana logs shop`.",
-    );
-    expect(stdout).toContain("Or check overall status with `vana status`.");
-    expect(stdout).toContain("Run log:");
-    expect(stdout).toContain("/tmp/logs/run.log");
-    expect(stdout).not.toContain("LegacyAuthError");
+    expect(stderr).not.toContain("LegacyAuthError");
   });
 
   it("prints a human manual-step message for legacy connectors", async () => {
@@ -887,21 +901,9 @@ describe("runCli", () => {
     });
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain(
-      "Shop still needs a manual browser step on this machine.",
-    );
-    expect(stdout).toContain(
-      "Vana Connect could not continue this older connector flow automatically yet.",
-    );
-    expect(stdout).toContain(
-      "Complete the browser step locally, then rerun `vana connect shop`.",
-    );
-    expect(stdout).toContain(
-      "Inspect the latest run log with `vana logs shop`.",
-    );
-    expect(stdout).toContain("Or check overall status with `vana status`.");
-    expect(stdout).not.toContain(
-      "Because `--no-input` is enabled, Vana stopped before opening that session.",
+    expect(stderr).toContain("Manual step required for Shop.");
+    expect(stderr).toContain(
+      "Complete the browser step locally, then rerun vana connect shop.",
     );
   });
 
@@ -947,16 +949,10 @@ describe("runCli", () => {
     }
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("→ Manual step required");
-    expect(stdout).toContain(
-      "no local display server is available. Run this command in a desktop session or use xvfb-run.",
+    expect(stderr).toContain(
+      "Shop requires a browser window, but no display is available.",
     );
-    expect(stdout).toContain("Run this command in a desktop session.");
-    expect(stdout).toContain("xvfb-run -a vana connect shop");
-    expect(stdout).toContain(
-      "Inspect the latest run log with `vana logs shop`.",
-    );
-    expect(stdout).toContain("Or check overall status with `vana status`.");
+    expect(stderr).toContain("Run this command in a desktop terminal.");
   });
 
   it("guides recovery for runtime errors during connect", async () => {
@@ -985,17 +981,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("→ Problem");
-    expect(stdout).toContain("Browser navigation failed");
-    expect(stdout).toContain("→ Next");
-    expect(stdout).toContain("Retry with `vana connect github`.");
-    expect(stdout).toContain(
-      "Inspect the latest run log with `vana logs github`.",
-    );
-    expect(stdout).toContain("Inspect install health with `vana doctor`.");
-    expect(stdout).toContain("Or check overall status with `vana status`.");
-    expect(stdout).toContain("Run log:");
-    expect(stdout).toContain("/tmp/logs/run.log");
+    expect(stderr).toContain("Problem connecting GitHub.");
+    expect(stderr).toContain("Browser navigation failed");
+    expect(stderr).toContain("Retry: vana connect github");
   });
 
   it("shows collected data in json mode", async () => {
@@ -1873,7 +1861,7 @@ describe("runCli", () => {
       { id: "spotify", name: "Spotify", authMode: "interactive" },
       { id: "shop", name: "Shop", authMode: "legacy" },
     ]);
-    mockSelect.mockResolvedValueOnce("github");
+    mockClackSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1898,21 +1886,22 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const choices = mockSelect.mock.calls[0]?.[0]?.choices;
-    expect(choices).toBeDefined();
-    expect(choices[0]).toMatchObject({
-      type: "separator",
-      separator: "Ready now",
-    });
-    expect(choices[1]).toMatchObject({ value: "github" });
-    expect(choices[1]?.name).toContain("recommended");
-    expect(choices[2]).toMatchObject({ value: "spotify" });
-    expect(choices[3]).toMatchObject({ type: "separator", separator: "" });
-    expect(choices[4]).toMatchObject({
-      type: "separator",
-      separator: "Browser login",
-    });
-    expect(choices[5]).toMatchObject({ value: "shop" });
+    const callArgs = mockClackSelect.mock.calls[0]?.[0];
+    expect(callArgs).toBeDefined();
+    const options = callArgs.options;
+    expect(options).toContainEqual(
+      expect.objectContaining({ value: "github", label: "GitHub" }),
+    );
+    expect(options).toContainEqual(
+      expect.objectContaining({ value: "spotify", label: "Spotify" }),
+    );
+    expect(options).toContainEqual(
+      expect.objectContaining({
+        value: "shop",
+        label: "Shop",
+        hint: "browser login",
+      }),
+    );
   });
 
   it("puts connected sources first in guided connect choices", async () => {
@@ -1932,7 +1921,7 @@ describe("runCli", () => {
         },
       },
     });
-    mockSelect.mockResolvedValueOnce("github");
+    mockClackSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1957,35 +1946,34 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const choices = mockSelect.mock.calls[0]?.[0]?.choices;
-    expect(choices).toBeDefined();
-    expect(choices[0]).toMatchObject({
-      type: "separator",
-      separator: "Connected",
-    });
-    expect(choices[1]).toMatchObject({ value: "github" });
-    expect(choices[1].description).toContain("Already connected locally.");
-    expect(choices[2]).toMatchObject({ type: "separator", separator: "" });
-    expect(choices[3]).toMatchObject({
-      type: "separator",
-      separator: "Ready now",
-    });
-    expect(choices[4]).toMatchObject({ value: "spotify" });
-    expect(choices[5]).toMatchObject({ type: "separator", separator: "" });
-    expect(choices[6]).toMatchObject({
-      type: "separator",
-      separator: "Browser login",
-    });
-    expect(choices[7]).toMatchObject({ value: "shop" });
+    const callArgs = mockClackSelect.mock.calls[0]?.[0];
+    expect(callArgs).toBeDefined();
+    const options = callArgs.options;
+    // GitHub is connected so gets "connected" hint
+    expect(options).toContainEqual(
+      expect.objectContaining({
+        value: "github",
+        label: "GitHub",
+        hint: "connected",
+      }),
+    );
+    expect(options).toContainEqual(
+      expect.objectContaining({ value: "spotify", label: "Spotify" }),
+    );
+    expect(options).toContainEqual(
+      expect.objectContaining({
+        value: "shop",
+        label: "Shop",
+        hint: "browser login",
+      }),
+    );
   });
 
   it("prints a clear message when the guided source picker is cancelled", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
-    const promptError = new Error("prompt aborted");
-    promptError.name = "ExitPromptError";
-    mockSelect.mockRejectedValueOnce(promptError);
+    mockClackSelect.mockResolvedValueOnce(CLACK_CANCEL);
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -2010,11 +1998,8 @@ describe("runCli", () => {
     });
 
     expect(exitCode).toBe(1);
-    expect(mockSelect).toHaveBeenCalled();
-    expect(stdout).toContain("1 ready source");
-    expect(stdout).toContain("vana connect <source>");
-    expect(stdout).toContain("Cancelled. No source was connected.");
-    expect(stdout).toContain("vana sources");
+    expect(mockClackSelect).toHaveBeenCalled();
+    expect(stdout).toContain("Cancelled.");
   });
 
   it("renders a stable human transcript for guided connect cancellation", async () => {
@@ -2032,9 +2017,7 @@ describe("runCli", () => {
         authMode: "legacy",
       },
     ]);
-    const promptError = new Error("prompt aborted");
-    promptError.name = "ExitPromptError";
-    mockSelect.mockRejectedValueOnce(promptError);
+    mockClackSelect.mockResolvedValueOnce(CLACK_CANCEL);
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -2059,16 +2042,7 @@ describe("runCli", () => {
     });
 
     expect(exitCode).toBe(1);
-    expect(stdout).toMatchInlineSnapshot(`
-      "Connect data
-
-        1 ready source • 1 browser login
-      Choose a source to connect:
-        Or jump straight in with \`vana connect <source>\`.
-      Cancelled. No source was connected.
-        Browse sources any time with \`vana sources\`.
-      "
-    `);
+    expect(stdout).toContain("Cancelled.");
   });
 
   it("prints a clear message when runtime setup is declined", async () => {
@@ -2076,17 +2050,16 @@ describe("runCli", () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
-    mockConfirm.mockResolvedValueOnce(false);
+    mockClackConfirm.mockResolvedValueOnce(false);
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(1);
-    expect(mockConfirm).toHaveBeenCalledWith({
-      message: "Install the local runtime now?",
-      default: true,
-    });
-    expect(stdout).toContain("Cancelled. Runtime setup was not started.");
+    expect(mockClackConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Continue?" }),
+    );
+    expect(stderr).toContain("Cancelled.");
   });
 
   it("prints a human success summary after collection completes", async () => {
@@ -2142,27 +2115,12 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Connected GitHub.");
-    expect(stdout).toContain(
+    expect(stderr).toContain("Connected GitHub.");
+    expect(stderr).toContain(
       "Collected your GitHub data and saved it locally.",
     );
-    expect(stdout).toContain("Collected");
-    expect(stdout).toContain("Profile: tnunamak");
-    expect(stdout).toContain("Repositories: 2");
-    expect(stdout).toContain("Checking GitHub login...");
-    expect(stdout).toContain("Repositories (2/3): Fetching repositories...");
-    expect(stdout).not.toContain(
-      "Complete! 2 repositories and 0 starred repos collected.",
-    );
-    expect(stdout).toContain("Saved locally");
-    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain("Session:");
-    expect(stdout).toContain("Session cached.");
-    expect(stdout).toContain("Server:");
-    expect(stdout).toContain("Data saved locally.");
-    expect(stdout).toContain("Next");
-    expect(stdout).toContain("vana data show github");
-    expect(stdout).toContain("vana sources");
+    expect(stderr).toContain("Next:");
+    expect(stderr).toContain("vana data show github");
   });
 
   it("handles cancelled terminal input cleanly during connect", async () => {
@@ -2186,20 +2144,13 @@ describe("runCli", () => {
         logPath: "/tmp/logs/run.log",
       },
     ];
-    const promptError = new Error("prompt aborted");
-    promptError.name = "ExitPromptError";
-    mockInput.mockRejectedValueOnce(promptError);
+    mockClackText.mockResolvedValueOnce(CLACK_CANCEL);
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("→ Cancelled");
-    expect(stdout).toContain(
-      "Stopped before GitHub finished collecting your data.",
-    );
-    expect(stdout).toContain("No credentials were sent anywhere.");
-    expect(stdout).toContain("Resume with `vana connect github`.");
+    expect(stderr).toContain("Cancelled.");
     expect(mockUpdateSourceState).toHaveBeenCalledWith(
       "github",
       expect.objectContaining({
@@ -2247,9 +2198,10 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Saved locally");
-    expect(stdout).toContain("Server:");
-    expect(stdout).toContain("Sync failed: server exploded");
+    expect(stderr).toContain("Connected GitHub.");
+    expect(stderr).toContain(
+      "Collected your GitHub data and saved it locally.",
+    );
     expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
       "github",
       expect.objectContaining({
@@ -2301,14 +2253,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain(
+    expect(stderr).toContain("Connected GitHub.");
+    expect(stderr).toContain(
       "Collected your GitHub data and synced it to your Personal Server.",
-    );
-    expect(stdout).toContain("Saved and synced");
-    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain("Session cached.");
-    expect(stdout).toContain(
-      "Your data is now available in your Personal Server.",
     );
     expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
       "github",
@@ -2382,10 +2329,8 @@ describe("runCli", () => {
     fetchSpy.mockRestore();
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain("No connector is available for Steam right now.");
-    expect(stdout).toContain("→ Next");
-    expect(stdout).toContain("Try GitHub with `vana connect github`.");
-    expect(stdout).toContain("Browse available sources with `vana sources`.");
+    expect(stderr).toContain("Steam is not available.");
+    expect(stderr).toContain("vana sources");
   });
 
   it("mentions reusable sessions when a browser profile exists", async () => {
@@ -2423,8 +2368,9 @@ describe("runCli", () => {
     ]);
 
     expect(exitCode).toBe(1);
-    expect(stdout).toContain(
-      "Found an existing GitHub session. Reusing it if it is still valid...",
+    // The new design doesn't narrate session reuse; it simply tries and fails
+    expect(stderr).toContain(
+      "GitHub needs credentials. Run without --no-input to authenticate.",
     );
   });
 
@@ -2785,10 +2731,10 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("3/3 scopes synced to Personal Server");
-    expect(stdout).toContain("github.profile");
-    expect(stdout).toContain("github.repositories");
-    expect(stdout).toContain("github.starred");
+    expect(stderr).toContain("Connected GitHub.");
+    expect(stderr).toContain(
+      "Collected your GitHub data and synced it to your Personal Server.",
+    );
     expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
       "github",
       expect.objectContaining({
@@ -2848,9 +2794,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("2/3 scopes synced, 1 failed");
-    expect(stdout).toContain("github.starred");
-    expect(stdout).toContain("vana server sync");
+    expect(stderr).toContain("Connected GitHub.");
+    expect(stderr).toContain("2/3 scopes synced, 1 failed");
+    expect(stderr).toContain("vana server sync");
   });
 
   it("includes personalServerInfo in status JSON", async () => {

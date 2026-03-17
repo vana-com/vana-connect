@@ -3,16 +3,22 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 
-import { Separator, confirm, input, password, select } from "@inquirer/prompts";
+import {
+  text as clackText,
+  password as clackPassword,
+  select as clackSelect,
+  confirm as clackConfirm,
+  isCancel,
+} from "@clack/prompts";
 import { Command, CommanderError } from "commander";
 
 import {
   createConnectRenderer,
   createHumanRenderer,
-  createProgressHandle,
   formatDisplayPath,
   formatRelativeTime,
 } from "./render/index.js";
+import type { ConnectRenderer } from "./render/connect-renderer.js";
 import {
   CliOutcomeStatus,
   getCliStatePath,
@@ -445,16 +451,8 @@ async function runConnect(
 ): Promise<number> {
   const runtime = new ManagedPlaywrightRuntime();
   const emit = createEmitter(options);
-  const connectRenderer =
-    !options.json && !options.quiet
-      ? createConnectRenderer({
-          isTTY: process.stderr.isTTY ?? false,
-          color: process.stderr.isTTY ?? false,
-        })
-      : null;
-  const progress = createProgressHandle({
-    enabled: !options.json && !options.quiet && !connectRenderer,
-  });
+  const renderer: ConnectRenderer | null =
+    !options.json && !options.quiet ? createConnectRenderer() : null;
   const registrySources = await loadRegistrySources();
   const sourceLabels = createSourceLabelMap(registrySources);
   const displayName = displaySource(source, sourceLabels);
@@ -464,47 +462,41 @@ async function runConnect(
   let terminalExitCode: number | null = null;
 
   try {
-    if (connectRenderer) {
-      connectRenderer.setTitle(`Connect ${displayName}`);
-    } else {
-      emit.title(`Connect ${displayName}`);
-    }
-    emit.section("Preparing");
-    emit.info(`Finding a connector for ${displayName}...`);
-    if (!connectRenderer) {
-      progress.start(`Preparing ${displayName}...`);
-    }
+    // Title
+    renderer?.title(displayName);
+
     const target = await detectPersonalServerTarget();
 
+    // --- Phase 1: Runtime check (silent if installed) ---
     if (runtime.state !== "installed") {
-      emit.info(
-        `Vana Connect needs a local browser runtime before it can connect ${displayName}.`,
-      );
-      emit.blank();
-      emit.section("Runtime setup");
-      emit.bullet("Install the local browser runtime.");
-      emit.bullet("Install a Chromium browser engine.");
-      emit.bullet("Create local runtime files under `~/.dataconnect/`.");
-      emit.detail(
-        "Your credentials stay on this machine. Nothing is sent anywhere except the platform you’re connecting to.",
-      );
+      if (options.noInput) {
+        emit.event({
+          type: "outcome",
+          status: CliOutcomeStatus.SETUP_REQUIRED,
+          source,
+        });
+        renderer?.fail(
+          `${displayName} needs a local browser runtime. Run without --no-input to install.`,
+        );
+        return 1;
+      }
 
       if (!options.yes) {
-        if (options.noInput) {
-          emit.event({
-            type: "outcome",
-            status: CliOutcomeStatus.SETUP_REQUIRED,
-            source,
-          });
-          return 1;
-        }
+        renderer?.cleanup();
+        process.stderr.write("\n");
+        process.stderr.write("Vana Connect needs a local browser runtime.\n\n");
+        process.stderr.write("This will install:\n");
+        process.stderr.write("  \u2022 Connector runner\n");
+        process.stderr.write("  \u2022 Chromium browser engine\n");
+        process.stderr.write("  \u2022 Local files under ~/.dataconnect/\n\n");
+        process.stderr.write("Your credentials stay on this machine.\n\n");
 
-        const shouldContinue = await confirm({
-          message: "Install the local runtime now?",
-          default: true,
+        const shouldContinue = await clackConfirm({
+          message: "Continue?",
+          initialValue: true,
         });
-        if (!shouldContinue) {
-          emit.info("Cancelled. Runtime setup was not started.");
+        if (isCancel(shouldContinue) || !shouldContinue) {
+          renderer?.fail("Cancelled.");
           emit.event({
             type: "outcome",
             status: CliOutcomeStatus.SETUP_REQUIRED,
@@ -513,6 +505,7 @@ async function runConnect(
           });
           return 1;
         }
+        process.stderr.write("\n");
       }
 
       const installResult = await runtime.ensureInstalled(Boolean(options.yes));
@@ -522,13 +515,7 @@ async function runConnect(
         runtime: installResult.runtime,
         logPath: installResult.logPath,
       });
-      emit.success("Runtime ready.");
-      if (!connectRenderer) {
-        progress.update("Runtime ready.");
-      }
-      if (installResult.logPath) {
-        emit.detail(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
-      }
+      renderer?.scopeDone("Runtime ready");
     } else {
       emit.event({
         type: "setup-check",
@@ -536,6 +523,7 @@ async function runConnect(
       });
     }
 
+    // --- Phase 2: Connector fetch (silent if cached/fast) ---
     let fetched: Awaited<
       ReturnType<ManagedPlaywrightRuntime["fetchConnector"]>
     >;
@@ -556,35 +544,8 @@ async function runConnect(
         lastResultPath: null,
         lastLogPath: getErrorLogPath(error),
       });
-      if (!options.json) {
-        connectRenderer?.fail(`${displayName} is not available yet.`, [
-          message,
-        ]);
-        if (!connectRenderer) {
-          progress.fail(`${displayName} is not available yet.`);
-        }
-        const suggestedSource =
-          registrySources.find((item) => item.authMode !== "legacy") ??
-          registrySources[0];
-        emit.blank();
-        emit.section("Not available yet");
-        emit.info(message);
-        emit.blank();
-        emit.section("Next");
-        if (suggestedSource) {
-          emit.bullet(
-            `Try ${suggestedSource.name} with ${emit.code(`vana connect ${suggestedSource.id}`)}.`,
-          );
-        }
-        emit.bullet(
-          `Browse available sources with ${emit.code("vana sources")}.`,
-        );
-        emit.bullet(
-          `Or check overall status with ${emit.code("vana status")}.`,
-        );
-      } else {
-        emit.info(message);
-      }
+      renderer?.fail(`${displayName} is not available.`);
+      renderer?.detail(`See what’s ready: vana sources`);
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
@@ -605,28 +566,12 @@ async function runConnect(
       connectorPath: resolution.connectorPath,
       logPath: fetched.logPath,
     });
-    emit.info("Connector ready.");
-    if (!connectRenderer) {
-      progress.update(`Connector ready for ${displayName}.`);
-    }
-    if (sourceDetails?.description) {
-      emit.info(cleanDescription(sourceDetails.description));
-    }
-    const connectTrustMessage = describeConnectTrust(sourceDetails?.authMode);
-    if (connectTrustMessage) {
-      emit.detail(connectTrustMessage);
-    }
 
+    // --- Phase 3: Pre-connection validation (silent) ---
     const profilePath = path.join(
       getBrowserProfilesDir(),
       `${path.basename(resolution.connectorPath, path.extname(resolution.connectorPath))}`,
     );
-    if (fs.existsSync(profilePath)) {
-      emit.detail(
-        `Found an existing ${displayName} session. Reusing it if it is still valid...`,
-      );
-      connectRenderer?.phaseCompleted("Signed in");
-    }
 
     if (
       sourceDetails?.authMode === "legacy" &&
@@ -636,7 +581,7 @@ async function runConnect(
       !process.env.WAYLAND_DISPLAY
     ) {
       const message =
-        "This source needs a manual browser step, but no local display server is available. Run this command in a desktop session or use xvfb-run.";
+        "This source needs a manual browser step, but no local display server is available.";
       await updateSourceState(resolution.source, {
         connectorInstalled: true,
         sessionPresent: fs.existsSync(profilePath),
@@ -647,36 +592,16 @@ async function runConnect(
         lastResultPath: null,
         lastLogPath: fetchLogPath ?? null,
       });
-      emit.blank();
-      emit.section("Manual step required");
-      emit.info(
-        `${displayName} still needs a manual browser step on this machine.`,
+      renderer?.fail(
+        `${displayName} requires a browser window, but no display is available.`,
       );
-      emit.detail(message);
-      emit.blank();
-      emit.section("Next");
-      emit.bullet("Run this command in a desktop session.");
-      emit.bullet(
-        `Or retry with ${emit.code(`xvfb-run -a vana connect ${source}`)}.`,
-      );
-      if (fetchLogPath) {
-        emit.bullet(
-          `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-        );
-      }
-      emit.bullet(`Or check overall status with ${emit.code("vana status")}.`);
+      renderer?.detail("Run this command in a desktop terminal.");
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.LEGACY_AUTH,
         source: resolution.source,
         reason: "display_server_unavailable",
       });
-      connectRenderer?.fail(`Manual step required for ${displayName}.`, [
-        "Run this command in a desktop session.",
-      ]);
-      if (!connectRenderer) {
-        progress.fail(`Manual step required for ${displayName}.`);
-      }
       return 1;
     }
 
@@ -687,14 +612,7 @@ async function runConnect(
       lastLogPath: fetchLogPath ?? null,
     });
 
-    emit.blank();
-    emit.section("Connecting");
-    emit.info(`Connecting to ${displayName}...`);
-    emit.info("Collecting your data...");
-    if (!connectRenderer) {
-      progress.update(`Collecting ${displayName} data...`);
-    }
-
+    // --- Phase 4-5: Authentication + Collection ---
     let finalStatus: CliOutcome["status"] =
       CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR;
     let finalDataState: SourceStatus["dataState"] = "none";
@@ -715,35 +633,53 @@ async function runConnect(
       source: resolution.source,
       noInput: options.noInput,
       onNeedInput: async (needInput) => {
-        connectRenderer?.pauseForPrompt();
-        emit.blank();
-        emit.section("Continue in this terminal");
-        emit.info(
-          `Vana Connect will keep the ${displayName} session local to this machine.`,
-        );
-        emit.detail("The details you enter here stay local.");
-        emit.blank();
-        emit.info(
-          needInput.message ??
-            `${displayName} needs additional details to continue.`,
-        );
+        renderer?.pauseForPrompt();
+
+        // Show connector’s prompt message
+        if (renderer) {
+          const promptMessage =
+            needInput.message ?? `${displayName} needs your login.`;
+          process.stderr.write(`\n${promptMessage}\n\n`);
+        }
 
         const values: Record<string, string> = {};
         try {
           for (const field of needInput.fields) {
-            if (field.toLowerCase().includes("password")) {
-              values[field] = await password({ message: humanizeField(field) });
+            const isPasswordField = field.toLowerCase().includes("password");
+            if (isPasswordField) {
+              const result = await clackPassword({
+                message: humanizeField(field),
+              });
+              if (isCancel(result)) {
+                throw new Error("__vana_prompt_cancelled__");
+              }
+              values[field] = result;
             } else {
-              values[field] = await input({ message: humanizeField(field) });
+              const result = await clackText({
+                message: humanizeField(field),
+              });
+              if (isCancel(result)) {
+                throw new Error("__vana_prompt_cancelled__");
+              }
+              values[field] = result;
             }
           }
         } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "__vana_prompt_cancelled__"
+          ) {
+            throw error;
+          }
           if (isPromptCancelled(error)) {
             throw new Error("__vana_prompt_cancelled__");
           }
           throw error;
         }
-        connectRenderer?.resumeAfterPrompt();
+        if (renderer) {
+          process.stderr.write("\n");
+        }
+        renderer?.resumeAfterPrompt();
         return values;
       },
     })) {
@@ -768,72 +704,32 @@ async function runConnect(
           status: CliOutcomeStatus.NEEDS_INPUT,
           source: resolution.source,
         });
-        if (!options.json) {
-          if (!connectRenderer) {
-            progress.stop();
-          }
-          connectRenderer?.fail(`${displayName} needs additional input.`, [
-            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
-          ]);
-          emit.blank();
-          emit.section("Input required");
-          emit.info(
-            `${displayName} needs additional input before it can connect.`,
-          );
-          emit.detail(
-            `Because ${emit.code("--no-input")} is enabled, Vana stopped before prompting in this terminal.`,
-          );
-          emit.blank();
-          emit.section("Next");
-          emit.bullet(
-            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
-          );
-          if (event.logPath || fetchLogPath) {
-            emit.bullet(
-              `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-            );
-          }
-          emit.bullet(
-            `Or check overall status with ${emit.code("vana status")}.`,
-          );
-        }
+        renderer?.fail(
+          `${displayName} needs credentials. Run without --no-input to authenticate.`,
+        );
         terminalExitCode = 1;
         continue;
       }
 
       if (event.type === "progress-update") {
-        const progressLine = formatProgressUpdate(event);
-        if (connectRenderer) {
-          // Drive the connect renderer with scope information from the event
-          const scopeName = extractScopeName(event);
-          if (scopeName) {
-            const isComplete =
-              typeof event.message === "string" &&
-              /^complete\b/i.test(event.message.trim());
-            if (isComplete) {
-              const detail = formatScopeDetail(event);
-              connectRenderer.scopeCompleted(scopeName, detail);
-            } else {
-              // Start scope if not already active
-              connectRenderer.scopeStarted(scopeName);
-            }
+        // Drive the renderer with scope information from the event
+        const scopeName = extractScopeName(event);
+        if (scopeName && renderer) {
+          const isComplete =
+            typeof event.message === "string" &&
+            /^complete\b/i.test(event.message.trim());
+          if (isComplete) {
+            const detail = formatScopeDetail(event);
+            renderer.scopeDone(scopeName, detail);
+          } else {
+            renderer.scopeActive(scopeName);
           }
-        } else if (progressLine) {
-          progress.update(progressLine);
-        }
-        if (progressLine) {
-          emit.detail(progressLine);
         }
         continue;
       }
 
       if (event.type === "status-update") {
-        if (event.message && shouldRenderStatusUpdate(event.message)) {
-          if (!connectRenderer) {
-            progress.update(event.message);
-          }
-          emit.detail(event.message);
-        }
+        // Status updates are silent in the new design
         continue;
       }
 
@@ -844,54 +740,20 @@ async function runConnect(
           lastError: event.message ?? "Connector run failed.",
           lastLogPath: event.logPath,
         });
-        emit.blank();
-        if (connectRenderer) {
-          connectRenderer.fail(`Problem connecting ${displayName}.`, [
-            event.message ?? "Connector run failed.",
-            "",
-            `Retry with ${emit.code(`vana connect ${source}`)}.`,
-          ]);
-        } else {
-          progress.fail(`Problem connecting ${displayName}.`);
-        }
-        emit.section("Problem");
-        emit.info(event.message ?? "Connector run failed.");
+        renderer?.fail(`Problem connecting ${displayName}.`);
+        renderer?.detail(event.message ?? "Connector run failed.");
+        renderer?.detail(`Retry: vana connect ${source}`);
         emit.event({
           type: "outcome",
           status: CliOutcomeStatus.RUNTIME_ERROR,
           source: resolution.source,
         });
-        emit.blank();
-        emit.section("Next");
-        emit.bullet(`Retry with ${emit.code(`vana connect ${source}`)}.`);
-        if (event.logPath || fetchLogPath || setupLogPath) {
-          emit.bullet(
-            `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-          );
-        }
-        emit.bullet(`Inspect install health with ${emit.code("vana doctor")}.`);
-        emit.bullet(
-          `Or check overall status with ${emit.code("vana status")}.`,
-        );
-        if (event.logPath) {
-          emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
-        }
         terminalExitCode = 1;
         continue;
       }
 
       if (event.type === "headed-required") {
-        emit.blank();
-        if (!connectRenderer) {
-          progress.update(`Manual browser step required for ${displayName}.`);
-        }
-        emit.section("Continue in your browser");
-        if (event.message) {
-          emit.info(event.message);
-        }
-        if (event.url) {
-          emit.detail(`Opening ${displayName} in a local browser session...`);
-        }
+        // Silent — the browser opens automatically
         continue;
       }
 
@@ -904,48 +766,10 @@ async function runConnect(
           lastResultPath: null,
           lastLogPath: event.logPath,
         });
-        connectRenderer?.fail(`Manual step required for ${displayName}.`, [
+        renderer?.fail(`Manual step required for ${displayName}.`);
+        renderer?.detail(
           `Complete the browser step locally, then rerun vana connect ${source}.`,
-        ]);
-        emit.blank();
-        if (!connectRenderer) {
-          progress.stop();
-        }
-        emit.section("Manual step required");
-        emit.info(
-          `${displayName} still needs a manual browser step on this machine.`,
         );
-        if (options.noInput) {
-          emit.detail(
-            `Because ${emit.code("--no-input")} is enabled, Vana stopped before opening that session.`,
-          );
-        } else {
-          emit.detail(
-            "Vana Connect could not continue this older connector flow automatically yet.",
-          );
-        }
-        emit.blank();
-        emit.section("Next");
-        if (options.noInput) {
-          emit.bullet(
-            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
-          );
-        } else {
-          emit.bullet(
-            `Complete the browser step locally, then rerun ${emit.code(`vana connect ${source}`)}.`,
-          );
-        }
-        if (event.logPath || fetchLogPath) {
-          emit.bullet(
-            `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-          );
-        }
-        emit.bullet(
-          `Or check overall status with ${emit.code("vana status")}.`,
-        );
-        if (event.logPath) {
-          emit.keyValue("Run log", formatDisplayPath(event.logPath), "muted");
-        }
         emit.event({
           type: "outcome",
           status: CliOutcomeStatus.LEGACY_AUTH,
@@ -1025,18 +849,14 @@ async function runConnect(
         lastResultPath: null,
         lastLogPath: runLogPath ?? fetchLogPath ?? null,
       });
-      connectRenderer?.fail(`Problem connecting ${displayName}.`, [
-        "Connector run ended without a result.",
-      ]);
+      renderer?.fail(`Problem connecting ${displayName}.`);
+      renderer?.detail("Connector run ended without a result.");
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR,
         source: resolution.source,
         reason: "Connector run ended without a result.",
       });
-      if (runLogPath) {
-        emit.info(`Run log: ${formatDisplayPath(runLogPath)}`);
-      }
       return 1;
     }
 
@@ -1055,9 +875,6 @@ async function runConnect(
       ingestScopes: ingestScopeResults,
     });
 
-    const resultSummary = await readResultSummary(resultPath);
-    const dataCommand = emit.code(`vana data show ${source}`);
-
     // Build scope-aware success summary
     const storedCount =
       ingestScopeResults?.filter((r) => r.status === "stored").length ?? 0;
@@ -1071,9 +888,9 @@ async function runConnect(
       totalScopes > 0
     ) {
       if (failedCount === 0) {
-        successSummary = `Connected ${displayName}. ${storedCount}/${totalScopes} scopes synced to Personal Server.`;
+        successSummary = `Collected your ${displayName} data and synced it to your Personal Server.`;
       } else {
-        successSummary = `Connected ${displayName}. ${storedCount}/${totalScopes} scopes synced, ${failedCount} failed.`;
+        successSummary = `Collected your ${displayName} data. ${storedCount}/${totalScopes} scopes synced, ${failedCount} failed.`;
       }
     } else if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       successSummary = `Collected your ${displayName} data and synced it to your Personal Server.`;
@@ -1081,88 +898,31 @@ async function runConnect(
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
 
-    emit.success(`Connected ${displayName}.`);
-    if (!connectRenderer) {
-      progress.succeed(`Connected ${displayName}.`);
-    }
-    emit.detail(successSummary);
+    // --- Phase 7: Success summary ---
+    renderer?.success(`Connected ${displayName}.`);
+    renderer?.detail(successSummary);
 
-    // Show connect renderer success summary
-    if (connectRenderer) {
-      const syncedToPS =
-        finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED;
-      connectRenderer.complete(`Connected ${displayName}.`, [
-        syncedToPS ? "Synced to your Personal Server." : "Saved locally.",
-        "",
-        `Next: vana data show ${source}`,
-      ]);
+    // Partial sync guidance
+    if (failedCount > 0 && storedCount > 0) {
+      renderer?.detail(`Retry: vana server sync`);
     }
 
-    // Show per-scope results if available
-    if (ingestScopeResults && ingestScopeResults.length > 0) {
-      for (const sr of ingestScopeResults) {
-        if (sr.status === "stored") {
-          emit.detail(`  ${sr.scope} \u2713`);
-        } else {
-          emit.detail(`  ${sr.scope} \u2717 (${sr.error ?? "failed"})`);
-        }
-      }
-      if (failedCount > 0 && storedCount > 0) {
-        emit.detail(`  Run ${emit.code("vana server sync")} to retry.`);
-      }
+    // Journey-aware next step
+    const state = await readCliState();
+    const connectedSourceCount = Object.values(state.sources ?? {}).filter(
+      (s) => hasCollectedData((s as SourceStatus)?.dataState),
+    ).length;
+
+    renderer?.detail("");
+    if (connectedSourceCount > 1) {
+      renderer?.detail(`Next: vana sources`);
+    } else {
+      renderer?.detail(`Next: vana data show ${source}`);
     }
 
-    emit.blank();
-    if (resultSummary) {
-      emit.section("Collected");
-      for (const line of resultSummary.lines) {
-        emit.bullet(line);
-      }
-    }
+    renderer?.bell();
 
-    emit.blank();
-    emit.section(
-      finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED
-        ? "Saved and synced"
-        : "Saved locally",
-    );
-    emit.keyValue("Path", formatDisplayPath(resultPath), "muted");
-    emit.keyValue("Session", "Session cached.", "muted");
-    if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
-      emit.keyValue(
-        "Server",
-        "Your data is now available in your Personal Server.",
-        "success",
-      );
-    } else if (
-      finalStatus === CliOutcomeStatus.INGEST_FAILED &&
-      ingestFailureMessage
-    ) {
-      emit.keyValue(
-        "Server",
-        `Sync failed: ${ingestFailureMessage}`,
-        "warning",
-      );
-    } else if (target.state !== "available") {
-      emit.keyValue("Server", "Data saved locally.", "muted");
-      emit.detail(`  Path: ${formatDisplayPath(resultPath)}`);
-      emit.detail(
-        `  Start your Personal Server, then run ${emit.code("vana server sync")}.`,
-      );
-    }
-
-    if (runLogPath) {
-      emit.keyValue("Run log", formatDisplayPath(runLogPath), "muted");
-    } else if (fetchLogPath) {
-      emit.keyValue("Fetch log", formatDisplayPath(fetchLogPath), "muted");
-    } else if (setupLogPath) {
-      emit.keyValue("Setup log", formatDisplayPath(setupLogPath), "muted");
-    }
-
-    emit.blank();
-    emit.section("Next");
-    emit.bullet(`Inspect the data with ${dataCommand}`);
-    emit.bullet(`Connect another source with ${emit.code("vana sources")}`);
+    // Emit for --json consumers (unchanged)
     emit.event({
       type: "outcome",
       status: finalStatus,
@@ -1181,68 +941,29 @@ async function runConnect(
         lastError: "Cancelled before input was completed.",
         lastLogPath: runLogPath ?? null,
       });
-      connectRenderer?.fail(`Cancelled.`, [
-        `Stopped before ${displayName} finished collecting your data.`,
-        "",
-        `Resume with vana connect ${source}.`,
-      ]);
-      emit.blank();
-      if (!connectRenderer) {
-        progress.stop();
-      }
-      emit.section("Cancelled");
-      emit.info(`Stopped before ${displayName} finished collecting your data.`);
-      emit.detail("No credentials were sent anywhere.");
-      emit.blank();
-      emit.section("Next");
-      emit.bullet(`Resume with ${emit.code(`vana connect ${source}`)}.`);
+      renderer?.fail("Cancelled.");
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.NEEDS_INPUT,
         source,
         reason: "prompt_cancelled",
       });
-      if (runLogPath) {
-        emit.keyValue("Run log", formatDisplayPath(runLogPath), "muted");
-      }
       return 1;
     }
     const message =
       error instanceof Error ? error.message : "Unexpected error.";
-    connectRenderer?.fail(`Problem connecting ${displayName}.`, [
-      message,
-      "",
-      `Retry with vana connect ${source}.`,
-    ]);
-    if (!connectRenderer) {
-      progress.fail(`Problem connecting ${displayName}.`);
-    }
-    emit.info(message);
+    renderer?.fail(`Problem connecting ${displayName}.`);
+    renderer?.detail(message);
+    renderer?.detail(`Retry: vana connect ${source}`);
     emit.event({
       type: "outcome",
       status: CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR,
       source,
       reason: message,
     });
-    emit.blank();
-    emit.section("Next");
-    if (runLogPath || fetchLogPath || setupLogPath) {
-      emit.bullet(
-        `Inspect the latest run log with ${emit.code(`vana logs ${source}`)}.`,
-      );
-    }
-    emit.bullet(`Inspect install health with ${emit.code("vana doctor")}.`);
-    if (runLogPath) {
-      emit.detail(`Run log: ${formatDisplayPath(runLogPath)}`);
-    } else if (fetchLogPath) {
-      emit.detail(`Fetch log: ${formatDisplayPath(fetchLogPath)}`);
-    } else if (setupLogPath) {
-      emit.detail(`Setup log: ${formatDisplayPath(setupLogPath)}`);
-    }
     return 1;
   } finally {
-    connectRenderer?.destroy();
-    progress.stop();
+    renderer?.cleanup();
   }
 }
 
@@ -1305,67 +1026,33 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
-  emit.title("Connect data");
-  emit.blank();
-  const connectedCount = enrichedSources.filter((source) =>
-    hasCollectedData(source.dataState),
-  ).length;
-  const readyNowCount = enrichedSources.filter(
-    (source) =>
-      source.authMode !== "legacy" && !hasCollectedData(source.dataState),
-  ).length;
-  const manualCount = enrichedSources.filter(
-    (source) =>
-      source.authMode === "legacy" && !hasCollectedData(source.dataState),
-  ).length;
-  if (connectedCount > 0 || readyNowCount > 0 || manualCount > 0) {
-    const parts = [];
-    if (connectedCount > 0) {
-      parts.push(
-        `${connectedCount} connected ${connectedCount === 1 ? "source" : "sources"}`,
-      );
-    }
-    if (readyNowCount > 0) {
-      parts.push(
-        `${readyNowCount} ready ${readyNowCount === 1 ? "source" : "sources"}`,
-      );
-    }
-    if (manualCount > 0) {
-      parts.push(`${manualCount} browser login`);
-    }
-    emit.detail(parts.join(" • "));
+  // Build clack-compatible options from enriched sources
+  const clackOptions = enrichedSources.map((item) => {
+    const connected = hasCollectedData(item.dataState);
+    const hint = connected
+      ? "connected"
+      : item.authMode === "legacy"
+        ? "browser login"
+        : undefined;
+    return {
+      value: item.id,
+      label: item.name,
+      hint,
+    };
+  });
+
+  const source = await clackSelect({
+    message: "Choose a source to connect.",
+    options: clackOptions,
+    initialValue: suggestedSource?.id,
+  });
+
+  if (isCancel(source)) {
+    emit.info("Cancelled.");
+    return 1;
   }
-  emit.info("Choose a source to connect:");
-  if (connectedCount > 0) {
-    emit.detail(
-      `Inspect what you already collected with ${emit.code("vana data list")}, or reconnect any source below.`,
-    );
-  } else {
-    emit.detail(
-      `Or jump straight in with ${emit.code("vana connect <source>")}.`,
-    );
-  }
-  let source: string;
-  try {
-    source = await select({
-      message: "Source",
-      pageSize: 8,
-      choices: buildConnectChoices(
-        enrichedSources,
-        emit,
-        suggestedSource?.id ?? null,
-      ),
-    });
-  } catch (error) {
-    if (isPromptCancelled(error)) {
-      emit.info("Cancelled. No source was connected.");
-      emit.detail(`Browse sources any time with ${emit.code("vana sources")}.`);
-      return 1;
-    }
-    throw error;
-  }
-  emit.blank();
-  return runConnect(source, options);
+
+  return runConnect(source as string, options);
 }
 
 async function runList(options: GlobalOptions): Promise<number> {
@@ -3812,82 +3499,7 @@ function formatSetupConnectStep(
   return `Connect a source with ${emit.code("vana connect")}.`;
 }
 
-function describeConnectTrust(
-  authMode: "automated" | "interactive" | "legacy" | undefined,
-): string | null {
-  if (authMode === "legacy") {
-    return "If needed, Vana Connect will open a local browser session on this machine.";
-  }
-
-  if (authMode === "interactive") {
-    return "If needed, Vana Connect will ask for details in this terminal. Those details stay local to this machine.";
-  }
-
-  return null;
-}
-
-function buildConnectChoices(
-  sources: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    authMode?: "automated" | "interactive" | "legacy";
-    dataState?: SourceStatus["dataState"];
-    lastRunOutcome?: string | null;
-    sessionPresent?: boolean;
-  }>,
-  emit: Pick<Emitter, "badge">,
-  recommendedSourceId: string | null = null,
-) {
-  const connected = sources.filter((source) =>
-    hasCollectedData(source.dataState),
-  );
-  const readyNow = sources.filter(
-    (source) =>
-      source.authMode !== "legacy" && !hasCollectedData(source.dataState),
-  );
-  const manualSteps = sources.filter(
-    (source) =>
-      source.authMode === "legacy" && !hasCollectedData(source.dataState),
-  );
-  const choices: Array<
-    | Separator
-    | {
-        value: string;
-        name: string;
-        description: string;
-        short: string;
-      }
-  > = [];
-
-  const appendGroup = (label: string, items: typeof sources) => {
-    if (items.length === 0) {
-      return;
-    }
-    if (choices.length > 0) {
-      choices.push(new Separator(""));
-    }
-    choices.push(new Separator(label));
-    for (const item of items) {
-      choices.push({
-        name: `${item.name}${formatAuthModeBadge(item.authMode, emit)}${
-          item.id === recommendedSourceId && item.authMode !== "legacy"
-            ? ` ${emit.badge("recommended", "accent")}`
-            : ""
-        }`,
-        description: formatSourcePickerDescription(item),
-        short: item.name,
-        value: item.id,
-      });
-    }
-  };
-
-  appendGroup("Connected", connected);
-  appendGroup("Ready now", readyNow);
-  appendGroup("Browser login", manualSteps);
-
-  return choices;
-}
+// describeConnectTrust and buildConnectChoices removed — replaced by clack-based picker
 
 function formatMissingConnectSourceMessage(
   source:
@@ -3904,35 +3516,7 @@ function formatMissingConnectSourceMessage(
   return "Specify a source. Run `vana sources` to see available options.";
 }
 
-function formatSourcePickerDescription(source: {
-  description?: string;
-  authMode?: "automated" | "interactive" | "legacy";
-  dataState?: SourceStatus["dataState"];
-  lastRunOutcome?: string | null;
-  sessionPresent?: boolean;
-  id?: string;
-}): string {
-  if (hasCollectedData(source.dataState) && source.id) {
-    const savedState =
-      source.dataState === "ingested_personal_server"
-        ? "Already connected and synced."
-        : source.dataState === "ingest_failed"
-          ? "Already connected locally; Personal Server sync failed."
-          : "Already connected locally.";
-    const reconnectHint = source.sessionPresent ? " Session cached." : "";
-    return `${savedState} Inspect with \`vana data show ${source.id}\` or reconnect now.${reconnectHint}`;
-  }
-
-  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH && source.id) {
-    return `Needs a manual browser step on this machine. Continue with \`vana connect ${source.id}\`.`;
-  }
-
-  if (!source.description) {
-    return "";
-  }
-
-  return cleanDescription(source.description);
-}
+// formatSourcePickerDescription removed — replaced by clack-based picker with hints
 
 function normalizeArgv(argv: string[]): string[] {
   if (
@@ -4129,20 +3713,7 @@ function createSourceMetadataMap(
   );
 }
 
-function formatAuthModeBadge(
-  authMode: "automated" | "interactive" | "legacy" | undefined,
-  emit?: Pick<Emitter, "badge">,
-): string {
-  if (authMode === "legacy") {
-    return ` ${emit ? emit.badge("browser", "warning") : "[browser]"}`;
-  }
-
-  if (authMode === "interactive") {
-    return ` ${emit ? emit.badge("terminal", "info") : "[terminal]"}`;
-  }
-
-  return "";
-}
+// formatAuthModeBadge removed — replaced by clack-based picker with hints
 
 function getSourceStatusPresentation(source: SourceStatus): {
   label: string;
@@ -4212,48 +3783,7 @@ function toneForRuntime(runtime: CliStatus["runtime"]): RenderTone {
   return "muted";
 }
 
-function formatProgressUpdate(event: {
-  message?: string;
-  count?: number;
-  phase?: unknown;
-}): string | null {
-  const phaseLabel =
-    event.phase &&
-    typeof event.phase === "object" &&
-    "label" in event.phase &&
-    typeof (event.phase as { label?: unknown }).label === "string"
-      ? (event.phase as { label: string }).label
-      : null;
-  const phaseStep =
-    event.phase &&
-    typeof event.phase === "object" &&
-    "step" in event.phase &&
-    typeof (event.phase as { step?: unknown }).step === "number"
-      ? (event.phase as { step: number }).step
-      : null;
-  const phaseTotal =
-    event.phase &&
-    typeof event.phase === "object" &&
-    "total" in event.phase &&
-    typeof (event.phase as { total?: unknown }).total === "number"
-      ? (event.phase as { total: number }).total
-      : null;
-  const phasePrefix =
-    phaseLabel && phaseStep != null && phaseTotal != null
-      ? `${phaseLabel} (${phaseStep}/${phaseTotal})`
-      : phaseLabel;
-
-  if (phasePrefix && event.message) {
-    return `${phasePrefix}: ${event.message}`;
-  }
-  if (event.message) {
-    return event.message;
-  }
-  if (phasePrefix && typeof event.count === "number") {
-    return `${phasePrefix}: ${event.count}`;
-  }
-  return null;
-}
+// formatProgressUpdate removed — replaced by ConnectRenderer scope methods
 
 /**
  * Extract a human-readable scope name from a progress-update event.
@@ -4295,9 +3825,7 @@ function formatScopeDetail(event: {
   return undefined;
 }
 
-function shouldRenderStatusUpdate(message: string): boolean {
-  return !/^complete\b/i.test(message.trim());
-}
+// shouldRenderStatusUpdate removed — status updates are silent in the new design
 
 function inferInstalledAuthMode(
   installedFiles: Array<{ source: string; path: string }>,
