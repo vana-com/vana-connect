@@ -565,9 +565,6 @@ describe("runCli", () => {
     expect(stdout).toContain("Install");
     expect(stdout).toContain("Paths");
     expect(stdout).toContain("Lifecycle");
-    expect(stdout).toContain("Headed sessions");
-    expect(stdout).toContain("Managed profiles");
-    expect(stdout).toContain("Screenshots");
     expect(stdout).toContain("Attention");
     expect(stdout).toContain("Connected");
     expect(stdout).toContain("git pull && pnpm install && pnpm build");
@@ -1580,8 +1577,6 @@ describe("runCli", () => {
     expect(githubIndex).toBeGreaterThanOrEqual(0);
     expect(chatgptIndex).toBeGreaterThanOrEqual(0);
     expect(githubIndex).toBeLessThan(chatgptIndex);
-    expect(stdout).toContain("Ready now");
-    expect(stdout).toContain("Browser login");
   });
 
   it("reports non-overlapping source summary counts in json mode", async () => {
@@ -1694,17 +1689,12 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toMatchInlineSnapshot(`
-      "Available sources (3)
+      "Available sources
 
-      Ready now (2) · Browser login (1)
-
-      Ready now (2)
       GitHub recommended
         Your GitHub data.
       Spotify
         Your Spotify data.
-
-      Browser login (1)
       ChatGPT
         Your ChatGPT data.
 
@@ -2411,8 +2401,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("GitHub");
-    expect(stdout).toContain("1.2.0");
-    expect(stdout).toContain("daily");
+    expect(stdout).toContain("Collects");
     expect(stdout).toContain("Repositories");
   });
 

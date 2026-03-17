@@ -566,8 +566,10 @@ async function runConnect(
             lastResultPath: null,
             lastLogPath: getErrorLogPath(retryError),
           });
-          renderer?.fail(`${displayName} connector could not be updated.`);
-          renderer?.detail(`Check your network connection and try again.`);
+          renderer?.fail(`${displayName} connector could not be verified.`);
+          renderer?.detail(
+            `Try again later, or report: https://github.com/vana-com/data-connectors/issues`,
+          );
           emit.event({
             type: "outcome",
             status: CliOutcomeStatus.CONNECTOR_UNAVAILABLE,
@@ -1173,66 +1175,24 @@ async function runList(options: GlobalOptions): Promise<number> {
   }
 
   const emit = createEmitter(options);
-  emit.title(
-    enrichedSources.length > 0
-      ? `Available sources (${enrichedSources.length})`
-      : "Available sources",
-  );
+  emit.title("Available sources");
   emit.blank();
-  if (enrichedSources.length > 0) {
-    emit.info(
-      joinOverviewParts([
-        connectedCount > 0 ? formatCountLabel("connected", connectedCount) : "",
-        readyCount > 0 ? formatCountLabel("ready now", readyCount) : "",
-        manualCount > 0 ? formatCountLabel("browser login", manualCount) : "",
-      ]),
-    );
-    emit.blank();
-  }
-  const groups = [
-    {
-      title: "Connected",
-      items: enrichedSources.filter(
-        (source) =>
-          source.dataState === "collected_local" ||
-          source.dataState === "ingested_personal_server" ||
-          source.dataState === "ingest_failed",
-      ),
-    },
-    {
-      title: "Ready now",
-      items: enrichedSources.filter(
-        (source) =>
-          source.authMode !== "legacy" &&
-          source.dataState !== "collected_local" &&
-          source.dataState !== "ingested_personal_server" &&
-          source.dataState !== "ingest_failed",
-      ),
-    },
-    {
-      title: "Browser login",
-      items: enrichedSources.filter(
-        (source) =>
-          source.authMode === "legacy" &&
-          source.dataState !== "collected_local" &&
-          source.dataState !== "ingested_personal_server" &&
-          source.dataState !== "ingest_failed",
-      ),
-    },
-  ].filter((group) => group.items.length > 0);
 
-  groups.forEach((group, index) => {
-    if (index > 0) {
-      emit.blank();
-    }
-    emit.section(formatCountLabel(group.title, group.items.length));
-    for (const source of group.items) {
-      const badges: Array<{ text: string; tone?: RenderTone }> = [];
-      if (
-        source.dataState === "ingested_personal_server" ||
-        source.dataState === "collected_local" ||
-        source.dataState === "ingest_failed"
-      ) {
+  if (enrichedSources.length === 0) {
+    emit.info("No sources are available right now.");
+  } else {
+    const connectedSources = enrichedSources.filter((source) =>
+      hasCollectedData(source.dataState),
+    );
+    const unconnectedSources = enrichedSources.filter(
+      (source) => !hasCollectedData(source.dataState),
+    );
+
+    // Connected sources are always shown expanded
+    if (connectedSources.length > 0) {
+      emit.section("Connected");
+      for (const source of connectedSources) {
+        const badges: Array<{ text: string; tone?: RenderTone }> = [];
         if (source.dataState === "ingested_personal_server") {
           badges.push({ text: "synced", tone: "success" });
         } else if (source.dataState === "ingest_failed") {
@@ -1240,7 +1200,21 @@ async function runList(options: GlobalOptions): Promise<number> {
         } else {
           badges.push({ text: "local", tone: "muted" });
         }
+        emit.sourceTitle(source.name, badges);
+        emit.detail(
+          `Inspect with ${emit.code(`vana data show ${source.id}`)}.`,
+        );
       }
+      emit.blank();
+      emit.section("Available");
+    }
+
+    // Show the first 3 unconnected sources with descriptions
+    const expanded = unconnectedSources.slice(0, 3);
+    const collapsed = unconnectedSources.slice(3);
+
+    for (const source of expanded) {
+      const badges: Array<{ text: string; tone?: RenderTone }> = [];
       if (
         recommendedSource?.id === source.id &&
         recommendedSource.authMode !== "legacy"
@@ -1251,20 +1225,13 @@ async function runList(options: GlobalOptions): Promise<number> {
       if (source.description) {
         emit.detail(cleanDescription(source.description));
       }
-      if (
-        source.dataState === "collected_local" ||
-        source.dataState === "ingested_personal_server" ||
-        source.dataState === "ingest_failed"
-      ) {
-        emit.detail(
-          `Inspect with ${emit.code(`vana data show ${source.id}`)}.`,
-        );
-      }
     }
-  });
-  if (groups.length === 0) {
-    emit.info("No sources are available right now.");
-  } else {
+
+    if (collapsed.length > 0) {
+      emit.blank();
+      emit.detail(collapsed.map((s) => s.name).join(" \u00B7 "));
+    }
+
     if (recommendedSource) {
       emit.blank();
       emit.next(`vana connect ${recommendedSource.id}`);
@@ -1393,15 +1360,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   const connectedCount = status.summary?.connectedCount ?? 0;
   const attentionCount = status.summary?.needsAttentionCount ?? 0;
   const sourceParts = [
-    connectedCount > 0 ? `${connectedCount} connected` : "0 connected",
-    ...(attentionCount > 0
+    connectedCount > 0 ? `${connectedCount} connected` : "none connected",
+    ...(connectedCount > 0 && attentionCount > 0
       ? [`${attentionCount} need${attentionCount === 1 ? "s" : ""} attention`]
       : []),
   ];
   emit.keyValue(
     "Sources",
     sourceParts.join(", "),
-    attentionCount > 0 ? "warning" : connectedCount > 0 ? "success" : "muted",
+    attentionCount > 0 && connectedCount > 0
+      ? "warning"
+      : connectedCount > 0
+        ? "success"
+        : "muted",
   );
   if (nextSteps.length > 0) {
     emit.blank();
@@ -1532,7 +1503,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
             key: "latestIssue",
             label: "Latest issue",
             status: "warn" as const,
-            detail: `${displaySource(attentionSources[0].source, sourceLabels)}: ${attentionSources[0].lastError ?? getSourceStatusPresentation(attentionSources[0]).label}`,
+            detail: `${displaySource(attentionSources[0].source, sourceLabels)}: ${humanizeIssue(attentionSources[0].lastError ?? getSourceStatusPresentation(attentionSources[0]).label)}`,
           },
         ]
       : []),
@@ -1547,27 +1518,33 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
           "Your Personal Server is unavailable, so successful runs will stay local.",
         ]
       : []),
-    ...(Object.keys(state.sources).length === 0
-      ? [
-          (() => {
-            const suggested = registrySources.find(
-              (s) => s.authMode !== "legacy",
-            );
-            return suggested
-              ? `Connect your first source with \`vana connect ${suggested.id}\`.`
-              : "Connect your first source with `vana connect`.";
-          })(),
-        ]
-      : ["Check overall status with `vana status`."]),
     ...(attentionSources[0]?.lastLogPath
       ? [
           `Inspect the latest issue log with \`vana logs ${attentionSources[0].source}\`.`,
         ]
-      : recentSources[0]?.lastLogPath
-        ? [
-            `Inspect the latest run log with \`vana logs ${recentSources[0].source}\`.`,
-          ]
-        : []),
+      : attentionSources[0]
+        ? [`View details with \`vana logs ${attentionSources[0].source}\`.`]
+        : Object.keys(state.sources).length === 0
+          ? [
+              (() => {
+                const suggested = registrySources.find(
+                  (s) => s.authMode !== "legacy",
+                );
+                return suggested
+                  ? `Connect your first source with \`vana connect ${suggested.id}\`.`
+                  : "Connect your first source with `vana connect`.";
+              })(),
+            ]
+          : [
+              (() => {
+                const suggested = registrySources.find(
+                  (s) => s.authMode !== "legacy",
+                );
+                return suggested
+                  ? `Connect a source with \`vana connect ${suggested.id}\`.`
+                  : "Connect a source with `vana connect`.";
+              })(),
+            ]),
   ];
 
   const payload: CliDoctor = {
@@ -1632,21 +1609,6 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
     String(connectedCount),
     connectedCount > 0 ? "success" : "muted",
   );
-  emit.keyValue(
-    "Headed sessions",
-    runtime.capabilities.supportsHeaded ? "Available" : "Unavailable",
-    runtime.capabilities.supportsHeaded ? "success" : "warning",
-  );
-  emit.keyValue(
-    "Managed profiles",
-    runtime.capabilities.supportsManagedProfiles ? "Available" : "Unavailable",
-    runtime.capabilities.supportsManagedProfiles ? "success" : "warning",
-  );
-  emit.keyValue(
-    "Screenshots",
-    runtime.capabilities.supportsScreenshots ? "Available" : "Unavailable",
-    runtime.capabilities.supportsScreenshots ? "success" : "warning",
-  );
   emit.blank();
   emit.section("Checks");
   for (const check of checks) {
@@ -1677,7 +1639,7 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
         if (detail.kind === "row") {
           emit.keyValue(detail.label, detail.value, detail.tone ?? "muted");
         } else {
-          emit.detail(detail.message);
+          emit.detail(humanizeIssue(detail.message));
         }
       }
     }
@@ -2461,13 +2423,9 @@ async function runSourceDetail(
     return 0;
   }
 
-  const displayVersion = match.version ?? stored?.connectorVersion ?? "unknown";
-  const displayFrequency =
-    match.exportFrequency ?? stored?.exportFrequency ?? "unknown";
-
   const iconPrefix = await renderIconInline(match.id);
   const badgeList: Array<{ text: string; tone?: RenderTone }> = [];
-  if (badge) {
+  if (badge && badge.label !== "new") {
     badgeList.push({ text: badge.label, tone: badge.style });
   }
   emit.sourceTitle(`${iconPrefix}${match.name}`, badgeList);
@@ -2476,28 +2434,18 @@ async function runSourceDetail(
     emit.info(cleanDescription(match.description));
     emit.blank();
   }
-  emit.keyValue("Version", displayVersion, "muted");
-  emit.keyValue("Export frequency", displayFrequency, "muted");
-  if (match.authMode) {
-    const authModeDisplay =
-      match.authMode === "interactive"
-        ? "terminal"
-        : match.authMode === "legacy"
-          ? "browser"
-          : match.authMode;
-    emit.keyValue("Auth mode", authModeDisplay, "muted");
-  }
-  if (match.company) {
-    emit.keyValue("Company", match.company, "muted");
-  }
 
   if (scopes.length > 0) {
-    emit.blank();
-    emit.section(`Scopes (${scopes.length})`);
+    emit.section("Collects");
     for (const scope of scopes) {
-      emit.bullet(scope.label);
       if (scope.description) {
-        emit.detail(cleanDescription(scope.description));
+        emit.keyValue(
+          scope.label,
+          cleanDescription(scope.description),
+          "muted",
+        );
+      } else {
+        emit.bullet(scope.label);
       }
     }
   }
@@ -2994,6 +2942,13 @@ function humanizeField(value: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]/g, " ")
     .replace(/^\w/, (match) => match.toUpperCase());
+}
+
+function humanizeIssue(message: string): string {
+  if (/checksum|mismatch/i.test(message)) {
+    return "Connector is out of date. Will auto-update on next connect.";
+  }
+  return message;
 }
 
 function formatHumanSourceMessage(
