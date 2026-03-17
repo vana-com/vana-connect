@@ -104,17 +104,17 @@ on disk. Inspect, move, or delete them whenever you want.
 
 ## Commands
 
-| Command | What it does |
-|---------|-------------|
-| `vana connect [source]` | Connect a platform and export your data |
-| `vana sources` | List available platforms |
-| `vana data list` | Show all collected datasets |
-| `vana data show <source>` | Summarize a collected dataset |
-| `vana data path <source>` | Print the file path for a dataset |
-| `vana status` | Overview of connections and anything that needs attention |
-| `vana doctor` | Diagnose installation and runtime health |
-| `vana logs [source]` | View run logs |
-| `vana setup` | Install or repair the browser runtime |
+| Command                   | What it does                                              |
+| ------------------------- | --------------------------------------------------------- |
+| `vana connect [source]`   | Connect a platform and export your data                   |
+| `vana sources`            | List available platforms                                  |
+| `vana data list`          | Show all collected datasets                               |
+| `vana data show <source>` | Summarize a collected dataset                             |
+| `vana data path <source>` | Print the file path for a dataset                         |
+| `vana status`             | Overview of connections and anything that needs attention |
+| `vana doctor`             | Diagnose installation and runtime health                  |
+| `vana logs [source]`      | View run logs                                             |
+| `vana setup`              | Install or repair the browser runtime                     |
 
 Run `vana <command> --help` for detailed usage.
 
@@ -179,11 +179,11 @@ vana doctor              # Runtime, browser, and state health
 vana logs <source>       # Latest run log for a source
 ```
 
-| Problem | Fix |
-|---------|-----|
-| Browser runtime missing | `vana setup` |
-| Login expired | `vana connect <source>` to re-authenticate |
-| Connector fails | `vana logs <source>` for details |
+| Problem                 | Fix                                        |
+| ----------------------- | ------------------------------------------ |
+| Browser runtime missing | `vana setup`                               |
+| Login expired           | `vana connect <source>` to re-authenticate |
+| Connector fails         | `vana logs <source>` for details           |
 
 ## Uninstall
 

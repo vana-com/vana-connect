@@ -7,6 +7,7 @@ import { Separator, confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
 
 import {
+  createConnectRenderer,
   createHumanRenderer,
   createProgressHandle,
   formatDisplayPath,
@@ -444,8 +445,15 @@ async function runConnect(
 ): Promise<number> {
   const runtime = new ManagedPlaywrightRuntime();
   const emit = createEmitter(options);
+  const connectRenderer =
+    !options.json && !options.quiet
+      ? createConnectRenderer({
+          isTTY: process.stderr.isTTY ?? false,
+          color: process.stderr.isTTY ?? false,
+        })
+      : null;
   const progress = createProgressHandle({
-    enabled: !options.json && !options.quiet,
+    enabled: !options.json && !options.quiet && !connectRenderer,
   });
   const registrySources = await loadRegistrySources();
   const sourceLabels = createSourceLabelMap(registrySources);
@@ -456,10 +464,16 @@ async function runConnect(
   let terminalExitCode: number | null = null;
 
   try {
-    emit.title(`Connect ${displayName}`);
+    if (connectRenderer) {
+      connectRenderer.setTitle(`Connect ${displayName}`);
+    } else {
+      emit.title(`Connect ${displayName}`);
+    }
     emit.section("Preparing");
     emit.info(`Finding a connector for ${displayName}...`);
-    progress.start(`Preparing ${displayName}...`);
+    if (!connectRenderer) {
+      progress.start(`Preparing ${displayName}...`);
+    }
     const target = await detectPersonalServerTarget();
 
     if (runtime.state !== "installed") {
@@ -509,7 +523,9 @@ async function runConnect(
         logPath: installResult.logPath,
       });
       emit.success("Runtime ready.");
-      progress.update("Runtime ready.");
+      if (!connectRenderer) {
+        progress.update("Runtime ready.");
+      }
       if (installResult.logPath) {
         emit.detail(`Setup log: ${formatDisplayPath(installResult.logPath)}`);
       }
@@ -541,7 +557,12 @@ async function runConnect(
         lastLogPath: getErrorLogPath(error),
       });
       if (!options.json) {
-        progress.fail(`${displayName} is not available yet.`);
+        connectRenderer?.fail(`${displayName} is not available yet.`, [
+          message,
+        ]);
+        if (!connectRenderer) {
+          progress.fail(`${displayName} is not available yet.`);
+        }
         const suggestedSource =
           registrySources.find((item) => item.authMode !== "legacy") ??
           registrySources[0];
@@ -585,7 +606,9 @@ async function runConnect(
       logPath: fetched.logPath,
     });
     emit.info("Connector ready.");
-    progress.update(`Connector ready for ${displayName}.`);
+    if (!connectRenderer) {
+      progress.update(`Connector ready for ${displayName}.`);
+    }
     if (sourceDetails?.description) {
       emit.info(cleanDescription(sourceDetails.description));
     }
@@ -602,6 +625,7 @@ async function runConnect(
       emit.detail(
         `Found an existing ${displayName} session. Reusing it if it is still valid...`,
       );
+      connectRenderer?.phaseCompleted("Signed in");
     }
 
     if (
@@ -647,7 +671,12 @@ async function runConnect(
         source: resolution.source,
         reason: "display_server_unavailable",
       });
-      progress.fail(`Manual step required for ${displayName}.`);
+      connectRenderer?.fail(`Manual step required for ${displayName}.`, [
+        "Run this command in a desktop session.",
+      ]);
+      if (!connectRenderer) {
+        progress.fail(`Manual step required for ${displayName}.`);
+      }
       return 1;
     }
 
@@ -662,7 +691,9 @@ async function runConnect(
     emit.section("Connecting");
     emit.info(`Connecting to ${displayName}...`);
     emit.info("Collecting your data...");
-    progress.update(`Collecting ${displayName} data...`);
+    if (!connectRenderer) {
+      progress.update(`Collecting ${displayName} data...`);
+    }
 
     let finalStatus: CliOutcome["status"] =
       CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR;
@@ -684,6 +715,7 @@ async function runConnect(
       source: resolution.source,
       noInput: options.noInput,
       onNeedInput: async (needInput) => {
+        connectRenderer?.pauseForPrompt();
         emit.blank();
         emit.section("Continue in this terminal");
         emit.info(
@@ -711,6 +743,7 @@ async function runConnect(
           }
           throw error;
         }
+        connectRenderer?.resumeAfterPrompt();
         return values;
       },
     })) {
@@ -736,7 +769,12 @@ async function runConnect(
           source: resolution.source,
         });
         if (!options.json) {
-          progress.stop();
+          if (!connectRenderer) {
+            progress.stop();
+          }
+          connectRenderer?.fail(`${displayName} needs additional input.`, [
+            `Run ${emit.code(`vana connect ${source}`)} without ${emit.code("--no-input")}.`,
+          ]);
           emit.blank();
           emit.section("Input required");
           emit.info(
@@ -765,8 +803,25 @@ async function runConnect(
 
       if (event.type === "progress-update") {
         const progressLine = formatProgressUpdate(event);
-        if (progressLine) {
+        if (connectRenderer) {
+          // Drive the connect renderer with scope information from the event
+          const scopeName = extractScopeName(event);
+          if (scopeName) {
+            const isComplete =
+              typeof event.message === "string" &&
+              /^complete\b/i.test(event.message.trim());
+            if (isComplete) {
+              const detail = formatScopeDetail(event);
+              connectRenderer.scopeCompleted(scopeName, detail);
+            } else {
+              // Start scope if not already active
+              connectRenderer.scopeStarted(scopeName);
+            }
+          }
+        } else if (progressLine) {
           progress.update(progressLine);
+        }
+        if (progressLine) {
           emit.detail(progressLine);
         }
         continue;
@@ -774,7 +829,9 @@ async function runConnect(
 
       if (event.type === "status-update") {
         if (event.message && shouldRenderStatusUpdate(event.message)) {
-          progress.update(event.message);
+          if (!connectRenderer) {
+            progress.update(event.message);
+          }
           emit.detail(event.message);
         }
         continue;
@@ -788,7 +845,15 @@ async function runConnect(
           lastLogPath: event.logPath,
         });
         emit.blank();
-        progress.fail(`Problem connecting ${displayName}.`);
+        if (connectRenderer) {
+          connectRenderer.fail(`Problem connecting ${displayName}.`, [
+            event.message ?? "Connector run failed.",
+            "",
+            `Retry with ${emit.code(`vana connect ${source}`)}.`,
+          ]);
+        } else {
+          progress.fail(`Problem connecting ${displayName}.`);
+        }
         emit.section("Problem");
         emit.info(event.message ?? "Connector run failed.");
         emit.event({
@@ -817,7 +882,9 @@ async function runConnect(
 
       if (event.type === "headed-required") {
         emit.blank();
-        progress.update(`Manual browser step required for ${displayName}.`);
+        if (!connectRenderer) {
+          progress.update(`Manual browser step required for ${displayName}.`);
+        }
         emit.section("Continue in your browser");
         if (event.message) {
           emit.info(event.message);
@@ -837,8 +904,13 @@ async function runConnect(
           lastResultPath: null,
           lastLogPath: event.logPath,
         });
+        connectRenderer?.fail(`Manual step required for ${displayName}.`, [
+          `Complete the browser step locally, then rerun vana connect ${source}.`,
+        ]);
         emit.blank();
-        progress.stop();
+        if (!connectRenderer) {
+          progress.stop();
+        }
         emit.section("Manual step required");
         emit.info(
           `${displayName} still needs a manual browser step on this machine.`,
@@ -953,6 +1025,9 @@ async function runConnect(
         lastResultPath: null,
         lastLogPath: runLogPath ?? fetchLogPath ?? null,
       });
+      connectRenderer?.fail(`Problem connecting ${displayName}.`, [
+        "Connector run ended without a result.",
+      ]);
       emit.event({
         type: "outcome",
         status: CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR,
@@ -1007,8 +1082,21 @@ async function runConnect(
     }
 
     emit.success(`Connected ${displayName}.`);
-    progress.succeed(`Connected ${displayName}.`);
+    if (!connectRenderer) {
+      progress.succeed(`Connected ${displayName}.`);
+    }
     emit.detail(successSummary);
+
+    // Show connect renderer success summary
+    if (connectRenderer) {
+      const syncedToPS =
+        finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED;
+      connectRenderer.complete(`Connected ${displayName}.`, [
+        syncedToPS ? "Synced to your Personal Server." : "Saved locally.",
+        "",
+        `Next: vana data show ${source}`,
+      ]);
+    }
 
     // Show per-scope results if available
     if (ingestScopeResults && ingestScopeResults.length > 0) {
@@ -1093,8 +1181,15 @@ async function runConnect(
         lastError: "Cancelled before input was completed.",
         lastLogPath: runLogPath ?? null,
       });
+      connectRenderer?.fail(`Cancelled.`, [
+        `Stopped before ${displayName} finished collecting your data.`,
+        "",
+        `Resume with vana connect ${source}.`,
+      ]);
       emit.blank();
-      progress.stop();
+      if (!connectRenderer) {
+        progress.stop();
+      }
       emit.section("Cancelled");
       emit.info(`Stopped before ${displayName} finished collecting your data.`);
       emit.detail("No credentials were sent anywhere.");
@@ -1114,7 +1209,14 @@ async function runConnect(
     }
     const message =
       error instanceof Error ? error.message : "Unexpected error.";
-    progress.fail(`Problem connecting ${displayName}.`);
+    connectRenderer?.fail(`Problem connecting ${displayName}.`, [
+      message,
+      "",
+      `Retry with vana connect ${source}.`,
+    ]);
+    if (!connectRenderer) {
+      progress.fail(`Problem connecting ${displayName}.`);
+    }
     emit.info(message);
     emit.event({
       type: "outcome",
@@ -1139,6 +1241,7 @@ async function runConnect(
     }
     return 1;
   } finally {
+    connectRenderer?.destroy();
     progress.stop();
   }
 }
@@ -4150,6 +4253,46 @@ function formatProgressUpdate(event: {
     return `${phasePrefix}: ${event.count}`;
   }
   return null;
+}
+
+/**
+ * Extract a human-readable scope name from a progress-update event.
+ * The scope name comes from `phase.label` when `phase` is a structured object.
+ */
+function extractScopeName(event: {
+  phase?: unknown;
+  message?: string;
+}): string | null {
+  if (
+    event.phase &&
+    typeof event.phase === "object" &&
+    "label" in event.phase &&
+    typeof (event.phase as { label?: unknown }).label === "string"
+  ) {
+    return (event.phase as { label: string }).label;
+  }
+  return null;
+}
+
+/**
+ * Format detail text for a completed scope (e.g. "8 found").
+ * Extracts count from event.count or parses it from the message.
+ */
+function formatScopeDetail(event: {
+  count?: number;
+  message?: string;
+}): string | undefined {
+  if (typeof event.count === "number") {
+    return `${event.count} found`;
+  }
+  // Try to extract a count from the completion message (e.g. "Complete! 8 repositories collected.")
+  if (typeof event.message === "string") {
+    const match = event.message.match(/(\d+)\s+\w+/);
+    if (match) {
+      return match[0];
+    }
+  }
+  return undefined;
 }
 
 function shouldRenderStatusUpdate(message: string): boolean {
