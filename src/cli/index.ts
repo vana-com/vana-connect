@@ -2796,9 +2796,6 @@ function getSourceBadge(source: SourceStatus): {
     source.dataState === "ingested_personal_server" ||
     source.dataState === "ingest_failed"
   ) {
-    if (source.sessionPresent) {
-      return { label: "connected", style: "success" };
-    }
     return { label: "connected", style: "success" };
   }
 
@@ -2870,9 +2867,9 @@ async function renderIconInline(source: string): Promise<string> {
     return "";
   }
   try {
-    const terminalImage = (await import(
-      /* webpackIgnore: true */ "terminal-image" as string
-    )) as {
+    // terminal-image is optional — not in package.json dependencies.
+    // The `as string` cast prevents TypeScript from resolving the module at compile time.
+    const terminalImage = (await import("terminal-image" as string)) as {
       default: {
         buffer: (
           input: Buffer,
