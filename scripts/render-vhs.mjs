@@ -100,7 +100,9 @@ async function main() {
   try {
     for (const entry of tapes) {
       if (entry.resetFixtures) {
-        process.stdout.write(`[vhs] re-preparing fixtures before ${entry.tape}\n`);
+        process.stdout.write(
+          `[vhs] re-preparing fixtures before ${entry.tape}\n`,
+        );
         prepareFixtures();
       }
       const tapePath = path.join(tapesDir, entry.tape);

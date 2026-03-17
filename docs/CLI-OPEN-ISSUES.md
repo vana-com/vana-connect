@@ -183,6 +183,13 @@ to use first. Suggested priority:
 3. `iconURL` — terminal image support for capable terminals
 4. `connectURL` / `connectSelector` — smarter connect flows
 
+**Research docs:**
+
+- [Version Tracking](research/VERSION-TRACKING-RESEARCH.md)
+- [Freshness UX](research/FRESHNESS-UX-RESEARCH.md)
+- [Pre-Auth Patterns](research/PRE-AUTH-PATTERNS-RESEARCH.md)
+- [Scope Display](research/SCOPE-DISPLAY-RESEARCH.md)
+
 ### Color palette verification → **Research complete, partial match**
 
 The CLI theme lives in `src/cli/render/theme.ts`. Brand colors were
@@ -458,6 +465,15 @@ Issues that require changes in other repos first.
 Blocked on Tim's copy decision above. Once decided, change
 `registry.json` in data-connectors. Demo fixtures here will follow
 automatically via `prepare-vhs-fixtures.mjs`.
+
+### Personal server ingest idempotency (personal-server-ts)
+
+`POST /v1/data/{scope}` creates a new versioned file on every call
+(new `collectedAt` timestamp each time). If the CLI retries a sync
+for already-posted data, the server stores a duplicate version. The
+server needs a deduplication mechanism — e.g., accept a client-supplied
+`collectedAt` or content hash and return 200 instead of 201 if it
+already has that version.
 
 ---
 

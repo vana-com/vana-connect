@@ -96,8 +96,11 @@ vi.mock("../../src/runtime/index.js", () => ({
   },
 }));
 
+const mockReadCachedConnectorMetadata = vi.fn();
+
 vi.mock("../../src/connectors/registry.js", () => ({
   listAvailableSources: mockListAvailableSources,
+  readCachedConnectorMetadata: mockReadCachedConnectorMetadata,
 }));
 
 vi.mock("@inquirer/prompts", () => ({
@@ -158,6 +161,8 @@ describe("runCli", () => {
     }) as typeof process.stdout.write);
 
     mockListAvailableSources.mockReset();
+    mockReadCachedConnectorMetadata.mockReset();
+    mockReadCachedConnectorMetadata.mockResolvedValue(null);
     mockDetectPersonalServerTarget.mockReset();
     mockIngestResult.mockReset();
     mockReadCliState.mockReset();
@@ -717,6 +722,7 @@ describe("runCli", () => {
         • Complete the manual browser step for Shop with \`vana connect shop\`.
         • Inspect the latest run log with \`vana logs shop\`.
         • Inspect the data you already collected with \`vana data show github\`.
+        • Sync 1 pending dataset(s) with \`vana server sync\`.
       "
     `);
   });
@@ -2480,5 +2486,318 @@ describe("runCli", () => {
     expect(stdout).toContain(
       "Found an existing GitHub session. Reusing it if it is still valid...",
     );
+  });
+
+  it("shows source detail in json mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        company: "Microsoft",
+        description: "Your GitHub data",
+        version: "1.2.0",
+        exportFrequency: "daily",
+        authMode: "interactive",
+      },
+    ]);
+    mockReadCachedConnectorMetadata.mockResolvedValue({
+      id: "github",
+      version: "1.2.0",
+      scopes: [
+        { scope: "repos", label: "Repositories", description: "Your repos" },
+      ],
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "sources",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.id).toBe("github");
+    expect(parsed.version).toBe("1.2.0");
+    expect(parsed.scopeLabels).toContain("Repositories");
+  });
+
+  it("shows source detail in human mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        company: "Microsoft",
+        description: "Your GitHub data",
+        version: "1.2.0",
+        exportFrequency: "daily",
+        authMode: "interactive",
+      },
+    ]);
+    mockReadCachedConnectorMetadata.mockResolvedValue({
+      id: "github",
+      version: "1.2.0",
+      scopes: [{ scope: "repos", label: "Repositories" }],
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "sources", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("GitHub");
+    expect(stdout).toContain("1.2.0");
+    expect(stdout).toContain("daily");
+    expect(stdout).toContain("Repositories");
+  });
+
+  it("returns error for unknown source detail", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub" },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "sources",
+      "nonexistent",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.error).toBe("unknown_source");
+  });
+
+  it("includes pendingSyncCount in status JSON", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          sessionPresent: true,
+          lastRunAt: "2026-03-15T10:00:00Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/results/github.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status", "--json"]);
+
+    expect(exitCode).toBe(0);
+    const parsed = cliStatusSchema.parse(JSON.parse(stdout.trim()));
+    expect(parsed.pendingSyncCount).toBe(1);
+  });
+
+  it("rejects collect when not previously connected", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "collect",
+      "github",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.error).toBe("not_previously_connected");
+  });
+
+  it("allows collect when previously connected", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          sessionPresent: true,
+          lastRunAt: "2026-03-15T10:00:00Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/results/github.json",
+        },
+      },
+    });
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/results/github.json",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "collect", "github"]);
+
+    expect(exitCode).toBe(0);
+  });
+
+  it("server sync returns error when no server is available", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync", "--json"]);
+
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.error).toBe("personal_server_unavailable");
+  });
+
+  it("server sync succeeds with pending datasets", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          lastResultPath: "/tmp/results/github.json",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockIngestResult.mockResolvedValue([
+      { type: "ingest-complete", source: "github" },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync", "--json"]);
+
+    expect(exitCode).toBe(0);
+    const lines = stdout.trim().split("\n");
+    const lastLine = JSON.parse(lines[lines.length - 1]);
+    expect(lastLine.syncedCount).toBe(1);
+  });
+
+  it("server sync reports no pending datasets", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          lastResultPath: "/tmp/results/github.json",
+          dataState: "ingested_personal_server",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync", "--json"]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.syncedCount).toBe(0);
+  });
+
+  it("status shows freshness with relative time", async () => {
+    const recentDate = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          sessionPresent: true,
+          lastRunAt: recentDate,
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/results/github.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("1h ago");
+  });
+
+  it("status shows version update hint", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+        version: "2.0.0",
+      },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          connectorVersion: "1.0.0",
+          sessionPresent: true,
+          lastRunAt: "2026-03-15T10:00:00Z",
+          lastRunOutcome: "connected_and_ingested",
+          dataState: "ingested_personal_server",
+          lastResultPath: "/tmp/results/github.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status", "--json"]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.nextSteps).toEqual(
+      expect.arrayContaining([expect.stringContaining("1.0.0")]),
+    );
+  });
+
+  it("sources table sorts connected first in human mode", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "steam", name: "Steam", authMode: "interactive" },
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          sessionPresent: true,
+          lastRunAt: "2026-03-15T10:00:00Z",
+          lastRunOutcome: "connected_local_only",
+          dataState: "collected_local",
+          lastResultPath: "/tmp/results/github.json",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "sources"]);
+
+    expect(exitCode).toBe(0);
+    const githubIndex = stdout.indexOf("GitHub");
+    const steamIndex = stdout.indexOf("Steam");
+    // Connected sources (GitHub) should appear before non-connected (Steam)
+    expect(githubIndex).toBeLessThan(steamIndex);
   });
 });

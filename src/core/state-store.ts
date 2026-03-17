@@ -17,9 +17,12 @@ let testHooks:
 
 export interface StoredSourceState {
   connectorInstalled?: boolean;
+  connectorVersion?: string;
+  exportFrequency?: string;
   sessionPresent?: boolean;
   lastRunAt?: string | null;
   lastRunOutcome?: string | null;
+  lastCollectedAt?: string;
   dataState?: string | null;
   lastError?: string | null;
   lastResultPath?: string | null;

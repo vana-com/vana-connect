@@ -10,6 +10,7 @@ import {
   createHumanRenderer,
   createProgressHandle,
   formatDisplayPath,
+  formatRelativeTime,
 } from "./render/index.js";
 import {
   CliOutcomeStatus,
@@ -35,7 +36,10 @@ import type {
   SourceStatus,
 } from "../core/cli-types.js";
 import type { AvailableSource } from "../connectors/registry.js";
-import { listAvailableSources } from "../connectors/registry.js";
+import {
+  listAvailableSources,
+  readCachedConnectorMetadata,
+} from "../connectors/registry.js";
 import {
   detectPersonalServerTarget,
   ingestResult,
@@ -182,18 +186,43 @@ Examples:
   );
 
   const sourcesCommand = program
-    .command("sources")
-    .description("List supported sources")
+    .command("sources [source]")
+    .description("List supported sources, or show detail for one source")
     .option("--json", "Output machine-readable JSON")
-    .action(async () => {
-      process.exitCode = await runList(parsedOptions);
+    .action(async (source?: string) => {
+      process.exitCode = source
+        ? await runSourceDetail(source, parsedOptions)
+        : await runList(parsedOptions);
     });
   sourcesCommand.addHelpText(
     "after",
     `
 Examples:
   vana sources
+  vana sources github
   vana sources --json | jq '.sources'
+`,
+  );
+
+  const collectCommand = program
+    .command("collect [source]")
+    .description("Re-collect data from a previously connected source")
+    .option("--json", "Output machine-readable JSON")
+    .option("--no-input", "Fail instead of prompting for input")
+    .option("--yes", "Approve safe setup prompts automatically")
+    .option("--quiet", "Reduce non-essential output")
+    .action(async (source?: string) => {
+      process.exitCode = source
+        ? await runCollect(source, parsedOptions)
+        : await runCollectAll(parsedOptions);
+    });
+  collectCommand.addHelpText(
+    "after",
+    `
+Examples:
+  vana collect github
+  vana collect
+  vana collect --json
 `,
   );
 
@@ -368,6 +397,14 @@ Examples:
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
       process.exitCode = await runServerClearUrl(parsedOptions);
+    });
+
+  server
+    .command("sync")
+    .description("Sync all local-only datasets to your Personal Server")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runServerSync(parsedOptions);
     });
 
   try {
@@ -887,8 +924,11 @@ async function runConnect(
 
     await updateSourceState(resolution.source, {
       connectorInstalled: true,
+      connectorVersion: fetched.version,
+      exportFrequency: fetched.exportFrequency,
       sessionPresent: true,
       lastRunAt: new Date().toISOString(),
+      lastCollectedAt: new Date().toISOString(),
       lastRunOutcome: finalStatus,
       dataState: finalDataState,
       lastError: ingestFailureMessage,
@@ -1358,6 +1398,10 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   const sourceMetadata = createSourceMetadataMap(registrySources);
   const sources = await gatherSourceStatuses(state.sources, sourceMetadata);
 
+  const pendingSyncCount = sources.filter(
+    (source) => source.dataState === "collected_local",
+  ).length;
+
   const status: CliStatus = {
     cliVersion: getCliVersion(),
     channel: getCliChannel(),
@@ -1367,6 +1411,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     personalServer: personalServer.state,
     personalServerUrl: personalServer.url,
     personalServerSource: personalServer.source,
+    pendingSyncCount,
     summary: {
       sourceCount: sources.length,
       needsAttentionCount: sources.filter(
@@ -1397,6 +1442,26 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     status.runtime,
     registrySources,
   );
+
+  // Check for version updates.
+  for (const source of status.sources) {
+    const registrySource = registrySources.find((s) => s.id === source.source);
+    if (
+      registrySource?.version &&
+      source.connectorVersion &&
+      registrySource.version !== source.connectorVersion
+    ) {
+      nextSteps.push(
+        `Update ${displaySource(source.source, sourceLabels)} connector (${source.connectorVersion} -> ${registrySource.version}) with \`vana connect ${source.source}\`.`,
+      );
+    }
+  }
+
+  if (pendingSyncCount > 0) {
+    nextSteps.push(
+      `Sync ${pendingSyncCount} pending dataset(s) with \`vana server sync\`.`,
+    );
+  }
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ ...status, nextSteps })}\n`);
@@ -2474,6 +2539,360 @@ async function runLogs(
   return 0;
 }
 
+async function runSourceDetail(
+  source: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+  const registrySources = await loadRegistrySources();
+  const state = await readCliState();
+  const match = registrySources.find(
+    (s) => s.id === source || s.name.toLowerCase() === source.toLowerCase(),
+  );
+
+  if (!match) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ error: "unknown_source", source, message: `Unknown source: ${source}. Run \`vana sources\` to see available options.` })}\n`,
+      );
+    } else {
+      emit.info(
+        `Unknown source: ${source}. Run \`vana sources\` to see available options.`,
+      );
+    }
+    return 1;
+  }
+
+  const stored = state.sources[match.id];
+  const metadata = await readCachedConnectorMetadata(
+    match.id,
+    getConnectorCacheDir(),
+  );
+  const scopes = metadata?.scopes ?? [];
+  const sourceStatus = stored
+    ? ({
+        source: match.id,
+        installed: Boolean(stored.connectorInstalled),
+        sessionPresent: stored.sessionPresent ?? false,
+        lastRunOutcome: stored.lastRunOutcome ?? null,
+        dataState: stored.dataState as SourceStatus["dataState"],
+      } as SourceStatus)
+    : undefined;
+  const badge = sourceStatus ? getSourceBadge(sourceStatus) : undefined;
+
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        id: match.id,
+        name: match.name,
+        company: match.company,
+        description: match.description,
+        version: match.version ?? stored?.connectorVersion,
+        exportFrequency: match.exportFrequency ?? stored?.exportFrequency,
+        authMode: match.authMode,
+        scopes,
+        scopeLabels: scopes.map((s) => s.label),
+        connectorVersion: stored?.connectorVersion,
+        lastCollectedAt: stored?.lastCollectedAt,
+        dataState: stored?.dataState,
+      })}\n`,
+    );
+    return 0;
+  }
+
+  const displayVersion = match.version ?? stored?.connectorVersion ?? "unknown";
+  const displayFrequency =
+    match.exportFrequency ?? stored?.exportFrequency ?? "unknown";
+
+  const iconPrefix = await renderIconInline(match.id);
+  const badgeList: Array<{ text: string; tone?: RenderTone }> = [];
+  if (badge) {
+    badgeList.push({ text: badge.label, tone: badge.style });
+  }
+  emit.sourceTitle(`${iconPrefix}${match.name}`, badgeList);
+  emit.blank();
+  if (match.description) {
+    emit.info(match.description);
+    emit.blank();
+  }
+  emit.keyValue("Version", displayVersion, "muted");
+  emit.keyValue("Export frequency", displayFrequency, "muted");
+  if (match.authMode) {
+    emit.keyValue("Auth mode", match.authMode, "muted");
+  }
+  if (match.company) {
+    emit.keyValue("Company", match.company, "muted");
+  }
+
+  if (scopes.length > 0) {
+    emit.blank();
+    emit.section(`Scopes (${scopes.length})`);
+    for (const scope of scopes) {
+      emit.bullet(scope.label);
+      if (scope.description) {
+        emit.detail(scope.description);
+      }
+    }
+  }
+
+  if (
+    stored?.connectorVersion &&
+    match.version &&
+    stored.connectorVersion !== match.version
+  ) {
+    emit.blank();
+    emit.detail(
+      `A newer connector version is available (${match.version}). Reconnect to update.`,
+    );
+  }
+
+  emit.blank();
+  emit.section("Next");
+  emit.bullet(`Connect with \`vana connect ${match.id}\`.`);
+  if (stored?.lastResultPath) {
+    emit.bullet(`Inspect collected data with \`vana data show ${match.id}\`.`);
+  }
+  return 0;
+}
+
+async function runCollect(
+  source: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+  const state = await readCliState();
+  const stored = state.sources[source];
+
+  if (!stored || !stored.connectorInstalled) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          error: "not_previously_connected",
+          source,
+          message: `Source "${source}" has not been connected yet. Run \`vana connect ${source}\` first.`,
+        })}\n`,
+      );
+    } else {
+      emit.info(
+        `Source "${source}" has not been connected yet. Run \`vana connect ${source}\` first.`,
+      );
+    }
+    return 1;
+  }
+
+  return runConnect(source, options);
+}
+
+async function runCollectAll(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+  const state = await readCliState();
+  const dueSources = Object.entries(state.sources)
+    .filter(
+      ([, stored]) =>
+        stored?.connectorInstalled &&
+        isCollectionDue(stored.exportFrequency, stored.lastCollectedAt),
+    )
+    .map(([id]) => id);
+
+  if (dueSources.length === 0) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ message: "No sources are due for collection.", count: 0 })}\n`,
+      );
+    } else {
+      emit.info("No sources are due for collection.");
+    }
+    return 0;
+  }
+
+  let exitCode = 0;
+  for (const source of dueSources) {
+    const result = await runConnect(source, options);
+    if (result !== 0) {
+      exitCode = result;
+    }
+  }
+  return exitCode;
+}
+
+async function runServerSync(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+  const target = await detectPersonalServerTarget();
+
+  if (target.state !== "available") {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          error: "personal_server_unavailable",
+          message:
+            "Personal Server is not available. Run `vana server set-url <url>` to configure.",
+        })}\n`,
+      );
+    } else {
+      emit.info(
+        "Personal Server is not available. Run `vana server set-url <url>` to configure.",
+      );
+    }
+    return 1;
+  }
+
+  const state = await readCliState();
+  const pendingSources = Object.entries(state.sources).filter(
+    ([, stored]) =>
+      stored?.lastResultPath && stored.dataState === "collected_local",
+  );
+
+  if (pendingSources.length === 0) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ message: "No pending datasets to sync.", syncedCount: 0 })}\n`,
+      );
+    } else {
+      emit.info("No pending datasets to sync.");
+    }
+    return 0;
+  }
+
+  let syncedCount = 0;
+  for (const [source, stored] of pendingSources) {
+    if (!stored?.lastResultPath) {
+      continue;
+    }
+    const ingestEvents = await ingestResult(
+      source,
+      stored.lastResultPath,
+      target,
+    );
+    const ingestCompleted = ingestEvents.some(
+      (e) => e.type === "ingest-complete",
+    );
+    if (ingestCompleted) {
+      syncedCount++;
+      await updateSourceState(source, {
+        dataState: "ingested_personal_server",
+      });
+    }
+    for (const event of ingestEvents) {
+      emit.event(event);
+    }
+  }
+
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({ message: `Synced ${syncedCount} dataset(s).`, syncedCount })}\n`,
+    );
+  } else {
+    emit.info(`Synced ${syncedCount} dataset(s).`);
+  }
+  return 0;
+}
+
+function getSourceBadge(source: SourceStatus): {
+  label: string;
+  style: "success" | "warning" | "error" | "muted";
+} {
+  if (
+    source.dataState === "collected_local" ||
+    source.dataState === "ingested_personal_server" ||
+    source.dataState === "ingest_failed"
+  ) {
+    if (source.sessionPresent) {
+      return { label: "connected", style: "success" };
+    }
+    return { label: "connected", style: "success" };
+  }
+
+  if (
+    source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT ||
+    source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH
+  ) {
+    return { label: "needs login", style: "warning" };
+  }
+
+  if (
+    source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR ||
+    source.lastRunOutcome === CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR
+  ) {
+    return { label: "error", style: "error" };
+  }
+
+  return { label: "new", style: "muted" };
+}
+
+function isCollectionDue(
+  frequency: string | undefined,
+  lastCollectedAt: string | undefined,
+): boolean {
+  if (!frequency || !lastCollectedAt) {
+    return true;
+  }
+
+  const lastMs = new Date(lastCollectedAt).getTime();
+  if (Number.isNaN(lastMs)) {
+    return true;
+  }
+
+  const now = Date.now();
+  const elapsed = now - lastMs;
+  const intervalMs = parseFrequencyToMs(frequency);
+  return elapsed >= intervalMs;
+}
+
+function parseFrequencyToMs(frequency: string): number {
+  const lower = frequency.toLowerCase().trim();
+  if (lower === "daily") {
+    return 24 * 60 * 60 * 1000;
+  }
+  if (lower === "weekly") {
+    return 7 * 24 * 60 * 60 * 1000;
+  }
+  if (lower === "monthly") {
+    return 30 * 24 * 60 * 60 * 1000;
+  }
+
+  const match = /^(\d+)\s*(h|d|m|w)$/i.exec(lower);
+  if (match) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+    if (unit === "h") return value * 60 * 60 * 1000;
+    if (unit === "d") return value * 24 * 60 * 60 * 1000;
+    if (unit === "w") return value * 7 * 24 * 60 * 60 * 1000;
+    if (unit === "m") return value * 30 * 24 * 60 * 60 * 1000;
+  }
+
+  // Default to daily if unparseable.
+  return 24 * 60 * 60 * 1000;
+}
+
+async function renderIconInline(source: string): Promise<string> {
+  const iconPath = findCachedIconPath(source);
+  if (!iconPath) {
+    return "";
+  }
+  try {
+    const terminalImage = await import("terminal-image");
+    const imageBuffer = await fsp.readFile(iconPath);
+    return await terminalImage.default.buffer(imageBuffer, {
+      width: 2,
+      height: 1,
+    });
+  } catch {
+    return "";
+  }
+}
+
+function findCachedIconPath(source: string): string | null {
+  const cacheDir = getConnectorCacheDir();
+  const extensions = [".png", ".svg", ".jpg", ".jpeg", ".webp"];
+  for (const ext of extensions) {
+    const candidate = path.join(cacheDir, `${source}.icon${ext}`);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 function createEmitter(options: GlobalOptions): Emitter {
   const renderer = createHumanRenderer();
 
@@ -2639,6 +3058,9 @@ async function gatherSourceStatuses(
         description: details?.description,
         authMode:
           details?.authMode ?? inferInstalledAuthMode(installedFiles, source),
+        connectorVersion: stored.connectorVersion,
+        exportFrequency: stored.exportFrequency,
+        lastCollectedAt: stored.lastCollectedAt,
         installed,
         sessionPresent: stored.sessionPresent ?? false,
         lastRunAt: stored.lastRunAt ?? null,
@@ -2821,7 +3243,7 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
     details.push({
       kind: "row",
       label: "Updated",
-      value: formatTimestamp(source.lastRunAt),
+      value: `${formatTimestamp(source.lastRunAt)} (${formatRelativeTime(source.lastRunAt)})`,
       tone: "muted",
     });
   }

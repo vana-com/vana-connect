@@ -1,5 +1,7 @@
 # CLI Install Path Research
 
+_As of March 13, 2026_
+
 ## Question
 
 What do best-in-class CLI install paths look like, and should `vana` require something like `pnpm` or `npx`?

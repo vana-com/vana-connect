@@ -61,6 +61,10 @@ export const sourceStatusSchema = z.object({
   company: z.string().optional(),
   description: z.string().optional(),
   authMode: z.enum(["automated", "interactive", "legacy"]).optional(),
+  connectorVersion: z.string().optional(),
+  exportFrequency: z.string().optional(),
+  lastCollectedAt: z.string().optional(),
+  scopeLabels: z.array(z.string()).optional(),
   installed: z.boolean(),
   sessionPresent: z.boolean(),
   lastRunAt: z.string().nullable().optional(),
@@ -101,6 +105,7 @@ export const cliStatusSchema = z.object({
   personalServer: personalServerStateSchema,
   personalServerUrl: z.string().nullable(),
   personalServerSource: personalServerSourceSchema,
+  pendingSyncCount: z.number().optional(),
   summary: z
     .object({
       sourceCount: z.number(),
