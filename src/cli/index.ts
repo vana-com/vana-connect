@@ -2870,7 +2870,16 @@ async function renderIconInline(source: string): Promise<string> {
     return "";
   }
   try {
-    const terminalImage = await import("terminal-image");
+    const terminalImage = (await import(
+      /* webpackIgnore: true */ "terminal-image" as string
+    )) as {
+      default: {
+        buffer: (
+          input: Buffer,
+          options?: { width?: number; height?: number },
+        ) => Promise<string>;
+      };
+    };
     const imageBuffer = await fsp.readFile(iconPath);
     return await terminalImage.default.buffer(imageBuffer, {
       width: 2,
