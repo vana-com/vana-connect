@@ -3,13 +3,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
 
-import {
-  text as clackText,
-  password as clackPassword,
-  select as clackSelect,
-  confirm as clackConfirm,
-  isCancel,
-} from "@clack/prompts";
+import { confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
 
 import {
@@ -496,11 +490,11 @@ async function runConnect(
         process.stderr.write("  \u2022 Local files under ~/.dataconnect/\n\n");
         process.stderr.write("Your credentials stay on this machine.\n\n");
 
-        const shouldContinue = await clackConfirm({
+        const shouldContinue = await confirm({
           message: "Continue?",
-          initialValue: true,
+          default: true,
         });
-        if (isCancel(shouldContinue) || !shouldContinue) {
+        if (!shouldContinue) {
           renderer?.fail("Cancelled.");
           emit.event({
             type: "outcome",
@@ -709,30 +703,16 @@ async function runConnect(
           for (const field of needInput.fields) {
             const isPasswordField = field.toLowerCase().includes("password");
             if (isPasswordField) {
-              const result = await clackPassword({
+              values[field] = await password({
                 message: humanizeField(field),
               });
-              if (isCancel(result)) {
-                throw new Error("__vana_prompt_cancelled__");
-              }
-              values[field] = result;
             } else {
-              const result = await clackText({
+              values[field] = await input({
                 message: humanizeField(field),
               });
-              if (isCancel(result)) {
-                throw new Error("__vana_prompt_cancelled__");
-              }
-              values[field] = result;
             }
           }
         } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message === "__vana_prompt_cancelled__"
-          ) {
-            throw error;
-          }
           if (isPromptCancelled(error)) {
             throw new Error("__vana_prompt_cancelled__");
           }
@@ -1088,8 +1068,8 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
-  // Build clack-compatible options from enriched sources
-  const clackOptions = enrichedSources.map((item) => {
+  // Build inquirer-compatible choices from enriched sources
+  const choices = enrichedSources.map((item) => {
     const connected = hasCollectedData(item.dataState);
     const hint = connected
       ? "connected"
@@ -1098,23 +1078,26 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
         : undefined;
     return {
       value: item.id,
-      label: item.name,
-      hint,
+      name: item.name,
+      description: hint,
     };
   });
 
-  const source = await clackSelect({
-    message: "Choose a source to connect.",
-    options: clackOptions,
-    initialValue: suggestedSource?.id,
-  });
+  try {
+    const source = await select({
+      message: "Choose a source to connect.",
+      choices,
+      default: suggestedSource?.id,
+    });
 
-  if (isCancel(source)) {
-    emit.info("Cancelled.");
-    return 1;
+    return runConnect(source as string, options);
+  } catch (error) {
+    if (isPromptCancelled(error)) {
+      emit.info("Cancelled.");
+      return 1;
+    }
+    throw error;
   }
-
-  return runConnect(source as string, options);
 }
 
 async function runList(options: GlobalOptions): Promise<number> {

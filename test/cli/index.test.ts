@@ -26,11 +26,9 @@ const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
 const mockExistsSync = vi.fn();
 
-const mockClackText = vi.fn();
-const mockClackPassword = vi.fn();
-const mockClackSelect = vi.fn();
-const mockClackConfirm = vi.fn();
-const CLACK_CANCEL = Symbol.for("cancel");
+class ExitPromptError extends Error {
+  name = "ExitPromptError";
+}
 
 let runtimeState = "installed";
 let fetchConnectorResult = {
@@ -123,14 +121,6 @@ vi.mock("@inquirer/prompts", () => ({
   select: mockSelect,
 }));
 
-vi.mock("@clack/prompts", () => ({
-  text: mockClackText,
-  password: mockClackPassword,
-  select: mockClackSelect,
-  confirm: mockClackConfirm,
-  isCancel: (value: unknown) => value === CLACK_CANCEL,
-}));
-
 vi.mock("../../src/personal-server/index.js", () => ({
   detectPersonalServerTarget: mockDetectPersonalServerTarget,
   ingestResult: mockIngestResult,
@@ -191,10 +181,8 @@ describe("runCli", () => {
     mockUpdateSourceState.mockReset();
     mockConfirm.mockReset();
     mockSelect.mockReset();
-    mockClackText.mockReset();
-    mockClackPassword.mockReset();
-    mockClackSelect.mockReset();
-    mockClackConfirm.mockReset();
+    mockInput.mockReset();
+    mockPassword.mockReset();
     mockReaddir.mockReset();
     mockReadFile.mockReset();
     mockExistsSync.mockReset();
@@ -216,10 +204,8 @@ describe("runCli", () => {
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue("github");
-    mockClackText.mockResolvedValue("testuser");
-    mockClackPassword.mockResolvedValue("testpass");
-    mockClackSelect.mockResolvedValue("github");
-    mockClackConfirm.mockResolvedValue(true);
+    mockInput.mockResolvedValue("testuser");
+    mockPassword.mockResolvedValue("testpass");
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
@@ -1829,7 +1815,7 @@ describe("runCli", () => {
       { id: "spotify", name: "Spotify", authMode: "interactive" },
       { id: "shop", name: "Shop", authMode: "legacy" },
     ]);
-    mockClackSelect.mockResolvedValueOnce("github");
+    mockSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1854,20 +1840,20 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const callArgs = mockClackSelect.mock.calls[0]?.[0];
+    const callArgs = mockSelect.mock.calls[0]?.[0];
     expect(callArgs).toBeDefined();
-    const options = callArgs.options;
-    expect(options).toContainEqual(
-      expect.objectContaining({ value: "github", label: "GitHub" }),
+    const choices = callArgs.choices;
+    expect(choices).toContainEqual(
+      expect.objectContaining({ value: "github", name: "GitHub" }),
     );
-    expect(options).toContainEqual(
-      expect.objectContaining({ value: "spotify", label: "Spotify" }),
+    expect(choices).toContainEqual(
+      expect.objectContaining({ value: "spotify", name: "Spotify" }),
     );
-    expect(options).toContainEqual(
+    expect(choices).toContainEqual(
       expect.objectContaining({
         value: "shop",
-        label: "Shop",
-        hint: "browser login",
+        name: "Shop",
+        description: "browser login",
       }),
     );
   });
@@ -1889,7 +1875,7 @@ describe("runCli", () => {
         },
       },
     });
-    mockClackSelect.mockResolvedValueOnce("github");
+    mockSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1914,25 +1900,25 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const callArgs = mockClackSelect.mock.calls[0]?.[0];
+    const callArgs = mockSelect.mock.calls[0]?.[0];
     expect(callArgs).toBeDefined();
-    const options = callArgs.options;
-    // GitHub is connected so gets "connected" hint
-    expect(options).toContainEqual(
+    const choices = callArgs.choices;
+    // GitHub is connected so gets "connected" description
+    expect(choices).toContainEqual(
       expect.objectContaining({
         value: "github",
-        label: "GitHub",
-        hint: "connected",
+        name: "GitHub",
+        description: "connected",
       }),
     );
-    expect(options).toContainEqual(
-      expect.objectContaining({ value: "spotify", label: "Spotify" }),
+    expect(choices).toContainEqual(
+      expect.objectContaining({ value: "spotify", name: "Spotify" }),
     );
-    expect(options).toContainEqual(
+    expect(choices).toContainEqual(
       expect.objectContaining({
         value: "shop",
-        label: "Shop",
-        hint: "browser login",
+        name: "Shop",
+        description: "browser login",
       }),
     );
   });
@@ -1941,7 +1927,7 @@ describe("runCli", () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
-    mockClackSelect.mockResolvedValueOnce(CLACK_CANCEL);
+    mockSelect.mockRejectedValueOnce(new ExitPromptError());
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -1966,7 +1952,7 @@ describe("runCli", () => {
     });
 
     expect(exitCode).toBe(1);
-    expect(mockClackSelect).toHaveBeenCalled();
+    expect(mockSelect).toHaveBeenCalled();
     expect(stdout).toContain("Cancelled.");
   });
 
@@ -1985,7 +1971,7 @@ describe("runCli", () => {
         authMode: "legacy",
       },
     ]);
-    mockClackSelect.mockResolvedValueOnce(CLACK_CANCEL);
+    mockSelect.mockRejectedValueOnce(new ExitPromptError());
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -2018,13 +2004,13 @@ describe("runCli", () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
-    mockClackConfirm.mockResolvedValueOnce(false);
+    mockConfirm.mockResolvedValueOnce(false);
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "github"]);
 
     expect(exitCode).toBe(1);
-    expect(mockClackConfirm).toHaveBeenCalledWith(
+    expect(mockConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ message: "Continue?" }),
     );
     expect(stderr).toContain("Cancelled.");
@@ -2112,7 +2098,7 @@ describe("runCli", () => {
         logPath: "/tmp/logs/run.log",
       },
     ];
-    mockClackText.mockResolvedValueOnce(CLACK_CANCEL);
+    mockInput.mockRejectedValueOnce(new ExitPromptError());
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "connect", "github"]);

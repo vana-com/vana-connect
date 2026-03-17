@@ -7,9 +7,6 @@ settings:
 importers:
   .:
     dependencies:
-      "@clack/prompts":
-        specifier: ^1.1.0
-        version: 1.1.0
       "@inquirer/prompts":
         specifier: 8.3.0
         version: 8.3.0(@types/node@25.2.2)
@@ -636,18 +633,6 @@ packages:
         integrity: sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw==,
       }
     hasBin: true
-
-  "@clack/core@1.1.0":
-    resolution:
-      {
-        integrity: sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA==,
-      }
-
-  "@clack/prompts@1.1.0":
-    resolution:
-      {
-        integrity: sha512-pkqbPGtohJAvm4Dphs2M8xE29ggupihHdy1x84HNojZuMtFsHiUlRvqD24tM2+XmI+61LlfNceM3Wr7U5QES5g==,
-      }
 
   "@coinbase/cdp-sdk@1.44.1":
     resolution:
@@ -12503,15 +12488,6 @@ snapshots:
   "@bramus/specificity@2.4.2":
     dependencies:
       css-tree: 3.1.0
-
-  "@clack/core@1.1.0":
-    dependencies:
-      sisteransi: 1.0.5
-
-  "@clack/prompts@1.1.0":
-    dependencies:
-      "@clack/core": 1.1.0
-      sisteransi: 1.0.5
 
   "@coinbase/cdp-sdk@1.44.1(bufferutil@4.1.0)(typescript@5.7.3)(utf-8-validate@5.0.10)":
     dependencies:
