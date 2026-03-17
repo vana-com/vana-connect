@@ -361,8 +361,7 @@ Examples:
   const server = program
     .command("server")
     .description("Manage Personal Server connection")
-    .option("--json", "Output machine-readable JSON")
-    .showSuggestionAfterError(true);
+    .option("--json", "Output machine-readable JSON");
   server.addHelpText(
     "after",
     `
@@ -429,8 +428,7 @@ Examples:
         process.exitCode = error.exitCode;
         return Number(process.exitCode ?? 0);
       }
-      // Commander already prints the error message to stderr via configureOutput,
-      // so just set the exit code without reprinting.
+      // Commander already printed to stderr; just set exit code.
       process.exitCode = error.exitCode;
       return Number(process.exitCode ?? 1);
     }
