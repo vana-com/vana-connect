@@ -1228,9 +1228,7 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
       );
     }
     if (manualCount > 0) {
-      parts.push(
-        `${manualCount} with manual ${manualCount === 1 ? "step" : "steps"}`,
-      );
+      parts.push(`${manualCount} browser login`);
     }
     emit.detail(parts.join(" • "));
   }
@@ -1347,9 +1345,7 @@ async function runList(options: GlobalOptions): Promise<number> {
       joinOverviewParts([
         connectedCount > 0 ? formatCountLabel("connected", connectedCount) : "",
         readyCount > 0 ? formatCountLabel("ready now", readyCount) : "",
-        manualCount > 0
-          ? formatCountLabel("with manual step", manualCount)
-          : "",
+        manualCount > 0 ? formatCountLabel("browser login", manualCount) : "",
       ]),
     );
     emit.blank();
@@ -1375,7 +1371,7 @@ async function runList(options: GlobalOptions): Promise<number> {
       ),
     },
     {
-      title: "Manual steps",
+      title: "Browser login",
       items: enrichedSources.filter(
         (source) =>
           source.authMode === "legacy" &&
@@ -1407,9 +1403,9 @@ async function runList(options: GlobalOptions): Promise<number> {
         }
       }
       if (source.authMode === "interactive") {
-        badges.push({ text: "interactive", tone: "info" });
+        badges.push({ text: "terminal", tone: "info" });
       } else if (source.authMode === "legacy") {
-        badges.push({ text: "legacy", tone: "warning" });
+        badges.push({ text: "browser", tone: "warning" });
       }
       if (
         recommendedSource?.id === source.id &&
@@ -1540,117 +1536,48 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
 
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({ ...status, nextSteps })}\n`);
+    const compactJson = {
+      runtime: status.runtime,
+      personalServer: status.personalServer,
+      personalServerUrl: status.personalServerUrl,
+      sources: {
+        connected: status.summary?.connectedCount ?? 0,
+        needsAttention: status.summary?.needsAttentionCount ?? 0,
+      },
+      next: nextSteps[0] ?? null,
+    };
+    process.stdout.write(`${JSON.stringify(compactJson)}\n`);
     return 0;
   }
 
   emit.title("Vana Connect status");
   emit.blank();
-  emit.info(
-    joinOverviewParts([
-      (status.summary?.needsAttentionCount ?? 0) > 0
-        ? formatCountLabel(
-            "need attention",
-            status.summary?.needsAttentionCount ?? 0,
-          )
-        : "",
-      (status.summary?.connectedCount ?? 0) > 0
-        ? formatCountLabel("connected", status.summary?.connectedCount ?? 0)
-        : "",
-      (status.summary?.localCount ?? 0) > 0
-        ? formatCountLabel("local only", status.summary?.localCount ?? 0)
-        : "",
-      (status.summary?.syncedCount ?? 0) > 0
-        ? formatCountLabel("synced", status.summary?.syncedCount ?? 0)
-        : "",
-      (status.summary?.syncFailedCount ?? 0) > 0
-        ? formatCountLabel("sync failed", status.summary?.syncFailedCount ?? 0)
-        : "",
-      (status.summary?.connectedCount ?? 0) === 0 &&
-      (status.summary?.installedCount ?? 0) > 0
-        ? formatCountLabel("installed", status.summary?.installedCount ?? 0)
-        : "",
-    ]),
-  );
-  emit.blank();
-  emit.section("Environment");
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
-  if (status.runtimePath) {
-    emit.keyValue("Browser", formatDisplayPath(status.runtimePath), "muted");
-  }
   if (status.personalServer === "available") {
-    const psVersion = personalServer.health?.version
-      ? ` v${personalServer.health.version}`
-      : "";
-    const scopeInfo =
-      totalStoredScopes > 0 ? `, ${totalStoredScopes} scopes stored` : "";
     emit.keyValue(
       "Personal Server",
-      `available (${status.personalServerUrl ?? "unknown"}${psVersion}${scopeInfo})`,
+      status.personalServerUrl ?? "connected",
       "success",
     );
   } else {
     emit.keyValue("Personal Server", "not connected", "muted");
-    emit.detail("Run `vana server set-url <url>` to configure");
   }
-  const sourceGroups = [
-    {
-      title: "Needs attention",
-      items: status.sources.filter((source) => rankSourceStatus(source) <= 4),
-    },
-    {
-      title: "Connected",
-      items: status.sources.filter(
-        (source) =>
-          source.dataState === "ingested_personal_server" ||
-          source.dataState === "collected_local" ||
-          source.dataState === "ingest_failed",
-      ),
-    },
-    {
-      title: "Installed",
-      items: status.sources.filter(
-        (source) =>
-          rankSourceStatus(source) > 4 &&
-          source.dataState === "none" &&
-          source.installed,
-      ),
-    },
-  ].filter((group) => group.items.length > 0);
-  if (sourceGroups.length > 0) {
-    emit.blank();
-  }
-  sourceGroups.forEach((group, index) => {
-    if (index > 0) {
-      emit.blank();
-    }
-    emit.section(formatCountLabel(group.title, group.items.length));
-    for (const source of group.items) {
-      const status = getSourceStatusPresentation(source);
-      const badges: Array<{ text: string; tone?: RenderTone }> = [];
-      if (source.authMode === "interactive") {
-        badges.push({ text: "interactive", tone: "info" });
-      } else if (source.authMode === "legacy") {
-        badges.push({ text: "legacy", tone: "warning" });
-      }
-      badges.push({ text: status.label, tone: status.tone });
-      emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
-      const details = formatSourceStatusDetails(source);
-      for (const detail of details) {
-        if (detail.kind === "row") {
-          emit.keyValue(detail.label, detail.value, detail.tone ?? "muted");
-          continue;
-        }
-        emit.detail(detail.message);
-      }
-    }
-  });
+  const connectedCount = status.summary?.connectedCount ?? 0;
+  const attentionCount = status.summary?.needsAttentionCount ?? 0;
+  const sourceParts = [
+    connectedCount > 0 ? `${connectedCount} connected` : "0 connected",
+    ...(attentionCount > 0
+      ? [`${attentionCount} need${attentionCount === 1 ? "s" : ""} attention`]
+      : []),
+  ];
+  emit.keyValue(
+    "Sources",
+    sourceParts.join(", "),
+    connectedCount > 0 ? "success" : "muted",
+  );
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.section("Next");
-    for (const step of nextSteps.slice(0, 3)) {
-      emit.bullet(step);
-    }
+    emit.bullet(nextSteps[0]);
   }
   return 0;
 }
@@ -1916,9 +1843,9 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
       const status = getSourceStatusPresentation(source);
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
       if (source.authMode === "interactive") {
-        badges.push({ text: "interactive", tone: "info" });
+        badges.push({ text: "terminal", tone: "info" });
       } else if (source.authMode === "legacy") {
-        badges.push({ text: "legacy", tone: "warning" });
+        badges.push({ text: "browser", tone: "warning" });
       }
       badges.push({ text: status.label, tone: status.tone });
       emit.sourceTitle(displaySource(source.source, sourceLabels), badges);
@@ -2751,7 +2678,13 @@ async function runSourceDetail(
   emit.keyValue("Version", displayVersion, "muted");
   emit.keyValue("Export frequency", displayFrequency, "muted");
   if (match.authMode) {
-    emit.keyValue("Auth mode", match.authMode, "muted");
+    const authModeDisplay =
+      match.authMode === "interactive"
+        ? "terminal"
+        : match.authMode === "legacy"
+          ? "browser"
+          : match.authMode;
+    emit.keyValue("Auth mode", authModeDisplay, "muted");
   }
   if (match.company) {
     emit.keyValue("Company", match.company, "muted");
@@ -3848,7 +3781,7 @@ function buildConnectChoices(
 
   appendGroup("Connected", connected);
   appendGroup("Ready now", readyNow);
-  appendGroup("Manual steps", manualSteps);
+  appendGroup("Browser login", manualSteps);
 
   return choices;
 }
@@ -4098,11 +4031,11 @@ function formatAuthModeBadge(
   emit?: Pick<Emitter, "badge">,
 ): string {
   if (authMode === "legacy") {
-    return ` ${emit ? emit.badge("legacy", "warning") : "[legacy]"}`;
+    return ` ${emit ? emit.badge("browser", "warning") : "[browser]"}`;
   }
 
   if (authMode === "interactive") {
-    return ` ${emit ? emit.badge("interactive", "info") : "[interactive]"}`;
+    return ` ${emit ? emit.badge("terminal", "info") : "[terminal]"}`;
   }
 
   return "";

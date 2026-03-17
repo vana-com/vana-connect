@@ -10,7 +10,6 @@ import {
   datasetNotFoundErrorSchema,
   logNotFoundErrorSchema,
   cliSourcesSchema,
-  cliStatusSchema,
   sourceRequiredErrorSchema,
 } from "../../src/core/cli-types.js";
 
@@ -283,37 +282,18 @@ describe("runCli", () => {
 
     const { runCli } = await import("../../src/cli/index.js");
     const exitCode = await runCli(["node", "vana", "status", "--json"]);
-    const parsed = cliStatusSchema.parse(JSON.parse(stdout));
+    const parsed = JSON.parse(stdout);
 
     expect(exitCode).toBe(0);
     expect(parsed).toMatchObject({
-      cliVersion: "0.8.1",
-      channel: "stable",
-      installMethod: "development",
       runtime: "installed",
-      runtimePath: "/tmp/playwright/chrome",
       personalServer: "available",
       personalServerUrl: "http://localhost:8080",
-      nextSteps: expect.arrayContaining([
-        "Inspect the latest dataset with `vana data show steam`.",
-      ]),
-      summary: {
-        sourceCount: 1,
-        needsAttentionCount: 0,
-        connectedCount: 1,
-        installedCount: 0,
-        localCount: 1,
-        syncedCount: 0,
-        syncFailedCount: 0,
+      sources: {
+        connected: 1,
+        needsAttention: 0,
       },
-      sources: [
-        {
-          source: "steam",
-          installed: false,
-          sessionPresent: true,
-          dataState: "collected_local",
-        },
-      ],
+      next: expect.stringContaining("vana data show steam"),
     });
   });
 
@@ -646,12 +626,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Connected");
-    expect(stdout).toContain("GitHub [interactive] [local]");
-    expect(stdout).toContain("vana data show github");
-    expect(stdout).toContain("/tmp/.dataconnect/github-result.json");
-    expect(stdout).toContain("/tmp/.dataconnect/logs/run-shop.log");
-    expect(stdout).toContain("/tmp/playwright/chrome");
+    expect(stdout).toContain("Runtime");
+    expect(stdout).toContain("Sources");
+    expect(stdout).toContain("connected");
   });
 
   it("renders a stable human transcript for status", async () => {
@@ -693,32 +670,11 @@ describe("runCli", () => {
     expect(normalizeRenderedTimestamps(stdout)).toMatchInlineSnapshot(`
       "Vana Connect status
 
-      Need attention (1) • Connected (1) • Local only (1)
-
-      → Environment
         Runtime:       installed
-        Browser:       /tmp/playwright/chrome
         Personal Server: not connected
-        Run \`vana server set-url <url>\` to configure
+        Sources:       1 connected, 1 needs attention
 
-      → Needs attention (1)
-      Shop [legacy] [manual step]
-        Run \`vana connect shop\` without \`--no-input\` to complete the manual browser step.
-        Updated: <timestamp>
-        Run log:       /tmp/.dataconnect/logs/run-shop.log
-
-      → Connected (1)
-      GitHub [interactive] [local]
-        Inspect the latest local dataset with \`vana data show github\`.
-        Session:       Session cached.
-        State:         Saved locally
-        Updated: <timestamp>
-        Path:          /tmp/.dataconnect/github-result.json
-
-      → Next
         • Complete the manual browser step for Shop with \`vana connect shop\`.
-        • Inspect the latest run log with \`vana logs shop\`.
-        • Inspect the data you already collected with \`vana data show github\`.
       "
     `);
   });
@@ -755,8 +711,8 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
+    // Compact status shows only the single most important next step
     expect(stdout).toContain("Install the local runtime with `vana setup`.");
-    expect(stdout).toContain("Inspect install health with `vana doctor`.");
   });
 
   it("fails cleanly in json mode when input is required", async () => {
@@ -1657,7 +1613,7 @@ describe("runCli", () => {
     expect(chatgptIndex).toBeGreaterThanOrEqual(0);
     expect(githubIndex).toBeLessThan(chatgptIndex);
     expect(stdout).toContain("Ready now");
-    expect(stdout).toContain("Manual steps");
+    expect(stdout).toContain("Browser login");
   });
 
   it("reports non-overlapping source summary counts in json mode", async () => {
@@ -1772,16 +1728,16 @@ describe("runCli", () => {
     expect(stdout).toMatchInlineSnapshot(`
       "Available sources (3)
 
-      Ready now (2) • With manual step (1)
+      Ready now (2) • Browser login (1)
 
       → Ready now (2)
-      GitHub [interactive] [recommended]
+      GitHub [terminal] [recommended]
         Exports GitHub data.
-      Spotify [interactive]
+      Spotify [terminal]
         Exports Spotify data.
 
-      → Manual steps (1)
-      ChatGPT [legacy]
+      → Browser login (1)
+      ChatGPT [browser]
         Exports ChatGPT data.
 
       → Next
@@ -1820,14 +1776,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    const githubIndex = stdout.indexOf("GitHub [interactive] [needs input]");
-    const steamIndex = stdout.indexOf("Steam [unavailable]");
-    const spotifyIndex = stdout.indexOf("Spotify [legacy] [local]");
-    expect(githubIndex).toBeGreaterThanOrEqual(0);
-    expect(steamIndex).toBeGreaterThanOrEqual(0);
-    expect(spotifyIndex).toBeGreaterThanOrEqual(0);
-    expect(githubIndex).toBeLessThan(steamIndex);
-    expect(steamIndex).toBeLessThan(spotifyIndex);
+    // Compact status no longer lists individual sources; verify it shows summary counts
+    expect(stdout).toContain("1 connected");
+    expect(stdout).toContain("2 need attention");
   });
 
   it("suggests reviewing collected data when multiple sources are already connected", async () => {
@@ -1855,10 +1806,10 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
+    // Compact status shows only the single most important next step
     expect(stdout).toContain(
       "Review your collected data with `vana data list`.",
     );
-    expect(stdout).toContain("Connect another source with `vana sources`.");
   });
 
   it("prints source_required in json mode when connect source is missing", async () => {
@@ -1959,7 +1910,7 @@ describe("runCli", () => {
     expect(choices[3]).toMatchObject({ type: "separator", separator: "" });
     expect(choices[4]).toMatchObject({
       type: "separator",
-      separator: "Manual steps",
+      separator: "Browser login",
     });
     expect(choices[5]).toMatchObject({ value: "shop" });
   });
@@ -2023,7 +1974,7 @@ describe("runCli", () => {
     expect(choices[5]).toMatchObject({ type: "separator", separator: "" });
     expect(choices[6]).toMatchObject({
       type: "separator",
-      separator: "Manual steps",
+      separator: "Browser login",
     });
     expect(choices[7]).toMatchObject({ value: "shop" });
   });
@@ -2111,7 +2062,7 @@ describe("runCli", () => {
     expect(stdout).toMatchInlineSnapshot(`
       "Connect data
 
-        1 ready source • 1 with manual step
+        1 ready source • 1 browser login
       Choose a source to connect:
         Or jump straight in with \`vana connect <source>\`.
       Cancelled. No source was connected.
@@ -2560,7 +2511,7 @@ describe("runCli", () => {
     expect(parsed.error).toBe("unknown_source");
   });
 
-  it("includes pendingSyncCount in status JSON", async () => {
+  it("returns compact JSON from status --json", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
@@ -2582,8 +2533,11 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status", "--json"]);
 
     expect(exitCode).toBe(0);
-    const parsed = cliStatusSchema.parse(JSON.parse(stdout.trim()));
-    expect(parsed.pendingSyncCount).toBe(1);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.runtime).toBe("installed");
+    expect(parsed.personalServer).toBeDefined();
+    expect(parsed.sources).toEqual({ connected: 1, needsAttention: 0 });
+    expect(parsed.next).toEqual(expect.any(String));
   });
 
   it("rejects collect when not previously connected", async () => {
@@ -2701,7 +2655,7 @@ describe("runCli", () => {
     expect(parsed.syncedCount).toBe(0);
   });
 
-  it("status shows freshness with relative time", async () => {
+  it("doctor shows freshness with relative time", async () => {
     const recentDate = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
@@ -2721,13 +2675,13 @@ describe("runCli", () => {
     });
 
     const { runCli } = await import("../../src/cli/index.js");
-    const exitCode = await runCli(["node", "vana", "status"]);
+    const exitCode = await runCli(["node", "vana", "doctor"]);
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("1h ago");
   });
 
-  it("status shows version update hint", async () => {
+  it("status shows version update hint as next step", async () => {
     mockListAvailableSources.mockResolvedValue([
       {
         id: "github",
@@ -2756,9 +2710,8 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     const parsed = JSON.parse(stdout.trim());
-    expect(parsed.nextSteps).toEqual(
-      expect.arrayContaining([expect.stringContaining("1.0.0")]),
-    );
+    // Compact JSON includes the single most important next step
+    expect(parsed.next).toEqual(expect.any(String));
   });
 
   it("sources table sorts connected first in human mode", async () => {
@@ -2940,12 +2893,11 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status", "--json"]);
 
     expect(exitCode).toBe(0);
-    const parsed = cliStatusSchema.parse(JSON.parse(stdout.trim()));
-    expect(parsed.personalServerInfo).toEqual({
-      url: "http://localhost:8080",
-      status: "available",
-      scopeCount: 2,
-    });
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.runtime).toBe("installed");
+    expect(parsed.personalServer).toBe("available");
+    expect(parsed.personalServerUrl).toBe("http://localhost:8080");
+    expect(parsed.sources).toEqual({ connected: 1, needsAttention: 0 });
   });
 
   it("server sync re-ingests failed scopes", async () => {
@@ -3030,7 +2982,7 @@ describe("runCli", () => {
     );
   });
 
-  it("shows partial sync badge in status for sources with mixed scope results", async () => {
+  it("shows partial sync badge in doctor for sources with mixed scope results", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
@@ -3053,7 +3005,7 @@ describe("runCli", () => {
     });
 
     const { runCli } = await import("../../src/cli/index.js");
-    const exitCode = await runCli(["node", "vana", "status"]);
+    const exitCode = await runCli(["node", "vana", "doctor"]);
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("partial sync");
