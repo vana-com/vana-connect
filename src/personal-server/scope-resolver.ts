@@ -14,6 +14,21 @@ const EXCLUDED_KEYS = new Set([
 ]);
 
 /**
+ * Ensure scope data is a JSON object for the Personal Server API.
+ * Arrays are wrapped as `{ items: [...] }`. Primitives are wrapped
+ * as `{ value: ... }`. Objects pass through unchanged.
+ */
+function ensureObject(data: unknown): Record<string, unknown> {
+  if (Array.isArray(data)) {
+    return { items: data };
+  }
+  if (data !== null && typeof data === "object") {
+    return data as Record<string, unknown>;
+  }
+  return { value: data };
+}
+
+/**
  * Resolve connector output keys to personal server scopes.
  *
  * Strategy (matches DataConnect production):
@@ -40,7 +55,10 @@ export function resolveScopes(
     (key) => key.includes(".") && !EXCLUDED_KEYS.has(key),
   );
   if (dottedKeys.length > 0) {
-    return dottedKeys.map((key) => ({ scope: key, data: result[key] }));
+    return dottedKeys.map((key) => ({
+      scope: key,
+      data: ensureObject(result[key]),
+    }));
   }
 
   // Strategy 2: Use metadata scopes to map flat keys.
@@ -51,7 +69,7 @@ export function resolveScopes(
       const dotIndex = scope.indexOf(".");
       const key = dotIndex >= 0 ? scope.slice(dotIndex + 1) : scope;
       if (key in result) {
-        mappings.push({ scope, data: result[key] });
+        mappings.push({ scope, data: ensureObject(result[key]) });
       }
     }
     return mappings;
@@ -60,5 +78,8 @@ export function resolveScopes(
   // Strategy 3: Fall back to "{source}.{key}" for every non-metadata key.
   return keys
     .filter((key) => !EXCLUDED_KEYS.has(key))
-    .map((key) => ({ scope: `${source}.${key}`, data: result[key] }));
+    .map((key) => ({
+      scope: `${source}.${key}`,
+      data: ensureObject(result[key]),
+    }));
 }

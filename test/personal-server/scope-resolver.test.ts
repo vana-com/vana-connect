@@ -13,7 +13,7 @@ describe("resolveScopes", () => {
 
     expect(mappings).toEqual([
       { scope: "github.profile", data: { login: "alice" } },
-      { scope: "github.repos", data: [{ name: "my-repo" }] },
+      { scope: "github.repos", data: { items: [{ name: "my-repo" }] } },
     ]);
   });
 
@@ -34,7 +34,7 @@ describe("resolveScopes", () => {
 
     expect(mappings).toEqual([
       { scope: "github.profile", data: { login: "alice" } },
-      { scope: "github.repos", data: [{ name: "my-repo" }] },
+      { scope: "github.repos", data: { items: [{ name: "my-repo" }] } },
     ]);
   });
 
@@ -48,7 +48,7 @@ describe("resolveScopes", () => {
 
     expect(mappings).toEqual([
       { scope: "github.profile", data: { login: "alice" } },
-      { scope: "github.repos", data: [{ name: "my-repo" }] },
+      { scope: "github.repos", data: { items: [{ name: "my-repo" }] } },
     ]);
   });
 
