@@ -220,6 +220,12 @@ export function createConnectRenderer(): ConnectRenderer {
 
     success(message: string): void {
       stopSpinner();
+      // Resolve any still-active scopes to done
+      for (const scope of scopes) {
+        if (scope.state === "active") {
+          scope.state = "done";
+        }
+      }
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
@@ -246,6 +252,12 @@ export function createConnectRenderer(): ConnectRenderer {
 
     fail(message: string): void {
       stopSpinner();
+      // Resolve any still-active scopes to failed
+      for (const scope of scopes) {
+        if (scope.state === "active") {
+          scope.state = "failed";
+        }
+      }
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
