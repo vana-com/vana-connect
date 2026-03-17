@@ -5,9 +5,26 @@
       "sessionPresent": true,
       "lastRunAt": "2026-03-14T13:10:03.677Z",
       "lastRunOutcome": "connected_local_only",
-      "dataState": "collected_local",
+      "dataState": "ingested_personal_server",
       "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/last-result.json",
-      "lastLogPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/logs/run-github-demo.log"
+      "lastLogPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/logs/run-github-demo.log",
+      "ingestScopes": [
+        {
+          "scope": "github.profile",
+          "status": "stored",
+          "syncedAt": "2026-03-17T07:49:42.184Z"
+        },
+        {
+          "scope": "github.repositories",
+          "status": "failed",
+          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
+        },
+        {
+          "scope": "github.starred",
+          "status": "failed",
+          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
+        }
+      ]
     },
     "shop": {
       "lastRunAt": "2026-03-14T13:11:10.000Z",
@@ -25,8 +42,20 @@
     "spotify": {
       "lastRunAt": "2026-03-13T21:23:00.000Z",
       "lastRunOutcome": "connected_local_only",
-      "dataState": "collected_local",
-      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/spotify-result.json"
+      "dataState": "ingested_personal_server",
+      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.dataconnect/spotify-result.json",
+      "ingestScopes": [
+        {
+          "scope": "spotify.profile",
+          "status": "stored",
+          "syncedAt": "2026-03-17T07:49:42.272Z"
+        },
+        {
+          "scope": "spotify.playlists",
+          "status": "failed",
+          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
+        }
+      ]
     }
   }
 }

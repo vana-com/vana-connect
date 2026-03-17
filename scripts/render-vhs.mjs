@@ -34,6 +34,12 @@ const tapes = [
   { tape: "doctor.tape", env: "seeded" },
   { tape: "logs.tape", env: "seeded" },
   { tape: "sources.tape", env: "seeded" },
+  { tape: "sources-github.tape", env: "seeded" },
+  { tape: "collect.tape", env: "seeded" },
+  { tape: "collect-github.tape", env: "seeded" },
+  { tape: "server-status.tape", env: "seeded" },
+  { tape: "server-sync.tape", env: "seeded" },
+  { tape: "server-data.tape", env: "seeded" },
   { tape: "data-list.tape", env: "seeded" },
   { tape: "data-list-empty.tape", env: "fresh" },
   { tape: "data-show-github.tape", env: "seeded" },
@@ -154,7 +160,7 @@ ${launcherExec}
   fs.chmodSync(launcherPath, 0o755);
 }
 
-function resolveRunner({ tempRoot, binDir, connectorsDir }) {
+function resolveRunner({ tempRoot }) {
   if (commandExists("vhs")) {
     return { command: "vhs", args: [] };
   }

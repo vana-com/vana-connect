@@ -1809,7 +1809,16 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
         ]
       : []),
     ...(Object.keys(state.sources).length === 0
-      ? ["Connect your first source with `vana connect`."]
+      ? [
+          (() => {
+            const suggested = registrySources.find(
+              (s) => s.authMode !== "legacy",
+            );
+            return suggested
+              ? `Connect your first source with \`vana connect ${suggested.id}\`.`
+              : "Connect your first source with `vana connect`.";
+          })(),
+        ]
       : ["Check overall status with `vana status`."]),
     ...(attentionSources[0]?.lastLogPath
       ? [
@@ -2006,11 +2015,15 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
   emit.blank();
 
   if (target.url) {
-    emit.keyValue(
-      "URL",
-      `${target.url} (${target.source === "scan" ? "auto-detected" : (target.source ?? "unknown")})`,
-      "muted",
-    );
+    const urlSuffix =
+      target.source === "scan"
+        ? "(auto-detected)"
+        : target.source === "config"
+          ? "(saved)"
+          : target.source === "env"
+            ? "(from VANA_PERSONAL_SERVER_URL)"
+            : `(${target.source ?? "unknown"})`;
+    emit.keyValue("URL", `${target.url} ${urlSuffix}`, "muted");
   }
 
   const stateLabel = target.state === "available" ? "healthy" : "Not connected";
@@ -2048,12 +2061,19 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
     }
   }
 
+  if (target.source === "scan" && target.url) {
+    emit.blank();
+    emit.detail(
+      `Tip: Run ${emit.code(`vana server set-url ${target.url}`)} to save this connection.`,
+    );
+  }
+
   if (target.state !== "available") {
     emit.blank();
     emit.section("Next");
-    emit.bullet("Set a URL: `vana server set-url <url>`");
-    emit.bullet("Or set VANA_PERSONAL_SERVER_URL environment variable");
-    emit.bullet("Or start a Personal Server on localhost:8080");
+    emit.bullet(`Set a URL with ${emit.code("vana server set-url <url>")}.`);
+    emit.bullet("Or set VANA_PERSONAL_SERVER_URL environment variable.");
+    emit.bullet("Or start a Personal Server on localhost:8080.");
   }
 
   return 0;
@@ -2114,7 +2134,17 @@ async function runServerClearUrl(options: GlobalOptions): Promise<number> {
     if (options.json) {
       process.stdout.write(`${JSON.stringify({ ok: true, cleared: false })}\n`);
     } else {
-      emit.info("No saved Personal Server URL to clear.");
+      const target = await detectPersonalServerTarget();
+      if (target.source === "scan" && target.url) {
+        emit.info(
+          "No saved URL to clear. Current connection is auto-detected on localhost.",
+        );
+        emit.info(
+          `Run ${emit.code("vana server set-url <url>")} to save a specific URL.`,
+        );
+      } else {
+        emit.info("No saved Personal Server URL to clear.");
+      }
     }
     return 0;
   }

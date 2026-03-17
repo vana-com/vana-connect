@@ -170,6 +170,10 @@ GIFs are rendered by CI and attached to the
 
 <img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/sources.gif" width="600" alt="sources" />
 
+#### `vana sources github`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/sources-github.gif" width="600" alt="sources-github" />
+
 ### Post-success data surfaces
 
 #### `vana data list`
@@ -221,6 +225,30 @@ GIFs are rendered by CI and attached to the
 #### Unavailable connector `--no-input` (Steam)
 
 <img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-steam-no-input.gif" width="600" alt="connect-steam-no-input" />
+
+### Collect flows
+
+#### `vana collect`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/collect.gif" width="600" alt="collect" />
+
+#### `vana collect github`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/collect-github.gif" width="600" alt="collect-github" />
+
+### Server management
+
+#### `vana server status`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/server-status.gif" width="600" alt="server-status" />
+
+#### `vana server sync`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/server-sync.gif" width="600" alt="server-sync" />
+
+#### `vana server data`
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/server-data.gif" width="600" alt="server-data" />
 
 ## Acceptance Commands
 

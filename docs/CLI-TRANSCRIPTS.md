@@ -291,6 +291,29 @@ Shop [legacy] [installed]
 
 <!-- END:sources -->
 
+### `vana sources github`
+
+<!-- BEGIN:sources-github -->
+
+```
+$ vana sources github
+
+GitHub [connected]
+
+Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.
+
+  Version:          unknown
+  Export frequency: unknown
+  Auth mode:        interactive
+  Company:          github
+
+→ Next
+  • Connect with `vana connect github`.
+  • Inspect collected data with `vana data show github`.
+```
+
+<!-- END:sources-github -->
+
 ---
 
 ## Post-success data surfaces
@@ -629,3 +652,131 @@ No connector is available for Steam right now.
 ```
 
 <!-- END:connect-steam-no-input -->
+
+---
+
+## Collect flows
+
+### `vana collect`
+
+<!-- BEGIN:collect -->
+
+```
+$ vana collect
+
+No sources are due for collection.
+```
+
+<!-- END:collect -->
+
+### `vana collect github`
+
+<!-- BEGIN:collect-github -->
+
+```
+$ vana collect github
+
+Source "github" has not been connected yet. Run `vana connect github` first.
+```
+
+<!-- END:collect-github -->
+
+---
+
+## Server management
+
+### `vana server status`
+
+<!-- BEGIN:server-status -->
+
+```
+$ vana server status
+
+Personal Server
+
+  URL:              http://localhost:8080 (auto-detected)
+  Status:           healthy
+  Version:          0.0.1
+  Scopes:           2 stored
+  Uptime:           6h 10m
+  Owner:            0x2AC93684679a5bdA03C6160def908CdB8D46792f
+```
+
+<!-- END:server-status -->
+
+### `vana server status` (not connected)
+
+<!-- BEGIN:server-status-not-connected -->
+
+```
+$ vana server status
+
+Personal Server
+
+  Status:           Not connected
+
+→ Next
+  • Set a URL: `vana server set-url <url>`
+  • Or set VANA_PERSONAL_SERVER_URL environment variable
+  • Or start a Personal Server on localhost:8080
+```
+
+<!-- END:server-status-not-connected -->
+
+### `vana server sync`
+
+<!-- BEGIN:server-sync -->
+
+```
+$ vana server sync
+
+github:
+    github.profile ✓
+    github.repositories ✗ (HTTP 400)
+    github.starred ✗ (HTTP 400)
+spotify:
+    spotify.profile ✓
+    spotify.playlists ✗ (HTTP 400)
+Synced 2 dataset(s).
+```
+
+<!-- END:server-sync -->
+
+### `vana server sync` (nothing pending)
+
+<!-- BEGIN:server-sync-empty -->
+
+```
+$ vana server sync
+
+No pending datasets to sync.
+```
+
+<!-- END:server-sync-empty -->
+
+### `vana server data`
+
+<!-- BEGIN:server-data -->
+
+```
+$ vana server data
+
+  github.profile:   1 version
+  spotify.profile:  1 version
+
+  Showing locally-known scopes. Connect your Personal Server for live data.
+```
+
+<!-- END:server-data -->
+
+### `vana server data` (empty)
+
+<!-- BEGIN:server-data-empty -->
+
+```
+$ vana server data
+
+No scopes found.
+```
+
+<!-- END:server-data-empty -->
