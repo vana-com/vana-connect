@@ -1,0 +1,175 @@
+{
+  "agent_question": "Competitive landscape for reducing human-in-the-loop in coding agents",
+  "research_date": "2026-03-17",
+  "findings": [
+    {
+      "name": "Model Context Protocol (MCP) - Ecosystem Scale",
+      "what": "Open protocol created by Anthropic for connecting AI agents to external tools and data sources, now governed by the Linux Foundation.",
+      "evidence": "10,000+ active public MCP servers. 97M+ monthly SDK downloads. Adopted by ChatGPT, Cursor, Gemini, Microsoft Copilot, VS Code. Donated to Agentic AI Foundation (Linux Foundation) co-founded by Anthropic, Block, OpenAI with support from Google, Microsoft, AWS, Cloudflare, Bloomberg.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation",
+      "sub_theme": "MCP ecosystem"
+    },
+    {
+      "name": "Model Context Protocol (MCP) - Adoption Trajectory",
+      "what": "MCP server downloads grew from ~100K in November 2024 to 8M+ by April 2025; remote MCP servers up nearly 4x since May 2025.",
+      "evidence": "PulseMCP registry lists 5,500+ servers. Enterprise infrastructure support from AWS, Cloudflare, Google Cloud, Microsoft Azure. Claude has 75+ connectors powered by MCP. Claude Code plugin directory launched early 2026 with 72+ plugins across 24 categories.",
+      "status": "live",
+      "source_url": "https://mcpmanager.ai/blog/mcp-adoption-statistics/",
+      "sub_theme": "MCP ecosystem"
+    },
+    {
+      "name": "Google Agent2Agent Protocol (A2A)",
+      "what": "Open protocol for agent-to-agent communication, task delegation, and capability discovery between AI agents.",
+      "evidence": "Launched April 9, 2025 at Cloud Next. 150+ supporting organizations including Atlassian, PayPal, Salesforce, SAP, ServiceNow. Version 0.3 added gRPC support. Agents advertise capabilities via JSON 'Agent Cards'. Designed as complement to MCP (MCP = tools/context, A2A = agent coordination).",
+      "status": "live",
+      "source_url": "https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/",
+      "sub_theme": "Agent-to-agent protocols"
+    },
+    {
+      "name": "Anthropic Claude Code",
+      "what": "CLI-based autonomous coding agent with hooks, CLAUDE.md context files, memory system, and agent SDK.",
+      "evidence": "$2.5B ARR as of February 2026, reached in ~9 months from public launch (May 2025). Anthropic overall at $19B ARR in March 2026 ($380B valuation, $30B Series G). Uses 6-layer memory system loaded at session start. Hooks provide deterministic lifecycle control (session start, prompt submit). CLAUDE.md files provide static per-project context. Agent SDK powers the same execution loop externally.",
+      "status": "live",
+      "source_url": "https://www.uncoveralpha.com/p/anthropics-claude-code-is-having",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "Cursor (Anysphere)",
+      "what": "AI-native code editor with codebase indexing, .cursorrules context, and cloud-based autonomous agents.",
+      "evidence": "$29.3B valuation, $3.4B total raised across 7 rounds. $1.2B ARR in 2025 (1,100% YoY growth from $100M). 1M+ daily active users, 360K paying customers. Indexes entire codebase with custom embedding model. .cursorrules file provides standing instructions for AI. Cloud Agents (new 2026) run autonomously on Cursor infrastructure, startable from browser/phone/Slack.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/06/05/cursors-anysphere-nabs-9-9b-valuation-soars-past-500m-arr/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "Cognition (Devin + Windsurf)",
+      "what": "Autonomous coding agent that handles full project lifecycle in a secure sandbox, plus IDE-based coding via acquired Windsurf.",
+      "evidence": "$10.2B valuation, $400M+ raised (Founders Fund led). ARR grew from $1M (Sep 2024) to $73M (Jun 2025). Windsurf acquisition (Jul 2025) more than doubled ARR. Total net burn under $20M across company history. Enterprise customers: Goldman Sachs, Citi, Dell, Cisco, Palantir. Devin Wiki and Devin Search added for codebase understanding. Multi-agent dispatch capability added early 2025.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "OpenAI Codex",
+      "what": "Cloud-sandboxed coding agent with two execution modes: cloud sandbox for parallel background tasks and terminal CLI for local execution.",
+      "evidence": "Available to ChatGPT Plus users from June 2025. GPT-5.2-Codex is latest model (Jan 2026). Sandbox disables internet access during execution, limiting agent to provided repo + pre-installed deps. Auto-detects setup scripts. Configurable internet access and approval controls.",
+      "status": "live",
+      "source_url": "https://openai.com/index/introducing-codex/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "GitHub Copilot Coding Agent",
+      "what": "Asynchronous autonomous coding agent embedded in GitHub, with agent mode in VS Code and recently GA'd CLI agent.",
+      "evidence": "GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code.",
+      "status": "live",
+      "source_url": "https://github.blog/news-insights/product-news/github-copilot-meet-the-new-coding-agent/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "Cline",
+      "what": "Open-source autonomous coding agent VS Code extension with Plan/Act modes and MCP integration.",
+      "evidence": "5M+ developers. $32M Series A (Jul 2025) from Emergence Capital. Founded 2024 by Saoud Rizwan. Samsung beta-testing for Device eXperience division. Free and open-source, requires external API keys. Only fully open-source, local-first agent purpose-built for production development.",
+      "status": "live",
+      "source_url": "https://cline.bot/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "Aider",
+      "what": "Open-source CLI AI pair programmer with repository map, automatic context management, and git-native workflow.",
+      "evidence": "39K+ GitHub stars, 4.1M+ installations, 15B tokens processed. 49.2% solve rate on SWE-bench Verified (with Claude 3.5 Sonnet, early 2026). Repository map creates condensed codebase overview. Automatically pulls context from related files. Every AI change gets its own git commit. Connects to 100+ models.",
+      "status": "live",
+      "source_url": "https://aider.chat/",
+      "sub_theme": "CLI-based agent tools"
+    },
+    {
+      "name": "Context7 (Upstash)",
+      "what": "MCP server that injects live, up-to-date library documentation into AI coding assistants' context windows.",
+      "evidence": "9,000+ libraries and frameworks indexed. Two core tools: resolve-library-id and query-docs. Integrates with Cursor, VS Code, Claude Code. Built by Upstash. CLI + Skills mode (no MCP required) or MCP mode. Solves the stale training data problem for library APIs.",
+      "status": "live",
+      "source_url": "https://upstash.com/blog/context7-llmtxt-cursor",
+      "sub_theme": "Code intelligence platforms"
+    },
+    {
+      "name": "Greptile",
+      "what": "AI code review and validation platform that indexes GitHub repositories for codebase-aware analysis.",
+      "evidence": "$25M Series A (Sep 2025) led by Benchmark at ~$180M valuation. $45.5M total raised. Founded by Daksh Gupta (Georgia Tech), YC W24. Analyzes repos and validates every code update. Independent code validation layer across repositories.",
+      "status": "live",
+      "source_url": "https://siliconangle.com/2025/09/23/greptile-bags-25m-funding-take-coderabbit-graphite-ai-code-validation/",
+      "sub_theme": "Code intelligence platforms"
+    },
+    {
+      "name": "Augment Code",
+      "what": "Enterprise AI coding platform focused on understanding large codebases, backed by Eric Schmidt.",
+      "evidence": "$252M raised at $977M valuation (Apr 2024). 188 employees as of Feb 2026. Backed by Eric Schmidt, Index Ventures, Sutter Hill, Lightspeed. Ranks 3rd among 144 active competitors by total funding. No new public funding rounds in 2025-2026.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2024/04/24/eric-schmidt-backed-augment-a-github-copilot-rival-launches-out-of-stealth-with-252m/",
+      "sub_theme": "Coding agent products"
+    },
+    {
+      "name": "Mem0",
+      "what": "Memory infrastructure layer for AI agents providing persistent, structured memory via API.",
+      "evidence": "$24M Series A (Oct 2025) led by Basis Set Ventures, with Peak XV, GitHub Fund, YC. 41K+ GitHub stars, 13M+ PyPI downloads. 80K+ developers on cloud service. API calls grew from 35M (Q1 2025) to 186M (Q3 2025), ~30% MoM. Natively integrated into CrewAI, Flowise, Langflow. AWS selected Mem0 as exclusive memory provider for their Agent SDK.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/",
+      "sub_theme": "Agent memory infrastructure"
+    },
+    {
+      "name": "Zep",
+      "what": "Context engineering platform for AI agents combining chat history, business data, and user behavior.",
+      "evidence": "$500K seed (Apr 2024). YC W24. Tracks how facts change over time (temporal reasoning). Integrates structured business data with conversational history. Graph-based memory with relationship modeling. No significant follow-on funding disclosed as of March 2026.",
+      "status": "live",
+      "source_url": "https://www.getzep.com/",
+      "sub_theme": "Agent memory infrastructure"
+    },
+    {
+      "name": "LangChain / LangSmith",
+      "what": "Most widely adopted AI agent framework (LangChain) with commercial observability and testing platform (LangSmith).",
+      "evidence": "$125M Series B (Oct 2025) at $1.25B valuation, led by IVP with Sequoia, Benchmark. 47M+ PyPI downloads (Jan 2026). ARR $12-16M+ as of mid-2025 (company says that figure is 'low for where we are today'). LangSmith monthly trace volume 12x'd YoY. Total raised: $160M across seed, Series A, Series B.",
+      "status": "live",
+      "source_url": "https://fortune.com/2025/10/20/exclusive-early-ai-darling-langchain-is-now-a-unicorn-with-a-fresh-125-million-in-funding/",
+      "sub_theme": "Multi-agent frameworks"
+    },
+    {
+      "name": "CrewAI",
+      "what": "Multi-agent automation platform for enterprises with structured role-based memory and RAG support.",
+      "evidence": "$18M total raised (Series A $12.5M, Oct 2024, led by Insight Partners). $3.2M revenue as of Jul 2025. Backed by Andrew Ng and Dharmesh Shah (HubSpot). Natively integrates Mem0 for memory. Fastest-growing multi-agent framework by adoption.",
+      "status": "live",
+      "source_url": "https://siliconangle.com/2024/10/22/agentic-ai-startup-crewai-closes-18m-funding-round/",
+      "sub_theme": "Multi-agent frameworks"
+    },
+    {
+      "name": "Microsoft Agent Framework (AutoGen + Semantic Kernel)",
+      "what": "Unified open-source agent framework merging AutoGen's multi-agent innovation with Semantic Kernel's enterprise stability.",
+      "evidence": "Announced Oct 2025. Release Candidate 1.0 on Feb 19, 2026. GA targeted end of Q1 2026. Both AutoGen and Semantic Kernel placed in maintenance mode (bug fixes only, no new features). Supports Python and .NET. Consolidates AI workloads into single SDK with observability.",
+      "status": "announced",
+      "source_url": "https://visualstudiomagazine.com/articles/2025/10/01/semantic-kernel-autogen--open-source-microsoft-agent-framework.aspx",
+      "sub_theme": "Multi-agent frameworks"
+    },
+    {
+      "name": "SWE-bench Verified - Current State of Autonomous Coding",
+      "what": "Primary benchmark for measuring autonomous coding agent performance on real GitHub issues.",
+      "evidence": "Top scores cluster at 77.8-80.9% on SWE-bench Verified (tightest top-tier race yet). Claude Opus 4.5 leads at 80.9% Verified but only 45.9% on SWE-bench Pro (same model, half the score). SWE-bench Pro is considered more reliable due to data contamination in Verified's 500 Python-only tasks.",
+      "status": "live",
+      "source_url": "https://www.swebench.com/verified.html",
+      "sub_theme": "Benchmarks and limitations"
+    },
+    {
+      "name": "Autonomous Agent Reliability Gap",
+      "what": "Compound failure rates and trust deficits remain the core barrier to reducing human-in-the-loop.",
+      "evidence": "At 85% per-action accuracy, a 10-step workflow succeeds only 20% of the time. 46% of developers actively distrust AI code accuracy, only 3% highly trust it. 66% say top frustration is 'almost right, but not quite'. 99% of enterprise devs experimented with agents in 2025 but mass adoption did not materialize. Merged PRs correlate with small, localized changes; failed PRs are invasive and sprawling.",
+      "status": "live",
+      "source_url": "https://medium.com/@vivek.babu/where-autonomous-coding-agents-fail-a-forensic-audit-of-real-world-prs-59d66e33efe9",
+      "sub_theme": "Benchmarks and limitations"
+    }
+  ],
+  "gaps": [
+    "GitHub Copilot specific user count and revenue figures for 2025-2026 were not available in search results (Microsoft bundles into broader GitHub/365 reporting).",
+    "Rift (coding agent tool) appears to be defunct or very low profile - no meaningful results found. It may have been absorbed or abandoned.",
+    "Specific accuracy rates or task completion metrics for Devin, Codex, and Copilot agent in production (outside of benchmarks) are not publicly disclosed.",
+    "Cost-per-task data for autonomous agents (API spend per completed coding task) is not systematically published by any vendor.",
+    "Zep's traction metrics (users, API calls, revenue) beyond the $500K seed are not publicly available, making it hard to assess product-market fit relative to Mem0.",
+    "Detailed technical comparison of memory architectures (Mem0 vs Zep vs Claude Code's built-in memory vs LangGraph checkpointing) lacks independent benchmarking.",
+    "Agent-to-agent protocol adoption numbers (how many production A2A deployments exist) are not available beyond the '150+ supporting organizations' figure, which measures intent not deployment."
+  ]
+}

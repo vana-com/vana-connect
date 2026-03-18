@@ -1,0 +1,217 @@
+{
+  "agent_question": "Product shapes for generating agent tasks from personal data",
+  "findings": [
+    {
+      "name": "OpenClaw",
+      "what": "Open-source self-hosted AI agent with cron-scheduled daily briefings that pull from connected data sources (Gmail, Calendar, GitHub, RSS, Todoist, Linear, Stripe).",
+      "evidence": "264K GitHub stars as of March 2026, surpassed React as most-starred software project on GitHub on March 3, 2026. Reached 100K stars on January 30, 2026, and 250K by March 3. The daily-briefing-hub skill combines Google Calendar, Gmail/Outlook, weather, GitHub PR/CI status, Hacker News/RSS, and Todoist/ClickUp/Linear tasks into a single prioritized morning summary. Silently skips missing integrations. Codebase supports three schedule types: at (one-time), every (interval), and cron (standard expressions).",
+      "status": "live",
+      "source_url": "https://github.com/openclaw/openclaw",
+      "sub_theme": "Self-hosted proactive agents"
+    },
+    {
+      "name": "NanoClaw",
+      "what": "Lightweight, container-isolated alternative to OpenClaw with scheduled jobs, built on Anthropic's Agents SDK, ~3,900 lines of code across 15 files.",
+      "evidence": "10.5K+ GitHub stars. Runs in Linux containers with filesystem isolation, not merely behind permission checks. Connects to WhatsApp, Telegram, Slack, Discord, Gmail. Entire codebase is auditable at ~3,900 LOC. Same scheduled-job and daily-briefing capabilities as OpenClaw but in a smaller, security-focused package.",
+      "status": "live",
+      "source_url": "https://github.com/qwibitai/nanoclaw",
+      "sub_theme": "Self-hosted proactive agents"
+    },
+    {
+      "name": "ChatGPT Scheduled Tasks",
+      "what": "OpenAI's built-in feature for scheduling recurring prompts that execute at predetermined times (daily, weekly, monthly) and deliver results via push notification or email.",
+      "evidence": "Launched January 2025 in beta for Plus, Pro, and Teams plans. Limit of 10 active tasks at a time. Tasks run independently of whether the user is online. Available on web, Android, iOS, macOS. Still in beta as of 2026.",
+      "status": "live",
+      "source_url": "https://help.openai.com/en/articles/10291617-scheduled-tasks-in-chatgpt",
+      "sub_theme": "Platform-native scheduled agents"
+    },
+    {
+      "name": "ChatGPT Pulse",
+      "what": "OpenAI's proactive daily briefing feature that researches overnight based on user memory and chat history, delivering personalized morning updates without a prompt.",
+      "evidence": "Launched September 25, 2025 as early preview for Pro users on iOS and Android. Synthesizes information from user memory, chat history, and direct feedback. Shelved in December 2025 when CEO Sam Altman issued 'Code Red' to refocus on core ChatGPT improvements amid competitive pressure.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2025/09/25/openai-launches-chatgpt-pulse-to-proactively-write-you-morning-briefs/",
+      "sub_theme": "Platform-native scheduled agents"
+    },
+    {
+      "name": "Google CC (Your Day Ahead)",
+      "what": "Google Labs experimental AI agent that sends a daily morning briefing email by connecting to Gmail, Google Calendar, and Google Drive without requiring a search or prompt.",
+      "evidence": "Launched December 16, 2025 in early access for U.S. and Canada users 18+. Built on Gemini models. Users steer CC by replying to the email. Includes thumbs up/down feedback. Can draft emails and create calendar links. Priority access given to Google AI Ultra and Gemini Advanced subscribers.",
+      "status": "live",
+      "source_url": "https://blog.google/technology/google-labs/cc-ai-agent/",
+      "sub_theme": "Platform-native scheduled agents"
+    },
+    {
+      "name": "Gemini Scheduled Actions + Goal Scheduled Actions",
+      "what": "Google Gemini's built-in feature for scheduling recurring AI tasks, with a newer 'Goal' variant where the AI monitors objectives and adjusts actions over time.",
+      "evidence": "Scheduled Actions available to Google AI Pro and Ultra subscribers. Limit of 10 active scheduled actions. Goal Scheduled Actions rolled out February 2026, introducing proactive AI that reviews outputs from previous instructions and adjusts next actions. New Android UI launched March 2026 for naming, describing, and scheduling tasks.",
+      "status": "live",
+      "source_url": "https://blog.google/products-and-platforms/products/gemini/scheduled-actions-gemini-app/",
+      "sub_theme": "Platform-native scheduled agents"
+    },
+    {
+      "name": "Meta Proactive Chatbots (Project Omni)",
+      "what": "Meta's initiative to train AI chatbots to message users first on Messenger, WhatsApp, and Instagram, using conversation history for personalized re-engagement.",
+      "evidence": "Leaked documents obtained by Business Insider in July 2025. Internal project name 'Project Omni' at data labeling firm Alignerr. Chatbots only send follow-ups within 14 days after user-initiated conversation and if user sent at least 5 messages. Meta projected its generative AI products would generate $2B-$3B in 2025 revenue, up to $1.4T by 2035 (from unsealed court documents).",
+      "status": "announced",
+      "source_url": "https://techcrunch.com/2025/07/03/meta-has-found-another-way-to-keep-you-engaged-chatbots-that-message-you-first/",
+      "sub_theme": "Proactive consumer AI"
+    },
+    {
+      "name": "Notion 3.0 AI Agents",
+      "what": "Autonomous agents inside Notion that work for up to 20 minutes on multi-step tasks across hundreds of pages, including breaking projects into tasks and assigning them.",
+      "evidence": "Launched September 18, 2025. Personal Agent works autonomously for up to 20 minutes. Can build project launch plans, break them into tasks, assign them, and draft docs. Pulls context from connected tools (Slack, Google Drive, Teams) via native integrations and MCP. Notion 3.2 (January 2026) brought agents to mobile with multi-model support (GPT-5.2, Claude Opus 4.5, Gemini 3).",
+      "status": "live",
+      "source_url": "https://www.notion.com/releases/2025-09-18",
+      "sub_theme": "Productivity tool AI agents"
+    },
+    {
+      "name": "Linear Triage Intelligence / Product Intelligence",
+      "what": "Linear's AI that auto-triages incoming issues by suggesting teams, projects, assignees, labels, flagging duplicates, and linking related issues based on backlog patterns.",
+      "evidence": "Product Intelligence launched August 14, 2025 as Technology Preview on Business and Enterprise plans. Auto-apply triage suggestions shipped September 19, 2025. Uses search, ranking, and LLM-based reasoning, drawing on existing backlog as a dataset. Can be configured to auto-apply suggested properties without human approval.",
+      "status": "live",
+      "source_url": "https://linear.app/changelog/2025-08-14-product-intelligence-technology-preview",
+      "sub_theme": "Productivity tool AI agents"
+    },
+    {
+      "name": "Zapier AI / Zapier Agents / Zapier Canvas",
+      "what": "AI-powered workflow automation platform that generates workflows from natural language and converts visual process diagrams into functioning automations.",
+      "evidence": "8,000+ app integrations. Zapier Canvas converts visual diagrams into live automations. Natural language workflow creation (e.g., 'When I get a Gmail, summarize it and post to Slack'). Zapier Agents carry out specific workflows. Focus on AI orchestration, agents, copilot, human-in-the-loop, and MCP as of 2026.",
+      "status": "live",
+      "source_url": "https://zapier.com/",
+      "sub_theme": "Workflow automation with AI"
+    },
+    {
+      "name": "n8n",
+      "what": "Open-source workflow automation platform with native AI agent nodes, LangChain integration, and MCP client/server support, self-hostable.",
+      "evidence": "150K+ GitHub stars in 2025. $40M ARR as of July 2025. Raised $180M at $2.5B valuation in October 2025 (led by Accel, with NVentures/Nvidia). 3,000+ enterprise customers (Vodafone, Delivery Hero, Microsoft). 200,000 active users. Revenue grew 5X after pivoting to AI-friendly approach in 2022. 500+ integrations with dedicated AI Agent nodes, memory, evaluations, and multi-agent orchestration.",
+      "status": "live",
+      "source_url": "https://github.com/n8n-io/n8n",
+      "sub_theme": "Workflow automation with AI"
+    },
+    {
+      "name": "GitHub Copilot Coding Agent",
+      "what": "GitHub's autonomous coding agent that takes assigned issues, spins up a GitHub Actions environment, implements changes, and creates pull requests.",
+      "evidence": "Available with Copilot Pro, Pro+, Business, and Enterprise plans. Runs in secure GitHub Actions-powered environment. Automates branch creation, commits, PR opening, and description writing. Targets low-to-medium complexity tasks. All PRs require independent human review; agent cannot approve or merge its own work. As of June 4, 2025, uses one premium request per model request.",
+      "status": "live",
+      "source_url": "https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent",
+      "sub_theme": "Autonomous coding agents"
+    },
+    {
+      "name": "Claude Code Action (GitHub)",
+      "what": "Anthropic's GitHub Action that responds to @claude mentions, issue assignments, and PR comments to implement code changes and answer questions.",
+      "evidence": "Available on GitHub as of February 2026 via Agent HQ for Copilot Pro+ and Enterprise customers. Can commit code and comment on pull requests. Intelligently detects when to activate based on workflow context.",
+      "status": "live",
+      "source_url": "https://github.com/anthropics/claude-code-action",
+      "sub_theme": "Autonomous coding agents"
+    },
+    {
+      "name": "Devin (Cognition Labs)",
+      "what": "Autonomous AI software developer that completes development tasks end-to-end, from understanding codebases to writing and testing code.",
+      "evidence": "$155M+ ARR, growing from $1M in September 2024 to ~$73M by June 2025. $10.2B valuation after $400M Series C in late 2025. Acquired Windsurf (tens of millions ARR, hundreds of enterprise customers) in July 2025. Key customers include Goldman Sachs, Palantir, Cisco, Mercado Libre. Devin 2.0 (April 2025) dropped pricing from $500/month to $20/month Core plan.",
+      "status": "live",
+      "source_url": "https://cognition.ai/blog/devin-annual-performance-review-2025",
+      "sub_theme": "Autonomous coding agents"
+    },
+    {
+      "name": "Sweep AI",
+      "what": "AI junior developer that transforms GitHub issues and Jira tickets into pull requests by reading the project, planning changes, writing code, and creating PRs.",
+      "evidence": "Raised $2.8M (as of November 2023 TechCrunch report). Team was 2 employees planning to expand to 5. Reads project context, plans changes, writes code, and creates PRs from issue descriptions.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2023/11/02/sweep-aims-to-automate-basic-dev-tasks-using-large-language-models/",
+      "sub_theme": "Autonomous coding agents"
+    },
+    {
+      "name": "Dependabot",
+      "what": "GitHub's built-in automated dependency update tool that creates pull requests for outdated or vulnerable dependencies without human prompting.",
+      "evidence": "846,000+ repositories with Dependabot configured (2025 GitHub Octoverse report). 137% year-over-year adoption growth. Supports 30+ ecosystems (npm, pip, Maven, Docker, Go, Terraform, GitHub Actions, pnpm, Bun, Helm, Swift, etc.). Free for all GitHub repositories. More than 75% reduction in remediation time for code maintenance tasks.",
+      "status": "live",
+      "source_url": "https://docs.renovatebot.com/bot-comparison/",
+      "sub_theme": "Automated maintenance (agent without prompting)"
+    },
+    {
+      "name": "Renovate (Mend.io)",
+      "what": "Cross-platform automated dependency update tool supporting 90+ package managers, creating PRs for dependency updates with grouping, scheduling, and auto-merge.",
+      "evidence": "90+ package manager support (broader than Dependabot's 30+). Works across GitHub, GitLab, Bitbucket, Azure DevOps. Claims approximately 90% time savings for dependency updates (Mend ROI whitepaper). Supports grouping, scheduling, auto-merge policies.",
+      "status": "live",
+      "source_url": "https://github.com/renovatebot/renovate",
+      "sub_theme": "Automated maintenance (agent without prompting)"
+    },
+    {
+      "name": "Limitless (formerly Rewind AI)",
+      "what": "AI wearable pendant that continuously records conversations and meetings, providing AI-powered summaries and searchable personal data.",
+      "evidence": "Raised $33M+ total from Sam Altman, a16z, First Round Capital, NEA. $15M at $350M valuation in May 2023 (495x multiple on $707K ARR). Pendant sold for $99, 100-hour battery life. Free tier: unlimited audio storage + 10 hours AI features/month. Pro: $20/month unlimited AI. Acquired by Meta on December 5, 2025; hardware sales stopped, subscription fees waived for existing users.",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Personal data capture and AI"
+    },
+    {
+      "name": "Spotify AI DJ",
+      "what": "AI-powered DJ that proactively selects music based on full listening history, temporal patterns, and mood inference without explicit song requests.",
+      "evidence": "Launched February 2023. DJ Requests (voice and text) added May 2025. Personalized prompt suggestions added October 2025 (e.g., 'reggaeton beats for an energetic afternoon'). Prompted Playlists beta (December 2025) uses entire listening history from day one. System processes billions of data points using collaborative filtering, content-based filtering, skip rates, playlist additions, and temporal preferences (morning/afternoon/evening, seasonal patterns).",
+      "status": "live",
+      "source_url": "https://newsroom.spotify.com/2023-02-22/spotify-debuts-a-new-ai-dj-right-in-your-pocket/",
+      "sub_theme": "Proactive consumer AI"
+    },
+    {
+      "name": "Proactive Agent (OpenReview / ICLR 2025)",
+      "what": "Research paper formalizing proactive agents that anticipate user needs and take initiative by suggesting tasks without explicit requests, with ProactiveBench dataset.",
+      "evidence": "ProactiveBench dataset contains 6,790 events. Defines proactive agent as one that perceives environmental context, infers user intentions without explicit prompts, and autonomously suggests actions. Published October 2024, updated through 2025.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2410.12361",
+      "sub_theme": "Academic research on proactive agents"
+    },
+    {
+      "name": "PROBE Benchmark (Beyond Reactivity)",
+      "what": "Benchmark measuring proactive problem-solving in LLM agents, requiring agents to identify and resolve critical bottlenecks hidden in realistic workplace datastores.",
+      "evidence": "1,000 diverse samples. Even state-of-the-art LLMs and specialized agentic frameworks achieve no more than 40% success on end-to-end proactive tasks. Published October 2025.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2510.19771",
+      "sub_theme": "Academic research on proactive agents"
+    },
+    {
+      "name": "PPP: Training Proactive and Personalized LLM Agents",
+      "what": "Multi-objective reinforcement learning approach optimizing three dimensions: productivity (task completion), proactivity (asking essential questions), and personalization (adapting to user preferences).",
+      "evidence": "Published November 2025. Identifies that existing work focuses primarily on task success but effective real-world agents require jointly optimizing productivity, proactivity, and personalization.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2511.02208",
+      "sub_theme": "Academic research on proactive agents"
+    },
+    {
+      "name": "ProAgentBench",
+      "what": "Benchmark for evaluating LLM agents for proactive assistance using real-world data.",
+      "evidence": "Published February 2026. Evaluates LLM agents specifically for proactive (not reactive) assistance capabilities.",
+      "status": "live",
+      "source_url": "https://arxiv.org/html/2602.04482v1",
+      "sub_theme": "Academic research on proactive agents"
+    },
+    {
+      "name": "Netflix FM-Intent / IntentRec",
+      "what": "Netflix's recommendation framework that predicts user session intent using hierarchical multi-task learning, estimating latent intent from short- and long-term implicit signals.",
+      "evidence": "Uses hierarchical multi-task neural network architecture. Estimates latent user intent from short- and long-term implicit signals as proxies. Uses intent prediction to predict next item user will engage with. Published on Netflix Tech Blog and arxiv (updated May 2025).",
+      "status": "live",
+      "source_url": "https://netflixtechblog.com/fm-intent-predicting-user-session-intent-with-hierarchical-multi-task-learning-94c75e18f4b8",
+      "sub_theme": "Intent inference and task prediction"
+    },
+    {
+      "name": "Google Intent Extraction (Small Models, Big Results)",
+      "what": "Google Research method using small multimodal LLMs to understand sequences of user interactions on web and mobile, decomposing intent extraction into two stages.",
+      "evidence": "Presented at EMNLP 2025. Separates user intent understanding into: (1) summarizing each screen separately, then (2) extracting intent from the sequence of summaries. Makes intent extraction tractable for small on-device models.",
+      "status": "live",
+      "source_url": "https://research.google/blog/small-models-big-results-achieving-superior-intent-extraction-through-decomposition/",
+      "sub_theme": "Intent inference and task prediction"
+    }
+  ],
+  "gaps": [
+    "No hard accuracy or precision numbers found for OpenClaw daily briefing quality or user satisfaction rates.",
+    "ChatGPT Pulse was live for only ~3 months before being shelved; no usage metrics, retention data, or user feedback were published.",
+    "No revenue or pricing data found for OpenClaw or NanoClaw (both are open-source, likely no direct revenue model).",
+    "Limited data on what percentage of ChatGPT users actually use Scheduled Tasks, or how many tasks are active across the user base.",
+    "No products found that specifically generate coding agent prompts from personal data (the exact intersection Vana is exploring). The closest are OpenClaw daily briefings (which summarize but don't generate actionable coding tasks) and GitHub Copilot coding agent (which acts on issues but doesn't infer tasks from personal data).",
+    "No data found on failure rates or user abandonment for proactive/scheduled AI features across any platform.",
+    "Google CC (Your Day Ahead) is too new (December 2025 launch) to have published usage or retention metrics.",
+    "Gemini Goal Scheduled Actions (February 2026) has no published adoption data yet.",
+    "The PROBE benchmark's 40% ceiling for proactive agents suggests the technical problem is far from solved, but no commercial product has published comparable accuracy metrics for their proactive features.",
+    "No products found that combine personal data from multiple life domains (code + social + media + conversations) into coding-specific task generation. Each product stays in its lane: code tools generate code tasks, productivity tools generate productivity tasks, media tools recommend media."
+  ]
+}

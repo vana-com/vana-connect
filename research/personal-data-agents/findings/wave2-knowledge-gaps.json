@@ -1,0 +1,320 @@
+{
+  "agent_question": "Missing angles in personal data as agent context research",
+  "findings": [
+    {
+      "name": "Spain AEPD Agentic AI Guide",
+      "what": "Spain's data protection authority published a 71-page regulatory analysis of how agentic AI systems create structural privacy risks distinct from conventional AI tools",
+      "evidence": "Published February 2026; titled 'Agentic Artificial Intelligence from the Perspective of Data Protection'; identifies persistent memory profiles, autonomous multi-service access, and consequential actions without human checkpoints as novel risks",
+      "status": "live",
+      "source_url": "https://ppc.land/spains-data-watchdog-maps-the-hidden-gdpr-risks-of-agentic-ai/",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "UK ICO Agentic AI Early Views",
+      "what": "The UK Information Commissioner's Office flagged data minimization and transparency as specific compliance risks for agentic AI systems",
+      "evidence": "ICO notes that when an agent's scope is uncertain, defining what data is 'necessary' becomes harder; complexity of agent data flows makes it difficult to explain processing to individuals; agents communicating with other agents create unobservable data flows",
+      "status": "live",
+      "source_url": "https://www.insideprivacy.com/artificial-intelligence/ico-shares-early-views-on-agentic-ai-data-protection/",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "CCPA Automated Decision-Making Regulations",
+      "what": "California finalized CCPA regulations specifically addressing automated decision-making technology (ADMT), creating new compliance requirements for AI agents processing personal data",
+      "evidence": "Approved September 22, 2025; compliance required from January 1, 2026 for some provisions, January 1, 2027 for ADMT consumer rights; CPPA issued over $100 million in enforcement actions in 2024; ADMT broadly defined as any technology that processes personal information to replace or substantially replace human decision-making",
+      "status": "live",
+      "source_url": "https://www.wiley.law/alert-California-Finalizes-Pivotal-CCPA-Regulations-on-AI-Cyber-Audits-and-Risk-Governance",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "EU AI Act High-Risk Deadline August 2026",
+      "what": "Full enforcement of high-risk AI system requirements under EU AI Act Annex III takes effect August 2, 2026, with penalties up to 35M EUR or 7% of global turnover",
+      "evidence": "Requires conformity assessments, technical documentation, CE marking, EU database registration; specific attention to data minimization in large-scale ingestion models, purpose limitation across agentic workflows, transparency in conversational interfaces, accuracy in real-time data synthesis",
+      "status": "announced",
+      "source_url": "https://www.legalnodes.com/article/eu-ai-act-2026-updates-compliance-requirements-and-business-risks",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "EDPB LLM Anonymization Report",
+      "what": "European Data Protection Board clarified that large language models rarely achieve anonymization standards",
+      "evidence": "April 2025 report; controllers deploying third-party LLMs must conduct comprehensive legitimate interests assessments; undermines the argument that LLM training anonymizes personal data",
+      "status": "live",
+      "source_url": "https://www.dpocentre.com/data-protection-ai-governance-2025-2026/",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "Usercentrics acquires MCP Manager",
+      "what": "Global consent management leader acquired MCP Manager to extend consent infrastructure into agentic AI workflows",
+      "evidence": "Announced January 14, 2026; first major privacy company to extend consent guardrails into MCP-based AI workflows; addresses gap where regular MCPs don't include consent checks for data access",
+      "status": "live",
+      "source_url": "https://usercentrics.com/press/usercentrics-acquires-mcp-manager/",
+      "sub_theme": "Regulatory barriers"
+    },
+    {
+      "name": "Relyance AI Consumer Trust Survey",
+      "what": "Survey showing 4 in 5 consumers believe companies train AI on their data without disclosure; only ~1 in 10 willing to share sensitive data",
+      "evidence": "2025 survey; 82% see data loss threat; only around 10% very willing to share financial, communication, or biometric data; more than half not willing to share even in exchange for better digital experiences",
+      "status": "live",
+      "source_url": "https://www.relyance.ai/consumer-ai-trust-survey-2025",
+      "sub_theme": "Trust and adoption curve"
+    },
+    {
+      "name": "YouGov AI Trust Survey",
+      "what": "35% of Americans use AI weekly but only 5% trust it deeply; 40% say they would never enter personal or financial information into an AI tool",
+      "evidence": "2025 survey; 48% cite data exposure as primary adoption barrier (outranking hallucinations); 51% of Gen Z report weekly AI usage vs 25% of baby boomers; trust in AI saw a 16-point increase in 2025 but from a low base",
+      "status": "live",
+      "source_url": "https://yougov.com/en-us/articles/53701-most-americans-use-ai-but-still-dont-trust-it",
+      "sub_theme": "Trust and adoption curve"
+    },
+    {
+      "name": "ARF Data Sharing Trust Study",
+      "what": "Trust in AI surged 16 points in 2025 but consumers take an increasingly transactional view of data sharing, demanding clear value exchange",
+      "evidence": "Nearly 60% of consumers willing to share data for personalized shopping recommendations; willingness varies sharply by context; only 19% trust AI in finance",
+      "status": "live",
+      "source_url": "https://www.prnewswire.com/news-releases/trust-in-ai-surges-as-consumers-take-a-more-transactional-view-of-data-sharing-arf-study-finds-302667046.html",
+      "sub_theme": "Trust and adoption curve"
+    },
+    {
+      "name": "Simon Willison ChatGPT Memory Critique",
+      "what": "Prominent developer flagged ChatGPT's memory feature as creating an unsolicited 'dossier' effect, demonstrating the context collapse problem in personal AI",
+      "evidence": "May 2025; ChatGPT inferred user's location (Half Moon Bay) from prior conversations and inserted it into an unrelated image generation request; illustrates 'context collapse' where data from different spheres of user activity (work, family, hobbies) blurs together",
+      "status": "live",
+      "source_url": "https://simonwillison.net/2025/May/21/chatgpt-new-memory/",
+      "sub_theme": "Trust and adoption curve"
+    },
+    {
+      "name": "Microsoft Recall Privacy Backlash",
+      "what": "Microsoft's Recall feature (screenshots every few seconds for AI context) faced severe backlash, was delayed, redesigned from plaintext to encrypted, and made opt-in",
+      "evidence": "Initial version stored all data in plaintext database; researchers found it captured passwords, financial data, private messages, medical records; Microsoft made it opt-in and added full database encryption; later Gaming Copilot also caught capturing gameplay images and sending data by default",
+      "status": "live",
+      "source_url": "https://time.com/6980911/microsoft-copilot-recall-ai-features-privacy-concerns/",
+      "sub_theme": "Trust and adoption curve"
+    },
+    {
+      "name": "Apple Intelligence On-Device Foundation Models",
+      "what": "Apple deployed a ~3B parameter on-device model on Apple silicon, enabling AI features without sending user data to external servers, with zero API costs for developers",
+      "evidence": "Supports 16 languages (expanded from English-only); Foundation Models framework gives developers direct access at zero inference cost; 2.3 billion active Apple devices in 2025; Siri overhaul expected spring 2026 with multi-step task capability",
+      "status": "live",
+      "source_url": "https://machinelearning.apple.com/research/apple-foundation-models-2025-updates",
+      "sub_theme": "On-device personal AI"
+    },
+    {
+      "name": "Samsung Personal Data Engine (PDE)",
+      "what": "Samsung's on-device Personal Data Engine powered by RDFox knowledge graph technology creates hyper-personalized experiences while keeping data on-device",
+      "evidence": "Unveiled at Galaxy UNPACKED 2025 with Galaxy S25 series; powered by RDFox from Oxford Semantic Technologies; secured by Knox Vault and KEEP encryption; drives Now Brief and Smart Gallery search; Galaxy S26 (February 2026) added hardware-based Privacy Display on Ultra model",
+      "status": "live",
+      "source_url": "https://www.computerweekly.com/news/366618319/Samsung-unpacks-Galaxy-AIs-personal-data-engine",
+      "sub_theme": "On-device personal AI"
+    },
+    {
+      "name": "Google Personal Intelligence",
+      "what": "Google connected Gemini to Gmail, Photos, YouTube history, and Search history under the 'Personal Intelligence' brand, making it the largest-scale personal data AI integration",
+      "evidence": "Launched January 14, 2026 in Gemini app; expanded to AI Mode in Search on January 22, 2026; rolling out to free Gemini users in US as of March 2026; built on Gemini 3 Pro and Flash models; enables cross-referencing private emails with real-time market data, managing travel itineraries",
+      "status": "live",
+      "source_url": "https://blog.google/innovation-and-ai/products/gemini-app/personal-intelligence/",
+      "sub_theme": "On-device personal AI"
+    },
+    {
+      "name": "Data Transfer Initiative (DTI)",
+      "what": "Independent nonprofit (spun out of Google's Data Transfer Project in 2022) with Apple, Google, and Meta as founding partners, building open-source data portability infrastructure",
+      "evidence": "Apple and Google expanded direct photo/video transfer between Google Photos and iCloud Photos; EU DMA designates iOS and Android as services obligated to facilitate effective data portability; Apple and Google announced OS-level switching collaboration in late 2025",
+      "status": "live",
+      "source_url": "https://dtinit.org/blog/2024/07/10/DTI-members-new-photo-video-tool",
+      "sub_theme": "Data portability infrastructure"
+    },
+    {
+      "name": "Solid Project (Tim Berners-Lee / Inrupt)",
+      "what": "Standards-based personal data pods with time-bound access grants to apps and AI agents, proposed as alternative to platform data hoards",
+      "evidence": "Originally released 2016; Inrupt launched 2018; Berners-Lee's 2025 book positions Solid as counter to AI built on platform data; developer community remains small; Berners-Lee acknowledges 'not ready for general adoption yet'; network effects remain the core obstacle",
+      "status": "live",
+      "source_url": "https://en.wikipedia.org/wiki/Solid_(web_decentralization_project)",
+      "sub_theme": "Data portability infrastructure"
+    },
+    {
+      "name": "Digi.me / Meeco / MyDex Personal Data Stores",
+      "what": "First-generation personal data vault companies offering encrypted user-controlled storage with selective sharing",
+      "evidence": "Digi.me: end-to-end encrypted vault for financial, fitness, medical data; Meeco: ISO 27001 accredited, Zero Knowledge Value architecture, pioneering since 2012; MyDex: CIC (Community Interest Company) focused on health conditions and identity; all remain small-scale with limited consumer adoption after years of operation",
+      "status": "live",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9921726/",
+      "sub_theme": "Data portability infrastructure"
+    },
+    {
+      "name": "RAG Cost Economics for Personal Data",
+      "what": "Embedding and indexing personal documents is cheap (~$0.001-0.01/doc), but operational staffing and infrastructure costs often exceed cloud bills",
+      "evidence": "10,000 documents can be embedded and indexed for under $100; RAG cuts fine-tuning spend by 60-80%; but operational staffing for small teams costs $750k+ annually; fine-tuning a 70B model costs $50k-200k in compute; Google embedding generation at $0.15 per 1M tokens",
+      "status": "live",
+      "source_url": "https://thedataguy.pro/blog/2025/07/the-economics-of-rag-cost-optimization-for-production-systems/",
+      "sub_theme": "Economics of personal data ingestion"
+    },
+    {
+      "name": "Data Monetization Market",
+      "what": "Global data monetization market valued at $3.75B in 2024, projected to reach $28.16B by 2033",
+      "evidence": "CAGR of 25.1%; North America 41.21% market share in 2024; 30% of large organizations expected to directly monetize data externally by 2025; 60% of companies cite compliance concerns as primary barrier; organizations commercializing data via APIs report recurring revenue growth exceeding 20% annually",
+      "status": "live",
+      "source_url": "https://www.grandviewresearch.com/industry-analysis/data-monetization-market",
+      "sub_theme": "Economics of personal data ingestion"
+    },
+    {
+      "name": "Cursor (Anysphere) Codebase Context at Scale",
+      "what": "AI code editor demonstrating the economics of personal codebase context: $500M ARR, 1M+ daily active users, $20-200/month tiers",
+      "evidence": "Over 1 million daily active users as of December 2025; $500M ARR within 2.5 years; valued at $29.3B; raised $3.4B across 7 funding rounds; RAG-based system analyzes entire codebase for context; Pro tier $20/month, Ultra tier $200/month for 20x usage",
+      "status": "live",
+      "source_url": "https://research.contrary.com/company/cursor",
+      "sub_theme": "Economics of personal data ingestion"
+    },
+    {
+      "name": "Plaid Financial Data Infrastructure",
+      "what": "Financial data aggregation platform demonstrating the value of personal data connectivity, with AI-powered enrichment and over $800M estimated annual revenue",
+      "evidence": "Crossed estimated $800M annual revenue in 2025; 220+ new products/features in 2025; AI-powered auto-repair enabled 2M+ successful user logins and reduced degradation fix time by 90%; launched LendScore credit risk score in October 2025 using real-time cash flow data",
+      "status": "live",
+      "source_url": "https://sacra.com/c/plaid/",
+      "sub_theme": "Economics of personal data ingestion"
+    },
+    {
+      "name": "Cold Start Personalization Research",
+      "what": "A single AI task can involve 20-30 preference dimensions but individual users care about only 2-4, making cold start a navigation problem in high-dimensional space",
+      "evidence": "February 2025 arxiv paper; with a limited interaction budget, the assistant cannot ask about all dimensions and must find the sparse subset relevant to each user within a handful of questions; strategies include onboarding elicitation, leveraging existing data (e.g., loyalty card history), and real-time streaming updates that turn cold start into a short-term condition",
+      "status": "live",
+      "source_url": "https://arxiv.org/html/2602.15012",
+      "sub_theme": "Cold start problem"
+    },
+    {
+      "name": "Skyflow Privacy Vault",
+      "what": "Privacy-as-infrastructure company providing tokenized data vaults that can serve as a trust layer between personal data and AI models",
+      "evidence": "Raised $100M total equity including $30M Series B extension led by Khosla Ventures (April 2024); supports nearly 1 billion records; processes over 2 billion API calls per quarter; LLM Privacy Vault product detects sensitive data and replaces with deterministic tokens before sending to AI models",
+      "status": "live",
+      "source_url": "https://www.skyflow.com/post/generative-ai-data-privacy-skyflow-llm-privacy-vault",
+      "sub_theme": "Privacy infrastructure for AI"
+    },
+    {
+      "name": "OWASP Prompt Injection #1 Vulnerability",
+      "what": "Prompt injection ranked #1 critical vulnerability in OWASP 2025 Top 10 for LLM Applications, appearing in 73% of production AI deployments assessed",
+      "evidence": "OpenAI stated in December 2025 that prompt injection 'is unlikely to ever be fully solved'; indirect prompt injection targets where AI systems collect information (documents, emails, web pages); an attacker can embed hidden commands that override user instructions to extract emails, steal personal data, or access passwords",
+      "status": "live",
+      "source_url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+      "sub_theme": "Privacy infrastructure for AI"
+    },
+    {
+      "name": "Supermemory",
+      "what": "AI memory startup extracting 'memories' from unstructured data for application context, founded by a 19-year-old",
+      "evidence": "Raised $2.6M seed led by Susa Ventures, Browder Capital, and SF1.vc; backed by Google executives; October 2025",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/10/06/a-19-year-old-nabs-backing-from-google-execs-for-his-ai-memory-startup-supermemory/",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Memories.ai",
+      "what": "Building a Large Visual Memory Model (LVMM) for long-term visual memory, founded by two former Meta Reality Labs researchers",
+      "evidence": "Founded 2025 in San Francisco; $8M seed round led by Susa Ventures with Samsung Next participation; focuses on visual memory capabilities for AI",
+      "status": "live",
+      "source_url": "https://wellows.com/blog/ai-startups/",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Dust.tt Enterprise AI Agents",
+      "what": "Enterprise AI agent platform connecting to company data (Notion, Google Drive, Slack, Intercom) for contextual assistance",
+      "evidence": "Founded by ex-Stripe acquisition founders; $21.5M raised including $16M Series A led by Sequoia; $7.3M ARR as of mid-2025 with 66-person team; 80,000 agents created, 12 million conversations in 2025; customers like Clay, Qonto achieve 70%+ weekly AI adoption rates",
+      "status": "live",
+      "source_url": "https://dust.tt/blog/dust-wrapped-2025",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Notion AI Agents (3.0)",
+      "what": "Notion launched autonomous AI agents that execute multi-step workflows across workspace data, with 100M+ users providing personal/team context",
+      "evidence": "Notion 3.0 launched September 2025 with autonomous agents; 100M+ users worldwide; multi-model support (GPT-5, Claude Opus 4.1, o3); January 2026 3.2 release brought agents to mobile with intelligent auto-model selection; Business plan $20/user/month required for AI features",
+      "status": "live",
+      "source_url": "https://www.notion.com/releases/2025-09-18",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Perplexity Personal Computer Agent",
+      "what": "Perplexity extending cloud AI agent to desktop, accessing local files and apps with user approval and audit trail",
+      "evidence": "March 2026 announcement; Google Drive integration live for all users; Enterprise Pro/Max users can sync Drive to personal repository; Personal Computer runs in 'secure environment with clear safeguards,' requires user approval for sensitive actions, generates full audit trail, includes kill switch",
+      "status": "announced",
+      "source_url": "https://www.technology.org/2026/03/13/perplexity-personal-computer-ai/",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "OpenAI Operator/ChatGPT Agent",
+      "what": "OpenAI's computer-using agent integrated into ChatGPT, accessing user connectors and data for agentic web tasks",
+      "evidence": "Launched as Operator January 2025; integrated into ChatGPT as agent July 17, 2025; powered by Computer-Using Agent (CUA) model; accesses user connectors and logged-in websites via takeover mode; OpenAI acknowledged prompt injection may never be fully solved",
+      "status": "live",
+      "source_url": "https://openai.com/index/introducing-chatgpt-agent/",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Anthropic Claude Memory (Markdown-based)",
+      "what": "Anthropic chose transparent file-based memory (CLAUDE.md files) over vector databases, now available for Pro, Max, Team, and Enterprise users",
+      "evidence": "Launched September 2025 for Team/Enterprise; expanded to Pro and Max; 1M token context window generally available for Opus 4.6 and Sonnet 4.6; MCP protocol enables connections to Google Drive, Slack, GitHub, Postgres; Desktop Extensions for one-click MCP server installation",
+      "status": "live",
+      "source_url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "ChatGPT Full Chat History Memory",
+      "what": "OpenAI expanded ChatGPT memory to reference all past chats, not just explicit memories, creating de facto personal data dossier",
+      "evidence": "April 2025: memory can reference all past chats; June 2025: rolled out to free users; Incognito mode available for all; privacy team lead says 'memories are only visible to you'; context collapse problem demonstrated by location inference across unrelated conversations",
+      "status": "live",
+      "source_url": "https://www.axios.com/2025/07/11/chatgpt-memory-update",
+      "sub_theme": "Memory and context infrastructure"
+    },
+    {
+      "name": "Humane AI Pin Shutdown",
+      "what": "AI wearable that promised ambient personal AI context failed on reliability, speed, battery life, and heat; sold to HP after burning $230M",
+      "evidence": "Launched late 2024; discontinued February 2025; sold team and IP to HP for $116M; customers' pins remotely disabled after cloud services shut down; reviews cited unreliable, slow, confusing experience",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2025/12/09/top-ai-startups-that-shut-down-in-2025-what-founders-can-learn/",
+      "sub_theme": "Failed products and lessons"
+    },
+    {
+      "name": "Limitless (Rewind AI) Acquired by Meta",
+      "what": "Personal data recording pendant company acquired by Meta to build 'personal superintelligence' wearables, after pivoting from desktop screen recording",
+      "evidence": "Acquired December 2025; raised $33M+ from a16z, First Round, NEA; $15M at $350M valuation in May 2023 (495x multiple on $707K ARR); pendant sold for $99 with $20/month Pro plan; stopped selling hardware post-acquisition; customers moved to free Unlimited Plan",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Failed products and lessons"
+    },
+    {
+      "name": "2025 AI Startup Shutdown Trends",
+      "what": "The market is aggressively filtering for companies with proprietary data advantage, real unit economics, and deep enterprise integration; thin GPT-wrappers are dying",
+      "evidence": "966 startups shut down in 2024 (25.6% increase from 769 in 2023); 2023-2024 cycle rewarded speed and UX leading to a long tail of thin GPT-wrapper products; 2025 data shows market shifted to require proprietary data advantage and real unit economics",
+      "status": "live",
+      "source_url": "https://simpleclosure.com/blog/posts/state-of-startup-shutdowns-2025/",
+      "sub_theme": "Failed products and lessons"
+    },
+    {
+      "name": "YC S25 Batch AI Concentration",
+      "what": "88% of YC S25 batch (141 of 169 startups) classified as AI-native, with 50%+ building agentic AI, mostly domain-specific copilots rather than general personal AI",
+      "evidence": "Summer 2025; 169 startups total; highest concentration of AI startups in YC history; domain-specific focus: insurance claim appeals, mortgage applications; doubling down on narrow high-impact applications rather than general personal assistants",
+      "status": "live",
+      "source_url": "https://catalaize.substack.com/p/y-combinator-s25-batch-profile-and",
+      "sub_theme": "YC and accelerator landscape"
+    },
+    {
+      "name": "YC W26 Batch AI Agents and Healthcare",
+      "what": "YC W26 batch building infrastructure for AI agents to operate inside companies, with healthcare making up nearly 10% of batch",
+      "evidence": "Winter 2026; nearly 50% of batch identified as AI agent companies; healthcare gaining momentum including wearable technologies and drug discovery; examples include Corvera (CPG operations), Arcline (legal drafting)",
+      "status": "live",
+      "source_url": "https://www.tldl.io/blog/yc-ai-startups-2026",
+      "sub_theme": "YC and accelerator landscape"
+    },
+    {
+      "name": "Vana Protocol",
+      "what": "EVM-compatible Layer 1 blockchain for personal data sovereignty, enabling user-owned AI through private data transactions with DataDAOs",
+      "evidence": "Mainnet launched December 2024; over 12 million data points onboarded through multiple DataDAOs; VRC-20 token standard for data-backed digital assets introduced April 2025; YZi Labs investment with CZ advisory role; VANA trading $8-15 in 2025",
+      "status": "live",
+      "source_url": "https://www.vana.org/",
+      "sub_theme": "Data portability infrastructure"
+    }
+  ],
+  "gaps": [
+    "Specific adoption/usage statistics for Apple Intelligence features are not publicly reported; no data on what percentage of eligible users have enabled on-device AI features",
+    "No specific YC W26 or S25 startups found focused on personal data portability for AI agent context specifically; the intersection of data portability + AI agents appears to be a white space in accelerator batches",
+    "Cost-per-user economics for personal AI context (storage + retrieval + inference) at consumer scale are not well-documented; enterprise RAG costs are published but consumer personal AI unit economics are proprietary",
+    "No survey data found specifically measuring user willingness to share personal data with AI agents (as opposed to AI chatbots or companies generally); the agent-specific trust question appears unstudied",
+    "Personal data store companies (Digi.me, Meeco, MyDex, Solid) have no publicly available user count or revenue figures for 2025-2026, making it impossible to assess actual traction",
+    "No data found on how much personal context is needed before an AI agent becomes meaningfully more useful than a generic one (the minimum viable personalization threshold); the cold start research is theoretical, not empirical from deployed products",
+    "Healthcare personal data + AI agents is notably absent from findings; despite HIPAA and health data being among the most valuable personal data, no specific companies or products were found building personal health data as agent context",
+    "The intersection of MCP protocol adoption and personal data access patterns is undocumented; no data on how many MCP servers handle personal vs. enterprise data",
+    "No specific figures found on how much Google, Apple, or OpenAI spend on personal data storage and processing per user for their AI memory/context features"
+  ]
+}

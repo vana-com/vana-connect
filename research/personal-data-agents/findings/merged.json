@@ -1,0 +1,1719 @@
+{
+  "files_merged": 10,
+  "total_findings": 158,
+  "deduplicated_from": 322,
+  "agent_questions": [
+    "Current autonomous agent duration and reliability benchmarks",
+    "Competitive landscape for reducing human-in-the-loop in coding agents",
+    "Direct research on agent autonomy metrics, memory infrastructure, and personal data context",
+    "Failed personal AI and data-driven assistant products",
+    "Taxonomy of human-in-the-loop interventions in coding agent workflows",
+    "Products combining personal data aggregation with AI agent capabilities",
+    "Missing angles in personal data as agent context research",
+    "Product shapes for generating agent tasks from personal data",
+    "Verification of key numerical claims from wave 1 and wave 2"
+  ],
+  "findings": [
+    {
+      "name": "2025 AI Startup Shutdown Trends",
+      "what": "The market is aggressively filtering for companies with proprietary data advantage, real unit economics, and deep enterprise integration; thin GPT-wrappers are dying",
+      "evidence": "966 startups shut down in 2024 (25.6% increase from 769 in 2023); 2023-2024 cycle rewarded speed and UX leading to a long tail of thin GPT-wrapper products; 2025 data shows market shifted to require proprietary data advantage and real unit economics",
+      "status": "live",
+      "source_urls": [
+        "https://simpleclosure.com/blog/posts/state-of-startup-shutdowns-2025/"
+      ],
+      "sub_theme": "Failed products and lessons",
+      "merged_from": 2
+    },
+    {
+      "name": "Aider",
+      "what": "Open-source CLI AI pair programmer with repository map, automatic context management, and git-native workflow.",
+      "evidence": "39K+ GitHub stars, 4.1M+ installations, 15B tokens processed. 49.2% solve rate on SWE-bench Verified (with Claude 3.5 Sonnet, early 2026). Repository map creates condensed codebase overview. Automatically pulls context from related files. Every AI change gets its own git commit. Connects to 100+ models.",
+      "status": "live",
+      "source_urls": ["https://aider.chat/"],
+      "sub_theme": "CLI-based agent tools",
+      "merged_from": 2
+    },
+    {
+      "name": "Aider - SWE-bench performance (open source)",
+      "what": "Open-source CLI coding agent with published benchmark scores.",
+      "evidence": "Aider achieved 49.2% solve rate on SWE-bench Verified as of March 2026.",
+      "status": "live",
+      "source_urls": [
+        "https://is4.ai/blog/our-blog-1/cline-vs-aider-comparison-2026-313"
+      ],
+      "sub_theme": "Benchmark performance",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic - 2026 Agentic Coding Trends Report",
+      "what": "Report based on Claude Code usage data showing how developer-agent collaboration patterns have changed, including session length, multi-file edits, and autonomy delegation.",
+      "evidence": "78% of Claude Code sessions in Q1 2026 involve multi-file edits, up from 34% in Q1 2025. Average session length increased from 4 minutes (autocomplete era) to 23 minutes (agentic era). Tool calls per session average 47. 99.9th percentile turn duration nearly doubled from <25 min to >45 min between Oct 2025 and Jan 2026. Developer acceptance rate of agent changes is 89% when the agent provides a diff summary vs 62% for raw output. Only 0-20% of tasks can be fully delegated.",
+      "status": "live",
+      "source_urls": [
+        "https://resources.anthropic.com/2026-agentic-coding-trends-report"
+      ],
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic - Constitutional AI",
+      "what": "Research showing how human oversight can be compressed from thousands of individual preference labels to ~10 natural-language principles, with AI self-critique replacing per-instance human review.",
+      "evidence": "Standard RLHF requires tens of thousands of human preference labels. Constitutional AI reduces this to ~10 principles stated in natural language. The model self-critiques and revises its own outputs, then an AI preference model replaces human labelers in the RL phase. Constitutional RL produces Pareto improvements over RLHF (both more helpful and more harmless). Published December 2022.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2212.08073"],
+      "sub_theme": "Alignment: replacing human feedback with structured knowledge",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic - Effective Harnesses for Long-Running Agents",
+      "what": "Anthropic engineering blog on the core challenge of multi-context-window agent sessions spanning hours or days.",
+      "evidence": "Long-running agents must work in discrete sessions, each starting with no memory of prior work. Context windows are limited, so agents need bridging mechanisms (e.g., claude-progress.txt + git history). Even frontier models like Opus 4.5 running in a loop across multiple context windows fail to build production-quality apps from high-level prompts alone, tending to attempt too much at once. The harness pattern uses different prompts for the first context window vs. subsequent ones.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+      ],
+      "sub_theme": "Autonomy duration and trust metrics",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic - Measuring Agent Autonomy (Claude Code telemetry)",
+      "what": "Anthropic analyzed millions of Claude Code interactions to measure how long agents operate autonomously and how user trust evolves.",
+      "evidence": "Between Oct 2025 and Jan 2026, the 99.9th percentile turn duration nearly doubled from under 25 minutes to over 45 minutes. Median turn duration remained ~45 seconds (fluctuating 40-55s). Users with <50 sessions use full auto-approve ~20% of the time; by 750 sessions this rises to >40%. Experienced users interrupt Claude more often, not less, reflecting a shift from pre-approval to autonomous-with-intervention oversight. Software engineering accounts for ~50% of all agentic tool calls on the API. Only 0.8% of all actions are irreversible.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/research/measuring-agent-autonomy"
+      ],
+      "sub_theme": "Autonomy duration and trust metrics",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic - Measuring Agent Autonomy in Practice",
+      "what": "Anthropic analyzed millions of Claude Code interactions to categorize autonomy patterns, interruption types, and how human oversight behavior evolves with experience.",
+      "evidence": "Newer users (<50 sessions) auto-approve ~20% of sessions; by 750 sessions this rises to >40%. Interruption rate increases from ~5% of work steps for new users to ~9% for experienced ones. On complex tasks, Claude self-stops for clarification >2x as often as humans interrupt it. 80% of tool calls come from agents with at least one safeguard in place. 73% of actions appear to have a human in the loop. Only 0.8% of actions are irreversible. Published February 2026.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/research/measuring-agent-autonomy"
+      ],
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic agent autonomy metrics",
+      "what": "Verified: 99.9th percentile turn duration doubled (25 min to 45 min). Interventions decreased from 5.4 to 3.3.",
+      "evidence": "From Anthropic's own research publication. Auto-approve rates climb from 20% to 40%+.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/research/measuring-agent-autonomy"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic Agentic Coding Trends 2026",
+      "what": "Comprehensive report on how coding agents are reshaping software development",
+      "evidence": "Documents the shift from autocomplete to agentic coding. Average session 23 minutes. Background tasks, sub-agents, and hooks as autonomy mechanisms.",
+      "status": "live",
+      "source_urls": [
+        "https://resources.anthropic.com/hubfs/2026%20Agentic%20Coding%20Trends%20Report.pdf"
+      ],
+      "sub_theme": "Industry Reports",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic Claude Code",
+      "what": "CLI-based autonomous coding agent with hooks, CLAUDE.md context files, memory system, and agent SDK.",
+      "evidence": "$2.5B ARR as of February 2026, reached in ~9 months from public launch (May 2025). Anthropic overall at $19B ARR in March 2026 ($380B valuation, $30B Series G). Uses 6-layer memory system loaded at session start. Hooks provide deterministic lifecycle control (session start, prompt submit). CLAUDE.md files provide static per-project context. Agent SDK powers the same execution loop externally.",
+      "status": "live",
+      "source_urls": [
+        "https://www.uncoveralpha.com/p/anthropics-claude-code-is-having"
+      ],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic Claude Memory (Markdown-based)",
+      "what": "Anthropic chose transparent file-based memory (CLAUDE.md files) over vector databases, now available for Pro, Max, Team, and Enterprise users",
+      "evidence": "Launched September 2025 for Team/Enterprise; expanded to Pro and Max; 1M token context window generally available for Opus 4.6 and Sonnet 4.6; MCP protocol enables connections to Google Drive, Slack, GitHub, Postgres; Desktop Extensions for one-click MCP server installation",
+      "status": "live",
+      "source_urls": [
+        "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      ],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Anthropic Measuring Agent Autonomy",
+      "what": "Anthropic published real-world data on Claude Code autonomous operation duration and intervention frequency",
+      "evidence": "Between Oct 2025 and Jan 2026, 99.9th percentile turn duration nearly doubled from under 25 min to over 45 min. Average human interventions per session decreased from 5.4 to 3.3. Success rate on challenging tasks doubled.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/research/measuring-agent-autonomy"
+      ],
+      "sub_theme": "Autonomous Agent Duration",
+      "merged_from": 2
+    },
+    {
+      "name": "Apple Intelligence (Personal Context)",
+      "what": "Apple's on-device AI system that was supposed to give Siri access to emails, messages, photos, and personal data for contextual assistance, but has been repeatedly delayed.",
+      "evidence": "Announced WWDC 2024. Personal context features (Siri accessing emails, photos, messages, form-filling from driver's license photos, etc.) delayed from 2025 to spring 2026. Craig Federighi stated: 'when it comes to automating capabilities on devices in a reliable way, no one's doing it really well right now.' On-device model is ~3B parameters on Apple Silicon. As of Feb 2026, 'Siri testing isn't going well' per AppleInsider; features may slip past iOS 26.4. Apple has ~2.2B active devices that would receive this.",
+      "status": "announced",
+      "source_urls": [
+        "https://www.cnbc.com/2025/03/07/apple-delays-siri-ai-improvements-to-2026.html"
+      ],
+      "sub_theme": "Platform-native personal AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Apple Intelligence On-Device Foundation Models",
+      "what": "Apple deployed a ~3B parameter on-device model on Apple silicon, enabling AI features without sending user data to external servers, with zero API costs for developers",
+      "evidence": "Supports 16 languages (expanded from English-only); Foundation Models framework gives developers direct access at zero inference cost; 2.3 billion active Apple devices in 2025; Siri overhaul expected spring 2026 with multi-step task capability",
+      "status": "live",
+      "source_urls": [
+        "https://machinelearning.apple.com/research/apple-foundation-models-2025-updates"
+      ],
+      "sub_theme": "On-device personal AI",
+      "merged_from": 2
+    },
+    {
+      "name": "ARF Data Sharing Trust Study",
+      "what": "Trust in AI surged 16 points in 2025 but consumers take an increasingly transactional view of data sharing, demanding clear value exchange",
+      "evidence": "Nearly 60% of consumers willing to share data for personalized shopping recommendations; willingness varies sharply by context; only 19% trust AI in finance",
+      "status": "live",
+      "source_urls": [
+        "https://www.prnewswire.com/news-releases/trust-in-ai-surges-as-consumers-take-a-more-transactional-view-of-data-sharing-arf-study-finds-302667046.html"
+      ],
+      "sub_theme": "Trust and adoption curve",
+      "merged_from": 2
+    },
+    {
+      "name": "Atlassian HULA - Challenges and Future Directions",
+      "what": "Follow-up paper identifying two major HITL challenges: high computational costs of unit testing for validation and variability in LLM-based code quality evaluation.",
+      "evidence": "Presented at MSR 2025 Industry Track. Highlights that human review remains necessary because automated evaluation (unit tests + GPT-based similarity scoring) is inconsistent and expensive. Suggests the human-in-the-loop burden cannot be eliminated purely by adding automated checks.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2506.11009"],
+      "sub_theme": "Taxonomy: staged intervention points in development pipelines",
+      "merged_from": 2
+    },
+    {
+      "name": "Atlassian HULA Framework",
+      "what": "Human-in-the-Loop LLM-based Agents framework deployed at Atlassian for Jira issue resolution, with measured rates of human intervention at each stage of the coding pipeline.",
+      "evidence": "Deployed to 2,600 practitioners by Sept 2024 across 22,000+ eligible issues. Engineers used HULA on 663 work items in 2 months. Plan generation succeeded for 79% of items. Plan approval rate by humans: 82% (433/527). Code generated for 87% of approved plans. 25% reached pull request stage. 59% of generated PRs merged. ~900 total PRs merged. Unit test pass rate: 31% on SWE-bench. Code rated highly similar to human code in 45% of cases. Published November 2024.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2411.12924"],
+      "sub_theme": "Taxonomy: staged intervention points in development pipelines",
+      "merged_from": 2
+    },
+    {
+      "name": "Augment Code",
+      "what": "Enterprise AI coding platform focused on understanding large codebases, backed by Eric Schmidt.",
+      "evidence": "$252M raised at $977M valuation (Apr 2024). 188 employees as of Feb 2026. Backed by Eric Schmidt, Index Ventures, Sutter Hill, Lightspeed. Ranks 3rd among 144 active competitors by total funding. No new public funding rounds in 2025-2026.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2024/04/24/eric-schmidt-backed-augment-a-github-copilot-rival-launches-out-of-stealth-with-252m/"
+      ],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "Autonomous Agent Reliability Gap",
+      "what": "Compound failure rates and trust deficits remain the core barrier to reducing human-in-the-loop.",
+      "evidence": "At 85% per-action accuracy, a 10-step workflow succeeds only 20% of the time. 46% of developers actively distrust AI code accuracy, only 3% highly trust it. 66% say top frustration is 'almost right, but not quite'. 99% of enterprise devs experimented with agents in 2025 but mass adoption did not materialize. Merged PRs correlate with small, localized changes; failed PRs are invasive and sprawling.",
+      "status": "live",
+      "source_urls": [
+        "https://medium.com/@vivek.babu/where-autonomous-coding-agents-fail-a-forensic-audit-of-real-world-prs-59d66e33efe9"
+      ],
+      "sub_theme": "Benchmarks and limitations",
+      "merged_from": 2
+    },
+    {
+      "name": "Builder.ai (Natasha)",
+      "what": "AI assistant 'Natasha' that promised anyone could build apps without code, backed by Microsoft and Qatar's sovereign wealth fund.",
+      "evidence": "Raised $445M total including $250M Series D. Valued at $1.2B. Filed for bankruptcy May 2025. Investigation revealed ~700 human engineers in India did most of the work, not AI. Claimed $220M in 2024 revenue; independent audit found ~$50M. Creditor Viola Credit seized $37M triggering insolvency.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techstartups.com/2025/05/24/builder-ai-a-microsoft-backed-ai-startup-once-valued-at-1-2-billion-files-for-bankruptcy-is-ai-becoming-another-com-bubble/"
+      ],
+      "sub_theme": "Human-in-the-loop AI assistants",
+      "merged_from": 2
+    },
+    {
+      "name": "ByteBridge - From Human-in-the-Loop to Human-on-the-Loop",
+      "what": "Analysis of the transition from per-action approval (HITL) to exception-based oversight (HOTL), where agents run autonomously by default and humans intervene only on anomalies.",
+      "evidence": "HITL: human must review and approve before each action. HOTL: agents autonomous by default, human oversight available when it counts. Moving to HOTL doesn't mean abandoning HITL; it means using HITL strategically with optional interventions on demand. Published January 2026.",
+      "status": "live",
+      "source_urls": [
+        "https://bytebridge.medium.com/from-human-in-the-loop-to-human-on-the-loop-evolving-ai-agent-autonomy-c0ae62c3bf91"
+      ],
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift",
+      "merged_from": 2
+    },
+    {
+      "name": "CCPA Automated Decision-Making Regulations",
+      "what": "California finalized CCPA regulations specifically addressing automated decision-making technology (ADMT), creating new compliance requirements for AI agents processing personal data",
+      "evidence": "Approved September 22, 2025; compliance required from January 1, 2026 for some provisions, January 1, 2027 for ADMT consumer rights; CPPA issued over $100 million in enforcement actions in 2024; ADMT broadly defined as any technology that processes personal information to replace or substantially replace human decision-making",
+      "status": "live",
+      "source_urls": [
+        "https://www.wiley.law/alert-California-Finalizes-Pivotal-CCPA-Regulations-on-AI-Cyber-Audits-and-Risk-Governance"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Agent Connectors",
+      "what": "ChatGPT's built-in connectors for email, calendar, and task management with autonomous scheduling",
+      "evidence": "Can summarize inbox, find meeting availability, schedule recurring tasks (e.g. weekly metrics reports every Monday). Connectors authenticated per user.",
+      "status": "live",
+      "source_urls": ["https://openai.com/index/introducing-chatgpt-agent/"],
+      "sub_theme": "Daily Briefing / Task Generation Products",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Connectors (data integration layer)",
+      "what": "First-party integrations that let ChatGPT read from Gmail, Google Drive, SharePoint, Dropbox, Box, GitHub, Linear, HubSpot, and more, with synced indexing for some sources.",
+      "evidence": "Google Drive uses synced connector that indexes content in advance for fast retrieval. Most connectors are read-only; actions beyond reading require explicit user confirmation. Available to Team, Enterprise, and Edu plans, not free tier.",
+      "status": "live",
+      "source_urls": [
+        "https://help.openai.com/en/articles/11487775-connectors-in-chatgpt"
+      ],
+      "sub_theme": "LLM platforms with personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Full Chat History Memory",
+      "what": "OpenAI expanded ChatGPT memory to reference all past chats, not just explicit memories, creating de facto personal data dossier",
+      "evidence": "April 2025: memory can reference all past chats; June 2025: rolled out to free users; Incognito mode available for all; privacy team lead says 'memories are only visible to you'; context collapse problem demonstrated by location inference across unrelated conversations",
+      "status": "live",
+      "source_urls": ["https://www.axios.com/2025/07/11/chatgpt-memory-update"],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Memory + Connectors",
+      "what": "OpenAI's ChatGPT retains persistent facts across conversations and now connects to Gmail, Google Drive, GitHub, Outlook, and other services for real-time personal context.",
+      "evidence": "800M+ weekly active users as of Sep 2025. $13B ARR as of Aug 2025. Memory launched Feb 2024; expanded Apr 2025 to reference all past conversations (not just saved memories). Free users get short-term continuity; Plus/Pro get long-term memory. Connectors (Gmail, Google Calendar, Google Drive, GitHub, Outlook, Teams, etc.) available to Team/Enterprise/Edu plans. MCP-based partner connectors (Stripe, Amplitude, Monday.com, etc.) launched 2025. 5M paying business users as of Aug 2025.",
+      "status": "live",
+      "source_urls": [
+        "https://openai.com/index/memory-and-new-controls-for-chatgpt/"
+      ],
+      "sub_theme": "LLM platforms with personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Pulse",
+      "what": "OpenAI's proactive daily briefing feature that researches overnight based on user memory and chat history, delivering personalized morning updates without a prompt.",
+      "evidence": "Launched September 25, 2025 as early preview for Pro users on iOS and Android. Synthesizes information from user memory, chat history, and direct feedback. Shelved in December 2025 when CEO Sam Altman issued 'Code Red' to refocus on core ChatGPT improvements amid competitive pressure.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techcrunch.com/2025/09/25/openai-launches-chatgpt-pulse-to-proactively-write-you-morning-briefs/"
+      ],
+      "sub_theme": "Platform-native scheduled agents",
+      "merged_from": 2
+    },
+    {
+      "name": "ChatGPT Scheduled Tasks",
+      "what": "OpenAI's built-in feature for scheduling recurring prompts that execute at predetermined times (daily, weekly, monthly) and deliver results via push notification or email.",
+      "evidence": "Launched January 2025 in beta for Plus, Pro, and Teams plans. Limit of 10 active tasks at a time. Tasks run independently of whether the user is online. Available on web, Android, iOS, macOS. Still in beta as of 2026.",
+      "status": "live",
+      "source_urls": [
+        "https://help.openai.com/en/articles/10291617-scheduled-tasks-in-chatgpt"
+      ],
+      "sub_theme": "Platform-native scheduled agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Claude Code $2.5B ARR",
+      "what": "Verified: Claude Code run-rate revenue above $2.5B, accounts for over half of Anthropic enterprise spending",
+      "evidence": "Confirmed by multiple sources. Anthropic at $14B total ARR. Claude Code reached $1B ARR within 6 months of May 2025 launch. $30B Series G at $380B valuation (Feb 2026).",
+      "status": "live",
+      "source_urls": [
+        "https://www.saastr.com/anthropic-just-hit-14-billion-in-arr-up-from-1-billion-just-14-months-ago/"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Claude Code - Sub-agent and background task architecture",
+      "what": "Claude Code supports parallel sub-agents and background tasks but with significant isolation constraints.",
+      "evidence": "Sub-agents work in isolation with their own context windows and no direct awareness of other sub-agents. They cannot collaborate in real-time; the main agent must wait for all reports before synthesizing. Sub-agents have temporary context windows and cannot ask clarifying questions. Background tasks (Ctrl+B) keep long-running processes active without blocking the main session. Sustained multi-day autonomy on real codebases is described as 'not a solved problem' due to context limitations and brittleness.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/news/enabling-claude-code-to-work-more-autonomously"
+      ],
+      "sub_theme": "Agent architecture and limitations",
+      "merged_from": 2
+    },
+    {
+      "name": "Claude Code Action (GitHub)",
+      "what": "Anthropic's GitHub Action that responds to @claude mentions, issue assignments, and PR comments to implement code changes and answer questions.",
+      "evidence": "Available on GitHub as of February 2026 via Agent HQ for Copilot Pro+ and Enterprise customers. Can commit code and comment on pull requests. Intelligently detects when to activate based on workflow context.",
+      "status": "live",
+      "source_urls": ["https://github.com/anthropics/claude-code-action"],
+      "sub_theme": "Autonomous coding agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Claude Opus 4.6 - SWE-bench Verified",
+      "what": "Latest Claude model achieves top-tier autonomous coding benchmark scores.",
+      "evidence": "Opus 4.6 reached 81.42% on SWE-bench Verified (with prompt modification). Opus 4.5 scored 80.9%. Sonnet 4.5 scored 77.2%, up from Sonnet 4's 72.7%. Note: OpenAI has stopped reporting Verified scores after finding training data contamination across all frontier models, recommending SWE-Bench Pro instead.",
+      "status": "live",
+      "source_urls": ["https://www.anthropic.com/research/swe-bench-sonnet"],
+      "sub_theme": "Benchmark performance",
+      "merged_from": 2
+    },
+    {
+      "name": "Claude Opus 4.6 Task Horizon",
+      "what": "Claude Opus 4.6 crossed a full work-day task horizon at 14.5 hours",
+      "evidence": "50% time horizon of approximately 14.5 hours (doubling every 123 days). Claude Opus 4.5 was at 4 hours 49 minutes. Average session length increased from 4 minutes (autocomplete era) to 23 minutes (agentic era).",
+      "status": "live",
+      "source_urls": [
+        "https://getbeam.dev/blog/anthropic-agentic-coding-trends-2026.html"
+      ],
+      "sub_theme": "Autonomous Agent Duration",
+      "merged_from": 2
+    },
+    {
+      "name": "Cline",
+      "what": "Open-source autonomous coding agent VS Code extension with Plan/Act modes and MCP integration.",
+      "evidence": "5M+ developers. $32M Series A (Jul 2025) from Emergence Capital. Founded 2024 by Saoud Rizwan. Samsung beta-testing for Device eXperience division. Free and open-source, requires external API keys. Only fully open-source, local-first agent purpose-built for production development.",
+      "status": "live",
+      "source_urls": ["https://cline.bot/"],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition (Devin + Windsurf)",
+      "what": "Autonomous coding agent that handles full project lifecycle in a secure sandbox, plus IDE-based coding via acquired Windsurf.",
+      "evidence": "$10.2B valuation, $400M+ raised (Founders Fund led). ARR grew from $1M (Sep 2024) to $73M (Jun 2025). Windsurf acquisition (Jul 2025) more than doubled ARR. Total net burn under $20M across company history. Enterprise customers: Goldman Sachs, Citi, Dell, Cisco, Palantir. Devin Wiki and Devin Search added for codebase understanding. Multi-agent dispatch capability added early 2025.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/"
+      ],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition (Devin) - Funding and Scale",
+      "what": "Cognition's financial trajectory provides context for the market size of human-in-the-loop coding agent products.",
+      "evidence": "$10.2B valuation as of September 2025. $400M raise led by Founders Fund. ARR grew from $1M (Sept 2024) to $73M (June 2025). Combined ARR ~$150M after Windsurf acquisition. Net burn under $20M since founding. Usage-based pricing via Agent Compute Units (ACUs).",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/"
+      ],
+      "sub_theme": "Market context",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition Devin - 2025 Performance Review",
+      "what": "Cognition published Devin's annual performance data showing PR merge rates as a proxy for how often human reviewers accept or reject autonomous agent work.",
+      "evidence": "PR merge rate doubled from 34% to 67% year-over-year. Devin merged hundreds of thousands of PRs total. 4x faster at problem-solving, 2x more efficient in resource consumption vs prior year. Described as 'senior-level at codebase understanding but junior at execution.' Customers include Goldman Sachs, Citi, Santander, Nubank. 33% of PRs are still rejected by human reviewers.",
+      "status": "live",
+      "source_urls": [
+        "https://cognition.ai/blog/devin-annual-performance-review-2025"
+      ],
+      "sub_theme": "Error correction: human as quality gate",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition Labs (Devin)",
+      "what": "Autonomous coding agent with $10.2B valuation and $73M ARR",
+      "evidence": "Raised $400M in Sept 2025 at $10.2B valuation. ARR grew from $1M (Sept 2024) to $73M (June 2025). Acquired Windsurf, combined ARR ~$155M. Customers include Goldman Sachs, Cisco, Palantir.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/"
+      ],
+      "sub_theme": "Autonomous Agent Companies",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition Labs (Devin) - Real-world task completion",
+      "what": "First marketed 'AI software engineer' with widely scrutinized real-world completion rates.",
+      "evidence": "Original Devin resolved 13.86% of real GitHub issues on SWE-bench (7x improvement over prior 1.96% baseline). Independent testing showed 15-30% success rates in practice. Devin 2.0 (April 2025) claimed 83% more junior-level tasks per compute unit vs. 1.x. Pricing dropped from $500/month to $20/month. Cognition hit $155M ARR in July 2025 ($73M from Devin, $82M from acquired Windsurf). Raised ~$696M total, valued at $10.2B as of Sept 2025. Goldman Sachs piloted Devin alongside 12,000 developers, reporting 20% efficiency gains.",
+      "status": "live",
+      "source_urls": [
+        "https://cognition.ai/blog/funding-growth-and-the-next-frontier-of-ai-coding-agents"
+      ],
+      "sub_theme": "Autonomous coding products",
+      "merged_from": 2
+    },
+    {
+      "name": "Cognition/Devin $10.2B valuation",
+      "what": "Verified: $400M raise at $10.2B valuation (Sept 2025). ARR $73M growing to ~$155M with Windsurf.",
+      "evidence": "Confirmed by CNBC, TechCrunch. Net burn under $20M total. Triple-digit YoY growth.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Cold Start Personalization Research",
+      "what": "A single AI task can involve 20-30 preference dimensions but individual users care about only 2-4, making cold start a navigation problem in high-dimensional space",
+      "evidence": "February 2025 arxiv paper; with a limited interaction budget, the assistant cannot ask about all dimensions and must find the sparse subset relevant to each user within a handful of questions; strategies include onboarding elicitation, leveraging existing data (e.g., loyalty card history), and real-time streaming updates that turn cold start into a short-term condition",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/html/2602.15012"],
+      "sub_theme": "Cold start problem",
+      "merged_from": 2
+    },
+    {
+      "name": "Compounding error rate in multi-step agent workflows",
+      "what": "Research on why per-step accuracy is misleading for autonomous agent reliability.",
+      "evidence": "If an AI agent achieves 85% accuracy per action, a 10-step workflow only succeeds about 20% of the time (0.85^10 = 0.197). Graham Neubig found agents autonomously solve 30-40% of tasks without human intervention, with performance dropping sharply in domains requiring broader context: administrative work (0% success), financial analysis (8.3% success).",
+      "status": "live",
+      "source_urls": [
+        "https://firstpagesage.com/seo-blog/agentic-ai-statistics/"
+      ],
+      "sub_theme": "Academic research on agent effectiveness",
+      "merged_from": 2
+    },
+    {
+      "name": "Context7 (Upstash)",
+      "what": "MCP server that injects live, up-to-date library documentation into AI coding assistants' context windows.",
+      "evidence": "9,000+ libraries and frameworks indexed. Two core tools: resolve-library-id and query-docs. Integrates with Cursor, VS Code, Claude Code. Built by Upstash. CLI + Skills mode (no MCP required) or MCP mode. Solves the stale training data problem for library APIs.",
+      "status": "live",
+      "source_urls": ["https://upstash.com/blog/context7-llmtxt-cursor"],
+      "sub_theme": "Code intelligence platforms",
+      "merged_from": 2
+    },
+    {
+      "name": "CoPrompter (ACM IUI 2025)",
+      "what": "Framework that makes prompt-to-output alignment measurable by generating evaluation criteria from prompt requirements and letting users score outputs against a checklist.",
+      "evidence": "Generates evaluation criteria questions from prompt requirements. Users edit checklist to define alignment. Addresses the problem that prompt engineers cannot identify all points of misalignment through manual inspection alone. Published 2025.",
+      "status": "live",
+      "source_urls": ["https://dl.acm.org/doi/10.1145/3708359.3712102"],
+      "sub_theme": "Prompt engineering as human-in-the-loop",
+      "merged_from": 2
+    },
+    {
+      "name": "CrewAI",
+      "what": "Multi-agent automation platform for enterprises with structured role-based memory and RAG support.",
+      "evidence": "$18M total raised (Series A $12.5M, Oct 2024, led by Insight Partners). $3.2M revenue as of Jul 2025. Backed by Andrew Ng and Dharmesh Shah (HubSpot). Natively integrates Mem0 for memory. Fastest-growing multi-agent framework by adoption.",
+      "status": "live",
+      "source_urls": [
+        "https://siliconangle.com/2024/10/22/agentic-ai-startup-crewai-closes-18m-funding-round/"
+      ],
+      "sub_theme": "Multi-agent frameworks",
+      "merged_from": 2
+    },
+    {
+      "name": "Cursor $29.3B valuation",
+      "what": "Verified: Cursor raised $2.3B Series D at $29.3B valuation (Nov 2025). Now in talks for $50B round.",
+      "evidence": "Confirmed by CNBC, BusinessWire, TechCrunch. ARR crossed $2B as of March 2026. $1B ARR in 24 months. $1.2B ARR in 2025 per Sacra.",
+      "status": "live",
+      "source_urls": [
+        "https://www.cnbc.com/2025/11/13/cursor-ai-startup-funding-round-valuation.html"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Cursor (Anysphere)",
+      "what": "AI-native code editor with codebase indexing, .cursorrules context, and cloud-based autonomous agents.",
+      "evidence": "$29.3B valuation, $3.4B total raised across 7 rounds. $1.2B ARR in 2025 (1,100% YoY growth from $100M). 1M+ daily active users, 360K paying customers. Indexes entire codebase with custom embedding model. .cursorrules file provides standing instructions for AI. Cloud Agents (new 2026) run autonomously on Cursor infrastructure, startable from browser/phone/Slack.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/06/05/cursors-anysphere-nabs-9-9b-valuation-soars-past-500m-arr/"
+      ],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "Cursor (Anysphere) - RL-based Suggestion Filtering",
+      "what": "Cursor uses real-time reinforcement learning on user accept/reject signals to learn when to suggest and when to stay silent, directly encoding human intervention patterns into the model.",
+      "evidence": "Upgraded Tab model produces 21% fewer suggestions but 28% higher acceptance rate. Model receives reward on accept, penalty on reject, nothing on silence. Uses on-policy data from currently-deployed model, retraining multiple times per day. $1B+ ARR as of Nov 2025. $29.3B valuation. 1M+ daily active users (Dec 2025). 9,900% YoY ARR growth.",
+      "status": "live",
+      "source_urls": [
+        "https://analyticsindiamag.com/ai-news-updates/cursor-is-using-real-time-reinforcement-learning-to-improve-suggestions-for-developers/"
+      ],
+      "sub_theme": "Alignment: replacing human feedback with structured knowledge",
+      "merged_from": 2
+    },
+    {
+      "name": "Cursor (Anysphere) Codebase Context at Scale",
+      "what": "AI code editor demonstrating the economics of personal codebase context: $500M ARR, 1M+ daily active users, $20-200/month tiers",
+      "evidence": "Over 1 million daily active users as of December 2025; $500M ARR within 2.5 years; valued at $29.3B; raised $3.4B across 7 funding rounds; RAG-based system analyzes entire codebase for context; Pro tier $20/month, Ultra tier $200/month for 20x usage",
+      "status": "live",
+      "source_urls": ["https://research.contrary.com/company/cursor"],
+      "sub_theme": "Economics of personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "Data Monetization Market",
+      "what": "Global data monetization market valued at $3.75B in 2024, projected to reach $28.16B by 2033",
+      "evidence": "CAGR of 25.1%; North America 41.21% market share in 2024; 30% of large organizations expected to directly monetize data externally by 2025; 60% of companies cite compliance concerns as primary barrier; organizations commercializing data via APIs report recurring revenue growth exceeding 20% annually",
+      "status": "live",
+      "source_urls": [
+        "https://www.grandviewresearch.com/industry-analysis/data-monetization-market"
+      ],
+      "sub_theme": "Economics of personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "Data Transfer Initiative (DTI)",
+      "what": "Independent nonprofit (spun out of Google's Data Transfer Project in 2022) with Apple, Google, and Meta as founding partners, building open-source data portability infrastructure",
+      "evidence": "Apple and Google expanded direct photo/video transfer between Google Photos and iCloud Photos; EU DMA designates iOS and Android as services obligated to facilitate effective data portability; Apple and Google announced OS-level switching collaboration in late 2025",
+      "status": "live",
+      "source_urls": [
+        "https://dtinit.org/blog/2024/07/10/DTI-members-new-photo-video-tool"
+      ],
+      "sub_theme": "Data portability infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Dependabot",
+      "what": "GitHub's built-in automated dependency update tool that creates pull requests for outdated or vulnerable dependencies without human prompting.",
+      "evidence": "846,000+ repositories with Dependabot configured (2025 GitHub Octoverse report). 137% year-over-year adoption growth. Supports 30+ ecosystems (npm, pip, Maven, Docker, Go, Terraform, GitHub Actions, pnpm, Bun, Helm, Swift, etc.). Free for all GitHub repositories. More than 75% reduction in remediation time for code maintenance tasks.",
+      "status": "live",
+      "source_urls": ["https://docs.renovatebot.com/bot-comparison/"],
+      "sub_theme": "Automated maintenance (agent without prompting)",
+      "merged_from": 2
+    },
+    {
+      "name": "Devin (Cognition Labs)",
+      "what": "Autonomous AI software developer that completes development tasks end-to-end, from understanding codebases to writing and testing code.",
+      "evidence": "$155M+ ARR, growing from $1M in September 2024 to ~$73M by June 2025. $10.2B valuation after $400M Series C in late 2025. Acquired Windsurf (tens of millions ARR, hundreds of enterprise customers) in July 2025. Key customers include Goldman Sachs, Palantir, Cisco, Mercado Libre. Devin 2.0 (April 2025) dropped pricing from $500/month to $20/month Core plan.",
+      "status": "live",
+      "source_urls": [
+        "https://cognition.ai/blog/devin-annual-performance-review-2025"
+      ],
+      "sub_theme": "Autonomous coding agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Devin - Task-Specific Performance (Independent Tests)",
+      "what": "Independent testing reveals that Devin's success rate varies dramatically by task type, with routine tasks succeeding far more often than complex ones.",
+      "evidence": "SWE-bench: solved 13.86% of issues end-to-end. Complex real-world tasks: ~15% completion without human assistance. Security vulnerability fixes: 1.5 min vs 30 min for humans (20x). File migrations: 3-4 hours vs 30-40 hours for humans (10x). The gap between routine and complex task completion rates explains why human oversight remains critical.",
+      "status": "live",
+      "source_urls": ["https://trickle.so/blog/devin-ai-review"],
+      "sub_theme": "Error correction: human as quality gate",
+      "merged_from": 2
+    },
+    {
+      "name": "Digi.me / Meeco / MyDex Personal Data Stores",
+      "what": "First-generation personal data vault companies offering encrypted user-controlled storage with selective sharing",
+      "evidence": "Digi.me: end-to-end encrypted vault for financial, fitness, medical data; Meeco: ISO 27001 accredited, Zero Knowledge Value architecture, pioneering since 2012; MyDex: CIC (Community Interest Company) focused on health conditions and identity; all remain small-scale with limited consumer adoption after years of operation",
+      "status": "live",
+      "source_urls": ["https://pmc.ncbi.nlm.nih.gov/articles/PMC9921726/"],
+      "sub_theme": "Data portability infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Dust.tt",
+      "what": "Enterprise AI agent platform using Claude and MCP protocol to create specialized agents connected to company knowledge and business applications.",
+      "evidence": "Raised $21.5M total ($16M Series A led by Sequoia Capital). Hit $6M ARR by Dec 2025. Uses Anthropic Claude models + MCP protocol. MCP integrations with Asana, Jira, GitHub, Google Drive, Gong, Gmail, Google Calendar, Salesforce, HubSpot, Notion. 2026 vision: multi-player agents where teams share context with AI teammates, infrastructure for managing thousands of agents.",
+      "status": "live",
+      "source_urls": [
+        "https://venturebeat.com/ai/dust-hits-6m-arr-helping-enterprises-build-ai-agents-that-actually-do-stuff-instead-of-just-talking"
+      ],
+      "sub_theme": "Enterprise knowledge + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Dust.tt Enterprise AI Agents",
+      "what": "Enterprise AI agent platform connecting to company data (Notion, Google Drive, Slack, Intercom) for contextual assistance",
+      "evidence": "Founded by ex-Stripe acquisition founders; $21.5M raised including $16M Series A led by Sequoia; $7.3M ARR as of mid-2025 with 66-person team; 80,000 agents created, 12 million conversations in 2025; customers like Clay, Qonto achieve 70%+ weekly AI adoption rates",
+      "status": "live",
+      "source_urls": ["https://dust.tt/blog/dust-wrapped-2025"],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "EDPB LLM Anonymization Report",
+      "what": "European Data Protection Board clarified that large language models rarely achieve anonymization standards",
+      "evidence": "April 2025 report; controllers deploying third-party LLMs must conduct comprehensive legitimate interests assessments; undermines the argument that LLM training anonymizes personal data",
+      "status": "live",
+      "source_urls": [
+        "https://www.dpocentre.com/data-protection-ai-governance-2025-2026/"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "Enterprise agent adoption reality check (2025)",
+      "what": "Despite universal experimentation, mass autonomous agent adoption did not materialize in 2025.",
+      "evidence": "Nearly 99% of enterprise developers experimented with AI agents in 2025, but mass adoption never materialized. Bounded scope, human oversight, and specific workflows showed the most pragmatic results. The current practical sweet spot is Level 3-4: supervised autonomy where you provide goals and guardrails, the agent executes independently, and you approve/reject at decision points.",
+      "status": "live",
+      "source_urls": [
+        "https://firstpagesage.com/seo-blog/agentic-ai-statistics/"
+      ],
+      "sub_theme": "Industry adoption reality",
+      "merged_from": 2
+    },
+    {
+      "name": "EU AI Act High-Risk Deadline August 2026",
+      "what": "Full enforcement of high-risk AI system requirements under EU AI Act Annex III takes effect August 2, 2026, with penalties up to 35M EUR or 7% of global turnover",
+      "evidence": "Requires conformity assessments, technical documentation, CE marking, EU database registration; specific attention to data minimization in large-scale ingestion models, purpose limitation across agentic workflows, transparency in conversational interfaces, accuracy in real-time data synthesis",
+      "status": "announced",
+      "source_urls": [
+        "https://www.legalnodes.com/article/eu-ai-act-2026-updates-compliance-requirements-and-business-risks"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "Facebook M",
+      "what": "Human-assisted AI assistant inside Facebook Messenger that could complete arbitrary tasks like restaurant reservations and shopping.",
+      "evidence": "Launched August 2015 to ~2,000 users in California. Never scaled beyond ~10,000 test users. Over 70% of requests required human operators ('M trainers'). Scaling to Messenger's 1.3B users would have required prohibitively large human workforce. Shut down January 2018 after ~2.5 years.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techcrunch.com/2018/01/08/facebook-is-shutting-down-its-standalone-personal-assistant-m/"
+      ],
+      "sub_theme": "Human-in-the-loop AI assistants",
+      "merged_from": 2
+    },
+    {
+      "name": "Forward Health (CarePods)",
+      "what": "AI-powered autonomous medical kiosks ('CarePods') for self-service primary care.",
+      "evidence": "Raised ~$400M+ (some sources say up to $657M including debt). Planned 3,200 CarePods in 2024; launched only 3, one removed shortly after. Blood draws frequently failed. Patients got stuck inside pods. Revenue under $100M since founding (2016). Shut down all operations November 2024.",
+      "status": "shut down",
+      "source_urls": [
+        "https://www.fiercehealthcare.com/health-tech/primary-care-player-forward-shutters-after-raising-400m-rolling-out-carepods"
+      ],
+      "sub_theme": "Autonomous AI agents in physical world",
+      "merged_from": 2
+    },
+    {
+      "name": "From Prompt Engineering to Prompt Science (ACM / arXiv)",
+      "what": "Research framing prompt engineering as a human-in-the-loop alignment problem, where humans iteratively correct AI misalignment through prompt refinement rather than model retraining.",
+      "evidence": "Identifies four causes of misalignment: unpredictability, lack of transparency, value misalignment, and inherent complexity. Notes alignment is bi-directional (AI to human AND human to AI). A user's definition of alignment evolves over time as they discover new requirements. Proposes multi-phase verification as a systematic replacement for ad-hoc prompt tweaking. Published January 2024.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2401.04122"],
+      "sub_theme": "Prompt engineering as human-in-the-loop",
+      "merged_from": 2
+    },
+    {
+      "name": "Gartner Agentic AI Forecast",
+      "what": "Gartner predicts 80% of customer service issues resolved autonomously by 2029",
+      "evidence": "80% autonomous resolution rate, 30% operational cost reduction predicted. Current 2026 reality is more nuanced with HITL still required for edge cases.",
+      "status": "announced",
+      "source_urls": [
+        "https://acuvate.com/blog/2026-agentic-ai-expert-predictions/"
+      ],
+      "sub_theme": "Industry Reports",
+      "merged_from": 2
+    },
+    {
+      "name": "Gemini Scheduled Actions + Goal Scheduled Actions",
+      "what": "Google Gemini's built-in feature for scheduling recurring AI tasks, with a newer 'Goal' variant where the AI monitors objectives and adjusts actions over time.",
+      "evidence": "Scheduled Actions available to Google AI Pro and Ultra subscribers. Limit of 10 active scheduled actions. Goal Scheduled Actions rolled out February 2026, introducing proactive AI that reviews outputs from previous instructions and adjusts next actions. New Android UI launched March 2026 for naming, describing, and scheduling tasks.",
+      "status": "live",
+      "source_urls": [
+        "https://blog.google/products-and-platforms/products/gemini/scheduled-actions-gemini-app/"
+      ],
+      "sub_theme": "Platform-native scheduled agents",
+      "merged_from": 2
+    },
+    {
+      "name": "GitHub Copilot - Revenue Scale",
+      "what": "Copilot's financial scale contextualizes the market for tools where humans review every AI suggestion.",
+      "evidence": "4.7M paid subscribers as of Jan 2026. Paid subscriptions grew ~75% YoY. Nadella stated in 2024 that Copilot was a larger business than all of GitHub at the time of Microsoft's 2018 acquisition ($7.5B). Analyst estimates place ARR in mid-hundreds of millions to approaching $1B.",
+      "status": "live",
+      "source_urls": ["https://www.getpanto.ai/blog/github-copilot-statistics"],
+      "sub_theme": "Market context",
+      "merged_from": 2
+    },
+    {
+      "name": "GitHub Copilot - Suggestion Acceptance Rates",
+      "what": "GitHub's data on how frequently developers accept, modify, or reject AI code suggestions provides the largest-scale dataset on human intervention frequency.",
+      "evidence": "Average acceptance rate: ~30% of suggestions shown. Rises from 28.9% in first 3 months to 32.1% in next 3 months. Java developers: 61% acceptance rate. 88% code retention rate for accepted suggestions. ZoomInfo enterprise study: 33% suggestion acceptance, 20% line acceptance, 72% developer satisfaction. 4.7M paid subscribers (Jan 2026). 20M cumulative users (July 2025). Used by ~90% of Fortune 100.",
+      "status": "live",
+      "source_urls": [
+        "https://docs.github.com/en/copilot/concepts/copilot-usage-metrics/copilot-metrics"
+      ],
+      "sub_theme": "Error correction: human as quality gate",
+      "merged_from": 2
+    },
+    {
+      "name": "GitHub Copilot Coding Agent",
+      "what": "GitHub's autonomous agent that creates pull requests from issues, replacing the sunset Copilot Workspace.",
+      "evidence": "Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found. | GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code. | Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found. | GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code. | Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found. | GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code. | Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found. | GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code. | Available with Copilot Pro, Pro+, Business, and Enterprise plans. Runs in secure GitHub Actions-powered environment. Automates branch creation, commits, PR opening, and description writing. Targets low-to-medium complexity tasks. All PRs require independent human review; agent cannot approve or merge its own work. As of June 4, 2025, uses one premium request per model request. | Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found. | GA for all paid Copilot subscribers as of Sep 25, 2025. Copilot CLI became GA Feb 25, 2026 with agentic capabilities: plans, builds, reviews, remembers across sessions. Agent mode expanding to JetBrains, Eclipse, Xcode. Excels at low-to-medium complexity tasks in well-tested codebases. Copilot Chat open-sourced in VS Code. | Available with Copilot Pro, Pro+, Business, and Enterprise plans. Runs in secure GitHub Actions-powered environment. Automates branch creation, commits, PR opening, and description writing. Targets low-to-medium complexity tasks. All PRs require independent human review; agent cannot approve or merge its own work. As of June 4, 2025, uses one premium request per model request.",
+      "status": "live",
+      "source_urls": [
+        "https://github.com/newsroom/press-releases/agent-mode",
+        "https://github.blog/news-insights/product-news/github-copilot-meet-the-new-coding-agent/",
+        "https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent"
+      ],
+      "sub_theme": "Autonomous coding products",
+      "merged_from": 4
+    },
+    {
+      "name": "Glean",
+      "what": "Enterprise AI search platform that builds a personalized knowledge graph per employee from 100+ workplace data sources.",
+      "evidence": "$7.2B valuation after $150M Series F in Jun 2025 (up from $4.6B in Sep 2024). $100M+ ARR achieved in under 3 years (fiscal year ending Jan 2025). Integrates with Google Workspace, Microsoft 365, Slack, Salesforce, and more. Sep 2025: launched third-generation assistant with personal graph per employee (tracks projects, collaborators, work style). Personal graph enables agents that summarize weekly work or prepare performance reviews.",
+      "status": "live",
+      "source_urls": [
+        "https://www.glean.com/press/glean-achieves-100m-arr-in-three-years-delivering-true-ai-roi-to-the-enterprise"
+      ],
+      "sub_theme": "Enterprise knowledge + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Google Agent2Agent Protocol (A2A)",
+      "what": "Open protocol for agent-to-agent communication, task delegation, and capability discovery between AI agents.",
+      "evidence": "Launched April 9, 2025 at Cloud Next. 150+ supporting organizations including Atlassian, PayPal, Salesforce, SAP, ServiceNow. Version 0.3 added gRPC support. Agents advertise capabilities via JSON 'Agent Cards'. Designed as complement to MCP (MCP = tools/context, A2A = agent coordination).",
+      "status": "live",
+      "source_urls": [
+        "https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/"
+      ],
+      "sub_theme": "Agent-to-agent protocols",
+      "merged_from": 2
+    },
+    {
+      "name": "Google CC (Your Day Ahead)",
+      "what": "Google Labs experimental AI agent that sends a daily morning briefing email by connecting to Gmail, Google Calendar, and Google Drive without requiring a search or prompt.",
+      "evidence": "Launched December 16, 2025 in early access for U.S. and Canada users 18+. Built on Gemini models. Users steer CC by replying to the email. Includes thumbs up/down feedback. Can draft emails and create calendar links. Priority access given to Google AI Ultra and Gemini Advanced subscribers.",
+      "status": "live",
+      "source_urls": [
+        "https://blog.google/technology/google-labs/cc-ai-agent/"
+      ],
+      "sub_theme": "Platform-native scheduled agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Google Intent Extraction (Small Models, Big Results)",
+      "what": "Google Research method using small multimodal LLMs to understand sequences of user interactions on web and mobile, decomposing intent extraction into two stages.",
+      "evidence": "Presented at EMNLP 2025. Separates user intent understanding into: (1) summarizing each screen separately, then (2) extracting intent from the sequence of summaries. Makes intent extraction tractable for small on-device models.",
+      "status": "live",
+      "source_urls": [
+        "https://research.google/blog/small-models-big-results-achieving-superior-intent-extraction-through-decomposition/"
+      ],
+      "sub_theme": "Intent inference and task prediction",
+      "merged_from": 2
+    },
+    {
+      "name": "Google Now / Google Assistant personal context features",
+      "what": "Google's proactive personal assistant that surfaced contextual cards from email, calendar, location, and personal data.",
+      "evidence": "Google Now launched 2012, gradually deprecated from 2016. Replaced by Google Assistant, which itself removed 17 'underutilized' features in January 2024 including: checking personal travel itineraries, asking about contacts, sending emails/payments/reservations by voice. Google Assistant itself deprecated March 2026, replaced by Gemini.",
+      "status": "shut down",
+      "source_urls": [
+        "https://blog.google/products/assistant/google-assistant-update-january-2024/"
+      ],
+      "sub_theme": "Big tech personal assistants",
+      "merged_from": 2
+    },
+    {
+      "name": "Google Personal Intelligence",
+      "what": "Google connected Gemini to Gmail, Photos, YouTube history, and Search history under the 'Personal Intelligence' brand, making it the largest-scale personal data AI integration",
+      "evidence": "Launched January 14, 2026 in Gemini app; expanded to AI Mode in Search on January 22, 2026; rolling out to free Gemini users in US as of March 2026; built on Gemini 3 Pro and Flash models; enables cross-referencing private emails with real-time market data, managing travel itineraries",
+      "status": "live",
+      "source_urls": [
+        "https://blog.google/innovation-and-ai/products/gemini-app/personal-intelligence/"
+      ],
+      "sub_theme": "On-device personal AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Greptile",
+      "what": "AI code review and validation platform that indexes GitHub repositories for codebase-aware analysis.",
+      "evidence": "$25M Series A (Sep 2025) led by Benchmark at ~$180M valuation. $45.5M total raised. Founded by Daksh Gupta (Georgia Tech), YC W24. Analyzes repos and validates every code update. Independent code validation layer across repositories.",
+      "status": "live",
+      "source_urls": [
+        "https://siliconangle.com/2025/09/23/greptile-bags-25m-funding-take-coderabbit-graphite-ai-code-validation/"
+      ],
+      "sub_theme": "Code intelligence platforms",
+      "merged_from": 2
+    },
+    {
+      "name": "Humane AI Pin",
+      "what": "Wearable AI device with camera, projector, and LLM access intended to replace smartphones, which failed commercially and was shut down.",
+      "evidence": "Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025. | Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds. | Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025. | Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds. | Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025. | Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds. | Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025. | Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds. | Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025. | Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techcrunch.com/2025/02/18/humanes-ai-pin-is-dead-as-hp-buys-startups-assets-for-116m/"
+      ],
+      "sub_theme": "Personal AI hardware",
+      "merged_from": 3
+    },
+    {
+      "name": "Humane AI Pin Shutdown",
+      "what": "AI wearable that promised ambient personal AI context failed on reliability, speed, battery life, and heat; sold to HP after burning $230M",
+      "evidence": "Launched late 2024; discontinued February 2025; sold team and IP to HP for $116M; customers' pins remotely disabled after cloud services shut down; reviews cited unreliable, slow, confusing experience | Confirmed by Fortune, TechCrunch, Axios. $230M raised. Device scathingly reviewed. Customers given <10 days notice before brick. | Launched late 2024; discontinued February 2025; sold team and IP to HP for $116M; customers' pins remotely disabled after cloud services shut down; reviews cited unreliable, slow, confusing experience | Confirmed by Fortune, TechCrunch, Axios. $230M raised. Device scathingly reviewed. Customers given <10 days notice before brick.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/09/top-ai-startups-that-shut-down-in-2025-what-founders-can-learn/",
+        "https://techcrunch.com/2025/02/18/humanes-ai-pin-is-dead-as-hp-buys-startups-assets-for-116m/"
+      ],
+      "sub_theme": "Failed products and lessons",
+      "merged_from": 3
+    },
+    {
+      "name": "Inflection AI (Pi)",
+      "what": "Personal AI chatbot focused on empathetic conversation rather than task completion, built by DeepMind co-founder Mustafa Suleyman.",
+      "evidence": "Raised $1.525B at $4B valuation. Had 1M daily active users and 6M monthly active users. In March 2024, Microsoft acqui-hired nearly all 70 employees and paid $650M to license its models. Pi still exists but with usage caps and a skeleton crew. Could not find a sustainable business model despite strong user engagement.",
+      "status": "acquired",
+      "source_urls": ["https://www.eesel.ai/blog/inflection-ai"],
+      "sub_theme": "Personal AI chatbots",
+      "merged_from": 2
+    },
+    {
+      "name": "Intercom Fin AI Agent",
+      "what": "AI customer support agent by Intercom, handling front-line customer service conversations.",
+      "evidence": "Handled 8M+ queries. First version (GPT-powered, 2023) achieved 23% resolution rate. Second version (Claude-powered, 2024) improved to 51% average resolution rate across thousands of customers. Still requires human escalation for ~49% of conversations. Pricing is $0.99 per resolved conversation.",
+      "status": "live",
+      "source_urls": [
+        "https://thelettertwo.com/2024/10/12/intercom-releases-fin-2-ai-agent-switching-anthropic-from-openai/"
+      ],
+      "sub_theme": "Enterprise AI agents",
+      "merged_from": 2
+    },
+    {
+      "name": "LangChain / LangSmith",
+      "what": "Most widely adopted AI agent framework (LangChain) with commercial observability and testing platform (LangSmith).",
+      "evidence": "$125M Series B (Oct 2025) at $1.25B valuation, led by IVP with Sequoia, Benchmark. 47M+ PyPI downloads (Jan 2026). ARR $12-16M+ as of mid-2025 (company says that figure is 'low for where we are today'). LangSmith monthly trace volume 12x'd YoY. Total raised: $160M across seed, Series A, Series B.",
+      "status": "live",
+      "source_urls": [
+        "https://fortune.com/2025/10/20/exclusive-early-ai-darling-langchain-is-now-a-unicorn-with-a-fresh-125-million-in-funding/"
+      ],
+      "sub_theme": "Multi-agent frameworks",
+      "merged_from": 2
+    },
+    {
+      "name": "Limitless (formerly Rewind AI)",
+      "what": "AI wearable pendant that continuously records conversations and meetings, providing AI-powered summaries and searchable personal data.",
+      "evidence": "Raised $33M+ total from Sam Altman, a16z, First Round Capital, NEA. $15M at $350M valuation in May 2023 (495x multiple on $707K ARR). Pendant sold for $99, 100-hour battery life. Free tier: unlimited audio storage + 10 hours AI features/month. Pro: $20/month unlimited AI. Acquired by Meta on December 5, 2025; hardware sales stopped, subscription fees waived for existing users.",
+      "status": "acquired",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/"
+      ],
+      "sub_theme": "Personal data capture and AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Limitless (Rewind AI) Acquired by Meta",
+      "what": "Personal data recording pendant company acquired by Meta to build 'personal superintelligence' wearables, after pivoting from desktop screen recording",
+      "evidence": "Acquired December 2025; raised $33M+ from a16z, First Round, NEA; $15M at $350M valuation in May 2023 (495x multiple on $707K ARR); pendant sold for $99 with $20/month Pro plan; stopped selling hardware post-acquisition; customers moved to free Unlimited Plan",
+      "status": "acquired",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/"
+      ],
+      "sub_theme": "Failed products and lessons",
+      "merged_from": 2
+    },
+    {
+      "name": "Limitless AI (formerly Rewind AI)",
+      "what": "Screen recording and conversation capture AI that evolved from desktop app to wearable pendant, then was acquired by Meta.",
+      "evidence": "Founded 2022 as Rewind AI. Raised $15M at $350M valuation in May 2023 on $707K ARR (495x revenue multiple). Raised $27M total. Rebranded to Limitless Apr 2024 with pivot to wearable pendant. Acquired by Meta Dec 5, 2025 for estimated $200-400M (undisclosed official terms). Hardware sales ceased; existing customers moved to free Unlimited Plan for one year. Team joined Meta Reality Labs (Ray-Ban smart glasses). | Raised $15M at $350M valuation (May 2023) on $707K ARR (495x multiple). Total $33M+ raised from Altman, a16z, NEA. Acquired by Meta Dec 2025. Desktop app shut down Dec 19, 2025. | Raised $15M at $350M valuation (May 2023) on $707K ARR (495x multiple). Total $33M+ raised from Altman, a16z, NEA. Acquired by Meta Dec 2025. Desktop app shut down Dec 19, 2025. | Founded 2022 as Rewind AI. Raised $15M at $350M valuation in May 2023 on $707K ARR (495x revenue multiple). Raised $27M total. Rebranded to Limitless Apr 2024 with pivot to wearable pendant. Acquired by Meta Dec 5, 2025 for estimated $200-400M (undisclosed official terms). Hardware sales ceased; existing customers moved to free Unlimited Plan for one year. Team joined Meta Reality Labs (Ray-Ban smart glasses). | Raised $15M at $350M valuation (May 2023) on $707K ARR (495x multiple). Total $33M+ raised from Altman, a16z, NEA. Acquired by Meta Dec 2025. Desktop app shut down Dec 19, 2025. | Founded 2022 as Rewind AI. Raised $15M at $350M valuation in May 2023 on $707K ARR (495x revenue multiple). Raised $27M total. Rebranded to Limitless Apr 2024 with pivot to wearable pendant. Acquired by Meta Dec 5, 2025 for estimated $200-400M (undisclosed official terms). Hardware sales ceased; existing customers moved to free Unlimited Plan for one year. Team joined Meta Reality Labs (Ray-Ban smart glasses). | Raised $15M at $350M valuation (May 2023) on $707K ARR (495x multiple). Total $33M+ raised from Altman, a16z, NEA. Acquired by Meta Dec 2025. Desktop app shut down Dec 19, 2025. | Founded 2022 as Rewind AI. Raised $15M at $350M valuation in May 2023 on $707K ARR (495x revenue multiple). Raised $27M total. Rebranded to Limitless Apr 2024 with pivot to wearable pendant. Acquired by Meta Dec 5, 2025 for estimated $200-400M (undisclosed official terms). Hardware sales ceased; existing customers moved to free Unlimited Plan for one year. Team joined Meta Reality Labs (Ray-Ban smart glasses).",
+      "status": "acquired",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/"
+      ],
+      "sub_theme": "Screen/audio capture + AI recall",
+      "merged_from": 3
+    },
+    {
+      "name": "Limitless AI / Meta acquisition",
+      "what": "Verified: Acquired by Meta Dec 2025. $33M+ total raised. Desktop app sunset Dec 19, 2025.",
+      "evidence": "Confirmed by TechCrunch. $350M valuation on $707K ARR (2023). Pendant discontinued.",
+      "status": "acquired",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Linear Triage Intelligence / Product Intelligence",
+      "what": "Linear's AI that auto-triages incoming issues by suggesting teams, projects, assignees, labels, flagging duplicates, and linking related issues based on backlog patterns.",
+      "evidence": "Product Intelligence launched August 14, 2025 as Technology Preview on Business and Enterprise plans. Auto-apply triage suggestions shipped September 19, 2025. Uses search, ranking, and LLM-based reasoning, drawing on existing backlog as a dataset. Can be configured to auto-apply suggested properties without human approval.",
+      "status": "live",
+      "source_urls": [
+        "https://linear.app/changelog/2025-08-14-product-intelligence-technology-preview"
+      ],
+      "sub_theme": "Productivity tool AI agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Magic Leap",
+      "what": "Augmented reality headset company that promised ambient computing and spatial interfaces.",
+      "evidence": "Raised ~$4.5B total from Google, Qualcomm, Alibaba, AT&T, and Saudi Arabia's PIF. Magic Leap One (2018) priced at $2,300, failed to meet sales targets. Cut ~1,000 workers (half the workforce) in 2020. Pivoted from consumer to enterprise. Cut entire sales and marketing teams (75 jobs) in July 2024. Now pivoting to license optics technology rather than sell headsets.",
+      "status": "live",
+      "source_urls": [
+        "https://www.roadtovr.com/magic-leap-layoff-2024-optics-pivot/"
+      ],
+      "sub_theme": "Ambient computing hardware",
+      "merged_from": 2
+    },
+    {
+      "name": "MCP (Model Context Protocol) Ecosystem",
+      "what": "Anthropic's open protocol for connecting AI models to external data sources and tools, now adopted across the industry as a standard for personal and enterprise data access.",
+      "evidence": "5,800+ MCP servers and 300+ MCP clients as of early 2026. 1,000+ community-built servers covering Google Drive, Slack, databases, and custom systems. OpenAI adopted MCP for ChatGPT partner connectors. Microsoft building Azure API Center integration for MCP server registries. Streamable HTTP transport enables remote MCP servers in production. 2026 roadmap: triggers/events, streamed results, security/authorization hardening, registry/discovery infrastructure.",
+      "status": "live",
+      "source_urls": ["https://en.wikipedia.org/wiki/Model_Context_Protocol"],
+      "sub_theme": "AI memory infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem0",
+      "what": "Memory infrastructure layer for AI agents providing persistent, structured memory via API.",
+      "evidence": "$24M Series A (Oct 2025) led by Basis Set Ventures, with Peak XV, GitHub Fund, YC. 41K+ GitHub stars, 13M+ PyPI downloads. 80K+ developers on cloud service. API calls grew from 35M (Q1 2025) to 186M (Q3 2025), ~30% MoM. Natively integrated into CrewAI, Flowise, Langflow. AWS selected Mem0 as exclusive memory provider for their Agent SDK.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/"
+      ],
+      "sub_theme": "Agent memory infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem0 $24M raise",
+      "what": "Verified: $24M total (Seed + Series A). 186M API calls Q3 2025.",
+      "evidence": "Confirmed by TechCrunch, company blog. Backed by YC, Peak XV, GitHub Fund.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/"
+      ],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem0 (not Mem.ai)",
+      "what": "Universal memory layer infrastructure for AI applications that stores, updates, and recalls information across conversations, used by AI agent frameworks.",
+      "evidence": "Raised $24M (Seed led by Kindred Ventures, Series A led by Basis Set Ventures, with Peak XV, GitHub Fund, Y Combinator). 41K+ GitHub stars, 13M+ Python package downloads. Processed 186M API calls in Q3 2025 (up from 35M in Q1, ~30% MoM growth). Claims 26% higher response accuracy vs OpenAI's memory, 91% lower p95 latency, 90%+ token cost savings. Exclusive memory provider for AWS Agent SDK. Natively integrated by CrewAI, Flowise, Langflow.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/"
+      ],
+      "sub_theme": "AI memory infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem0 Memory Infrastructure",
+      "what": "AI agent memory infrastructure company providing persistent cross-session memory",
+      "evidence": "Raised $24M (Seed + Series A). 186M API calls in Q3 2025. 41K GitHub stars, 13M Python downloads. Graph-based memory with sub-second retrieval.",
+      "status": "live",
+      "source_urls": ["https://mem0.ai/series-a"],
+      "sub_theme": "Agent Memory Infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem0 Research: Memory Accuracy Boost",
+      "what": "Research showing persistent memory improves LLM accuracy by 26%",
+      "evidence": "26% accuracy improvement when agents have access to structured persistent memory vs. stateless operation.",
+      "status": "live",
+      "source_urls": ["https://mem0.ai/research"],
+      "sub_theme": "Agent Memory Infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Mem.ai",
+      "what": "AI-powered note-taking app that attempts to be a 'second brain' with AI-driven organization and recall, but has faced criticism for underpowered AI and missing basic features.",
+      "evidence": "Raised $29.1M total ($23.5M Series A led by OpenAI Startup Fund, valued at $110M post-money in Nov 2022). Revenue not publicly disclosed. Criticized for: no offline access, underpowered AI chat ('much inferior version of ChatGPT'), missing basic features (no highlighting, no scroll bar), slow performance. Faces competition from Microsoft OneNote, Google Keep, and Notion. Development appears stalled per user reports.",
+      "status": "live",
+      "source_urls": [
+        "https://medium.com/@theo-james/mem-ai-the-40m-second-brain-failure-burning-the-worlds-money-5f3176a34cbd"
+      ],
+      "sub_theme": "Personal knowledge management + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Memories.ai",
+      "what": "Building a Large Visual Memory Model (LVMM) for long-term visual memory, founded by two former Meta Reality Labs researchers",
+      "evidence": "Founded 2025 in San Francisco; $8M seed round led by Susa Ventures with Samsung Next participation; focuses on visual memory capabilities for AI",
+      "status": "live",
+      "source_urls": ["https://wellows.com/blog/ai-startups/"],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Meta Proactive Chatbots (Project Omni)",
+      "what": "Meta's initiative to train AI chatbots to message users first on Messenger, WhatsApp, and Instagram, using conversation history for personalized re-engagement.",
+      "evidence": "Leaked documents obtained by Business Insider in July 2025. Internal project name 'Project Omni' at data labeling firm Alignerr. Chatbots only send follow-ups within 14 days after user-initiated conversation and if user sent at least 5 messages. Meta projected its generative AI products would generate $2B-$3B in 2025 revenue, up to $1.4T by 2035 (from unsealed court documents).",
+      "status": "announced",
+      "source_urls": [
+        "https://techcrunch.com/2025/07/03/meta-has-found-another-way-to-keep-you-engaged-chatbots-that-message-you-first/"
+      ],
+      "sub_theme": "Proactive consumer AI",
+      "merged_from": 2
+    },
+    {
+      "name": "METR - AI Developer Productivity Study",
+      "what": "Rigorous RCT showing AI tools made experienced open-source developers 19% slower, contradicting their own perception.",
+      "evidence": "16 experienced developers (avg 5 years on their projects, repos averaging 22k+ stars and 1M+ lines) worked on 246 real issues randomly assigned AI-allowed or AI-disallowed. Developers using AI took 19% longer. Developers expected AI to speed them up by 24%, and even after the study still believed it had sped them up by 20%. Less than 44% of AI-generated code was accepted. Tools used: primarily Cursor Pro with Claude 3.5/3.7 Sonnet.",
+      "status": "live",
+      "source_urls": [
+        "https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/"
+      ],
+      "sub_theme": "Academic research on agent effectiveness",
+      "merged_from": 2
+    },
+    {
+      "name": "METR Task Horizon Doubling",
+      "what": "METR tracks task completion time horizons for frontier AI models, finding a 7-month doubling time",
+      "evidence": "Task length that agents complete with 50% reliability has been doubling every 7 months for 6 years. Time Horizon 1.1 added 34% more tasks (228 total) and doubled 8-hour+ tasks (31 total).",
+      "status": "live",
+      "source_urls": ["https://metr.org/time-horizons/"],
+      "sub_theme": "Autonomous Agent Duration",
+      "merged_from": 2
+    },
+    {
+      "name": "METR task horizon doubling (7 months)",
+      "what": "Verified: Task completion time horizons doubling approximately every 7 months",
+      "evidence": "Confirmed by METR's own publications. Time Horizon 1.1 released Jan 2026 with expanded task suite.",
+      "status": "live",
+      "source_urls": ["https://metr.org/time-horizons/"],
+      "sub_theme": "Verification",
+      "merged_from": 2
+    },
+    {
+      "name": "Microsoft Agent Framework (AutoGen + Semantic Kernel)",
+      "what": "Unified open-source agent framework merging AutoGen's multi-agent innovation with Semantic Kernel's enterprise stability.",
+      "evidence": "Announced Oct 2025. Release Candidate 1.0 on Feb 19, 2026. GA targeted end of Q1 2026. Both AutoGen and Semantic Kernel placed in maintenance mode (bug fixes only, no new features). Supports Python and .NET. Consolidates AI workloads into single SDK with observability.",
+      "status": "announced",
+      "source_urls": [
+        "https://visualstudiomagazine.com/articles/2025/10/01/semantic-kernel-autogen--open-source-microsoft-agent-framework.aspx"
+      ],
+      "sub_theme": "Multi-agent frameworks",
+      "merged_from": 2
+    },
+    {
+      "name": "Microsoft Cortana",
+      "what": "Microsoft's voice assistant integrated into Windows, competing with Siri, Alexa, and Google Assistant.",
+      "evidence": "Peak of 145M monthly active users in 2017, but only 10% of Windows 10 users regularly engaged by 2023. Never exceeded 2% voice assistant market share (vs Siri 36%, Google 35%, Alexa 25%). Mobile app removed March 2021. Windows standalone app deprecated August 2023. Replaced by Copilot. Microsoft invested $10B in OpenAI instead.",
+      "status": "shut down",
+      "source_urls": [
+        "https://techcrunch.com/2023/08/04/microsoft-kills-cortana-in-windows-as-it-focuses-on-next-gen-ai/"
+      ],
+      "sub_theme": "Big tech personal assistants",
+      "merged_from": 2
+    },
+    {
+      "name": "Microsoft Recall Privacy Backlash",
+      "what": "Microsoft's Recall feature (screenshots every few seconds for AI context) faced severe backlash, was delayed, redesigned from plaintext to encrypted, and made opt-in",
+      "evidence": "Initial version stored all data in plaintext database; researchers found it captured passwords, financial data, private messages, medical records; Microsoft made it opt-in and added full database encryption; later Gaming Copilot also caught capturing gameplay images and sending data by default",
+      "status": "live",
+      "source_urls": [
+        "https://time.com/6980911/microsoft-copilot-recall-ai-features-privacy-concerns/"
+      ],
+      "sub_theme": "Trust and adoption curve",
+      "merged_from": 2
+    },
+    {
+      "name": "Model Context Protocol (MCP) - Adoption Trajectory",
+      "what": "MCP server downloads grew from ~100K in November 2024 to 8M+ by April 2025; remote MCP servers up nearly 4x since May 2025.",
+      "evidence": "PulseMCP registry lists 5,500+ servers. Enterprise infrastructure support from AWS, Cloudflare, Google Cloud, Microsoft Azure. Claude has 75+ connectors powered by MCP. Claude Code plugin directory launched early 2026 with 72+ plugins across 24 categories.",
+      "status": "live",
+      "source_urls": ["https://mcpmanager.ai/blog/mcp-adoption-statistics/"],
+      "sub_theme": "MCP ecosystem",
+      "merged_from": 2
+    },
+    {
+      "name": "Model Context Protocol (MCP) - Ecosystem Scale",
+      "what": "Open protocol created by Anthropic for connecting AI agents to external tools and data sources, now governed by the Linux Foundation.",
+      "evidence": "10,000+ active public MCP servers. 97M+ monthly SDK downloads. Adopted by ChatGPT, Cursor, Gemini, Microsoft Copilot, VS Code. Donated to Agentic AI Foundation (Linux Foundation) co-founded by Anthropic, Block, OpenAI with support from Google, Microsoft, AWS, Cloudflare, Bloomberg.",
+      "status": "live",
+      "source_urls": [
+        "https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation"
+      ],
+      "sub_theme": "MCP ecosystem",
+      "merged_from": 2
+    },
+    {
+      "name": "n8n",
+      "what": "Open-source workflow automation platform with native AI agent nodes, LangChain integration, and MCP client/server support, self-hostable.",
+      "evidence": "150K+ GitHub stars in 2025. $40M ARR as of July 2025. Raised $180M at $2.5B valuation in October 2025 (led by Accel, with NVentures/Nvidia). 3,000+ enterprise customers (Vodafone, Delivery Hero, Microsoft). 200,000 active users. Revenue grew 5X after pivoting to AI-friendly approach in 2022. 500+ integrations with dedicated AI Agent nodes, memory, evaluations, and multi-agent orchestration.",
+      "status": "live",
+      "source_urls": ["https://github.com/n8n-io/n8n"],
+      "sub_theme": "Workflow automation with AI",
+      "merged_from": 2
+    },
+    {
+      "name": "NanoClaw",
+      "what": "Lightweight, container-isolated alternative to OpenClaw with scheduled jobs, built on Anthropic's Agents SDK, ~3,900 lines of code across 15 files.",
+      "evidence": "10.5K+ GitHub stars. Runs in Linux containers with filesystem isolation, not merely behind permission checks. Connects to WhatsApp, Telegram, Slack, Discord, Gmail. Entire codebase is auditable at ~3,900 LOC. Same scheduled-job and daily-briefing capabilities as OpenClaw but in a smaller, security-focused package.",
+      "status": "live",
+      "source_urls": ["https://github.com/qwibitai/nanoclaw"],
+      "sub_theme": "Self-hosted proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Narrative Clip (formerly Memoto)",
+      "what": "Wearable lifelogging camera that automatically took a photo every 30 seconds.",
+      "evidence": "Raised $550K on Kickstarter in 2012, then additional millions in VC. Launched Clip 1 and Clip 2 (with Bluetooth/WiFi). Entered voluntary dissolution in September 2016. Could not compete with smartphone cameras and live-streaming services (Periscope, Facebook Live). Most people did not want continuous photo capture.",
+      "status": "shut down",
+      "source_urls": [
+        "https://petapixel.com/2016/09/28/lifelogging-camera-maker-narrative-going-business/"
+      ],
+      "sub_theme": "Lifelogging and personal data capture",
+      "merged_from": 2
+    },
+    {
+      "name": "Netflix FM-Intent / IntentRec",
+      "what": "Netflix's recommendation framework that predicts user session intent using hierarchical multi-task learning, estimating latent intent from short- and long-term implicit signals.",
+      "evidence": "Uses hierarchical multi-task neural network architecture. Estimates latent user intent from short- and long-term implicit signals as proxies. Uses intent prediction to predict next item user will engage with. Published on Netflix Tech Blog and arxiv (updated May 2025).",
+      "status": "live",
+      "source_urls": [
+        "https://netflixtechblog.com/fm-intent-predicting-user-session-intent-with-hierarchical-multi-task-learning-94c75e18f4b8"
+      ],
+      "sub_theme": "Intent inference and task prediction",
+      "merged_from": 2
+    },
+    {
+      "name": "Notion 3.0 AI Agents",
+      "what": "Autonomous agents inside Notion that work for up to 20 minutes on multi-step tasks across hundreds of pages, including breaking projects into tasks and assigning them.",
+      "evidence": "Launched September 18, 2025. Personal Agent works autonomously for up to 20 minutes. Can build project launch plans, break them into tasks, assign them, and draft docs. Pulls context from connected tools (Slack, Google Drive, Teams) via native integrations and MCP. Notion 3.2 (January 2026) brought agents to mobile with multi-model support (GPT-5.2, Claude Opus 4.5, Gemini 3).",
+      "status": "live",
+      "source_urls": ["https://www.notion.com/releases/2025-09-18"],
+      "sub_theme": "Productivity tool AI agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Notion AI",
+      "what": "AI features embedded in Notion's workspace platform, including autonomous agents that execute multi-step workflows across connected data sources.",
+      "evidence": "$500M annualized revenue as of Sep 2025 (up from $400M in 2024, $250M in 2023, $67M in 2022). 100M+ users worldwide, 20M+ monthly active users. AI adoption: crossed 50% of paying customers using AI features in 2025 (up from 10-20% in 2024). Notion 3.0 (Sep 2025) launched autonomous AI Agents with multi-model support (GPT-5, Claude Opus 4.1, o3). AI now bundled into Business/Enterprise plans rather than sold as add-on.",
+      "status": "live",
+      "source_urls": [
+        "https://www.cnbc.com/2025/09/18/notion-launches-ai-agent-as-it-crosses-500-million-in-annual-revenue.html"
+      ],
+      "sub_theme": "Enterprise knowledge + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Notion AI Agents (3.0)",
+      "what": "Notion launched autonomous AI agents that execute multi-step workflows across workspace data, with 100M+ users providing personal/team context",
+      "evidence": "Notion 3.0 launched September 2025 with autonomous agents; 100M+ users worldwide; multi-model support (GPT-5, Claude Opus 4.1, o3); January 2026 3.2 release brought agents to mobile with intelligent auto-model selection; Business plan $20/user/month required for AI features",
+      "status": "live",
+      "source_urls": ["https://www.notion.com/releases/2025-09-18"],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Obsidian + AI Plugins (Copilot, Smart Connections)",
+      "what": "Community-built AI plugins for Obsidian that provide chat-based vault search, personal context processing, and agent mode with tool calling over local markdown files.",
+      "evidence": "Obsidian Copilot plugin provides: Project Mode (AI-ready context from folders/tags), Agent Mode with tool calling, support for markdown/PDF/image/YouTube/URL context, custom system prompts stored as markdown files. Smart Connections plugin offers semantic search across notes. All data stays local in user's vault. No revenue/funding data available (open-source community plugins). Active development through 2026.",
+      "status": "live",
+      "source_urls": ["https://www.obsidiancopilot.com/en"],
+      "sub_theme": "Personal knowledge management + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenAI Codex",
+      "what": "Cloud-sandboxed coding agent with two execution modes: cloud sandbox for parallel background tasks and terminal CLI for local execution.",
+      "evidence": "Available to ChatGPT Plus users from June 2025. GPT-5.2-Codex is latest model (Jan 2026). Sandbox disables internet access during execution, limiting agent to provided repo + pre-installed deps. Auto-detects setup scripts. Configurable internet access and approval controls.",
+      "status": "live",
+      "source_urls": ["https://openai.com/index/introducing-codex/"],
+      "sub_theme": "Coding agent products",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenAI Codex - GPT-5-Codex autonomous duration",
+      "what": "OpenAI's Codex agent demonstrated multi-hour autonomous coding sessions on complex tasks.",
+      "evidence": "GPT-5-Codex worked independently for more than 7 hours at a time on large tasks during testing, iterating on implementation, fixing test failures, and delivering working code. GPT-5.2-Codex runs 24-hour autonomous tasks. Codex-1 achieves 37% accuracy on first attempts on SWE-Bench, scaling to 70.2% with retries and 85% after 8 attempts. GPT-5.3-Codex achieved state-of-the-art on SWE-Bench Pro (56.8%), though this means it still fails nearly half of professional-level tasks.",
+      "status": "live",
+      "source_urls": ["https://openai.com/index/introducing-codex/"],
+      "sub_theme": "Autonomy duration and trust metrics",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenAI Codex 25-hour autonomous run",
+      "what": "Codex ran for 25 hours uninterrupted building a design tool from scratch",
+      "evidence": "Used ~13M tokens, generated ~30k lines of code. GPT-5.3-Codex achieves 77.3% on Terminal-Bench, 56.8% on SWE-Bench Pro.",
+      "status": "live",
+      "source_urls": ["https://openai.com/index/introducing-gpt-5-3-codex/"],
+      "sub_theme": "Autonomous Agent Duration",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenAI Operator/ChatGPT Agent",
+      "what": "OpenAI's computer-using agent integrated into ChatGPT, accessing user connectors and data for agentic web tasks",
+      "evidence": "Launched as Operator January 2025; integrated into ChatGPT as agent July 17, 2025; powered by Computer-Using Agent (CUA) model; accesses user connectors and logged-in websites via takeover mode; OpenAI acknowledged prompt injection may never be fully solved",
+      "status": "live",
+      "source_urls": ["https://openai.com/index/introducing-chatgpt-agent/"],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenClaw",
+      "what": "Open-source self-hosted AI agent with cron-scheduled daily briefings that pull from connected data sources (Gmail, Calendar, GitHub, RSS, Todoist, Linear, Stripe).",
+      "evidence": "264K GitHub stars as of March 2026, surpassed React as most-starred software project on GitHub on March 3, 2026. Reached 100K stars on January 30, 2026, and 250K by March 3. The daily-briefing-hub skill combines Google Calendar, Gmail/Outlook, weather, GitHub PR/CI status, Hacker News/RSS, and Todoist/ClickUp/Linear tasks into a single prioritized morning summary. Silently skips missing integrations. Codebase supports three schedule types: at (one-time), every (interval), and cron (standard expressions).",
+      "status": "live",
+      "source_urls": ["https://github.com/openclaw/openclaw"],
+      "sub_theme": "Self-hosted proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "OpenClaw (daily briefing agent)",
+      "what": "Open-source personal AI assistant with 210K+ GitHub stars, configurable daily briefings from connected data",
+      "evidence": "Breakout project of 2026. Surged from 9K to 210K+ stars. Connects to 50+ messaging apps. Users configure cron jobs for morning briefings pulling calendar, email, CRM, weather. Created by PSPDFKit founder.",
+      "status": "live",
+      "source_urls": [
+        "https://gist.github.com/mberman84/63163d6839053fbf15091238e5ada5c2"
+      ],
+      "sub_theme": "Daily Briefing / Task Generation Products",
+      "merged_from": 2
+    },
+    {
+      "name": "Otter.ai",
+      "what": "Meeting transcription platform that evolved from passive note-taking to voice-activated AI meeting agents that learn from company-wide meeting data.",
+      "evidence": "$100M ARR milestone reached Mar 2025 (up from $81M end of 2024). Raised ~$70M total ($50M in 2021 including $40M led by Spectrum Equity). Mar 2025: launched industry's first voice AI meeting agent suite. Otter Meeting Agent participates in meetings as voice-activated participant, answers questions using real-time transcript + company meeting history. Features vocabulary learning and preference personalization.",
+      "status": "live",
+      "source_urls": [
+        "https://otter.ai/blog/otter-ai-caps-transformational-2025-with-100m-arr-milestone-industry-first-ai-meeting-agents-and-global-enterprise-expansion"
+      ],
+      "sub_theme": "Meeting AI with personal context",
+      "merged_from": 2
+    },
+    {
+      "name": "OWASP Prompt Injection #1 Vulnerability",
+      "what": "Prompt injection ranked #1 critical vulnerability in OWASP 2025 Top 10 for LLM Applications, appearing in 73% of production AI deployments assessed",
+      "evidence": "OpenAI stated in December 2025 that prompt injection 'is unlikely to ever be fully solved'; indirect prompt injection targets where AI systems collect information (documents, emails, web pages); an attacker can embed hidden commands that override user instructions to extract emails, steal personal data, or access passwords",
+      "status": "live",
+      "source_urls": [
+        "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+      ],
+      "sub_theme": "Privacy infrastructure for AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Pardon the Interruption (Journal of Management, 2020)",
+      "what": "Integrative review of work interruption research across domains, providing a taxonomy of interruption types, frequencies, and cognitive impacts that predates but directly applies to AI agent workflows.",
+      "evidence": "Published in Journal of Management (2020). Reviews interruption research across workplace contexts. Identifies that interruptions introduce new tasks on top of ongoing activities. Operators must handle multiple simultaneous stimuli and information sources. Provides foundational vocabulary for categorizing agent interruptions.",
+      "status": "live",
+      "source_urls": [
+        "https://journals.sagepub.com/doi/abs/10.1177/0149206319887428"
+      ],
+      "sub_theme": "Interruption patterns beyond coding",
+      "merged_from": 2
+    },
+    {
+      "name": "Perplexity Personal Computer Agent",
+      "what": "Perplexity extending cloud AI agent to desktop, accessing local files and apps with user approval and audit trail",
+      "evidence": "March 2026 announcement; Google Drive integration live for all users; Enterprise Pro/Max users can sync Drive to personal repository; Personal Computer runs in 'secure environment with clear safeguards,' requires user approval for sensitive actions, generates full audit trail, includes kill switch",
+      "status": "announced",
+      "source_urls": [
+        "https://www.technology.org/2026/03/13/perplexity-personal-computer-ai/"
+      ],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Personal.ai",
+      "what": "Platform that builds personal AI models from user's data, facts, and opinions to remember and recall memories core to identity.",
+      "evidence": "Raised $7.8-23.8M (sources vary by methodology). $138K annual revenue as of Dec 2023. Founded 2020 in San Francisco. Uses personal AI models trained on individual user's data. Enables organizations to create AI teammates with proprietary knowledge. Latest funding: undisclosed Seed round Sep 2024.",
+      "status": "live",
+      "source_urls": [
+        "https://tracxn.com/d/companies/personal-ai/__km3jbW0uSOjjopNTO7_osOJmYRwGU7-zqIKWilUz1co"
+      ],
+      "sub_theme": "Personal knowledge management + AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Plaid Financial Data Infrastructure",
+      "what": "Financial data aggregation platform demonstrating the value of personal data connectivity, with AI-powered enrichment and over $800M estimated annual revenue",
+      "evidence": "Crossed estimated $800M annual revenue in 2025; 220+ new products/features in 2025; AI-powered auto-repair enabled 2M+ successful user logins and reduced degradation fix time by 90%; launched LendScore credit risk score in October 2025 using real-time cash flow data",
+      "status": "live",
+      "source_urls": ["https://sacra.com/c/plaid/"],
+      "sub_theme": "Economics of personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "PPP: Training Proactive and Personalized LLM Agents",
+      "what": "Multi-objective reinforcement learning approach optimizing three dimensions: productivity (task completion), proactivity (asking essential questions), and personalization (adapting to user preferences).",
+      "evidence": "Published November 2025. Identifies that existing work focuses primarily on task success but effective real-world agents require jointly optimizing productivity, proactivity, and personalization.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2511.02208"],
+      "sub_theme": "Academic research on proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Proactive Agent (OpenReview / ICLR 2025)",
+      "what": "Research paper formalizing proactive agents that anticipate user needs and take initiative by suggesting tasks without explicit requests, with ProactiveBench dataset.",
+      "evidence": "ProactiveBench dataset contains 6,790 events. Defines proactive agent as one that perceives environmental context, infers user intentions without explicit prompts, and autonomously suggests actions. Published October 2024, updated through 2025.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2410.12361"],
+      "sub_theme": "Academic research on proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "ProAgentBench",
+      "what": "Benchmark for evaluating LLM agents for proactive assistance using real-world data.",
+      "evidence": "Published February 2026. Evaluates LLM agents specifically for proactive (not reactive) assistance capabilities.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/html/2602.04482v1"],
+      "sub_theme": "Academic research on proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "PROBE Benchmark (Beyond Reactivity)",
+      "what": "Benchmark measuring proactive problem-solving in LLM agents, requiring agents to identify and resolve critical bottlenecks hidden in realistic workplace datastores.",
+      "evidence": "1,000 diverse samples. Even state-of-the-art LLMs and specialized agentic frameworks achieve no more than 40% success on end-to-end proactive tasks. Published October 2025.",
+      "status": "live",
+      "source_urls": ["https://arxiv.org/abs/2510.19771"],
+      "sub_theme": "Academic research on proactive agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Rabbit R1",
+      "what": "AI hardware device with 'Large Action Model' intended to replace app-based phone interactions, which suffered massive user abandonment.",
+      "evidence": "Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather. | Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base. | Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather. | Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base. | Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather. | Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base. | Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather. | Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base. | Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather. | Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base.",
+      "status": "live",
+      "source_urls": [
+        "https://9to5google.com/2024/09/26/rabbit-5000-people-use-the-r1-daily/",
+        "https://cybernews.com/tech/the-story-of-rabbit-r1/"
+      ],
+      "sub_theme": "Personal AI hardware",
+      "merged_from": 3
+    },
+    {
+      "name": "RAG Cost Economics for Personal Data",
+      "what": "Embedding and indexing personal documents is cheap (~$0.001-0.01/doc), but operational staffing and infrastructure costs often exceed cloud bills",
+      "evidence": "10,000 documents can be embedded and indexed for under $100; RAG cuts fine-tuning spend by 60-80%; but operational staffing for small teams costs $750k+ annually; fine-tuning a 70B model costs $50k-200k in compute; Google embedding generation at $0.15 per 1M tokens",
+      "status": "live",
+      "source_urls": [
+        "https://thedataguy.pro/blog/2025/07/the-economics-of-rag-cost-optimization-for-production-systems/"
+      ],
+      "sub_theme": "Economics of personal data ingestion",
+      "merged_from": 2
+    },
+    {
+      "name": "Rakuten + Claude Code - Autonomous Complex Task",
+      "what": "Case study of a coding agent completing a complex task in a 12.5M-line codebase with minimal human intervention, illustrating the upper bound of current agent autonomy.",
+      "evidence": "Rakuten engineers tested Claude Code on implementing activation vector extraction in vLLM (12.5M lines, multiple languages). Agent completed the task in 7 hours of autonomous work with 99.9% numerical accuracy. Cited in Anthropic's 2026 Agentic Coding Trends Report.",
+      "status": "live",
+      "source_urls": [
+        "https://resources.anthropic.com/2026-agentic-coding-trends-report"
+      ],
+      "sub_theme": "Error correction: human as quality gate",
+      "merged_from": 2
+    },
+    {
+      "name": "RedMonk - 10 Things Developers Want from Agentic IDEs (2025)",
+      "what": "Analyst report categorizing what developer-practitioners actually demand from agent oversight, distinguishing between trust controls, permission systems, and audit trails.",
+      "evidence": "Developers want: fine-grained permissions for what agents can/cannot do autonomously; approval gates before destructive actions (rm -rf, database writes, deployments); configurable autonomy levels per task type; clear audit trails of every agent action. Microsoft and Red Hat's MCP approach requires least-privilege permissions and surfaces all sensitive operations to the user.",
+      "status": "live",
+      "source_urls": [
+        "https://redmonk.com/kholterhoff/2025/12/22/10-things-developers-want-from-their-agentic-ides-in-2025/"
+      ],
+      "sub_theme": "Taxonomy: approval gates (trust) vs context provision (knowledge)",
+      "merged_from": 2
+    },
+    {
+      "name": "Relyance AI Consumer Trust Survey",
+      "what": "Survey showing 4 in 5 consumers believe companies train AI on their data without disclosure; only ~1 in 10 willing to share sensitive data",
+      "evidence": "2025 survey; 82% see data loss threat; only around 10% very willing to share financial, communication, or biometric data; more than half not willing to share even in exchange for better digital experiences",
+      "status": "live",
+      "source_urls": ["https://www.relyance.ai/consumer-ai-trust-survey-2025"],
+      "sub_theme": "Trust and adoption curve",
+      "merged_from": 2
+    },
+    {
+      "name": "Renovate (Mend.io)",
+      "what": "Cross-platform automated dependency update tool supporting 90+ package managers, creating PRs for dependency updates with grouping, scheduling, and auto-merge.",
+      "evidence": "90+ package manager support (broader than Dependabot's 30+). Works across GitHub, GitLab, Bitbucket, Azure DevOps. Claims approximately 90% time savings for dependency updates (Mend ROI whitepaper). Supports grouping, scheduling, auto-merge policies.",
+      "status": "live",
+      "source_urls": ["https://github.com/renovatebot/renovate"],
+      "sub_theme": "Automated maintenance (agent without prompting)",
+      "merged_from": 2
+    },
+    {
+      "name": "Rewind AI / Limitless",
+      "what": "Desktop activity recorder that captured everything on your screen and made it searchable, later pivoted to AI wearable pendant.",
+      "evidence": "Raised $33M+ from a16z, First Round Capital, NEA. Rewind's local processing approach limited it to users' CPUs, preventing use of best LLMs. Collected ~11GB per user per month. Rebranded to Limitless April 2024 and launched $99 hardware pendant. Acquired by Meta December 2025; Rewind desktop app shut down, pendant sales halted.",
+      "status": "acquired",
+      "source_urls": [
+        "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/"
+      ],
+      "sub_theme": "Lifelogging and personal data capture",
+      "merged_from": 2
+    },
+    {
+      "name": "Samsung Personal Data Engine (PDE)",
+      "what": "Samsung's on-device Personal Data Engine powered by RDFox knowledge graph technology creates hyper-personalized experiences while keeping data on-device",
+      "evidence": "Unveiled at Galaxy UNPACKED 2025 with Galaxy S25 series; powered by RDFox from Oxford Semantic Technologies; secured by Knox Vault and KEEP encryption; drives Now Brief and Smart Gallery search; Galaxy S26 (February 2026) added hardware-based Privacy Display on Ultra model",
+      "status": "live",
+      "source_urls": [
+        "https://www.computerweekly.com/news/366618319/Samsung-unpacks-Galaxy-AIs-personal-data-engine"
+      ],
+      "sub_theme": "On-device personal AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Screenpipe",
+      "what": "Open-source (MIT) alternative to Rewind AI that continuously captures screen and audio locally, with AI-powered search and recall.",
+      "evidence": "17.2K GitHub stars as of early 2026. 202 subscriptions, $3.5K MRR (all organic). Works on macOS, Windows, Linux. Uses local OpenAI Whisper for speech-to-text. 9 apps in marketplace, 5 more in development. Investors include Embedding VC, Founders Inc, Top Harvest Capital. Major companies (Microsoft, Intel, Oracle, GitHub, Alibaba Cloud) testing it. Has not reached product-market fit per founders.",
+      "status": "live",
+      "source_urls": ["https://screenpi.pe/"],
+      "sub_theme": "Screen/audio capture + AI recall",
+      "merged_from": 2
+    },
+    {
+      "name": "Simon Willison ChatGPT Memory Critique",
+      "what": "Prominent developer flagged ChatGPT's memory feature as creating an unsolicited 'dossier' effect, demonstrating the context collapse problem in personal AI",
+      "evidence": "May 2025; ChatGPT inferred user's location (Half Moon Bay) from prior conversations and inserted it into an unrelated image generation request; illustrates 'context collapse' where data from different spheres of user activity (work, family, hobbies) blurs together",
+      "status": "live",
+      "source_urls": [
+        "https://simonwillison.net/2025/May/21/chatgpt-new-memory/"
+      ],
+      "sub_theme": "Trust and adoption curve",
+      "merged_from": 2
+    },
+    {
+      "name": "Skyflow Privacy Vault",
+      "what": "Privacy-as-infrastructure company providing tokenized data vaults that can serve as a trust layer between personal data and AI models",
+      "evidence": "Raised $100M total equity including $30M Series B extension led by Khosla Ventures (April 2024); supports nearly 1 billion records; processes over 2 billion API calls per quarter; LLM Privacy Vault product detects sensitive data and replaces with deterministic tokens before sending to AI models",
+      "status": "live",
+      "source_urls": [
+        "https://www.skyflow.com/post/generative-ai-data-privacy-skyflow-llm-privacy-vault"
+      ],
+      "sub_theme": "Privacy infrastructure for AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Solid Project (Tim Berners-Lee / Inrupt)",
+      "what": "Standards-based personal data pods with time-bound access grants to apps and AI agents, proposed as alternative to platform data hoards",
+      "evidence": "Originally released 2016; Inrupt launched 2018; Berners-Lee's 2025 book positions Solid as counter to AI built on platform data; developer community remains small; Berners-Lee acknowledges 'not ready for general adoption yet'; network effects remain the core obstacle",
+      "status": "live",
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Solid_(web_decentralization_project)"
+      ],
+      "sub_theme": "Data portability infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Spain AEPD Agentic AI Guide",
+      "what": "Spain's data protection authority published a 71-page regulatory analysis of how agentic AI systems create structural privacy risks distinct from conventional AI tools",
+      "evidence": "Published February 2026; titled 'Agentic Artificial Intelligence from the Perspective of Data Protection'; identifies persistent memory profiles, autonomous multi-service access, and consequential actions without human checkpoints as novel risks",
+      "status": "live",
+      "source_urls": [
+        "https://ppc.land/spains-data-watchdog-maps-the-hidden-gdpr-risks-of-agentic-ai/"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "Spotify AI DJ",
+      "what": "AI-powered DJ that proactively selects music based on full listening history, temporal patterns, and mood inference without explicit song requests.",
+      "evidence": "Launched February 2023. DJ Requests (voice and text) added May 2025. Personalized prompt suggestions added October 2025 (e.g., 'reggaeton beats for an energetic afternoon'). Prompted Playlists beta (December 2025) uses entire listening history from day one. System processes billions of data points using collaborative filtering, content-based filtering, skip rates, playlist additions, and temporal preferences (morning/afternoon/evening, seasonal patterns).",
+      "status": "live",
+      "source_urls": [
+        "https://newsroom.spotify.com/2023-02-22/spotify-debuts-a-new-ai-dj-right-in-your-pocket/"
+      ],
+      "sub_theme": "Proactive consumer AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Supermemory",
+      "what": "AI memory startup extracting 'memories' from unstructured data for application context, founded by a 19-year-old",
+      "evidence": "Raised $2.6M seed led by Susa Ventures, Browder Capital, and SF1.vc; backed by Google executives; October 2025",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2025/10/06/a-19-year-old-nabs-backing-from-google-execs-for-his-ai-memory-startup-supermemory/"
+      ],
+      "sub_theme": "Memory and context infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "SWE-bench Verified - Current State of Autonomous Coding",
+      "what": "Primary benchmark for measuring autonomous coding agent performance on real GitHub issues.",
+      "evidence": "Top scores cluster at 77.8-80.9% on SWE-bench Verified (tightest top-tier race yet). Claude Opus 4.5 leads at 80.9% Verified but only 45.9% on SWE-bench Pro (same model, half the score). SWE-bench Pro is considered more reliable due to data contamination in Verified's 500 Python-only tasks.",
+      "status": "live",
+      "source_urls": ["https://www.swebench.com/verified.html"],
+      "sub_theme": "Benchmarks and limitations",
+      "merged_from": 2
+    },
+    {
+      "name": "SWE-bench Verified Leaderboard (Feb 2026)",
+      "what": "Industry-standard benchmark for autonomous issue resolution on real GitHub repos.",
+      "evidence": "Top scores as of Feb 2026: Claude Opus 4.5 at 80.9%, Sonar Foundation Agent at 79.2%, Gemini 3 Flash at ~76.2%. Average score across all models is 62.2%. SWE-bench Pro (harder, uncontaminated) shows GPT-5.3-Codex at 56.8%, meaning top models still fail ~43-50% of professional-level tasks.",
+      "status": "live",
+      "source_urls": ["https://www.swebench.com/"],
+      "sub_theme": "Benchmark performance",
+      "merged_from": 2
+    },
+    {
+      "name": "Sweep AI",
+      "what": "AI junior developer that transforms GitHub issues and Jira tickets into pull requests by reading the project, planning changes, writing code, and creating PRs.",
+      "evidence": "Raised $2.8M (as of November 2023 TechCrunch report). Team was 2 employees planning to expand to 5. Reads project context, plans changes, writes code, and creates PRs from issue descriptions.",
+      "status": "live",
+      "source_urls": [
+        "https://techcrunch.com/2023/11/02/sweep-aims-to-automate-basic-dev-tasks-using-large-language-models/"
+      ],
+      "sub_theme": "Autonomous coding agents",
+      "merged_from": 2
+    },
+    {
+      "name": "Tab AI",
+      "what": "Wearable AI pendant that listens to conversations all day and builds a persistent personal context model, functioning like always-on ChatGPT without prompting.",
+      "evidence": "Created by Avi Schiffmann (built COVID dashboard used by millions). Raised $1.9M seed at ~$20M valuation. Designed as disk-shaped necklace. Retains and builds on prior conversation context. Originally scheduled for winter/spring 2024 launch; availability status unclear as of early 2026.",
+      "status": "announced",
+      "source_urls": [
+        "https://venturebeat.com/ai/tabs-always-on-ai-pendant-just-got-funded-but-do-we-need-it/"
+      ],
+      "sub_theme": "Personal AI hardware",
+      "merged_from": 2
+    },
+    {
+      "name": "Turing Post - State of AI Coding: Context, Trust, and Subagents",
+      "what": "Industry analysis identifying that developer distrust of coding agents stems primarily from context gaps, not model capability.",
+      "evidence": "When asked why developers don't trust AI coding agents, most said: 'We don't trust the context the model has.' Missing context identified as the critical issue: 'The critical logic sleeps in a Jira ticket from 2019, or worse, it's tribal knowledge.' An AI agent cannot know context that exists only in a person's head.",
+      "status": "live",
+      "source_urls": ["https://www.turingpost.com/p/aisoftwarestack"],
+      "sub_theme": "Taxonomy: approval gates (trust) vs context provision (knowledge)",
+      "merged_from": 2
+    },
+    {
+      "name": "UK ICO Agentic AI Early Views",
+      "what": "The UK Information Commissioner's Office flagged data minimization and transparency as specific compliance risks for agentic AI systems",
+      "evidence": "ICO notes that when an agent's scope is uncertain, defining what data is 'necessary' becomes harder; complexity of agent data flows makes it difficult to explain processing to individuals; agents communicating with other agents create unobservable data flows",
+      "status": "live",
+      "source_urls": [
+        "https://www.insideprivacy.com/artificial-intelligence/ico-shares-early-views-on-agentic-ai-data-protection/"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "Usercentrics acquires MCP Manager",
+      "what": "Global consent management leader acquired MCP Manager to extend consent infrastructure into agentic AI workflows",
+      "evidence": "Announced January 14, 2026; first major privacy company to extend consent guardrails into MCP-based AI workflows; addresses gap where regular MCPs don't include consent checks for data access",
+      "status": "live",
+      "source_urls": [
+        "https://usercentrics.com/press/usercentrics-acquires-mcp-manager/"
+      ],
+      "sub_theme": "Regulatory barriers",
+      "merged_from": 2
+    },
+    {
+      "name": "Vana Protocol",
+      "what": "EVM-compatible Layer 1 blockchain for personal data sovereignty, enabling user-owned AI through private data transactions with DataDAOs",
+      "evidence": "Mainnet launched December 2024; over 12 million data points onboarded through multiple DataDAOs; VRC-20 token standard for data-backed digital assets introduced April 2025; YZi Labs investment with CZ advisory role; VANA trading $8-15 in 2025",
+      "status": "live",
+      "source_urls": ["https://www.vana.org/"],
+      "sub_theme": "Data portability infrastructure",
+      "merged_from": 2
+    },
+    {
+      "name": "Windsurf - Parallel agent sessions (Wave 13)",
+      "what": "Windsurf added parallel Cascade agent sessions in early 2026 for simultaneous multi-task development.",
+      "evidence": "Wave 13 (early 2026) added parallel agent sessions with dedicated terminal profiles. Windsurf ranked #1 in LogRocket rankings (Feb 2026) assessing 50+ features. Windsurf was acquired by Cognition Labs; its $82M ARR across 350+ enterprise accounts contributed to Cognition's $155M combined ARR.",
+      "status": "live",
+      "source_urls": [
+        "https://dev.to/pockit_tools/cursor-vs-windsurf-vs-claude-code-in-2026-the-honest-comparison-after-using-all-three-3gof"
+      ],
+      "sub_theme": "Autonomous coding products",
+      "merged_from": 2
+    },
+    {
+      "name": "x.ai (Amy/Andrew scheduling AI)",
+      "what": "AI scheduling assistant that handled meeting coordination via email, using virtual personas 'Amy' and 'Andrew'.",
+      "evidence": "Founded by Dennis Mortensen. Raised $44M total ($2M seed 2014, $23M 2016, $10M 2017). Acquired by Bizzabo June 2021 for undisclosed amount. Scheduling tool sunset October 31, 2021. Technology folded into Bizzabo's event management platform rather than continuing as standalone product.",
+      "status": "acquired",
+      "source_urls": [
+        "https://www.globenewswire.com/news-release/2021/06/03/2241277/0/en/Bizzabo-Acquires-x-ai-to-Launch-AI-powered-Scheduling-Accelerate-Personalized-Event-Experiences.html"
+      ],
+      "sub_theme": "AI scheduling assistants",
+      "merged_from": 2
+    },
+    {
+      "name": "YC S25 Batch AI Concentration",
+      "what": "88% of YC S25 batch (141 of 169 startups) classified as AI-native, with 50%+ building agentic AI, mostly domain-specific copilots rather than general personal AI",
+      "evidence": "Summer 2025; 169 startups total; highest concentration of AI startups in YC history; domain-specific focus: insurance claim appeals, mortgage applications; doubling down on narrow high-impact applications rather than general personal assistants",
+      "status": "live",
+      "source_urls": [
+        "https://catalaize.substack.com/p/y-combinator-s25-batch-profile-and"
+      ],
+      "sub_theme": "YC and accelerator landscape",
+      "merged_from": 2
+    },
+    {
+      "name": "YC W26 Batch AI Agents and Healthcare",
+      "what": "YC W26 batch building infrastructure for AI agents to operate inside companies, with healthcare making up nearly 10% of batch",
+      "evidence": "Winter 2026; nearly 50% of batch identified as AI agent companies; healthcare gaining momentum including wearable technologies and drug discovery; examples include Corvera (CPG operations), Arcline (legal drafting)",
+      "status": "live",
+      "source_urls": ["https://www.tldl.io/blog/yc-ai-startups-2026"],
+      "sub_theme": "YC and accelerator landscape",
+      "merged_from": 2
+    },
+    {
+      "name": "YouGov AI Trust Survey",
+      "what": "35% of Americans use AI weekly but only 5% trust it deeply; 40% say they would never enter personal or financial information into an AI tool",
+      "evidence": "2025 survey; 48% cite data exposure as primary adoption barrier (outranking hallucinations); 51% of Gen Z report weekly AI usage vs 25% of baby boomers; trust in AI saw a 16-point increase in 2025 but from a low base",
+      "status": "live",
+      "source_urls": [
+        "https://yougov.com/en-us/articles/53701-most-americans-use-ai-but-still-dont-trust-it"
+      ],
+      "sub_theme": "Trust and adoption curve",
+      "merged_from": 2
+    },
+    {
+      "name": "Zapier AI / Zapier Agents / Zapier Canvas",
+      "what": "AI-powered workflow automation platform that generates workflows from natural language and converts visual process diagrams into functioning automations.",
+      "evidence": "8,000+ app integrations. Zapier Canvas converts visual diagrams into live automations. Natural language workflow creation (e.g., 'When I get a Gmail, summarize it and post to Slack'). Zapier Agents carry out specific workflows. Focus on AI orchestration, agents, copilot, human-in-the-loop, and MCP as of 2026.",
+      "status": "live",
+      "source_urls": ["https://zapier.com/"],
+      "sub_theme": "Workflow automation with AI",
+      "merged_from": 2
+    },
+    {
+      "name": "Zep",
+      "what": "Context engineering platform for AI agents combining chat history, business data, and user behavior.",
+      "evidence": "$500K seed (Apr 2024). YC W24. Tracks how facts change over time (temporal reasoning). Integrates structured business data with conversational history. Graph-based memory with relationship modeling. No significant follow-on funding disclosed as of March 2026.",
+      "status": "live",
+      "source_urls": ["https://www.getzep.com/"],
+      "sub_theme": "Agent memory infrastructure",
+      "merged_from": 2
+    }
+  ],
+  "gaps": [
+    "No public autonomous task completion rate benchmark exists for Cursor's agent mode or background agent feature. Cursor publishes no equivalent of SWE-bench results.",
+    "Cline has no published autonomous completion rate metrics despite 5M+ users. They created Cline Bench (Nov 2025) for evaluating agents but no public leaderboard results were found.",
+    "The METR study used early-2025 tools (Claude 3.5/3.7 Sonnet). METR announced in Feb 2026 they are redesigning their experiment, so no updated results with current models exist yet.",
+    "No rigorous academic study was found measuring autonomous agent operation duration specifically (as opposed to benchmark accuracy). Anthropic's telemetry analysis is the closest, but it measures user behavior rather than agent capability limits.",
+    "GitHub Copilot Workspace was sunset before publishing formal task completion benchmarks. The replacement Coding Agent has volume data (1.2M PRs/month) but no quality/completion rate data.",
+    "No data was found on how agent reliability changes as task duration increases (i.e., reliability curves over time). The compounding error rate calculation (85% per step = 20% over 10 steps) is theoretical, not empirically measured on real agent runs.",
+    "Token cost data for long-running autonomous sessions is sparse. GPT-5-Codex reports 93.7% fewer tokens than GPT-5 for simple turns but no data on cost of 7+ hour sessions.",
+    "GitHub Copilot specific user count and revenue figures for 2025-2026 were not available in search results (Microsoft bundles into broader GitHub/365 reporting).",
+    "Rift (coding agent tool) appears to be defunct or very low profile - no meaningful results found. It may have been absorbed or abandoned.",
+    "Specific accuracy rates or task completion metrics for Devin, Codex, and Copilot agent in production (outside of benchmarks) are not publicly disclosed.",
+    "Cost-per-task data for autonomous agents (API spend per completed coding task) is not systematically published by any vendor.",
+    "Zep's traction metrics (users, API calls, revenue) beyond the $500K seed are not publicly available, making it hard to assess product-market fit relative to Mem0.",
+    "Detailed technical comparison of memory architectures (Mem0 vs Zep vs Claude Code's built-in memory vs LangGraph checkpointing) lacks independent benchmarking.",
+    "Agent-to-agent protocol adoption numbers (how many production A2A deployments exist) are not available beyond the '150+ supporting organizations' figure, which measures intent not deployment.",
+    "Clara Labs: Search results show it is still operating (acquired by TopFunnel in 2019). Could not confirm any shutdown. May not qualify as a failure.",
+    "Exact acquisition price for Rewind/Limitless by Meta was not disclosed.",
+    "Exact acquisition price for x.ai by Bizzabo was not disclosed.",
+    "Rabbit R1 current financial status is unclear; reports of unpaid salaries but no confirmed shutdown or bankruptcy filing found.",
+    "Could not find specific cost-per-query data for Facebook M's human operators.",
+    "Did not find additional personal AI startups raising >$5M that shut down 2023-2026 beyond the ones listed. The landscape is large and many smaller failures go unreported.",
+    "Intercom Fin is not a failure; included for contrast. Could not find well-sourced enterprise AI assistant failures with specific numbers.",
+    "Magic Leap is tangential to 'personal AI assistant' theme; included because it represents ambient computing failure but it was primarily an AR/spatial computing bet.",
+    "No public data found on the specific breakdown of WHY developers interrupt agents (e.g., what % is 'wrong direction' vs 'missing context' vs 'safety concern'). Anthropic's autonomy paper shows frequency shifts but not a categorical breakdown of interruption reasons.",
+    "No quantitative data found distinguishing approval-gate interventions (trust) from context-provision interventions (knowledge) from error-correction interventions (capability). The Turing Post finding that developers distrust context rather than capability is qualitative, not measured.",
+    "Copilot's 70% rejection rate is not broken down by reason. We know 30% of suggestions are accepted but not why the other 70% are rejected (wrong code? wrong timing? partial match? style mismatch?).",
+    "No published research found measuring how much human-in-the-loop overhead could be replaced by personal data (preferences, coding style, project context) vs institutional knowledge vs real-time judgment.",
+    "Limited data on HITL patterns in non-coding autonomous agent workflows (e.g., customer service, data analysis, content creation) with the same level of rigor as the coding domain.",
+    "Anthropic's Constitutional AI paper shows principles CAN replace per-instance human labels, but there is no published measurement of how much residual human oversight Constitutional AI eliminates in production deployment vs standard RLHF.",
+    "No found data on the cost of human-in-the-loop interventions (developer time per interruption, context-switching penalty) in agent workflows specifically.",
+    "Personal.ai revenue and user numbers beyond 2023 ($138K ARR) are not publicly available; the company appears small relative to funding but specific current metrics are missing.",
+    "Mem.ai current user counts and revenue are not publicly disclosed; impossible to assess actual traction vs. the $110M post-money valuation.",
+    "Tab AI's actual shipping status and real-world user feedback are unclear; the product was announced in 2024 but confirmation of general availability is sparse.",
+    "Google Gemini's personal data integration (Gmail, Calendar, Drive context in Gemini Advanced) was not deeply researched in this wave; it belongs in a follow-up.",
+    "Microsoft Copilot's personal data context (across M365 apps, Microsoft Graph) was not covered in this wave and is a major player that warrants dedicated research.",
+    "No specific products were found that ingest cross-platform personal data (e.g., Spotify + GitHub + LinkedIn together) and generate task priorities or agent actions. This is the gap Vana would fill.",
+    "Screenpipe's actual user count (beyond 202 subscriptions) and daily active usage data are not available.",
+    "Privacy/regulatory outcomes for always-listening wearables (Tab, Limitless pendant) are not well-documented beyond general concerns.",
+    "Accuracy and hallucination rates for personal-data-augmented AI responses are not benchmarked across products (only Mem0 publishes comparative claims).",
+    "Specific data on what percentage of human interventions are context-related vs. approval-related",
+    "Published comparison of agent performance with vs. without personal user context",
+    "Revenue data for agent memory companies (Mem0, Zep)",
+    "Academic research specifically on personal data as agent context (most research focuses on task-specific context, not cross-platform personal data)",
+    "Specific adoption/usage statistics for Apple Intelligence features are not publicly reported; no data on what percentage of eligible users have enabled on-device AI features",
+    "No specific YC W26 or S25 startups found focused on personal data portability for AI agent context specifically; the intersection of data portability + AI agents appears to be a white space in accelerator batches",
+    "Cost-per-user economics for personal AI context (storage + retrieval + inference) at consumer scale are not well-documented; enterprise RAG costs are published but consumer personal AI unit economics are proprietary",
+    "No survey data found specifically measuring user willingness to share personal data with AI agents (as opposed to AI chatbots or companies generally); the agent-specific trust question appears unstudied",
+    "Personal data store companies (Digi.me, Meeco, MyDex, Solid) have no publicly available user count or revenue figures for 2025-2026, making it impossible to assess actual traction",
+    "No data found on how much personal context is needed before an AI agent becomes meaningfully more useful than a generic one (the minimum viable personalization threshold); the cold start research is theoretical, not empirical from deployed products",
+    "Healthcare personal data + AI agents is notably absent from findings; despite HIPAA and health data being among the most valuable personal data, no specific companies or products were found building personal health data as agent context",
+    "The intersection of MCP protocol adoption and personal data access patterns is undocumented; no data on how many MCP servers handle personal vs. enterprise data",
+    "No specific figures found on how much Google, Apple, or OpenAI spend on personal data storage and processing per user for their AI memory/context features",
+    "No hard accuracy or precision numbers found for OpenClaw daily briefing quality or user satisfaction rates.",
+    "ChatGPT Pulse was live for only ~3 months before being shelved; no usage metrics, retention data, or user feedback were published.",
+    "No revenue or pricing data found for OpenClaw or NanoClaw (both are open-source, likely no direct revenue model).",
+    "Limited data on what percentage of ChatGPT users actually use Scheduled Tasks, or how many tasks are active across the user base.",
+    "No products found that specifically generate coding agent prompts from personal data (the exact intersection Vana is exploring). The closest are OpenClaw daily briefings (which summarize but don't generate actionable coding tasks) and GitHub Copilot coding agent (which acts on issues but doesn't infer tasks from personal data).",
+    "No data found on failure rates or user abandonment for proactive/scheduled AI features across any platform.",
+    "Google CC (Your Day Ahead) is too new (December 2025 launch) to have published usage or retention metrics.",
+    "Gemini Goal Scheduled Actions (February 2026) has no published adoption data yet.",
+    "The PROBE benchmark's 40% ceiling for proactive agents suggests the technical problem is far from solved, but no commercial product has published comparable accuracy metrics for their proactive features.",
+    "No products found that combine personal data from multiple life domains (code + social + media + conversations) into coding-specific task generation. Each product stays in its lane: code tools generate code tasks, productivity tools generate productivity tasks, media tools recommend media."
+  ]
+}

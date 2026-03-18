@@ -1,0 +1,70 @@
+{
+  "agent_question": "Verification of key numerical claims from wave 1 and wave 2",
+  "findings": [
+    {
+      "name": "Cursor $29.3B valuation",
+      "what": "Verified: Cursor raised $2.3B Series D at $29.3B valuation (Nov 2025). Now in talks for $50B round.",
+      "evidence": "Confirmed by CNBC, BusinessWire, TechCrunch. ARR crossed $2B as of March 2026. $1B ARR in 24 months. $1.2B ARR in 2025 per Sacra.",
+      "status": "live",
+      "source_url": "https://www.cnbc.com/2025/11/13/cursor-ai-startup-funding-round-valuation.html",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Claude Code $2.5B ARR",
+      "what": "Verified: Claude Code run-rate revenue above $2.5B, accounts for over half of Anthropic enterprise spending",
+      "evidence": "Confirmed by multiple sources. Anthropic at $14B total ARR. Claude Code reached $1B ARR within 6 months of May 2025 launch. $30B Series G at $380B valuation (Feb 2026).",
+      "status": "live",
+      "source_url": "https://www.saastr.com/anthropic-just-hit-14-billion-in-arr-up-from-1-billion-just-14-months-ago/",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Humane AI Pin shutdown",
+      "what": "Verified: HP acquired Humane assets for $116M. AI Pins stopped functioning Feb 28, 2025.",
+      "evidence": "Confirmed by Fortune, TechCrunch, Axios. $230M raised. Device scathingly reviewed. Customers given <10 days notice before brick.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2025/02/18/humanes-ai-pin-is-dead-as-hp-buys-startups-assets-for-116m/",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "METR task horizon doubling (7 months)",
+      "what": "Verified: Task completion time horizons doubling approximately every 7 months",
+      "evidence": "Confirmed by METR's own publications. Time Horizon 1.1 released Jan 2026 with expanded task suite.",
+      "status": "live",
+      "source_url": "https://metr.org/time-horizons/",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Anthropic agent autonomy metrics",
+      "what": "Verified: 99.9th percentile turn duration doubled (25 min to 45 min). Interventions decreased from 5.4 to 3.3.",
+      "evidence": "From Anthropic's own research publication. Auto-approve rates climb from 20% to 40%+.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/research/measuring-agent-autonomy",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Cognition/Devin $10.2B valuation",
+      "what": "Verified: $400M raise at $10.2B valuation (Sept 2025). ARR $73M growing to ~$155M with Windsurf.",
+      "evidence": "Confirmed by CNBC, TechCrunch. Net burn under $20M total. Triple-digit YoY growth.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Mem0 $24M raise",
+      "what": "Verified: $24M total (Seed + Series A). 186M API calls Q3 2025.",
+      "evidence": "Confirmed by TechCrunch, company blog. Backed by YC, Peak XV, GitHub Fund.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/",
+      "sub_theme": "Verification"
+    },
+    {
+      "name": "Limitless AI / Meta acquisition",
+      "what": "Verified: Acquired by Meta Dec 2025. $33M+ total raised. Desktop app sunset Dec 19, 2025.",
+      "evidence": "Confirmed by TechCrunch. $350M valuation on $707K ARR (2023). Pendant discontinued.",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Verification"
+    }
+  ],
+  "gaps": []
+}
