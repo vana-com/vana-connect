@@ -2,14 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { getDataConnectHome } from "../core/paths.js";
+import { getVanaHome } from "../core/paths.js";
 
 /**
  * Returns the local cache directory for downloaded skills.
- * @returns Absolute path to `~/.dataconnect/skills/`
+ * @returns Absolute path to `~/.vana/skills/`
  */
 export function getSkillsCacheDir(): string {
-  return path.join(getDataConnectHome(), "skills");
+  return path.join(getVanaHome(), "skills");
 }
 
 /**

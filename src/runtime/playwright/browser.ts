@@ -50,7 +50,7 @@ export function getBrowserCacheDir(): string {
   }
 
   const home = process.env.HOME || process.env.USERPROFILE || "";
-  const candidates = [path.join(home, ".dataconnect", "browsers")];
+  const candidates = [path.join(home, ".vana", "browsers")];
 
   for (const dir of candidates) {
     if (fs.existsSync(dir)) {
@@ -315,5 +315,5 @@ export async function launchPersistentContext(
 }
 
 export function getDefaultUserDataDir(slug: string): string {
-  return path.join(os.homedir(), ".dataconnect", "browser-profiles", slug);
+  return path.join(os.homedir(), ".vana", "browser-profiles", slug);
 }

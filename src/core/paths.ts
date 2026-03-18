@@ -1,24 +1,24 @@
 import os from "node:os";
 import path from "node:path";
 
-export function getDataConnectHome(): string {
-  return path.join(os.homedir(), ".dataconnect");
+export function getVanaHome(): string {
+  return path.join(os.homedir(), ".vana");
 }
 
 export function getConnectorCacheDir(): string {
-  return path.join(getDataConnectHome(), "connectors");
+  return path.join(getVanaHome(), "connectors");
 }
 
 export function getBrowserProfilesDir(): string {
-  return path.join(getDataConnectHome(), "browser-profiles");
+  return path.join(getVanaHome(), "browser-profiles");
 }
 
 export function getCliStatePath(): string {
-  return path.join(getDataConnectHome(), "vana-connect-state.json");
+  return path.join(getVanaHome(), "vana-connect-state.json");
 }
 
 export function getResultsDir(): string {
-  return path.join(getDataConnectHome(), "results");
+  return path.join(getVanaHome(), "results");
 }
 
 export function getSourceResultPath(source: string): string {
@@ -28,11 +28,11 @@ export function getSourceResultPath(source: string): string {
 
 /** Internal temp path for connector output. Use getSourceResultPath() for storage. */
 export function getLastResultPath(): string {
-  return path.join(getDataConnectHome(), "last-result.json");
+  return path.join(getVanaHome(), "last-result.json");
 }
 
 export function getLogsDir(): string {
-  return path.join(getDataConnectHome(), "logs");
+  return path.join(getVanaHome(), "logs");
 }
 
 export function getTimestampedLogPath(prefix: string): string {

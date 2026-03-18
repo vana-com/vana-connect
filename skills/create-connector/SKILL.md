@@ -31,7 +31,7 @@ Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a
 | GitHub    | DOM extraction  | 3    | Server-rendered, no client API       |
 | Spotify   | In-page fetch   | 1    | Well-documented public API           |
 
-Look at existing connectors in `~/.dataconnect/connectors/` for working examples.
+Look at existing connectors in `~/.vana/connectors/` for working examples.
 
 ---
 
@@ -172,7 +172,7 @@ Run the connector and validate in one step:
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js && \
   vana connect <platform> && \
-  node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+  node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.vana/last-result.json
 ```
 
 The validator checks structure, output quality, debug code, data cleanliness, schema descriptions, and login method diversity. Fix all reported issues and re-run.
@@ -188,7 +188,7 @@ Schemas are an API contract — app developers build against them.
 ### Generate the skeleton
 
 ```bash
-node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
+node scripts/generate-schemas.cjs ~/.vana/last-result.json <platform> [output-dir]
 ```
 
 ### Enrich from what you know

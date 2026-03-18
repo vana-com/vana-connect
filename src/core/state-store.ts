@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
-import { getCliStatePath, getDataConnectHome } from "./paths.js";
+import { getCliStatePath, getVanaHome } from "./paths.js";
 
 const STATE_LOCK_TIMEOUT_MS = 5_000;
 const STATE_LOCK_RETRY_MS = 25;
@@ -58,7 +58,7 @@ export async function updateSourceState(
   source: string,
   patch: StoredSourceState,
 ): Promise<void> {
-  await fs.mkdir(getDataConnectHome(), { recursive: true });
+  await fs.mkdir(getVanaHome(), { recursive: true });
   await withStateFileLock(async () => {
     await testHooks?.beforeRead?.();
     const state = await readCliState();
@@ -80,7 +80,7 @@ export async function readCliConfig(): Promise<CliConfig> {
 export async function updateCliConfig(
   patch: Partial<CliConfig>,
 ): Promise<void> {
-  await fs.mkdir(getDataConnectHome(), { recursive: true });
+  await fs.mkdir(getVanaHome(), { recursive: true });
   await withStateFileLock(async () => {
     await testHooks?.beforeRead?.();
     const state = await readCliState();

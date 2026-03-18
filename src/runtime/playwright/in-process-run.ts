@@ -230,12 +230,12 @@ export function startInProcessConnectorRun({
   const runId = `${path.basename(request.connectorPath, path.extname(request.connectorPath))}-${Date.now()}`;
   const pendingInputPath = path.join(
     os.homedir(),
-    ".dataconnect",
+    ".vana",
     `pending-input-${runId}.json`,
   );
   const responseInputPath = path.join(
     os.homedir(),
-    ".dataconnect",
+    ".vana",
     `input-response-${runId}.json`,
   );
   const logStream = fs.createWriteStream(logPath);

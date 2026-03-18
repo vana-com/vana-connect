@@ -9,7 +9,7 @@ const resolveBrowserPath = vi.fn(() => "/tmp/chrome");
 const importChromeCookies = vi.fn();
 const isSystemChrome = vi.fn(() => false);
 const getDefaultUserDataDir = vi.fn((slug: string) =>
-  path.join(os.tmpdir(), ".dataconnect-browser-profiles", slug),
+  path.join(os.tmpdir(), ".vana-browser-profiles", slug),
 );
 
 vi.mock("../../src/runtime/playwright/browser.js", () => ({

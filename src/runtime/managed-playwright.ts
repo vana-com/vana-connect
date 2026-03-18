@@ -8,7 +8,7 @@ import {
   ensureParentDir,
   getBrowserProfilesDir,
   getConnectorCacheDir,
-  getDataConnectHome,
+  getVanaHome,
   getLogsDir,
   getTimestampedLogPath,
 } from "../core/index.js";
@@ -76,7 +76,7 @@ export class ManagedPlaywrightRuntime {
     }
     const logPath = getTimestampedLogPath("setup");
     await ensureParentDir(logPath);
-    const homeDir = getDataConnectHome();
+    const homeDir = getVanaHome();
 
     await fsp.mkdir(homeDir, { recursive: true });
     await fsp.mkdir(getConnectorCacheDir(), { recursive: true });

@@ -9,14 +9,9 @@ describe("formatDisplayPath", () => {
   });
 
   it("renders paths under the home directory with a tilde prefix", () => {
-    const nestedPath = path.join(
-      os.homedir(),
-      ".dataconnect",
-      "logs",
-      "run.log",
-    );
+    const nestedPath = path.join(os.homedir(), ".vana", "logs", "run.log");
 
-    expect(formatDisplayPath(nestedPath)).toBe("~/.dataconnect/logs/run.log");
+    expect(formatDisplayPath(nestedPath)).toBe("~/.vana/logs/run.log");
   });
 
   it("leaves non-home paths unchanged", () => {

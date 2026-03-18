@@ -133,7 +133,7 @@ vi.mock("../../src/core/index.js", async () => {
     readCliState: mockReadCliState,
     updateSourceState: mockUpdateSourceState,
     getBrowserProfilesDir: vi.fn(() => "/tmp/browser-profiles"),
-    getLastResultPath: vi.fn(() => "/tmp/.dataconnect/last-result.json"),
+    getLastResultPath: vi.fn(() => "/tmp/.vana/last-result.json"),
   };
 });
 
@@ -479,7 +479,7 @@ describe("runCli", () => {
       [
         "/tmp/playwright/chrome",
         "/tmp/browser-profiles",
-        "/tmp/.dataconnect",
+        "/tmp/.vana",
       ].includes(target),
     );
 
@@ -503,18 +503,15 @@ describe("runCli", () => {
       paths: {
         executable: expect.any(String),
         appRoot: null,
-        dataHome: expect.stringMatching(/\.dataconnect$/),
-        stateFile: expect.stringMatching(
-          /\.dataconnect\/vana-connect-state\.json$/,
-        ),
-        connectorCache: expect.stringMatching(/\.dataconnect\/connectors$/),
+        dataHome: expect.stringMatching(/\.vana$/),
+        stateFile: expect.stringMatching(/\.vana\/vana-connect-state\.json$/),
+        connectorCache: expect.stringMatching(/\.vana\/connectors$/),
         browserProfiles: "/tmp/browser-profiles",
-        logs: expect.stringMatching(/\.dataconnect\/logs$/),
+        logs: expect.stringMatching(/\.vana\/logs$/),
       },
       lifecycle: {
         upgrade: "git pull && pnpm install && pnpm build",
-        uninstall:
-          "Remove the local checkout and any generated ~/.dataconnect state.",
+        uninstall: "Remove the local checkout and any generated ~/.vana state.",
       },
       summary: {
         trackedSourceCount: 1,
@@ -622,13 +619,13 @@ describe("runCli", () => {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
         shop: {
           lastRunAt: "2026-03-14T13:11:10.000Z",
           lastRunOutcome: "legacy_auth",
           dataState: "none",
-          lastLogPath: "/tmp/.dataconnect/logs/run-shop.log",
+          lastLogPath: "/tmp/.vana/logs/run-shop.log",
         },
       },
     });
@@ -663,13 +660,13 @@ describe("runCli", () => {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
         shop: {
           lastRunAt: "2026-03-14T13:11:10.000Z",
           lastRunOutcome: "legacy_auth",
           dataState: "none",
-          lastLogPath: "/tmp/.dataconnect/logs/run-shop.log",
+          lastLogPath: "/tmp/.vana/logs/run-shop.log",
         },
       },
     });
@@ -978,7 +975,7 @@ describe("runCli", () => {
       version: 1,
       sources: {
         github: {
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
           lastRunAt: "2026-03-14T13:10:03.677Z",
           dataState: "collected_local",
         },
@@ -1007,7 +1004,7 @@ describe("runCli", () => {
     expect(parsed).toEqual({
       source: "github",
       name: "GitHub",
-      path: "/tmp/.dataconnect/github-result.json",
+      path: "/tmp/.vana/github-result.json",
       summary: {
         lines: [
           "Profile: tnunamak",
@@ -1045,7 +1042,7 @@ describe("runCli", () => {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
       },
     });
@@ -1069,7 +1066,7 @@ describe("runCli", () => {
         Latest repos: vana-connect, data-connectors
         Starred: 0
 
-        Path:          /tmp/.dataconnect/github-result.json
+        Path:          /tmp/.vana/github-result.json
         Updated: <timestamp>
         State:         Saved locally
 
@@ -1126,7 +1123,7 @@ describe("runCli", () => {
       version: 1,
       sources: {
         spotify: {
-          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastResultPath: "/tmp/.vana/spotify-result.json",
           dataState: "collected_local",
         },
       },
@@ -1155,7 +1152,7 @@ describe("runCli", () => {
         github: {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
       },
     });
@@ -1164,7 +1161,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "data", "path", "github"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toBe("/tmp/.dataconnect/github-result.json\n");
+    expect(stdout).toBe("/tmp/.vana/github-result.json\n");
   });
 
   it("orders collected datasets by most recent run first", async () => {
@@ -1176,12 +1173,12 @@ describe("runCli", () => {
       version: 1,
       sources: {
         github: {
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
           lastRunAt: "2026-03-14T13:10:03.677Z",
           dataState: "collected_local",
         },
         chatgpt: {
-          lastResultPath: "/tmp/.dataconnect/chatgpt-result.json",
+          lastResultPath: "/tmp/.vana/chatgpt-result.json",
           lastRunAt: "2026-03-14T12:10:03.677Z",
           dataState: "collected_local",
         },
@@ -1244,12 +1241,12 @@ describe("runCli", () => {
       version: 1,
       sources: {
         github: {
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
           lastRunAt: "2026-03-14T13:10:03.677Z",
           dataState: "collected_local",
         },
         spotify: {
-          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastResultPath: "/tmp/.vana/spotify-result.json",
           lastRunAt: "2026-03-13T16:23:00.000Z",
           dataState: "collected_local",
         },
@@ -1289,7 +1286,7 @@ describe("runCli", () => {
         Starred: 0
         State:         Saved locally
         Updated: <timestamp>
-        Path:          /tmp/.dataconnect/github-result.json
+        Path:          /tmp/.vana/github-result.json
 
       Spotify local
         Profile: tnunamak
@@ -1297,7 +1294,7 @@ describe("runCli", () => {
         Playlists: Focus, Deep Work
         State:         Saved locally
         Updated: <timestamp>
-        Path:          /tmp/.dataconnect/spotify-result.json
+        Path:          /tmp/.vana/spotify-result.json
 
         Next: \`vana data show github\`
       "
@@ -1332,7 +1329,7 @@ describe("runCli", () => {
       version: 1,
       sources: {
         github: {
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
       },
     });
@@ -1352,7 +1349,7 @@ describe("runCli", () => {
     expect(parsed).toEqual({
       source: "github",
       name: "GitHub",
-      path: "/tmp/.dataconnect/github-result.json",
+      path: "/tmp/.vana/github-result.json",
       lastRunAt: null,
       dataState: null,
       nextSteps: [
@@ -1403,13 +1400,13 @@ describe("runCli", () => {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastLogPath: "/tmp/.dataconnect/logs/run-github.log",
+          lastLogPath: "/tmp/.vana/logs/run-github.log",
         },
         shop: {
           lastRunAt: "2026-03-14T13:11:10.000Z",
           lastRunOutcome: "legacy_auth",
           dataState: "none",
-          lastLogPath: "/tmp/.dataconnect/logs/run-shop.log",
+          lastLogPath: "/tmp/.vana/logs/run-shop.log",
         },
       },
     });
@@ -1424,7 +1421,7 @@ describe("runCli", () => {
       latestLog: {
         source: "shop",
         name: "Shop",
-        path: "/tmp/.dataconnect/logs/run-shop.log",
+        path: "/tmp/.vana/logs/run-shop.log",
         lastRunAt: "2026-03-14T13:11:10.000Z",
         lastRunOutcome: "legacy_auth",
         dataState: null,
@@ -1444,7 +1441,7 @@ describe("runCli", () => {
         {
           source: "shop",
           name: "Shop",
-          path: "/tmp/.dataconnect/logs/run-shop.log",
+          path: "/tmp/.vana/logs/run-shop.log",
           lastRunAt: "2026-03-14T13:11:10.000Z",
           lastRunOutcome: "legacy_auth",
           dataState: null,
@@ -1452,7 +1449,7 @@ describe("runCli", () => {
         {
           source: "github",
           name: "GitHub",
-          path: "/tmp/.dataconnect/logs/run-github.log",
+          path: "/tmp/.vana/logs/run-github.log",
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
@@ -1495,13 +1492,13 @@ describe("runCli", () => {
           lastRunAt: "2026-03-14T13:10:03.677Z",
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastLogPath: "/tmp/.dataconnect/logs/run-github.log",
+          lastLogPath: "/tmp/.vana/logs/run-github.log",
         },
         shop: {
           lastRunAt: "2026-03-14T13:11:10.000Z",
           lastRunOutcome: "legacy_auth",
           dataState: "none",
-          lastLogPath: "/tmp/.dataconnect/logs/run-shop.log",
+          lastLogPath: "/tmp/.vana/logs/run-shop.log",
         },
       },
     });
@@ -1517,12 +1514,12 @@ describe("runCli", () => {
 
       Needs attention (1)
       Shop manual step
-        Path:          /tmp/.dataconnect/logs/run-shop.log
+        Path:          /tmp/.vana/logs/run-shop.log
         Updated: <timestamp>
 
       Successful runs (1)
       GitHub local
-        Path:          /tmp/.dataconnect/logs/run-github.log
+        Path:          /tmp/.vana/logs/run-github.log
         Updated: <timestamp>
 
         Next: \`vana logs shop\`
@@ -1591,7 +1588,7 @@ describe("runCli", () => {
         github: {
           dataState: "collected_local",
           lastRunOutcome: "connected_local_only",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
       },
     });
@@ -1628,12 +1625,12 @@ describe("runCli", () => {
         github: {
           dataState: "collected_local",
           lastRunOutcome: "connected_local_only",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
         spotify: {
           dataState: "ingested_personal_server",
           lastRunOutcome: "connected_and_ingested",
-          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastResultPath: "/tmp/.vana/spotify-result.json",
         },
       },
     });
@@ -1707,7 +1704,7 @@ describe("runCli", () => {
         spotify: {
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastResultPath: "/tmp/.vana/spotify-result.json",
         },
         steam: {
           lastRunOutcome: "connector_unavailable",
@@ -1736,12 +1733,12 @@ describe("runCli", () => {
         github: {
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
         spotify: {
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/spotify-result.json",
+          lastResultPath: "/tmp/.vana/spotify-result.json",
         },
       },
     });
@@ -1872,7 +1869,7 @@ describe("runCli", () => {
           sessionPresent: true,
           lastRunOutcome: "connected_local_only",
           dataState: "collected_local",
-          lastResultPath: "/tmp/.dataconnect/github-result.json",
+          lastResultPath: "/tmp/.vana/github-result.json",
         },
       },
     });
@@ -2054,7 +2051,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2131,7 +2128,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2183,7 +2180,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2655,7 +2652,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2714,7 +2711,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2925,7 +2922,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "github",
-        resultPath: "/tmp/.dataconnect/github-result.json",
+        resultPath: "/tmp/.vana/github-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];
@@ -2963,7 +2960,7 @@ describe("runCli", () => {
       {
         type: "collection-complete",
         source: "steam",
-        resultPath: "/tmp/.dataconnect/steam-result.json",
+        resultPath: "/tmp/.vana/steam-result.json",
         logPath: "/tmp/logs/run.log",
       },
     ];

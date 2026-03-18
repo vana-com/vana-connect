@@ -564,7 +564,7 @@ async function runConnect(
         process.stderr.write("This will install:\n");
         process.stderr.write("  \u2022 Connector runner\n");
         process.stderr.write("  \u2022 Chromium browser engine\n");
-        process.stderr.write("  \u2022 Local files under ~/.dataconnect/\n\n");
+        process.stderr.write("  \u2022 Local files under ~/.vana/\n\n");
         process.stderr.write("Your credentials stay on this machine.\n\n");
 
         const shouldContinue = await confirm({
@@ -3368,19 +3368,18 @@ export function getLifecycleCommands(
             ? "curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1"
             : "curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh",
         uninstall:
-          "rm -f ~/.local/bin/vana && rm -rf ~/.local/share/vana ~/.dataconnect",
+          "rm -f ~/.local/bin/vana && rm -rf ~/.local/share/vana ~/.vana",
       };
     case "development":
       return {
         upgrade: "git pull && pnpm install && pnpm build",
-        uninstall:
-          "Remove the local checkout and any generated ~/.dataconnect state.",
+        uninstall: "Remove the local checkout and any generated ~/.vana state.",
       };
     default:
       return {
         upgrade: "Reinstall vana using Homebrew or the hosted installer.",
         uninstall:
-          "Remove the installed vana binary and any ~/.dataconnect state you no longer need.",
+          "Remove the installed vana binary and any ~/.vana state you no longer need.",
       };
   }
 }

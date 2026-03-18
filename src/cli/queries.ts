@@ -13,7 +13,7 @@ import {
   getCliStatePath,
   getBrowserProfilesDir,
   getConnectorCacheDir,
-  getDataConnectHome,
+  getVanaHome,
   getLogsDir,
   readCliState,
 } from "../core/index.js";
@@ -508,8 +508,8 @@ export async function queryDoctor(): Promise<DoctorQueryResult> {
     {
       key: "dataHome",
       label: "Data home",
-      path: getDataConnectHome(),
-      present: fs.existsSync(getDataConnectHome()),
+      path: getVanaHome(),
+      present: fs.existsSync(getVanaHome()),
     },
     {
       key: "stateFile",
@@ -637,7 +637,7 @@ export async function queryDoctor(): Promise<DoctorQueryResult> {
     paths: {
       executable: process.execPath,
       appRoot: appRootPath,
-      dataHome: getDataConnectHome(),
+      dataHome: getVanaHome(),
       stateFile: getCliStatePath(),
       connectorCache: getConnectorCacheDir(),
       browserProfiles: getBrowserProfilesDir(),

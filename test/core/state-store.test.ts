@@ -6,7 +6,7 @@ let tempRoot = path.join(os.tmpdir(), "vana-connect-state-store-tests");
 
 vi.mock("../../src/core/paths.js", () => ({
   getCliStatePath: () => path.join(tempRoot, "vana-connect-state.json"),
-  getDataConnectHome: () => tempRoot,
+  getVanaHome: () => tempRoot,
 }));
 
 import {
