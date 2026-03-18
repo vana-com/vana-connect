@@ -160,7 +160,7 @@ to persist it.
 
 Detection priority (matches current code):
 
-1. Persisted config (`~/.dataconnect/vana-connect-state.json` → `config.personalServerUrl`)
+1. Persisted config (`~/.vana/vana-connect-state.json` → `config.personalServerUrl`)
 2. `VANA_PERSONAL_SERVER_URL` env var
 3. Localhost port scan (8080-8085)
 
@@ -246,7 +246,7 @@ Connected GitHub. 3 scopes synced to Personal Server.
 
 ```
 Connected GitHub. Data saved locally.
-  Path: ~/.dataconnect/last-result.json
+  Path: ~/.vana/last-result.json
   Run `vana server sync` after starting your Personal Server.
 ```
 

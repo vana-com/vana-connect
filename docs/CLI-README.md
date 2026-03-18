@@ -60,7 +60,7 @@ Connect GitHub
   Repositories (2/3): Fetched 2 repositories
   Starred (3/3): Fetched 0 starred repositories
 ✓ Connected GitHub. Saved locally.
-  Path: ~/.dataconnect/last-result.json
+  Path: ~/.vana/last-result.json
 ```
 
 ```console
@@ -74,11 +74,11 @@ GitHub data
   Latest repos: vana-connect, data-connectors
   Starred: 0
 
-  Path: ~/.dataconnect/last-result.json
+  Path: ~/.vana/last-result.json
   Updated: Mar 14, 2026, 8:10 AM
 ```
 
-Your data is on disk at `~/.dataconnect/`.
+Your data is on disk at `~/.vana/`.
 
 ```bash
 vana data show github --json | jq '.summary'
@@ -96,7 +96,7 @@ vana status                # What's connected, what needs attention
 
 1. `vana connect <source>` launches a browser on your machine
 2. You log in (credentials stay on your machine)
-3. The CLI collects your data and saves it to `~/.dataconnect/`
+3. The CLI collects your data and saves it to `~/.vana/`
 4. `vana data show <source>` summarizes what was collected
 
 Sessions are cached, so reconnecting is faster next time. Your data is files
@@ -164,10 +164,10 @@ building apps that request user data, see the
 **Credentials**: You log in through a browser on your machine. Vana never
 sees your password, token, or session cookie.
 
-**Collected data**: Saved to `~/.dataconnect/` as local files. Nothing is
+**Collected data**: Saved to `~/.vana/` as local files. Nothing is
 uploaded.
 
-**Browser sessions**: Cached in `~/.dataconnect/browser-profiles/` for faster
+**Browser sessions**: Cached in `~/.vana/browser-profiles/` for faster
 reconnects. Delete them any time.
 
 **Telemetry**: None.
@@ -197,7 +197,7 @@ rm -f ~/.local/bin/vana              # Script install (macOS / Linux)
 Remove collected data and state:
 
 ```bash
-rm -rf ~/.dataconnect
+rm -rf ~/.vana
 ```
 
 ## Documentation

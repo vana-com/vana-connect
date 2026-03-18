@@ -9,7 +9,7 @@ const homeRoot = process.env.VANA_VHS_HOME_ROOT
   ? path.resolve(process.env.VANA_VHS_HOME_ROOT)
   : path.join(fixturesRoot, "demo-home");
 const demoDataConnectorsRoot = path.join(fixturesRoot, "demo-data-connectors");
-const dataConnectRoot = path.join(homeRoot, ".dataconnect");
+const dataConnectRoot = path.join(homeRoot, ".vana");
 
 async function main() {
   await fs.rm(homeRoot, { recursive: true, force: true });

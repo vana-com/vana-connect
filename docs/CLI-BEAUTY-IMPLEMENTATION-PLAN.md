@@ -498,7 +498,7 @@ Collected:
 - Starred: 0
 
 Saved locally:
-- /Users/tim/.dataconnect/last-result.json
+- /Users/tim/.vana/last-result.json
 
 Next:
 - Run `vana status`

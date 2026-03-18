@@ -68,7 +68,7 @@ Verdict:
 
 ### 2. Local state model
 
-The current `~/.dataconnect/` layout is a meaningful asset.
+The current `~/.vana/` layout is a meaningful asset.
 
 What is good:
 

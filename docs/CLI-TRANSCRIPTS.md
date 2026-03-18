@@ -156,11 +156,11 @@ Checks
   Runtime:       Browser available at /opt/playwright/chromium-1208/chrome-linux64/chrome
   Personal Server: http://localhost:8080
   Executable:    Present at /usr/local/bin/node
-  Data home:     Present at ~/.dataconnect
-  State file:    Present at ~/.dataconnect/vana-connect-state.json
-  Connector cache: Present at ~/.dataconnect/connectors
-  Browser profiles: Missing at ~/.dataconnect/browser-profiles
-  Logs:          Present at ~/.dataconnect/logs
+  Data home:     Present at ~/.vana
+  State file:    Present at ~/.vana/vana-connect-state.json
+  Connector cache: Present at ~/.vana/connectors
+  Browser profiles: Missing at ~/.vana/browser-profiles
+  Logs:          Present at ~/.vana/logs
   Tracked sources: 1 source in local state
   Latest issue:  GitHub: Checksum mismatch
 
@@ -168,19 +168,19 @@ Needs attention
 GitHub unavailable
   Checksum mismatch for GitHub connector script.
   Updated:       <timestamp>
-  Run log:       ~/.dataconnect/logs/fetch-github-<timestamp>.log
+  Run log:       ~/.vana/logs/fetch-github-<timestamp>.log
 
 Paths
   Executable:    /usr/local/bin/node
-  Data home:     ~/.dataconnect
-  State file:    ~/.dataconnect/vana-connect-state.json
-  Connector cache: ~/.dataconnect/connectors
-  Browser profiles: ~/.dataconnect/browser-profiles
-  Logs:          ~/.dataconnect/logs
+  Data home:     ~/.vana
+  State file:    ~/.vana/vana-connect-state.json
+  Connector cache: ~/.vana/connectors
+  Browser profiles: ~/.vana/browser-profiles
+  Logs:          ~/.vana/logs
 
 Lifecycle
   Upgrade:       git pull && pnpm install && pnpm build
-  Uninstall:     Remove the local checkout and any generated ~/.dataconnect state.
+  Uninstall:     Remove the local checkout and any generated ~/.vana state.
 
   Next: Check overall status with `vana status`.
 ```
@@ -200,7 +200,7 @@ Need attention (1)
 
 Needs attention (1)
 GitHub unavailable
-  Path:          ~/.dataconnect/logs/fetch-github-<timestamp>.log
+  Path:          ~/.vana/logs/fetch-github-<timestamp>.log
   Updated:       <timestamp>
 
   Next: Inspect the latest issue log with `vana logs github`.
@@ -290,14 +290,14 @@ GitHub [synced]
   Latest repos: vana-connect, data-connectors
   Starred: 0
   Updated:       Mar 14, 2026, 8:10 AM
-  Path:          ~/.dataconnect/last-result.json
+  Path:          ~/.vana/last-result.json
 
 Spotify [local]
   Profile: tnunamak
   Playlists: 2
   Playlists: Data Portability, Build Flow
   Updated:       Mar 13, 2026, 4:23 PM
-  Path:          ~/.dataconnect/spotify-result.json
+  Path:          ~/.vana/spotify-result.json
 
   Next: `vana data show github`
 ```
@@ -334,7 +334,7 @@ GitHub data
   Latest repos: vana-connect, data-connectors
   Starred: 0
 
-  Path:          ~/.dataconnect/last-result.json
+  Path:          ~/.vana/last-result.json
   Updated:       Mar 14, 2026, 8:10 AM
 
   Next: `vana data path github`
@@ -363,7 +363,7 @@ No collected dataset found for GitHub. Run `vana connect github` first.
 ```
 $ vana data path github
 
-~/.dataconnect/last-result.json
+~/.vana/last-result.json
 ```
 
 <!-- END:data-path-github -->

@@ -100,7 +100,7 @@ pnpm runtime:footprint
 
 This reports:
 
-- `~/.dataconnect` size
+- `~/.vana` size
 - browser cache size
 - browser profile size
 - connector cache size

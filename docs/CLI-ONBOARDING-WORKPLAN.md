@@ -22,8 +22,8 @@ These are not small assets. They should be treated as the foundation, not throwa
 - execution wrapper in `skills/vana-connect/scripts/run-connector.cjs`
 - validator in `skills/vana-connect/scripts/validate.cjs`
 - scaffold / schema / register scripts for connector creation
-- a clear result artifact at `~/.dataconnect/last-result.json`
-- a durable local state model in `~/.dataconnect/`
+- a clear result artifact at `~/.vana/last-result.json`
+- a durable local state model in `~/.vana/`
 - a documented runner interaction model based on:
   - progress events
   - `requestInput`

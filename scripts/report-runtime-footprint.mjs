@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 async function main() {
-  const dataHome = path.join(os.homedir(), ".dataconnect");
+  const dataHome = path.join(os.homedir(), ".vana");
   const browserCacheDir =
     process.env.PLAYWRIGHT_BROWSERS_PATH ?? path.join(dataHome, "browsers");
 

@@ -70,7 +70,7 @@ Vana Connect needs a local browser runtime before it can connect Steam.
 This will install:
 - the connector runner
 - a Chromium browser engine
-- local runtime files under ~/.dataconnect/
+- local runtime files under ~/.vana/
 
 Your credentials stay on this machine. Nothing is sent anywhere except the platform you’re connecting to.
 
@@ -266,7 +266,7 @@ Next: run `vana connect status` to inspect your current connection state.
 Optional supporting detail:
 
 ```text
-Local result: ~/.dataconnect/last-result.json
+Local result: ~/.vana/last-result.json
 ```
 
 Artifact paths should be supporting information, not the main success story.

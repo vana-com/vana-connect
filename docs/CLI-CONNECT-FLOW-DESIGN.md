@@ -199,7 +199,7 @@ already has this right:
 This will install:
 - the connector runner
 - a Chromium browser engine
-- local runtime files under ~/.dataconnect/
+- local runtime files under ~/.vana/
 
 Your credentials stay on this machine.
 Continue? [Y/n]
@@ -302,7 +302,7 @@ Vana Connect needs a local browser runtime.
 This will install:
   • Connector runner
   • Chromium browser engine
-  • Local files under ~/.dataconnect/
+  • Local files under ~/.vana/
 
 Your credentials stay on this machine.
 

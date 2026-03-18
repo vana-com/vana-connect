@@ -202,7 +202,7 @@ That slice is enough to validate the architecture and the first-run UX.
 - `commander` for command grammar
 - `@inquirer/prompts` for interactive input
 - `zod` for event/state validation
-- file-backed logs under `~/.dataconnect/logs`
+- file-backed logs under `~/.vana/logs`
 
 These choices match the current system boundary and optimize for speed.
 

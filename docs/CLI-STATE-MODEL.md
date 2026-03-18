@@ -59,7 +59,7 @@ This answers: can `vana connect` actually run connectors on this machine?
 
 ### Current foundation
 
-The existing skill uses `~/.dataconnect/playwright-runner/` and `~/.dataconnect/run-connector.cjs` as key runtime artifacts.
+The existing skill uses `~/.vana/playwright-runner/` and `~/.vana/run-connector.cjs` as key runtime artifacts.
 
 ### CLI expectations
 
@@ -224,7 +224,7 @@ If the CLI needs its own lightweight state file, it should be small and outcome-
 
 Possible location:
 
-- under `~/.dataconnect/`
+- under `~/.vana/`
 
 Possible shape:
 

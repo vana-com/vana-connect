@@ -41,7 +41,7 @@ Vana Connect needs a local browser runtime before it can connect Steam.
 This will install:
 - the connector runner
 - a Chromium browser engine
-- local runtime files under ~/.dataconnect/
+- local runtime files under ~/.vana/
 
 Your credentials stay on this machine. Nothing is sent anywhere except Steam itself.
 
@@ -102,7 +102,7 @@ Connected Steam.
 Collected your Steam data and saved it locally.
 
 Next: run `vana connect status` to inspect your current connection state.
-Local result: ~/.dataconnect/last-result.json
+Local result: ~/.vana/last-result.json
 ```
 
 Assessment:
@@ -210,11 +210,11 @@ Output:
 
 ```json
 {"type":"setup-check","runtime":"installed"}
-{"type":"connector-resolved","source":"steam","connectorPath":"/home/user/.dataconnect/connectors/valve/steam-playwright.js"}
+{"type":"connector-resolved","source":"steam","connectorPath":"/home/user/.vana/connectors/valve/steam-playwright.js"}
 {"type":"run-started","source":"steam"}
-{"type":"collection-complete","source":"steam","resultPath":"/home/user/.dataconnect/last-result.json"}
+{"type":"collection-complete","source":"steam","resultPath":"/home/user/.vana/last-result.json"}
 {"type":"ingest-skipped","reason":"personal_server_unavailable"}
-{"type":"outcome","status":"connected_local_only","source":"steam","resultPath":"/home/user/.dataconnect/last-result.json"}
+{"type":"outcome","status":"connected_local_only","source":"steam","resultPath":"/home/user/.vana/last-result.json"}
 ```
 
 Assessment:
@@ -238,7 +238,7 @@ Output:
 
 ```json
 {"type":"setup-check","runtime":"installed"}
-{"type":"connector-resolved","source":"steam","connectorPath":"/home/user/.dataconnect/connectors/valve/steam-playwright.js"}
+{"type":"connector-resolved","source":"steam","connectorPath":"/home/user/.vana/connectors/valve/steam-playwright.js"}
 {"type":"needs-input","source":"steam","fields":["username","password"],"message":"Steam needs credentials"}
 {"type":"outcome","status":"needs_input","source":"steam"}
 ```

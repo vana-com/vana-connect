@@ -58,7 +58,7 @@ vana connect <source> --json --no-input
 - the user is not required to have system `npm`
 - `vana setup` does not run `npm install`
 - `vana connect` does not shell out to `node run-connector.cjs`
-- the CLI does not depend on copied runtime scripts under `~/.dataconnect/playwright-runner/`
+- the CLI does not depend on copied runtime scripts under `~/.vana/playwright-runner/`
 
 ## Product Decisions Locked By This Spec
 
@@ -96,7 +96,7 @@ The current system still has transitional behavior that is not acceptable in the
 1. `ensureInstalled()` runs `npm install --ignore-scripts`.
 2. connector execution still depends on `run-connector.cjs`.
 3. the SEA binary still needs `node` on `PATH` for connector execution in some paths.
-4. the current runtime state model assumes a copied sidecar under `~/.dataconnect/playwright-runner/`.
+4. the current runtime state model assumes a copied sidecar under `~/.vana/playwright-runner/`.
 5. installer/release work currently looks stronger than the runtime truth unless we finish the runtime rewrite.
 
 The final product is not done until all five are removed.
@@ -282,7 +282,7 @@ interface ProfileStrategy {
 
 Initial implementation:
 
-- isolated Vana-managed profile under `~/.dataconnect/browser-profiles/`
+- isolated Vana-managed profile under `~/.vana/browser-profiles/`
 
 The runtime must not hardcode assumptions that make these impossible later:
 
@@ -343,8 +343,8 @@ Disallowed responsibilities:
 
 - `npm install`
 - `pnpm install`
-- copying `run-connector.cjs` into `~/.dataconnect/`
-- copying `playwright-runner` into `~/.dataconnect/`
+- copying `run-connector.cjs` into `~/.vana/`
+- copying `playwright-runner` into `~/.vana/`
 
 ### Final runtime state check
 
@@ -356,24 +356,24 @@ The runtime should be considered installed/healthy based on:
 
 It must no longer depend on:
 
-- `~/.dataconnect/playwright-runner/index.cjs`
-- `~/.dataconnect/run-connector.cjs`
+- `~/.vana/playwright-runner/index.cjs`
+- `~/.vana/run-connector.cjs`
 
 ### Files that should disappear from fresh installs
 
 Fresh installs of the final product should not create:
 
-- `~/.dataconnect/playwright-runner/`
-- `~/.dataconnect/run-connector.cjs`
+- `~/.vana/playwright-runner/`
+- `~/.vana/run-connector.cjs`
 
 Required files/directories that may remain:
 
-- `~/.dataconnect/connectors/`
-- `~/.dataconnect/browser-profiles/`
-- `~/.dataconnect/browsers/`
-- `~/.dataconnect/logs/`
-- `~/.dataconnect/last-result.json`
-- `~/.dataconnect/vana-connect-state.json`
+- `~/.vana/connectors/`
+- `~/.vana/browser-profiles/`
+- `~/.vana/browsers/`
+- `~/.vana/logs/`
+- `~/.vana/last-result.json`
+- `~/.vana/vana-connect-state.json`
 
 ## Chromium Installation In The Final Product
 
@@ -506,7 +506,7 @@ Re-running the installer must:
 
 - install a new version under a versioned release directory
 - update the `current` pointer/symlink
-- preserve local data under `~/.dataconnect/`
+- preserve local data under `~/.vana/`
 
 ### Uninstall contract
 

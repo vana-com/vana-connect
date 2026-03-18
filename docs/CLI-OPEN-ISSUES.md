@@ -240,9 +240,9 @@ remain as gaps.
 
 | Gap                          | Why it matters                                                                                                                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No persistent URL config** | `VANA_PERSONAL_SERVER_URL` is env-only. Users must set it every session. No `~/.dataconnect` or `~/.vana` config file stores the URL.                                                                                             |
+| **No persistent URL config** | `VANA_PERSONAL_SERVER_URL` is env-only. Users must set it every session. No `~/.vana` or `~/.vana` config file stores the URL.                                                                                                    |
 | **No auth on ingest**        | POST `/v1/data/{scope}` is open on the server side today. For public/tunnel URLs, anyone who knows the URL can write data. The server supports Web3Signed auth (EIP-191) for reads and dev tokens for dev — the CLI uses neither. |
-| **No tunnel awareness**      | DataConnect creates FRP tunnels and shows the public URL in its UI. The CLI can't discover or display this URL. The tunnel config lives at `~/.dataconnect/personal-server/tunnel/frpc.toml`.                                     |
+| **No tunnel awareness**      | DataConnect creates FRP tunnels and shows the public URL in its UI. The CLI can't discover or display this URL. The tunnel config lives at `~/.vana/personal-server/tunnel/frpc.toml`.                                            |
 | **No gateway registration**  | The personal server self-registers with the Data Gateway via EIP-712 signed messages through an account signing service. The CLI doesn't participate in this flow.                                                                |
 | **No grant management**      | Can't view/revoke data access grants from CLI.                                                                                                                                                                                    |
 
@@ -260,13 +260,13 @@ remain as gaps.
 **What still needs to happen:**
 
 1. **Config persistence** — `vana server set-url <url>` that writes to
-   `~/.dataconnect/personal-server-url` or similar. Fall back to env var,
+   `~/.vana/personal-server-url` or similar. Fall back to env var,
    then port scan.
 2. **Auth integration** — decide whether CLI uses Web3Signed (needs
    private key management) or dev tokens (needs discovery from
    DataConnect). For cloud-hosted, likely Web3Signed.
 3. **Tunnel URL discovery** — read from FRP config at
-   `~/.dataconnect/personal-server/tunnel/frpc.toml`, or query the
+   `~/.vana/personal-server/tunnel/frpc.toml`, or query the
    running server for its public URL.
 
 **This is a Brainstorm → Tim + Claude pipeline.** The auth model and

@@ -15,7 +15,7 @@ The demo tapes should use:
 
 - a temp or fixture `HOME`
 - `VANA_DATA_CONNECTORS_DIR` pointing at a deterministic fixture connector repo
-- seeded `~/.dataconnect/` state and result files
+- seeded `~/.vana/` state and result files
 
 Prepare the fixture home with:
 
@@ -25,7 +25,7 @@ pnpm demo:vhs:fixtures
 
 That creates:
 
-- `docs/vhs/fixtures/demo-home/.dataconnect/vana-connect-state.json`
+- `docs/vhs/fixtures/demo-home/.vana/vana-connect-state.json`
 - fake installed connector files
 - `docs/vhs/fixtures/demo-data-connectors/` with deterministic demo connectors
 - a fake downloaded Chromium path so `vana status` reads as installed

@@ -102,7 +102,7 @@ Good:
 
 Bad:
 
-- “Saved result to ~/.dataconnect/last-result.json”
+- “Saved result to ~/.vana/last-result.json”
 
 Artifact paths are supporting detail, not the story.
 
