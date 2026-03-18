@@ -4541,7 +4541,7 @@ async function runSkillList(options: GlobalOptions): Promise<number> {
       const tag = skill.installed
         ? ` ${emit.badge("installed", "accent")}`
         : "";
-      emit.info(`  ${skill.name}${tag}`);
+      emit.info(`  ${skill.id}${tag}`);
     }
 
     const uninstalled = enriched.find((s) => !s.installed);
