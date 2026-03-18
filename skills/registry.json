@@ -5,7 +5,9 @@
       "name": "Connect Data",
       "description": "How to connect platforms and collect personal data using the vana CLI",
       "version": "1.0.0",
-      "files": { "skill": "connect-data/SKILL.md" }
+      "files": {
+        "skill": "connect-data/SKILL.md"
+      }
     },
     {
       "id": "create-connector",
@@ -19,13 +21,6 @@
           "create-connector/reference/PATTERNS.md"
         ]
       }
-    },
-    {
-      "id": "recipes",
-      "name": "Data Recipes",
-      "description": "What to do with collected personal data: profiles, knowledge bases, analytics",
-      "version": "1.0.0",
-      "files": { "skill": "recipes/SKILL.md" }
     }
   ]
 }
