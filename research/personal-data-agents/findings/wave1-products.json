@@ -1,0 +1,152 @@
+{
+  "agent_question": "Products combining personal data aggregation with AI agent capabilities",
+  "findings": [
+    {
+      "name": "ChatGPT Memory + Connectors",
+      "what": "OpenAI's ChatGPT retains persistent facts across conversations and now connects to Gmail, Google Drive, GitHub, Outlook, and other services for real-time personal context.",
+      "evidence": "800M+ weekly active users as of Sep 2025. $13B ARR as of Aug 2025. Memory launched Feb 2024; expanded Apr 2025 to reference all past conversations (not just saved memories). Free users get short-term continuity; Plus/Pro get long-term memory. Connectors (Gmail, Google Calendar, Google Drive, GitHub, Outlook, Teams, etc.) available to Team/Enterprise/Edu plans. MCP-based partner connectors (Stripe, Amplitude, Monday.com, etc.) launched 2025. 5M paying business users as of Aug 2025.",
+      "status": "live",
+      "source_url": "https://openai.com/index/memory-and-new-controls-for-chatgpt/",
+      "sub_theme": "LLM platforms with personal data ingestion"
+    },
+    {
+      "name": "ChatGPT Connectors (data integration layer)",
+      "what": "First-party integrations that let ChatGPT read from Gmail, Google Drive, SharePoint, Dropbox, Box, GitHub, Linear, HubSpot, and more, with synced indexing for some sources.",
+      "evidence": "Google Drive uses synced connector that indexes content in advance for fast retrieval. Most connectors are read-only; actions beyond reading require explicit user confirmation. Available to Team, Enterprise, and Edu plans, not free tier.",
+      "status": "live",
+      "source_url": "https://help.openai.com/en/articles/11487775-connectors-in-chatgpt",
+      "sub_theme": "LLM platforms with personal data ingestion"
+    },
+    {
+      "name": "Limitless AI (formerly Rewind AI)",
+      "what": "Screen recording and conversation capture AI that evolved from desktop app to wearable pendant, then was acquired by Meta.",
+      "evidence": "Founded 2022 as Rewind AI. Raised $15M at $350M valuation in May 2023 on $707K ARR (495x revenue multiple). Raised $27M total. Rebranded to Limitless Apr 2024 with pivot to wearable pendant. Acquired by Meta Dec 5, 2025 for estimated $200-400M (undisclosed official terms). Hardware sales ceased; existing customers moved to free Unlimited Plan for one year. Team joined Meta Reality Labs (Ray-Ban smart glasses).",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Screen/audio capture + AI recall"
+    },
+    {
+      "name": "Screenpipe",
+      "what": "Open-source (MIT) alternative to Rewind AI that continuously captures screen and audio locally, with AI-powered search and recall.",
+      "evidence": "17.2K GitHub stars as of early 2026. 202 subscriptions, $3.5K MRR (all organic). Works on macOS, Windows, Linux. Uses local OpenAI Whisper for speech-to-text. 9 apps in marketplace, 5 more in development. Investors include Embedding VC, Founders Inc, Top Harvest Capital. Major companies (Microsoft, Intel, Oracle, GitHub, Alibaba Cloud) testing it. Has not reached product-market fit per founders.",
+      "status": "live",
+      "source_url": "https://screenpi.pe/",
+      "sub_theme": "Screen/audio capture + AI recall"
+    },
+    {
+      "name": "Humane AI Pin",
+      "what": "Wearable AI device with camera, projector, and LLM access intended to replace smartphones, which failed commercially and was shut down.",
+      "evidence": "Raised $230-242M from investors including Sam Altman and Marc Benioff. Valued at $884-984M in Mar 2023. Returns outpaced sales by summer 2024. Valuation fell to $25M by Oct 2024. Price cut from $699 to $499. Charging case recalled for battery fire risk. HP acquired assets for $116M in Feb 2025. All devices bricked Feb 28, 2025. Only customers who bought after Nov 15, 2024 got refunds.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2025/02/18/humanes-ai-pin-is-dead-as-hp-buys-startups-assets-for-116m/",
+      "sub_theme": "Personal AI hardware"
+    },
+    {
+      "name": "Rabbit R1",
+      "what": "AI hardware device with 'Large Action Model' intended to replace app-based phone interactions, which suffered massive user abandonment.",
+      "evidence": "Raised $64.7M over 5 rounds. Valued at $100-150M. 130,000 units sold after CES 2024 announcement. Only 5,000 daily active users 5 months after launch (95% abandonment). MKBHD called it 'barely reviewable.' Entire interface discovered to be a single Android app. Founder Jesse Lyu admitted it launched too early. Still operational in late 2025 with improvements via OTA updates but minimal user base.",
+      "status": "live",
+      "source_url": "https://cybernews.com/tech/the-story-of-rabbit-r1/",
+      "sub_theme": "Personal AI hardware"
+    },
+    {
+      "name": "Tab AI",
+      "what": "Wearable AI pendant that listens to conversations all day and builds a persistent personal context model, functioning like always-on ChatGPT without prompting.",
+      "evidence": "Created by Avi Schiffmann (built COVID dashboard used by millions). Raised $1.9M seed at ~$20M valuation. Designed as disk-shaped necklace. Retains and builds on prior conversation context. Originally scheduled for winter/spring 2024 launch; availability status unclear as of early 2026.",
+      "status": "announced",
+      "source_url": "https://venturebeat.com/ai/tabs-always-on-ai-pendant-just-got-funded-but-do-we-need-it/",
+      "sub_theme": "Personal AI hardware"
+    },
+    {
+      "name": "Glean",
+      "what": "Enterprise AI search platform that builds a personalized knowledge graph per employee from 100+ workplace data sources.",
+      "evidence": "$7.2B valuation after $150M Series F in Jun 2025 (up from $4.6B in Sep 2024). $100M+ ARR achieved in under 3 years (fiscal year ending Jan 2025). Integrates with Google Workspace, Microsoft 365, Slack, Salesforce, and more. Sep 2025: launched third-generation assistant with personal graph per employee (tracks projects, collaborators, work style). Personal graph enables agents that summarize weekly work or prepare performance reviews.",
+      "status": "live",
+      "source_url": "https://www.glean.com/press/glean-achieves-100m-arr-in-three-years-delivering-true-ai-roi-to-the-enterprise",
+      "sub_theme": "Enterprise knowledge + AI"
+    },
+    {
+      "name": "Dust.tt",
+      "what": "Enterprise AI agent platform using Claude and MCP protocol to create specialized agents connected to company knowledge and business applications.",
+      "evidence": "Raised $21.5M total ($16M Series A led by Sequoia Capital). Hit $6M ARR by Dec 2025. Uses Anthropic Claude models + MCP protocol. MCP integrations with Asana, Jira, GitHub, Google Drive, Gong, Gmail, Google Calendar, Salesforce, HubSpot, Notion. 2026 vision: multi-player agents where teams share context with AI teammates, infrastructure for managing thousands of agents.",
+      "status": "live",
+      "source_url": "https://venturebeat.com/ai/dust-hits-6m-arr-helping-enterprises-build-ai-agents-that-actually-do-stuff-instead-of-just-talking",
+      "sub_theme": "Enterprise knowledge + AI"
+    },
+    {
+      "name": "Notion AI",
+      "what": "AI features embedded in Notion's workspace platform, including autonomous agents that execute multi-step workflows across connected data sources.",
+      "evidence": "$500M annualized revenue as of Sep 2025 (up from $400M in 2024, $250M in 2023, $67M in 2022). 100M+ users worldwide, 20M+ monthly active users. AI adoption: crossed 50% of paying customers using AI features in 2025 (up from 10-20% in 2024). Notion 3.0 (Sep 2025) launched autonomous AI Agents with multi-model support (GPT-5, Claude Opus 4.1, o3). AI now bundled into Business/Enterprise plans rather than sold as add-on.",
+      "status": "live",
+      "source_url": "https://www.cnbc.com/2025/09/18/notion-launches-ai-agent-as-it-crosses-500-million-in-annual-revenue.html",
+      "sub_theme": "Enterprise knowledge + AI"
+    },
+    {
+      "name": "Otter.ai",
+      "what": "Meeting transcription platform that evolved from passive note-taking to voice-activated AI meeting agents that learn from company-wide meeting data.",
+      "evidence": "$100M ARR milestone reached Mar 2025 (up from $81M end of 2024). Raised ~$70M total ($50M in 2021 including $40M led by Spectrum Equity). Mar 2025: launched industry's first voice AI meeting agent suite. Otter Meeting Agent participates in meetings as voice-activated participant, answers questions using real-time transcript + company meeting history. Features vocabulary learning and preference personalization.",
+      "status": "live",
+      "source_url": "https://otter.ai/blog/otter-ai-caps-transformational-2025-with-100m-arr-milestone-industry-first-ai-meeting-agents-and-global-enterprise-expansion",
+      "sub_theme": "Meeting AI with personal context"
+    },
+    {
+      "name": "Mem.ai",
+      "what": "AI-powered note-taking app that attempts to be a 'second brain' with AI-driven organization and recall, but has faced criticism for underpowered AI and missing basic features.",
+      "evidence": "Raised $29.1M total ($23.5M Series A led by OpenAI Startup Fund, valued at $110M post-money in Nov 2022). Revenue not publicly disclosed. Criticized for: no offline access, underpowered AI chat ('much inferior version of ChatGPT'), missing basic features (no highlighting, no scroll bar), slow performance. Faces competition from Microsoft OneNote, Google Keep, and Notion. Development appears stalled per user reports.",
+      "status": "live",
+      "source_url": "https://medium.com/@theo-james/mem-ai-the-40m-second-brain-failure-burning-the-worlds-money-5f3176a34cbd",
+      "sub_theme": "Personal knowledge management + AI"
+    },
+    {
+      "name": "Personal.ai",
+      "what": "Platform that builds personal AI models from user's data, facts, and opinions to remember and recall memories core to identity.",
+      "evidence": "Raised $7.8-23.8M (sources vary by methodology). $138K annual revenue as of Dec 2023. Founded 2020 in San Francisco. Uses personal AI models trained on individual user's data. Enables organizations to create AI teammates with proprietary knowledge. Latest funding: undisclosed Seed round Sep 2024.",
+      "status": "live",
+      "source_url": "https://tracxn.com/d/companies/personal-ai/__km3jbW0uSOjjopNTO7_osOJmYRwGU7-zqIKWilUz1co",
+      "sub_theme": "Personal knowledge management + AI"
+    },
+    {
+      "name": "Mem0 (not Mem.ai)",
+      "what": "Universal memory layer infrastructure for AI applications that stores, updates, and recalls information across conversations, used by AI agent frameworks.",
+      "evidence": "Raised $24M (Seed led by Kindred Ventures, Series A led by Basis Set Ventures, with Peak XV, GitHub Fund, Y Combinator). 41K+ GitHub stars, 13M+ Python package downloads. Processed 186M API calls in Q3 2025 (up from 35M in Q1, ~30% MoM growth). Claims 26% higher response accuracy vs OpenAI's memory, 91% lower p95 latency, 90%+ token cost savings. Exclusive memory provider for AWS Agent SDK. Natively integrated by CrewAI, Flowise, Langflow.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/10/28/mem0-raises-24m-from-yc-peak-xv-and-basis-set-to-build-the-memory-layer-for-ai-apps/",
+      "sub_theme": "AI memory infrastructure"
+    },
+    {
+      "name": "MCP (Model Context Protocol) Ecosystem",
+      "what": "Anthropic's open protocol for connecting AI models to external data sources and tools, now adopted across the industry as a standard for personal and enterprise data access.",
+      "evidence": "5,800+ MCP servers and 300+ MCP clients as of early 2026. 1,000+ community-built servers covering Google Drive, Slack, databases, and custom systems. OpenAI adopted MCP for ChatGPT partner connectors. Microsoft building Azure API Center integration for MCP server registries. Streamable HTTP transport enables remote MCP servers in production. 2026 roadmap: triggers/events, streamed results, security/authorization hardening, registry/discovery infrastructure.",
+      "status": "live",
+      "source_url": "https://en.wikipedia.org/wiki/Model_Context_Protocol",
+      "sub_theme": "AI memory infrastructure"
+    },
+    {
+      "name": "Obsidian + AI Plugins (Copilot, Smart Connections)",
+      "what": "Community-built AI plugins for Obsidian that provide chat-based vault search, personal context processing, and agent mode with tool calling over local markdown files.",
+      "evidence": "Obsidian Copilot plugin provides: Project Mode (AI-ready context from folders/tags), Agent Mode with tool calling, support for markdown/PDF/image/YouTube/URL context, custom system prompts stored as markdown files. Smart Connections plugin offers semantic search across notes. All data stays local in user's vault. No revenue/funding data available (open-source community plugins). Active development through 2026.",
+      "status": "live",
+      "source_url": "https://www.obsidiancopilot.com/en",
+      "sub_theme": "Personal knowledge management + AI"
+    },
+    {
+      "name": "Apple Intelligence (Personal Context)",
+      "what": "Apple's on-device AI system that was supposed to give Siri access to emails, messages, photos, and personal data for contextual assistance, but has been repeatedly delayed.",
+      "evidence": "Announced WWDC 2024. Personal context features (Siri accessing emails, photos, messages, form-filling from driver's license photos, etc.) delayed from 2025 to spring 2026. Craig Federighi stated: 'when it comes to automating capabilities on devices in a reliable way, no one's doing it really well right now.' On-device model is ~3B parameters on Apple Silicon. As of Feb 2026, 'Siri testing isn't going well' per AppleInsider; features may slip past iOS 26.4. Apple has ~2.2B active devices that would receive this.",
+      "status": "announced",
+      "source_url": "https://www.cnbc.com/2025/03/07/apple-delays-siri-ai-improvements-to-2026.html",
+      "sub_theme": "Platform-native personal AI"
+    }
+  ],
+  "gaps": [
+    "Personal.ai revenue and user numbers beyond 2023 ($138K ARR) are not publicly available; the company appears small relative to funding but specific current metrics are missing.",
+    "Mem.ai current user counts and revenue are not publicly disclosed; impossible to assess actual traction vs. the $110M post-money valuation.",
+    "Tab AI's actual shipping status and real-world user feedback are unclear; the product was announced in 2024 but confirmation of general availability is sparse.",
+    "Google Gemini's personal data integration (Gmail, Calendar, Drive context in Gemini Advanced) was not deeply researched in this wave; it belongs in a follow-up.",
+    "Microsoft Copilot's personal data context (across M365 apps, Microsoft Graph) was not covered in this wave and is a major player that warrants dedicated research.",
+    "No specific products were found that ingest cross-platform personal data (e.g., Spotify + GitHub + LinkedIn together) and generate task priorities or agent actions. This is the gap Vana would fill.",
+    "Screenpipe's actual user count (beyond 202 subscriptions) and daily active usage data are not available.",
+    "Privacy/regulatory outcomes for always-listening wearables (Tab, Limitless pendant) are not well-documented beyond general concerns.",
+    "Accuracy and hallucination rates for personal-data-augmented AI responses are not benchmarked across products (only Mem0 publishes comparative claims)."
+  ]
+}

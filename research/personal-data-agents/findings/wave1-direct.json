@@ -1,0 +1,107 @@
+{
+  "agent_question": "Direct research on agent autonomy metrics, memory infrastructure, and personal data context",
+  "findings": [
+    {
+      "name": "Anthropic Measuring Agent Autonomy",
+      "what": "Anthropic published real-world data on Claude Code autonomous operation duration and intervention frequency",
+      "evidence": "Between Oct 2025 and Jan 2026, 99.9th percentile turn duration nearly doubled from under 25 min to over 45 min. Average human interventions per session decreased from 5.4 to 3.3. Success rate on challenging tasks doubled.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/research/measuring-agent-autonomy",
+      "sub_theme": "Autonomous Agent Duration"
+    },
+    {
+      "name": "Claude Opus 4.6 Task Horizon",
+      "what": "Claude Opus 4.6 crossed a full work-day task horizon at 14.5 hours",
+      "evidence": "50% time horizon of approximately 14.5 hours (doubling every 123 days). Claude Opus 4.5 was at 4 hours 49 minutes. Average session length increased from 4 minutes (autocomplete era) to 23 minutes (agentic era).",
+      "status": "live",
+      "source_url": "https://getbeam.dev/blog/anthropic-agentic-coding-trends-2026.html",
+      "sub_theme": "Autonomous Agent Duration"
+    },
+    {
+      "name": "METR Task Horizon Doubling",
+      "what": "METR tracks task completion time horizons for frontier AI models, finding a 7-month doubling time",
+      "evidence": "Task length that agents complete with 50% reliability has been doubling every 7 months for 6 years. Time Horizon 1.1 added 34% more tasks (228 total) and doubled 8-hour+ tasks (31 total).",
+      "status": "live",
+      "source_url": "https://metr.org/time-horizons/",
+      "sub_theme": "Autonomous Agent Duration"
+    },
+    {
+      "name": "OpenAI Codex 25-hour autonomous run",
+      "what": "Codex ran for 25 hours uninterrupted building a design tool from scratch",
+      "evidence": "Used ~13M tokens, generated ~30k lines of code. GPT-5.3-Codex achieves 77.3% on Terminal-Bench, 56.8% on SWE-Bench Pro.",
+      "status": "live",
+      "source_url": "https://openai.com/index/introducing-gpt-5-3-codex/",
+      "sub_theme": "Autonomous Agent Duration"
+    },
+    {
+      "name": "Mem0 Memory Infrastructure",
+      "what": "AI agent memory infrastructure company providing persistent cross-session memory",
+      "evidence": "Raised $24M (Seed + Series A). 186M API calls in Q3 2025. 41K GitHub stars, 13M Python downloads. Graph-based memory with sub-second retrieval.",
+      "status": "live",
+      "source_url": "https://mem0.ai/series-a",
+      "sub_theme": "Agent Memory Infrastructure"
+    },
+    {
+      "name": "Mem0 Research: Memory Accuracy Boost",
+      "what": "Research showing persistent memory improves LLM accuracy by 26%",
+      "evidence": "26% accuracy improvement when agents have access to structured persistent memory vs. stateless operation.",
+      "status": "live",
+      "source_url": "https://mem0.ai/research",
+      "sub_theme": "Agent Memory Infrastructure"
+    },
+    {
+      "name": "Anthropic Agentic Coding Trends 2026",
+      "what": "Comprehensive report on how coding agents are reshaping software development",
+      "evidence": "Documents the shift from autocomplete to agentic coding. Average session 23 minutes. Background tasks, sub-agents, and hooks as autonomy mechanisms.",
+      "status": "live",
+      "source_url": "https://resources.anthropic.com/hubfs/2026%20Agentic%20Coding%20Trends%20Report.pdf",
+      "sub_theme": "Industry Reports"
+    },
+    {
+      "name": "Gartner Agentic AI Forecast",
+      "what": "Gartner predicts 80% of customer service issues resolved autonomously by 2029",
+      "evidence": "80% autonomous resolution rate, 30% operational cost reduction predicted. Current 2026 reality is more nuanced with HITL still required for edge cases.",
+      "status": "announced",
+      "source_url": "https://acuvate.com/blog/2026-agentic-ai-expert-predictions/",
+      "sub_theme": "Industry Reports"
+    },
+    {
+      "name": "Cognition Labs (Devin)",
+      "what": "Autonomous coding agent with $10.2B valuation and $73M ARR",
+      "evidence": "Raised $400M in Sept 2025 at $10.2B valuation. ARR grew from $1M (Sept 2024) to $73M (June 2025). Acquired Windsurf, combined ARR ~$155M. Customers include Goldman Sachs, Cisco, Palantir.",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/",
+      "sub_theme": "Autonomous Agent Companies"
+    },
+    {
+      "name": "Limitless AI (formerly Rewind AI)",
+      "what": "Personal screen recording + AI recall that pivoted to hardware then was acquired by Meta",
+      "evidence": "Raised $15M at $350M valuation (May 2023) on $707K ARR (495x multiple). Total $33M+ raised from Altman, a16z, NEA. Acquired by Meta Dec 2025. Desktop app shut down Dec 19, 2025.",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Personal Data + AI Products"
+    },
+    {
+      "name": "OpenClaw (daily briefing agent)",
+      "what": "Open-source personal AI assistant with 210K+ GitHub stars, configurable daily briefings from connected data",
+      "evidence": "Breakout project of 2026. Surged from 9K to 210K+ stars. Connects to 50+ messaging apps. Users configure cron jobs for morning briefings pulling calendar, email, CRM, weather. Created by PSPDFKit founder.",
+      "status": "live",
+      "source_url": "https://gist.github.com/mberman84/63163d6839053fbf15091238e5ada5c2",
+      "sub_theme": "Daily Briefing / Task Generation Products"
+    },
+    {
+      "name": "ChatGPT Agent Connectors",
+      "what": "ChatGPT's built-in connectors for email, calendar, and task management with autonomous scheduling",
+      "evidence": "Can summarize inbox, find meeting availability, schedule recurring tasks (e.g. weekly metrics reports every Monday). Connectors authenticated per user.",
+      "status": "live",
+      "source_url": "https://openai.com/index/introducing-chatgpt-agent/",
+      "sub_theme": "Daily Briefing / Task Generation Products"
+    }
+  ],
+  "gaps": [
+    "Specific data on what percentage of human interventions are context-related vs. approval-related",
+    "Published comparison of agent performance with vs. without personal user context",
+    "Revenue data for agent memory companies (Mem0, Zep)",
+    "Academic research specifically on personal data as agent context (most research focuses on task-specific context, not cross-platform personal data)"
+  ]
+}

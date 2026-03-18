@@ -1,0 +1,118 @@
+{
+  "agent_question": "Current autonomous agent duration and reliability benchmarks",
+  "findings": [
+    {
+      "name": "Anthropic - Measuring Agent Autonomy (Claude Code telemetry)",
+      "what": "Anthropic analyzed millions of Claude Code interactions to measure how long agents operate autonomously and how user trust evolves.",
+      "evidence": "Between Oct 2025 and Jan 2026, the 99.9th percentile turn duration nearly doubled from under 25 minutes to over 45 minutes. Median turn duration remained ~45 seconds (fluctuating 40-55s). Users with <50 sessions use full auto-approve ~20% of the time; by 750 sessions this rises to >40%. Experienced users interrupt Claude more often, not less, reflecting a shift from pre-approval to autonomous-with-intervention oversight. Software engineering accounts for ~50% of all agentic tool calls on the API. Only 0.8% of all actions are irreversible.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/research/measuring-agent-autonomy",
+      "sub_theme": "Autonomy duration and trust metrics"
+    },
+    {
+      "name": "Anthropic - Effective Harnesses for Long-Running Agents",
+      "what": "Anthropic engineering blog on the core challenge of multi-context-window agent sessions spanning hours or days.",
+      "evidence": "Long-running agents must work in discrete sessions, each starting with no memory of prior work. Context windows are limited, so agents need bridging mechanisms (e.g., claude-progress.txt + git history). Even frontier models like Opus 4.5 running in a loop across multiple context windows fail to build production-quality apps from high-level prompts alone, tending to attempt too much at once. The harness pattern uses different prompts for the first context window vs. subsequent ones.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents",
+      "sub_theme": "Autonomy duration and trust metrics"
+    },
+    {
+      "name": "OpenAI Codex - GPT-5-Codex autonomous duration",
+      "what": "OpenAI's Codex agent demonstrated multi-hour autonomous coding sessions on complex tasks.",
+      "evidence": "GPT-5-Codex worked independently for more than 7 hours at a time on large tasks during testing, iterating on implementation, fixing test failures, and delivering working code. GPT-5.2-Codex runs 24-hour autonomous tasks. Codex-1 achieves 37% accuracy on first attempts on SWE-Bench, scaling to 70.2% with retries and 85% after 8 attempts. GPT-5.3-Codex achieved state-of-the-art on SWE-Bench Pro (56.8%), though this means it still fails nearly half of professional-level tasks.",
+      "status": "live",
+      "source_url": "https://openai.com/index/introducing-codex/",
+      "sub_theme": "Autonomy duration and trust metrics"
+    },
+    {
+      "name": "Claude Opus 4.6 - SWE-bench Verified",
+      "what": "Latest Claude model achieves top-tier autonomous coding benchmark scores.",
+      "evidence": "Opus 4.6 reached 81.42% on SWE-bench Verified (with prompt modification). Opus 4.5 scored 80.9%. Sonnet 4.5 scored 77.2%, up from Sonnet 4's 72.7%. Note: OpenAI has stopped reporting Verified scores after finding training data contamination across all frontier models, recommending SWE-Bench Pro instead.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/research/swe-bench-sonnet",
+      "sub_theme": "Benchmark performance"
+    },
+    {
+      "name": "SWE-bench Verified Leaderboard (Feb 2026)",
+      "what": "Industry-standard benchmark for autonomous issue resolution on real GitHub repos.",
+      "evidence": "Top scores as of Feb 2026: Claude Opus 4.5 at 80.9%, Sonar Foundation Agent at 79.2%, Gemini 3 Flash at ~76.2%. Average score across all models is 62.2%. SWE-bench Pro (harder, uncontaminated) shows GPT-5.3-Codex at 56.8%, meaning top models still fail ~43-50% of professional-level tasks.",
+      "status": "live",
+      "source_url": "https://www.swebench.com/",
+      "sub_theme": "Benchmark performance"
+    },
+    {
+      "name": "Cognition Labs (Devin) - Real-world task completion",
+      "what": "First marketed 'AI software engineer' with widely scrutinized real-world completion rates.",
+      "evidence": "Original Devin resolved 13.86% of real GitHub issues on SWE-bench (7x improvement over prior 1.96% baseline). Independent testing showed 15-30% success rates in practice. Devin 2.0 (April 2025) claimed 83% more junior-level tasks per compute unit vs. 1.x. Pricing dropped from $500/month to $20/month. Cognition hit $155M ARR in July 2025 ($73M from Devin, $82M from acquired Windsurf). Raised ~$696M total, valued at $10.2B as of Sept 2025. Goldman Sachs piloted Devin alongside 12,000 developers, reporting 20% efficiency gains.",
+      "status": "live",
+      "source_url": "https://cognition.ai/blog/funding-growth-and-the-next-frontier-of-ai-coding-agents",
+      "sub_theme": "Autonomous coding products"
+    },
+    {
+      "name": "GitHub Copilot Coding Agent",
+      "what": "GitHub's autonomous agent that creates pull requests from issues, replacing the sunset Copilot Workspace.",
+      "evidence": "Copilot Workspace (launched as preview April 2024) was sunset May 30, 2025 and rebuilt into the Copilot Coding Agent, GA to all paid subscribers in Sept 2025. The coding agent contributes to ~1.2 million pull requests per month. Developers using Copilot complete tasks 55% faster (study of 4,800 developers). However, 29.1% of Python code generated contains potential security weaknesses. No public autonomous task completion rate benchmark was found.",
+      "status": "live",
+      "source_url": "https://github.com/newsroom/press-releases/agent-mode",
+      "sub_theme": "Autonomous coding products"
+    },
+    {
+      "name": "METR - AI Developer Productivity Study",
+      "what": "Rigorous RCT showing AI tools made experienced open-source developers 19% slower, contradicting their own perception.",
+      "evidence": "16 experienced developers (avg 5 years on their projects, repos averaging 22k+ stars and 1M+ lines) worked on 246 real issues randomly assigned AI-allowed or AI-disallowed. Developers using AI took 19% longer. Developers expected AI to speed them up by 24%, and even after the study still believed it had sped them up by 20%. Less than 44% of AI-generated code was accepted. Tools used: primarily Cursor Pro with Claude 3.5/3.7 Sonnet.",
+      "status": "live",
+      "source_url": "https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/",
+      "sub_theme": "Academic research on agent effectiveness"
+    },
+    {
+      "name": "Compounding error rate in multi-step agent workflows",
+      "what": "Research on why per-step accuracy is misleading for autonomous agent reliability.",
+      "evidence": "If an AI agent achieves 85% accuracy per action, a 10-step workflow only succeeds about 20% of the time (0.85^10 = 0.197). Graham Neubig found agents autonomously solve 30-40% of tasks without human intervention, with performance dropping sharply in domains requiring broader context: administrative work (0% success), financial analysis (8.3% success).",
+      "status": "live",
+      "source_url": "https://firstpagesage.com/seo-blog/agentic-ai-statistics/",
+      "sub_theme": "Academic research on agent effectiveness"
+    },
+    {
+      "name": "Claude Code - Sub-agent and background task architecture",
+      "what": "Claude Code supports parallel sub-agents and background tasks but with significant isolation constraints.",
+      "evidence": "Sub-agents work in isolation with their own context windows and no direct awareness of other sub-agents. They cannot collaborate in real-time; the main agent must wait for all reports before synthesizing. Sub-agents have temporary context windows and cannot ask clarifying questions. Background tasks (Ctrl+B) keep long-running processes active without blocking the main session. Sustained multi-day autonomy on real codebases is described as 'not a solved problem' due to context limitations and brittleness.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/news/enabling-claude-code-to-work-more-autonomously",
+      "sub_theme": "Agent architecture and limitations"
+    },
+    {
+      "name": "Windsurf - Parallel agent sessions (Wave 13)",
+      "what": "Windsurf added parallel Cascade agent sessions in early 2026 for simultaneous multi-task development.",
+      "evidence": "Wave 13 (early 2026) added parallel agent sessions with dedicated terminal profiles. Windsurf ranked #1 in LogRocket rankings (Feb 2026) assessing 50+ features. Windsurf was acquired by Cognition Labs; its $82M ARR across 350+ enterprise accounts contributed to Cognition's $155M combined ARR.",
+      "status": "live",
+      "source_url": "https://dev.to/pockit_tools/cursor-vs-windsurf-vs-claude-code-in-2026-the-honest-comparison-after-using-all-three-3gof",
+      "sub_theme": "Autonomous coding products"
+    },
+    {
+      "name": "Aider - SWE-bench performance (open source)",
+      "what": "Open-source CLI coding agent with published benchmark scores.",
+      "evidence": "Aider achieved 49.2% solve rate on SWE-bench Verified as of March 2026.",
+      "status": "live",
+      "source_url": "https://is4.ai/blog/our-blog-1/cline-vs-aider-comparison-2026-313",
+      "sub_theme": "Benchmark performance"
+    },
+    {
+      "name": "Enterprise agent adoption reality check (2025)",
+      "what": "Despite universal experimentation, mass autonomous agent adoption did not materialize in 2025.",
+      "evidence": "Nearly 99% of enterprise developers experimented with AI agents in 2025, but mass adoption never materialized. Bounded scope, human oversight, and specific workflows showed the most pragmatic results. The current practical sweet spot is Level 3-4: supervised autonomy where you provide goals and guardrails, the agent executes independently, and you approve/reject at decision points.",
+      "status": "live",
+      "source_url": "https://firstpagesage.com/seo-blog/agentic-ai-statistics/",
+      "sub_theme": "Industry adoption reality"
+    }
+  ],
+  "gaps": [
+    "No public autonomous task completion rate benchmark exists for Cursor's agent mode or background agent feature. Cursor publishes no equivalent of SWE-bench results.",
+    "Cline has no published autonomous completion rate metrics despite 5M+ users. They created Cline Bench (Nov 2025) for evaluating agents but no public leaderboard results were found.",
+    "The METR study used early-2025 tools (Claude 3.5/3.7 Sonnet). METR announced in Feb 2026 they are redesigning their experiment, so no updated results with current models exist yet.",
+    "No rigorous academic study was found measuring autonomous agent operation duration specifically (as opposed to benchmark accuracy). Anthropic's telemetry analysis is the closest, but it measures user behavior rather than agent capability limits.",
+    "GitHub Copilot Workspace was sunset before publishing formal task completion benchmarks. The replacement Coding Agent has volume data (1.2M PRs/month) but no quality/completion rate data.",
+    "No data was found on how agent reliability changes as task duration increases (i.e., reliability curves over time). The compounding error rate calculation (85% per step = 20% over 10 steps) is theoretical, not empirically measured on real agent runs.",
+    "Token cost data for long-running autonomous sessions is sparse. GPT-5-Codex reports 93.7% fewer tokens than GPT-5 for simple turns but no data on cost of 7+ hour sessions."
+  ]
+}

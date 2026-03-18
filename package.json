@@ -16,6 +16,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "bin": {
+    "vana": "./dist/cli/bin.js"
+  },
   "files": [
     "dist"
   ],
@@ -35,12 +38,39 @@
     "./core": {
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    },
+    "./connectors": {
+      "types": "./dist/connectors/index.d.ts",
+      "import": "./dist/connectors/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/main.d.ts",
+      "import": "./dist/cli/main.js"
     }
   },
   "scripts": {
     "build": "tsc --build",
-    "clean": "tsc --build --clean",
+    "build:sea": "npx -y node@25 ./scripts/build-sea.mjs",
+    "build:sea:smoke": "npx -y node@25 ./scripts/build-sea.mjs --smoke",
+    "clean": "node ./scripts/clean-build.mjs",
+    "cli": "node dist/cli/bin.js",
+    "demo:vhs": "pnpm build && node ./scripts/render-vhs.mjs",
+    "demo:vhs:fixtures": "node ./scripts/prepare-vhs-fixtures.mjs",
+    "demo:transcripts": "pnpm build && node ./scripts/capture-cli-transcripts.mjs",
+    "pack:check": "node ./scripts/assert-pack-contents.mjs",
+    "sea:check": "node ./scripts/assert-sea-artifact.mjs",
+    "homebrew:check": "node ./scripts/assert-homebrew-formula-sync.mjs",
+    "release:check-demo-assets": "node ./scripts/assert-release-demo-assets.mjs",
+    "release:watch": "node ./scripts/watch-release-lane.mjs",
     "skills:sync": "node scripts/sync-skills.js",
+    "test:install:unix": "sh ./scripts/test-install-unix.sh",
+    "test:install:windows": "pwsh -File ./scripts/test-install-windows.ps1",
+    "test:install:github-release": "sh ./scripts/test-install-github-release.sh",
+    "test:runtime:cookie-import": "vitest run test/runtime/browser.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config test/e2e/vitest.config.ts",
@@ -49,6 +79,10 @@
     "lint:eslint:fix": "eslint --fix 'src/**/*.ts' 'src/**/*.tsx'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "package-managers:generate": "node ./scripts/generate-package-manager-metadata.mjs",
+    "preflight:cli": "pnpm test test/core/state-store.test.ts test/cli/render-format.test.ts test/runtime/in-process-run.test.ts test/cli/index.test.ts && pnpm build && pnpm format:check && pnpm demo:transcripts",
+    "release:collect-assets": "node ./scripts/collect-release-assets.mjs",
+    "runtime:footprint": "node ./scripts/report-runtime-footprint.mjs",
     "validate": "npm run lint && npm run lint:eslint && npm run format:check && npm test",
     "prepare": "husky"
   },
@@ -64,9 +98,19 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "dependencies": {
+    "@inquirer/prompts": "8.3.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "chromium-bidi": "15.0.0",
+    "commander": "14.0.3",
+    "ora": "^8.2.0",
+    "picocolors": "^1.1.1",
+    "playwright": "1.58.2",
+    "zod": "4.3.6"
+  },
   "peerDependencies": {
-    "viem": "^2.0.0",
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "viem": "^2.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -84,6 +128,7 @@
     "@types/node": "^25.2.0",
     "@types/react": "^19.0.0",
     "conventional-changelog-conventionalcommits": "^9.1.0",
+    "esbuild": "^0.27.4",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",

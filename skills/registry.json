@@ -1,0 +1,35 @@
+{
+  "skills": [
+    {
+      "id": "connect-data",
+      "name": "Connect Data",
+      "description": "How to connect platforms and collect personal data using the vana CLI",
+      "version": "1.0.0",
+      "files": {
+        "skill": "connect-data/SKILL.md"
+      }
+    },
+    {
+      "id": "create-connector",
+      "name": "Create Connector",
+      "description": "How to build, test, validate, and contribute a new data connector",
+      "version": "1.0.0",
+      "files": {
+        "skill": "create-connector/SKILL.md",
+        "supplemental": [
+          "create-connector/reference/PAGE-API.md",
+          "create-connector/reference/PATTERNS.md"
+        ]
+      }
+    },
+    {
+      "id": "next-prompt",
+      "name": "Next Prompt",
+      "description": "Generate and execute the next agent prompt from connected personal data",
+      "version": "1.0.0",
+      "files": {
+        "skill": "next-prompt/SKILL.md"
+      }
+    }
+  ]
+}

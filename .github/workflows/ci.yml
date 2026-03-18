@@ -12,16 +12,22 @@ on:
       - "connect/**"
       - "examples/**"
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     strategy:
       matrix:
         node-version: [20, 22]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
@@ -30,3 +36,65 @@ jobs:
       - run: pnpm lint:eslint
       - run: pnpm format:check
       - run: pnpm test
+
+  sea-smoke:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm pack:check
+      - run: pnpm build:sea:smoke
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-linux-x64 --archive artifacts/sea/vana-linux-x64.tar.gz --checksum artifacts/sea/vana-linux-x64.tar.gz.sha256 --platform linux --binary-name vana
+      - run: pnpm test:install:unix
+
+  sea-smoke-windows:
+    runs-on: windows-2022
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm pack:check
+      - run: pnpm build:sea -- --artifact-name vana-win32-x64 --platform win32 --arch x64 --archive-format zip --binary-name vana.exe
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-win32-x64 --archive artifacts/sea/vana-win32-x64.zip --checksum artifacts/sea/vana-win32-x64.zip.sha256 --platform win32 --binary-name vana.exe
+      - run: pnpm test:install:windows
+
+  demo-preview:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana
+      - run: pnpm demo:transcripts
+      - run: pnpm demo:vhs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-demo-preview
+          path: |
+            docs/transcripts
+            docs/vhs

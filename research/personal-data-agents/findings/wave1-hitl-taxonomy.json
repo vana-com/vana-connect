@@ -1,0 +1,158 @@
+{
+  "agent_question": "Taxonomy of human-in-the-loop interventions in coding agent workflows",
+  "findings": [
+    {
+      "name": "Anthropic - Measuring Agent Autonomy in Practice",
+      "what": "Anthropic analyzed millions of Claude Code interactions to categorize autonomy patterns, interruption types, and how human oversight behavior evolves with experience.",
+      "evidence": "Newer users (<50 sessions) auto-approve ~20% of sessions; by 750 sessions this rises to >40%. Interruption rate increases from ~5% of work steps for new users to ~9% for experienced ones. On complex tasks, Claude self-stops for clarification >2x as often as humans interrupt it. 80% of tool calls come from agents with at least one safeguard in place. 73% of actions appear to have a human in the loop. Only 0.8% of actions are irreversible. Published February 2026.",
+      "status": "live",
+      "source_url": "https://www.anthropic.com/research/measuring-agent-autonomy",
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift"
+    },
+    {
+      "name": "Anthropic - 2026 Agentic Coding Trends Report",
+      "what": "Report based on Claude Code usage data showing how developer-agent collaboration patterns have changed, including session length, multi-file edits, and autonomy delegation.",
+      "evidence": "78% of Claude Code sessions in Q1 2026 involve multi-file edits, up from 34% in Q1 2025. Average session length increased from 4 minutes (autocomplete era) to 23 minutes (agentic era). Tool calls per session average 47. 99.9th percentile turn duration nearly doubled from <25 min to >45 min between Oct 2025 and Jan 2026. Developer acceptance rate of agent changes is 89% when the agent provides a diff summary vs 62% for raw output. Only 0-20% of tasks can be fully delegated.",
+      "status": "live",
+      "source_url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift"
+    },
+    {
+      "name": "Anthropic - Constitutional AI",
+      "what": "Research showing how human oversight can be compressed from thousands of individual preference labels to ~10 natural-language principles, with AI self-critique replacing per-instance human review.",
+      "evidence": "Standard RLHF requires tens of thousands of human preference labels. Constitutional AI reduces this to ~10 principles stated in natural language. The model self-critiques and revises its own outputs, then an AI preference model replaces human labelers in the RL phase. Constitutional RL produces Pareto improvements over RLHF (both more helpful and more harmless). Published December 2022.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2212.08073",
+      "sub_theme": "Alignment: replacing human feedback with structured knowledge"
+    },
+    {
+      "name": "Atlassian HULA Framework",
+      "what": "Human-in-the-Loop LLM-based Agents framework deployed at Atlassian for Jira issue resolution, with measured rates of human intervention at each stage of the coding pipeline.",
+      "evidence": "Deployed to 2,600 practitioners by Sept 2024 across 22,000+ eligible issues. Engineers used HULA on 663 work items in 2 months. Plan generation succeeded for 79% of items. Plan approval rate by humans: 82% (433/527). Code generated for 87% of approved plans. 25% reached pull request stage. 59% of generated PRs merged. ~900 total PRs merged. Unit test pass rate: 31% on SWE-bench. Code rated highly similar to human code in 45% of cases. Published November 2024.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2411.12924",
+      "sub_theme": "Taxonomy: staged intervention points in development pipelines"
+    },
+    {
+      "name": "Atlassian HULA - Challenges and Future Directions",
+      "what": "Follow-up paper identifying two major HITL challenges: high computational costs of unit testing for validation and variability in LLM-based code quality evaluation.",
+      "evidence": "Presented at MSR 2025 Industry Track. Highlights that human review remains necessary because automated evaluation (unit tests + GPT-based similarity scoring) is inconsistent and expensive. Suggests the human-in-the-loop burden cannot be eliminated purely by adding automated checks.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2506.11009",
+      "sub_theme": "Taxonomy: staged intervention points in development pipelines"
+    },
+    {
+      "name": "Cognition Devin - 2025 Performance Review",
+      "what": "Cognition published Devin's annual performance data showing PR merge rates as a proxy for how often human reviewers accept or reject autonomous agent work.",
+      "evidence": "PR merge rate doubled from 34% to 67% year-over-year. Devin merged hundreds of thousands of PRs total. 4x faster at problem-solving, 2x more efficient in resource consumption vs prior year. Described as 'senior-level at codebase understanding but junior at execution.' Customers include Goldman Sachs, Citi, Santander, Nubank. 33% of PRs are still rejected by human reviewers.",
+      "status": "live",
+      "source_url": "https://cognition.ai/blog/devin-annual-performance-review-2025",
+      "sub_theme": "Error correction: human as quality gate"
+    },
+    {
+      "name": "Cognition (Devin) - Funding and Scale",
+      "what": "Cognition's financial trajectory provides context for the market size of human-in-the-loop coding agent products.",
+      "evidence": "$10.2B valuation as of September 2025. $400M raise led by Founders Fund. ARR grew from $1M (Sept 2024) to $73M (June 2025). Combined ARR ~$150M after Windsurf acquisition. Net burn under $20M since founding. Usage-based pricing via Agent Compute Units (ACUs).",
+      "status": "live",
+      "source_url": "https://techcrunch.com/2025/09/08/cognition-ai-defies-turbulence-with-a-400m-raise-at-10-2b-valuation/",
+      "sub_theme": "Market context"
+    },
+    {
+      "name": "GitHub Copilot - Suggestion Acceptance Rates",
+      "what": "GitHub's data on how frequently developers accept, modify, or reject AI code suggestions provides the largest-scale dataset on human intervention frequency.",
+      "evidence": "Average acceptance rate: ~30% of suggestions shown. Rises from 28.9% in first 3 months to 32.1% in next 3 months. Java developers: 61% acceptance rate. 88% code retention rate for accepted suggestions. ZoomInfo enterprise study: 33% suggestion acceptance, 20% line acceptance, 72% developer satisfaction. 4.7M paid subscribers (Jan 2026). 20M cumulative users (July 2025). Used by ~90% of Fortune 100.",
+      "status": "live",
+      "source_url": "https://docs.github.com/en/copilot/concepts/copilot-usage-metrics/copilot-metrics",
+      "sub_theme": "Error correction: human as quality gate"
+    },
+    {
+      "name": "GitHub Copilot - Revenue Scale",
+      "what": "Copilot's financial scale contextualizes the market for tools where humans review every AI suggestion.",
+      "evidence": "4.7M paid subscribers as of Jan 2026. Paid subscriptions grew ~75% YoY. Nadella stated in 2024 that Copilot was a larger business than all of GitHub at the time of Microsoft's 2018 acquisition ($7.5B). Analyst estimates place ARR in mid-hundreds of millions to approaching $1B.",
+      "status": "live",
+      "source_url": "https://www.getpanto.ai/blog/github-copilot-statistics",
+      "sub_theme": "Market context"
+    },
+    {
+      "name": "Cursor (Anysphere) - RL-based Suggestion Filtering",
+      "what": "Cursor uses real-time reinforcement learning on user accept/reject signals to learn when to suggest and when to stay silent, directly encoding human intervention patterns into the model.",
+      "evidence": "Upgraded Tab model produces 21% fewer suggestions but 28% higher acceptance rate. Model receives reward on accept, penalty on reject, nothing on silence. Uses on-policy data from currently-deployed model, retraining multiple times per day. $1B+ ARR as of Nov 2025. $29.3B valuation. 1M+ daily active users (Dec 2025). 9,900% YoY ARR growth.",
+      "status": "live",
+      "source_url": "https://analyticsindiamag.com/ai-news-updates/cursor-is-using-real-time-reinforcement-learning-to-improve-suggestions-for-developers/",
+      "sub_theme": "Alignment: replacing human feedback with structured knowledge"
+    },
+    {
+      "name": "RedMonk - 10 Things Developers Want from Agentic IDEs (2025)",
+      "what": "Analyst report categorizing what developer-practitioners actually demand from agent oversight, distinguishing between trust controls, permission systems, and audit trails.",
+      "evidence": "Developers want: fine-grained permissions for what agents can/cannot do autonomously; approval gates before destructive actions (rm -rf, database writes, deployments); configurable autonomy levels per task type; clear audit trails of every agent action. Microsoft and Red Hat's MCP approach requires least-privilege permissions and surfaces all sensitive operations to the user.",
+      "status": "live",
+      "source_url": "https://redmonk.com/kholterhoff/2025/12/22/10-things-developers-want-from-their-agentic-ides-in-2025/",
+      "sub_theme": "Taxonomy: approval gates (trust) vs context provision (knowledge)"
+    },
+    {
+      "name": "From Prompt Engineering to Prompt Science (ACM / arXiv)",
+      "what": "Research framing prompt engineering as a human-in-the-loop alignment problem, where humans iteratively correct AI misalignment through prompt refinement rather than model retraining.",
+      "evidence": "Identifies four causes of misalignment: unpredictability, lack of transparency, value misalignment, and inherent complexity. Notes alignment is bi-directional (AI to human AND human to AI). A user's definition of alignment evolves over time as they discover new requirements. Proposes multi-phase verification as a systematic replacement for ad-hoc prompt tweaking. Published January 2024.",
+      "status": "live",
+      "source_url": "https://arxiv.org/abs/2401.04122",
+      "sub_theme": "Prompt engineering as human-in-the-loop"
+    },
+    {
+      "name": "CoPrompter (ACM IUI 2025)",
+      "what": "Framework that makes prompt-to-output alignment measurable by generating evaluation criteria from prompt requirements and letting users score outputs against a checklist.",
+      "evidence": "Generates evaluation criteria questions from prompt requirements. Users edit checklist to define alignment. Addresses the problem that prompt engineers cannot identify all points of misalignment through manual inspection alone. Published 2025.",
+      "status": "live",
+      "source_url": "https://dl.acm.org/doi/10.1145/3708359.3712102",
+      "sub_theme": "Prompt engineering as human-in-the-loop"
+    },
+    {
+      "name": "Turing Post - State of AI Coding: Context, Trust, and Subagents",
+      "what": "Industry analysis identifying that developer distrust of coding agents stems primarily from context gaps, not model capability.",
+      "evidence": "When asked why developers don't trust AI coding agents, most said: 'We don't trust the context the model has.' Missing context identified as the critical issue: 'The critical logic sleeps in a Jira ticket from 2019, or worse, it's tribal knowledge.' An AI agent cannot know context that exists only in a person's head.",
+      "status": "live",
+      "source_url": "https://www.turingpost.com/p/aisoftwarestack",
+      "sub_theme": "Taxonomy: approval gates (trust) vs context provision (knowledge)"
+    },
+    {
+      "name": "ByteBridge - From Human-in-the-Loop to Human-on-the-Loop",
+      "what": "Analysis of the transition from per-action approval (HITL) to exception-based oversight (HOTL), where agents run autonomously by default and humans intervene only on anomalies.",
+      "evidence": "HITL: human must review and approve before each action. HOTL: agents autonomous by default, human oversight available when it counts. Moving to HOTL doesn't mean abandoning HITL; it means using HITL strategically with optional interventions on demand. Published January 2026.",
+      "status": "live",
+      "source_url": "https://bytebridge.medium.com/from-human-in-the-loop-to-human-on-the-loop-evolving-ai-agent-autonomy-c0ae62c3bf91",
+      "sub_theme": "Taxonomy: trust calibration and oversight strategy shift"
+    },
+    {
+      "name": "Rakuten + Claude Code - Autonomous Complex Task",
+      "what": "Case study of a coding agent completing a complex task in a 12.5M-line codebase with minimal human intervention, illustrating the upper bound of current agent autonomy.",
+      "evidence": "Rakuten engineers tested Claude Code on implementing activation vector extraction in vLLM (12.5M lines, multiple languages). Agent completed the task in 7 hours of autonomous work with 99.9% numerical accuracy. Cited in Anthropic's 2026 Agentic Coding Trends Report.",
+      "status": "live",
+      "source_url": "https://resources.anthropic.com/2026-agentic-coding-trends-report",
+      "sub_theme": "Error correction: human as quality gate"
+    },
+    {
+      "name": "Devin - Task-Specific Performance (Independent Tests)",
+      "what": "Independent testing reveals that Devin's success rate varies dramatically by task type, with routine tasks succeeding far more often than complex ones.",
+      "evidence": "SWE-bench: solved 13.86% of issues end-to-end. Complex real-world tasks: ~15% completion without human assistance. Security vulnerability fixes: 1.5 min vs 30 min for humans (20x). File migrations: 3-4 hours vs 30-40 hours for humans (10x). The gap between routine and complex task completion rates explains why human oversight remains critical.",
+      "status": "live",
+      "source_url": "https://trickle.so/blog/devin-ai-review",
+      "sub_theme": "Error correction: human as quality gate"
+    },
+    {
+      "name": "Pardon the Interruption (Journal of Management, 2020)",
+      "what": "Integrative review of work interruption research across domains, providing a taxonomy of interruption types, frequencies, and cognitive impacts that predates but directly applies to AI agent workflows.",
+      "evidence": "Published in Journal of Management (2020). Reviews interruption research across workplace contexts. Identifies that interruptions introduce new tasks on top of ongoing activities. Operators must handle multiple simultaneous stimuli and information sources. Provides foundational vocabulary for categorizing agent interruptions.",
+      "status": "live",
+      "source_url": "https://journals.sagepub.com/doi/abs/10.1177/0149206319887428",
+      "sub_theme": "Interruption patterns beyond coding"
+    }
+  ],
+  "gaps": [
+    "No public data found on the specific breakdown of WHY developers interrupt agents (e.g., what % is 'wrong direction' vs 'missing context' vs 'safety concern'). Anthropic's autonomy paper shows frequency shifts but not a categorical breakdown of interruption reasons.",
+    "No quantitative data found distinguishing approval-gate interventions (trust) from context-provision interventions (knowledge) from error-correction interventions (capability). The Turing Post finding that developers distrust context rather than capability is qualitative, not measured.",
+    "Copilot's 70% rejection rate is not broken down by reason. We know 30% of suggestions are accepted but not why the other 70% are rejected (wrong code? wrong timing? partial match? style mismatch?).",
+    "No published research found measuring how much human-in-the-loop overhead could be replaced by personal data (preferences, coding style, project context) vs institutional knowledge vs real-time judgment.",
+    "Limited data on HITL patterns in non-coding autonomous agent workflows (e.g., customer service, data analysis, content creation) with the same level of rigor as the coding domain.",
+    "Anthropic's Constitutional AI paper shows principles CAN replace per-instance human labels, but there is no published measurement of how much residual human oversight Constitutional AI eliminates in production deployment vs standard RLHF.",
+    "No found data on the cost of human-in-the-loop interventions (developer time per interruption, context-switching penalty) in agent workflows specifically."
+  ]
+}

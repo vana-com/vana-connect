@@ -1,0 +1,109 @@
+{
+  "agent_question": "CLI scheduled and recurring task patterns",
+  "findings": [
+    {
+      "name": "Heroku Scheduler",
+      "what": "Free add-on that runs one-off dyno commands at fixed intervals (every 10 min, hourly, or daily). Configuration is done via a web dashboard opened with `heroku addons:open scheduler`—there is no declarative config file or CLI flag for defining schedules. State lives entirely in Heroku's cloud. Monitoring is via `heroku logs --ps scheduler.1`. No built-in retry, no failure notifications, and execution is best-effort ('known to occasionally miss'). For reliable scheduling, Heroku recommends a custom clock process instead. Key limitation: only 3 interval choices, no cron expressions, dashboard-only config.",
+      "evidence": "heroku addons:create scheduler:standard; heroku addons:open scheduler; heroku logs --ps scheduler.1. Task definition: Task: rake update_feed, Frequency: Hourly, Time: :30. Jobs execute as one-off dynos named scheduler.X visible via heroku ps.",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/scheduler",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "GitHub Actions scheduled workflows (gh CLI)",
+      "what": "GitHub Actions supports `schedule` triggers using POSIX cron syntax in workflow YAML files. The `gh` CLI does not create schedules directly—users write `on: schedule: - cron: '...'` in .github/workflows/*.yml. The CLI manages workflows after creation: `gh workflow list/view/run/enable/disable` and `gh run list -e schedule` to filter scheduled runs. State lives in GitHub's cloud. Minimum interval: every 5 minutes. UTC only. Scheduled workflows on public repos auto-disable after 60 days of inactivity. Runs can be delayed during high load. Failures show as failed runs in `gh run list -s failure`.",
+      "evidence": "on: schedule: - cron: '30 5 * * 1,3'. gh workflow list; gh workflow run <workflow>; gh run list -e schedule -s completed. 'The shortest interval you can run scheduled workflows is once every 5 minutes.' 'In a public repository, scheduled workflows are automatically disabled when no repository activity has occurred in 60 days.'",
+      "status": "live",
+      "source_url": "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "Kubernetes CronJobs (kubectl)",
+      "what": "First-class Kubernetes resource for recurring container execution using standard cron syntax. Created via `kubectl create cronjob <name> --image=<img> --schedule='...'` or declarative YAML. Rich configuration surface: concurrencyPolicy (Allow/Forbid/Replace), startingDeadlineSeconds, successfulJobsHistoryLimit, failedJobsHistoryLimit, backoffLimit, timeZone, suspend. State lives in etcd (cluster state). Monitoring via `kubectl get cronjobs`, `kubectl describe cronjob`, `kubectl logs`. Suspend/resume via `kubectl patch cronjob <name> -p '{\"spec\":{\"suspend\":true}}'`. The most complete scheduling model of any CLI tool surveyed—covers concurrency, deadlines, history retention, timezone, and suspension.",
+      "evidence": "kubectl create cronjob hello --image=busybox:1.28 --schedule='* * * * *'. YAML spec fields: schedule, concurrencyPolicy (Allow|Forbid|Replace), startingDeadlineSeconds, successfulJobsHistoryLimit (default 3), failedJobsHistoryLimit (default 1), suspend, timeZone. Macros: @yearly, @monthly, @weekly, @daily, @hourly.",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/",
+      "sub_theme": "infrastructure scheduler"
+    },
+    {
+      "name": "Vercel Cron Jobs",
+      "what": "Cron jobs defined in vercel.json that trigger HTTP GET requests to Vercel Functions at the production URL. Configuration is declarative in vercel.json `crons` array with `path` and `schedule` fields. No CLI commands for managing crons—changes require editing vercel.json and redeploying. State lives in Vercel's cloud. Monitoring via dashboard Settings > Cron Jobs and runtime logs. No automatic retry on failure. Hobby tier: once per day only with hourly precision (±59 min). Pro/Enterprise: per-minute precision. 100 cron jobs per project on all plans. Security via CRON_SECRET env var. Duplicate invocations possible—idempotency recommended. No concurrency control built in (suggests Redis locks).",
+      "evidence": "vercel.json: {\"crons\": [{\"path\": \"/api/cron\", \"schedule\": \"0 5 * * *\"}]}. Hobby: once/day, ±59min precision. Pro: once/min, per-minute precision. 100 cron jobs per project. 'Vercel will not retry an invocation if a cron job fails.' User-Agent: vercel-cron/1.0.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cron-jobs",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "PM2 (cron_restart + startup)",
+      "what": "Node.js process manager with daemon mode, cron-based restart scheduling, and OS init system integration. Scheduling via `pm2 start app.js --cron-restart='0 0 * * *'` or ecosystem.config.js `cron_restart` field. PM2 runs as a persistent daemon—not pure cron. `pm2 startup` generates init scripts for systemd/launchd/upstart/openrc, and `pm2 save` persists the process list for resurrection on reboot. Monitoring via `pm2 monit`, `pm2 logs`, `pm2 list`. Failure handling via exponential backoff restart delay, max_memory_restart, and stop_exit_codes. Key distinction: PM2's cron_restart restarts an already-running daemon on a schedule, rather than running a one-shot task.",
+      "evidence": "pm2 start app.js --cron-restart='0 0 * * *'. ecosystem.config.js: { cron_restart: '0 0 * * *' }. pm2 startup (detects systemd/launchd/upstart). pm2 save (persists process list). --exp-backoff-restart-delay=100 for exponential backoff.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/restart-strategies/",
+      "sub_theme": "daemon process manager"
+    },
+    {
+      "name": "Homebrew Services (brew services)",
+      "what": "CLI that manages OS-native services (launchd on macOS, systemd on Linux). Commands: `brew services start/stop/restart/run/list/info/kill/cleanup`. `start` both launches and registers for auto-start at login/boot. `run` launches without auto-start registration. Automatically generates plist (macOS) or systemd unit files. Service files live in ~/Library/LaunchAgents or ~/.config/systemd/user (user-level) or system directories (root). Monitoring via `brew services list --json` and OS-level tools (journalctl, launchctl). No built-in cron/scheduling syntax—it delegates to the formula's service definition. Mainly manages long-running daemons, not one-shot scheduled tasks.",
+      "evidence": "brew services start <formula>; brew services list --json; brew services run <formula> (no auto-start). macOS: ~/Library/LaunchAgents. Linux: ~/.config/systemd/user. --file for custom service files. brew services cleanup removes unused definitions.",
+      "status": "live",
+      "source_url": "https://docs.brew.sh/Manpage#services-subcommand",
+      "sub_theme": "OS service integration"
+    },
+    {
+      "name": "Whenever (Ruby crontab DSL)",
+      "what": "Ruby gem that provides a human-readable DSL for defining cron jobs in config/schedule.rb, then writes them directly to the system crontab. CLI: `whenever` (preview cron output), `whenever --update-crontab` (write to crontab), `whenever --clear-crontab` (remove entries). DSL supports `every 3.hours do`, `every :sunday, at: '12pm'`, `every 1.day, at: '4:30 am'`. Three job types: runner (Rails method), rake (Rake task), command (shell). Uses identifier-based namespacing so multiple apps can share a crontab without conflicts. Integrates with Capistrano for deploy-time crontab updates. State is the system crontab itself. No daemon—pure cron. No built-in failure handling or monitoring.",
+      "evidence": "schedule.rb: every 3.hours do; runner 'MyModel.some_process'; end. CLI: whenever --update-crontab --user app. Custom job types: job_type :awesome, '/usr/local/bin/awesome :task :fun_level'. Capistrano: require 'whenever/capistrano'.",
+      "status": "live",
+      "source_url": "https://github.com/javan/whenever",
+      "sub_theme": "crontab wrapper/generator"
+    },
+    {
+      "name": "Supercronic (container cron)",
+      "what": "Crontab-compatible job runner designed for containers. Solves cron-in-Docker problems: preserves environment variables (traditional cron purges them), logs to stdout/stderr (not syslog), handles SIGTERM gracefully, prevents concurrent execution by default. Reads a standard crontab file. Supports second-level precision. CLI flags: -debug, -split-logs, -test (validate without running), -overlapping (allow concurrent), -inotify (auto-reload on file change), -sentry-dsn (error tracking). No daemon management—runs as PID 1 in a container. Key differentiator: drop-in cron replacement that works correctly in containerized environments.",
+      "evidence": "supercronic /path/to/crontab. Flags: -test (validate syntax), -overlapping (allow parallel), -inotify (reload on file change), -sentry-dsn (Sentry integration), -split-logs (stdout vs stderr). 'When a job exceeds its scheduled interval, the system logs a warning but delays the next execution until the current one completes.'",
+      "status": "live",
+      "source_url": "https://github.com/aptible/supercronic",
+      "sub_theme": "container-native cron"
+    },
+    {
+      "name": "Jobber (cron alternative with error handling)",
+      "what": "Go-based cron alternative with built-in job execution history, exponential backoff on failure, and configurable failure notifications. Jobs defined in a YAML-like jobfile. Three error handling modes: Stop (disable job after failure), Backoff (exponential delay before retry), Continue (keep running on schedule). Users can configure notifications on every failure or only when a job gets disabled. CLI for listing job status and history. Currently unmaintained (seeking new maintainer). Last release v1.4.4 in June 2020.",
+      "evidence": "Error handling: 'after an initial failure of a job, Jobber can schedule future runs using an exponential backoff algorithm.' Three onError modes: Stop, Backoff, Continue. Notification on failure or on disable. 444 commits, 1.4k stars.",
+      "status": "unmaintained",
+      "source_url": "https://github.com/dshearer/jobber",
+      "sub_theme": "cron alternative"
+    },
+    {
+      "name": "Dkron (distributed cron)",
+      "what": "Distributed, fault-tolerant job scheduling system built in Go using Raft consensus and Serf gossip protocol. Provides web UI, REST API, and CLI for job management. Eliminates single points of failure by distributing scheduling across multiple nodes. Scales to thousands of nodes. Deployed via Docker Compose with `docker compose up -d --scale dkron-server=4 --scale dkron-agent=10`. Web UI at port 8080. Primarily designed for infrastructure teams, not end-user CLIs. 4.7k GitHub stars.",
+      "evidence": "docker compose up -d --scale dkron-server=4 --scale dkron-agent=10. Web UI: http://localhost:8080/ui. Built on Raft consensus + Serf gossip protocol. 'Able to handle high volumes of scheduled jobs and thousands of nodes.'",
+      "status": "live",
+      "source_url": "https://github.com/distribworks/dkron",
+      "sub_theme": "distributed scheduler"
+    },
+    {
+      "name": "Docker restart policies (not true scheduling)",
+      "what": "Docker provides --restart flags (no, on-failure[:max-retries], always, unless-stopped) for automatic container restart, but these are recovery mechanisms, not schedulers. An increasing delay (doubling from 100ms, max 1 min) is added before each restart, resetting after 10 seconds of successful runtime. For actual scheduled/recurring container execution, Docker relies on external tools (host cron, Kubernetes CronJobs, Supercronic inside containers). Health checks (--health-cmd, --health-interval, --health-retries) complement restart policies but don't provide scheduling.",
+      "evidence": "docker run --restart=on-failure:10 redis. 'An increasing delay (double the previous delay, starting at 100 milliseconds) is added before each restart.' Health checks: --health-cmd, --health-interval, --health-timeout, --health-retries.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/container/run/",
+      "sub_theme": "container restart (not scheduling)"
+    },
+    {
+      "name": "Cronie (modern cron daemon)",
+      "what": "Modern implementation of the standard UNIX cron daemon (evolved from vixie-cron). Provides `crontab` CLI for editing/viewing jobs with syntax validation and automatic backup, plus `cronnext` utility for querying upcoming execution times. Adds PAM/SELinux integration, tilde (~) operator for randomization within ranges, support for up to 10,000 entries per user, and NO_MAIL_OUTPUT env var. Not a scheduling CLI itself but the underlying daemon that crontab-wrapper CLIs (like Whenever) write to.",
+      "evidence": "cronnext utility for querying upcoming job execution times. Tilde operator (~) for randomization within ranges. Up to 10,000 crontab entries per user. PAM and SELinux integration. 56 contributors, 611 commits.",
+      "status": "live",
+      "source_url": "https://github.com/cronie-crond/cronie",
+      "sub_theme": "cron daemon"
+    }
+  ],
+  "gaps": [
+    "Linear CLI: could not access Linear docs on cycles/automation (404 errors). Linear has cycles and auto-close/auto-archive workflows but unclear if these are exposed via any CLI tool.",
+    "Jobber jobfile format: detailed YAML configuration docs were inaccessible (readthedocs 404). The error handling model (Stop/Backoff/Continue with notifications) is confirmed from the GitHub README but specific YAML syntax examples were not retrieved.",
+    "OpenClaw/NanoClaw: no relevant results found. The agent framework landscape for cron-scheduled tasks was not explored in this wave.",
+    "systemd timers as a scheduling mechanism: not researched as a standalone pattern. systemd timers are an alternative to cron with richer features (OnCalendar, Persistent=true for catching up missed runs, RandomizedDelaySec). Would be worth a dedicated investigation.",
+    "Temporal / Inngest / Trigger.dev: cloud-based workflow engines with scheduled triggers that could be relevant as 'schedule from CLI, runs in cloud' patterns. Not covered in this wave.",
+    "macOS launchd scheduled agents: launchd plist files with StartCalendarInterval provide native macOS scheduling without cron. Homebrew Services generates these but the raw launchd scheduling model was not deeply explored."
+  ]
+}

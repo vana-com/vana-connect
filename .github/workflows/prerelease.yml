@@ -10,21 +10,103 @@ on:
       - "examples/**"
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: canary-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  canary:
-    runs-on: ubuntu-latest
+  build-sea:
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-14
+            platform: darwin
+            arch: arm64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: windows-2022
+            platform: win32
+            arch: x64
+            archive_format: zip
+            binary_name: vana.exe
+    runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
       - run: pnpm build
+      - run: pnpm pack:check
+      - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }} --archive artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }} --checksum artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256 --platform ${{ matrix.platform }} --binary-name ${{ matrix.binary_name }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-sea-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256
+  demo-preview:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana
+      - run: pnpm demo:transcripts
+      - run: pnpm demo:vhs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-demo-preview
+          path: |
+            docs/transcripts
+            docs/vhs
+  canary:
+    needs: [build-sea, demo-preview]
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm pack:check
       - name: Publish canary
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
@@ -33,3 +115,88 @@ jobs:
           npm publish --tag canary
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vana-sea-*
+          path: artifacts/release
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: vana-demo-preview
+          path: artifacts/demo-preview
+      - name: Generate package-manager metadata
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          pnpm package-managers:generate -- --release-tag "$TAG" --package-version "$PACKAGE_VERSION"
+      - name: Publish branch prerelease assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          TITLE="Canary ${GITHUB_REF_NAME}"
+          NOTES="Branch canary for ${GITHUB_REF_NAME} at ${SHORT_SHA}. Install with the branch installer and \`--version ${TAG}\`. This prerelease also includes demo transcripts and terminal SVG previews."
+          mapfile -t RELEASE_FILES < <(node ./scripts/collect-release-assets.mjs)
+
+          if [ "${#RELEASE_FILES[@]}" -eq 0 ]; then
+            echo "No release files were found in artifacts/release"
+            exit 1
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            mapfile -t EXISTING_ASSETS < <(gh release view "$TAG" --json assets --jq '.assets[].name' | sort)
+
+            for existing in "${EXISTING_ASSETS[@]}"; do
+              keep=false
+              for release_file in "${RELEASE_FILES[@]}"; do
+                if [ "$existing" = "$(basename "$release_file")" ]; then
+                  keep=true
+                  break
+                fi
+              done
+
+              if [ "$keep" = false ]; then
+                gh release delete-asset "$TAG" "$existing" -y
+              fi
+            done
+
+            gh release edit "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --prerelease
+            gh release upload "$TAG" "${RELEASE_FILES[@]}" --clobber
+          else
+            gh release create "$TAG" "${RELEASE_FILES[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES" \
+              --prerelease
+          fi
+  verify-prerelease-install:
+    needs: canary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Smoke test hosted prerelease installer
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          sh ./scripts/test-install-github-release.sh --version "$TAG"
+      - name: Verify prerelease demo assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          node ./scripts/assert-release-demo-assets.mjs --tag "$TAG" --repo "$GITHUB_REPOSITORY"
+      - name: Sync Homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_SYNC_TOKEN }}
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          gh workflow run sync-formula.yml --repo vana-com/homebrew-vana -f release_tag="$TAG"

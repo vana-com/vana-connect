@@ -14,22 +14,140 @@ permissions:
   id-token: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  build-sea:
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: macos-14
+            platform: darwin
+            arch: arm64
+            archive_format: tar.gz
+            binary_name: vana
+          - runner: windows-2022
+            platform: win32
+            arch: x64
+            archive_format: zip
+            binary_name: vana.exe
+    runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
       - run: pnpm build
+      - run: pnpm pack:check
+      - run: pnpm build:sea -- --artifact-name vana-${{ matrix.platform }}-${{ matrix.arch }} --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --archive-format ${{ matrix.archive_format }} --binary-name ${{ matrix.binary_name }}
+      - run: pnpm sea:check -- --artifact-dir artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }} --archive artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }} --checksum artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256 --platform ${{ matrix.platform }} --binary-name ${{ matrix.binary_name }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-sea-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}
+            artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256
+  demo-preview:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm build:sea -- --artifact-name vana-linux-x64 --platform linux --arch x64 --archive-format tar.gz --binary-name vana
+      - run: pnpm demo:transcripts
+      - run: pnpm demo:vhs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vana-demo-preview
+          path: |
+            docs/transcripts
+            docs/vhs
+  release:
+    needs: [build-sea, demo-preview]
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm clean
+      - run: pnpm build
+      - run: pnpm pack:check
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vana-sea-*
+          path: artifacts/release
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: vana-demo-preview
+          path: artifacts/demo-preview
       - run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Generate package-manager metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          PACKAGE_VERSION="${RELEASE_TAG#v}"
+          pnpm package-managers:generate -- --release-tag "$RELEASE_TAG" --package-version "$PACKAGE_VERSION"
+      - name: Attach release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          mapfile -t RELEASE_FILES < <(node ./scripts/collect-release-assets.mjs)
+          gh release upload "$RELEASE_TAG" "${RELEASE_FILES[@]}" --clobber
+  verify-release-install:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Smoke test latest published installer
+        run: sh ./scripts/test-install-github-release.sh
+      - name: Verify latest release demo assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
+          node ./scripts/assert-release-demo-assets.mjs --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"

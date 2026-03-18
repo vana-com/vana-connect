@@ -1,0 +1,119 @@
+{
+  "agent_question": "Failed personal AI and data-driven assistant products",
+  "findings": [
+    {
+      "name": "Humane AI Pin",
+      "what": "Wearable AI pin pitched as a 'beyond the smartphone' device, priced at $699 plus $24/month subscription.",
+      "evidence": "Raised $230M in VC. Sold ~10,000 units against a 100,000-unit plan. Returns outpaced sales from May-August 2024. Revenue of ~$9M lifetime. Marques Brownlee review calling it out viewed 8.5M+ times. HP acquired assets for $116M in February 2025, less than half the capital raised. User data deleted after Feb 28, 2025.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2025/02/18/humanes-ai-pin-is-dead-as-hp-buys-startups-assets-for-116m/",
+      "sub_theme": "AI hardware devices"
+    },
+    {
+      "name": "Rabbit R1",
+      "what": "AI hardware companion device promising to replace apps with a 'Large Action Model' for $199.",
+      "evidence": "Raised $64.7M total from Khosla Ventures and others. Sold ~100,000 units, but only 5,000 used daily (5% retention). Supported only 6 apps (Spotify, Uber, DoorDash, etc.). CEO Jesse Lyu admitted it launched prematurely. Reports of unpaid salaries and employee strikes. Could not reliably book an Uber or fetch weather.",
+      "status": "live",
+      "source_url": "https://9to5google.com/2024/09/26/rabbit-5000-people-use-the-r1-daily/",
+      "sub_theme": "AI hardware devices"
+    },
+    {
+      "name": "Facebook M",
+      "what": "Human-assisted AI assistant inside Facebook Messenger that could complete arbitrary tasks like restaurant reservations and shopping.",
+      "evidence": "Launched August 2015 to ~2,000 users in California. Never scaled beyond ~10,000 test users. Over 70% of requests required human operators ('M trainers'). Scaling to Messenger's 1.3B users would have required prohibitively large human workforce. Shut down January 2018 after ~2.5 years.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2018/01/08/facebook-is-shutting-down-its-standalone-personal-assistant-m/",
+      "sub_theme": "Human-in-the-loop AI assistants"
+    },
+    {
+      "name": "Builder.ai (Natasha)",
+      "what": "AI assistant 'Natasha' that promised anyone could build apps without code, backed by Microsoft and Qatar's sovereign wealth fund.",
+      "evidence": "Raised $445M total including $250M Series D. Valued at $1.2B. Filed for bankruptcy May 2025. Investigation revealed ~700 human engineers in India did most of the work, not AI. Claimed $220M in 2024 revenue; independent audit found ~$50M. Creditor Viola Credit seized $37M triggering insolvency.",
+      "status": "shut down",
+      "source_url": "https://techstartups.com/2025/05/24/builder-ai-a-microsoft-backed-ai-startup-once-valued-at-1-2-billion-files-for-bankruptcy-is-ai-becoming-another-com-bubble/",
+      "sub_theme": "Human-in-the-loop AI assistants"
+    },
+    {
+      "name": "Microsoft Cortana",
+      "what": "Microsoft's voice assistant integrated into Windows, competing with Siri, Alexa, and Google Assistant.",
+      "evidence": "Peak of 145M monthly active users in 2017, but only 10% of Windows 10 users regularly engaged by 2023. Never exceeded 2% voice assistant market share (vs Siri 36%, Google 35%, Alexa 25%). Mobile app removed March 2021. Windows standalone app deprecated August 2023. Replaced by Copilot. Microsoft invested $10B in OpenAI instead.",
+      "status": "shut down",
+      "source_url": "https://techcrunch.com/2023/08/04/microsoft-kills-cortana-in-windows-as-it-focuses-on-next-gen-ai/",
+      "sub_theme": "Big tech personal assistants"
+    },
+    {
+      "name": "Google Now / Google Assistant personal context features",
+      "what": "Google's proactive personal assistant that surfaced contextual cards from email, calendar, location, and personal data.",
+      "evidence": "Google Now launched 2012, gradually deprecated from 2016. Replaced by Google Assistant, which itself removed 17 'underutilized' features in January 2024 including: checking personal travel itineraries, asking about contacts, sending emails/payments/reservations by voice. Google Assistant itself deprecated March 2026, replaced by Gemini.",
+      "status": "shut down",
+      "source_url": "https://blog.google/products/assistant/google-assistant-update-january-2024/",
+      "sub_theme": "Big tech personal assistants"
+    },
+    {
+      "name": "Inflection AI (Pi)",
+      "what": "Personal AI chatbot focused on empathetic conversation rather than task completion, built by DeepMind co-founder Mustafa Suleyman.",
+      "evidence": "Raised $1.525B at $4B valuation. Had 1M daily active users and 6M monthly active users. In March 2024, Microsoft acqui-hired nearly all 70 employees and paid $650M to license its models. Pi still exists but with usage caps and a skeleton crew. Could not find a sustainable business model despite strong user engagement.",
+      "status": "acquired",
+      "source_url": "https://www.eesel.ai/blog/inflection-ai",
+      "sub_theme": "Personal AI chatbots"
+    },
+    {
+      "name": "Rewind AI / Limitless",
+      "what": "Desktop activity recorder that captured everything on your screen and made it searchable, later pivoted to AI wearable pendant.",
+      "evidence": "Raised $33M+ from a16z, First Round Capital, NEA. Rewind's local processing approach limited it to users' CPUs, preventing use of best LLMs. Collected ~11GB per user per month. Rebranded to Limitless April 2024 and launched $99 hardware pendant. Acquired by Meta December 2025; Rewind desktop app shut down, pendant sales halted.",
+      "status": "acquired",
+      "source_url": "https://techcrunch.com/2025/12/05/meta-acquires-ai-device-startup-limitless/",
+      "sub_theme": "Lifelogging and personal data capture"
+    },
+    {
+      "name": "Narrative Clip (formerly Memoto)",
+      "what": "Wearable lifelogging camera that automatically took a photo every 30 seconds.",
+      "evidence": "Raised $550K on Kickstarter in 2012, then additional millions in VC. Launched Clip 1 and Clip 2 (with Bluetooth/WiFi). Entered voluntary dissolution in September 2016. Could not compete with smartphone cameras and live-streaming services (Periscope, Facebook Live). Most people did not want continuous photo capture.",
+      "status": "shut down",
+      "source_url": "https://petapixel.com/2016/09/28/lifelogging-camera-maker-narrative-going-business/",
+      "sub_theme": "Lifelogging and personal data capture"
+    },
+    {
+      "name": "x.ai (Amy/Andrew scheduling AI)",
+      "what": "AI scheduling assistant that handled meeting coordination via email, using virtual personas 'Amy' and 'Andrew'.",
+      "evidence": "Founded by Dennis Mortensen. Raised $44M total ($2M seed 2014, $23M 2016, $10M 2017). Acquired by Bizzabo June 2021 for undisclosed amount. Scheduling tool sunset October 31, 2021. Technology folded into Bizzabo's event management platform rather than continuing as standalone product.",
+      "status": "acquired",
+      "source_url": "https://www.globenewswire.com/news-release/2021/06/03/2241277/0/en/Bizzabo-Acquires-x-ai-to-Launch-AI-powered-Scheduling-Accelerate-Personalized-Event-Experiences.html",
+      "sub_theme": "AI scheduling assistants"
+    },
+    {
+      "name": "Magic Leap",
+      "what": "Augmented reality headset company that promised ambient computing and spatial interfaces.",
+      "evidence": "Raised ~$4.5B total from Google, Qualcomm, Alibaba, AT&T, and Saudi Arabia's PIF. Magic Leap One (2018) priced at $2,300, failed to meet sales targets. Cut ~1,000 workers (half the workforce) in 2020. Pivoted from consumer to enterprise. Cut entire sales and marketing teams (75 jobs) in July 2024. Now pivoting to license optics technology rather than sell headsets.",
+      "status": "live",
+      "source_url": "https://www.roadtovr.com/magic-leap-layoff-2024-optics-pivot/",
+      "sub_theme": "Ambient computing hardware"
+    },
+    {
+      "name": "Forward Health (CarePods)",
+      "what": "AI-powered autonomous medical kiosks ('CarePods') for self-service primary care.",
+      "evidence": "Raised ~$400M+ (some sources say up to $657M including debt). Planned 3,200 CarePods in 2024; launched only 3, one removed shortly after. Blood draws frequently failed. Patients got stuck inside pods. Revenue under $100M since founding (2016). Shut down all operations November 2024.",
+      "status": "shut down",
+      "source_url": "https://www.fiercehealthcare.com/health-tech/primary-care-player-forward-shutters-after-raising-400m-rolling-out-carepods",
+      "sub_theme": "Autonomous AI agents in physical world"
+    },
+    {
+      "name": "Intercom Fin AI Agent",
+      "what": "AI customer support agent by Intercom, handling front-line customer service conversations.",
+      "evidence": "Handled 8M+ queries. First version (GPT-powered, 2023) achieved 23% resolution rate. Second version (Claude-powered, 2024) improved to 51% average resolution rate across thousands of customers. Still requires human escalation for ~49% of conversations. Pricing is $0.99 per resolved conversation.",
+      "status": "live",
+      "source_url": "https://thelettertwo.com/2024/10/12/intercom-releases-fin-2-ai-agent-switching-anthropic-from-openai/",
+      "sub_theme": "Enterprise AI agents"
+    }
+  ],
+  "gaps": [
+    "Clara Labs: Search results show it is still operating (acquired by TopFunnel in 2019). Could not confirm any shutdown. May not qualify as a failure.",
+    "Exact acquisition price for Rewind/Limitless by Meta was not disclosed.",
+    "Exact acquisition price for x.ai by Bizzabo was not disclosed.",
+    "Rabbit R1 current financial status is unclear; reports of unpaid salaries but no confirmed shutdown or bankruptcy filing found.",
+    "Could not find specific cost-per-query data for Facebook M's human operators.",
+    "Did not find additional personal AI startups raising >$5M that shut down 2023-2026 beyond the ones listed. The landscape is large and many smaller failures go unreported.",
+    "Intercom Fin is not a failure; included for contrast. Could not find well-sourced enterprise AI assistant failures with specific numbers.",
+    "Magic Leap is tangential to 'personal AI assistant' theme; included because it represents ambient computing failure but it was primarily an AR/spatial computing bet."
+  ]
+}

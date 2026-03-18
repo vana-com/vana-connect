@@ -2,6 +2,49 @@
 
 Let your users bring their own data to your app.
 
+## CLI
+
+The `vana` CLI collects your personal data from any platform. See the **[CLI README](./cli/README.md)**.
+
+Install on macOS with Homebrew:
+
+```bash
+brew tap vana-com/vana
+brew install vana
+vana status
+```
+
+Or use the hosted prerelease installer on macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
+```
+
+Branch prerelease:
+
+- `https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
+
+Once installed, the best way to evaluate the CLI quickly is:
+
+```bash
+vana --version
+vana doctor
+vana status
+vana sources
+vana connect github
+vana data list
+vana data show github
+vana logs github
+```
+
+Key demo media:
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status.gif" width="800" alt="vana status" />
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-github-success.gif" width="800" alt="vana connect github" />
+
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-show-github.gif" width="600" alt="vana data show github" />
+
 ## What problem this solves
 
 Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.
@@ -71,6 +114,36 @@ Then, in your dev version of DataConnect (likely built from the `main` branch) y
 ## Manual integration
 
 If you prefer to integrate the SDK into an existing project, follow the steps below.
+
+## Headless CLI
+
+`vana-connect` now also ships a local collection CLI for connector setup and data export flows.
+
+If you only care about the CLI, start with [docs/CLI-README.md](./docs/CLI-README.md).
+
+For the full CLI review surface, use:
+
+- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
+- [CLI transcripts](./docs/transcripts/README.md)
+- [CLI demos](./docs/vhs/README.md)
+
+`pnpm build:sea` uses Node 25's `--build-sea` flow to create a small `vana` launcher and packages the real app payload next to it under `app/`.
+It produces a platform-specific release directory plus a release archive and matching checksum file under `artifacts/sea/`.
+
+### Programmatic runtime access
+
+If you are building an app surface like DataConnect Desktop or a hosted orchestration layer, use the SDK modules instead of shelling out to the CLI where possible.
+
+```ts
+import { ManagedPlaywrightRuntime } from "@opendatalabs/connect/runtime";
+import { listAvailableSources } from "@opendatalabs/connect/connectors";
+```
+
+Intended split:
+
+- app surfaces consume SDK/runtime APIs
+- agent skills consume the CLI
+- `data-connectors` remains the connector and schema source of truth
 
 ### Installation
 
