@@ -1394,7 +1394,12 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   );
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.info(`  Next: ${nextSteps[0]}`);
+    const command = extractCommand(nextSteps[0]);
+    if (command) {
+      emit.next(command);
+    } else {
+      emit.detail(`Next: ${nextSteps[0]}`);
+    }
   }
   return 0;
 }
@@ -1687,7 +1692,12 @@ async function runDoctor(options: GlobalOptions): Promise<number> {
   emit.keyValue("Uninstall", lifecycle.uninstall, "muted");
   if (nextSteps.length > 0) {
     emit.blank();
-    emit.info(`  Next: ${nextSteps[0]}`);
+    const command = extractCommand(nextSteps[0]);
+    if (command) {
+      emit.next(command);
+    } else {
+      emit.detail(`Next: ${nextSteps[0]}`);
+    }
   }
 
   return 0;
@@ -2375,7 +2385,12 @@ async function runLogs(
 
   emit.blank();
   if (nextSteps.length > 0) {
-    emit.info(`  Next: ${nextSteps[0]}`);
+    const command = extractCommand(nextSteps[0]);
+    if (command) {
+      emit.next(command);
+    } else {
+      emit.detail(`Next: ${nextSteps[0]}`);
+    }
   }
   return 0;
 }
@@ -2645,20 +2660,35 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
     );
   } else {
     // Show per-scope results with scope manifest style
+    const renderer = createHumanRenderer();
     for (const entry of allScopeResults) {
       if (entry.scopeResults && entry.scopeResults.length > 0) {
         emit.info(`${entry.source}:`);
         for (const sr of entry.scopeResults) {
           if (sr.status === "stored") {
-            emit.info(`  \u2713 ${sr.scope}`);
+            emit.info(`  ${renderer.theme.success("\u2713")} ${sr.scope}`);
           } else {
-            emit.info(`  \u2717 ${sr.scope} \u2014 ${sr.error ?? "failed"}`);
+            const errDetail = sr.error ?? "failed";
+            emit.info(
+              `  ${renderer.theme.error("\u2717")} ${sr.scope} ${renderer.theme.muted(`\u2014 ${errDetail}`)}`,
+            );
           }
         }
       }
     }
     emit.blank();
-    emit.info(`Synced ${syncedCount} dataset(s).`);
+    const allStored = allScopeResults.every(
+      (entry) =>
+        !entry.scopeResults ||
+        entry.scopeResults.every((sr) => sr.status === "stored"),
+    );
+    emit.success(`Synced ${syncedCount} dataset(s).`);
+    emit.blank();
+    if (allStored) {
+      emit.next("vana data list");
+    } else {
+      emit.next("vana server sync");
+    }
   }
   return 0;
 }
@@ -3470,6 +3500,12 @@ function buildLogsNextSteps(
       : []),
     "Check overall status with `vana status`.",
   ];
+}
+
+/** Extract a `vana ...` command from a next-step sentence wrapped in backticks. */
+function extractCommand(sentence: string): string | null {
+  const match = sentence.match(/`(vana\s[^`]+)`/);
+  return match ? match[1] : null;
 }
 
 // describeConnectTrust and buildConnectChoices removed — replaced by clack-based picker

@@ -685,7 +685,7 @@ describe("runCli", () => {
         Personal Server: not connected
         Sources:       1 connected, 1 needs attention
 
-        Next: Complete the manual browser step for Shop with \`vana connect shop\`.
+        Next: \`vana connect shop\`
       "
     `);
   });
@@ -707,7 +707,8 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout).toContain("Connect GitHub with `vana connect github`.");
+    expect(stdout).toContain("Next:");
+    expect(stdout).toContain("vana connect github");
   });
 
   it("guides first run from status when the runtime is missing", async () => {
@@ -723,7 +724,8 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     // Compact status shows only the single most important next step
-    expect(stdout).toContain("Install the local runtime with `vana setup`.");
+    expect(stdout).toContain("Next:");
+    expect(stdout).toContain("vana setup");
   });
 
   it("fails cleanly in json mode when input is required", async () => {
@@ -1523,7 +1525,7 @@ describe("runCli", () => {
         Path:          /tmp/.dataconnect/logs/run-github.log
         Updated: <timestamp>
 
-        Next: Inspect the latest issue log with \`vana logs shop\`.
+        Next: \`vana logs shop\`
       "
     `);
   });
@@ -1749,9 +1751,8 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     // Compact status shows only the single most important next step
-    expect(stdout).toContain(
-      "Review your collected data with `vana data list`.",
-    );
+    expect(stdout).toContain("Next:");
+    expect(stdout).toContain("vana data list");
   });
 
   it("prints source_required in json mode when connect source is missing", async () => {
@@ -2908,5 +2909,244 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("partial sync");
+  });
+
+  it("completes first-time setup when runtime is missing and user confirms", async () => {
+    runtimeState = "missing";
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockConfirm.mockResolvedValueOnce(true);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.dataconnect/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ profile: { username: "alice" } }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Continue?" }),
+    );
+    expect(stderr).toContain("Connected GitHub.");
+  });
+
+  it("prompts for credentials on needs-input event", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "steam", name: "Steam", authMode: "interactive" },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/valve/steam-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    mockInput.mockResolvedValueOnce("alice");
+    mockPassword.mockResolvedValueOnce("secret123");
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "steam",
+        message: "Log in to Steam",
+        fields: ["username", "password"],
+      },
+      {
+        type: "collection-complete",
+        source: "steam",
+        resultPath: "/tmp/.dataconnect/steam-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({ profile: { username: "alice" } }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "steam"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockInput).toHaveBeenCalled();
+    expect(mockPassword).toHaveBeenCalled();
+    expect(stderr).toContain("Connected Steam.");
+  });
+
+  it("handles connector fetch failure for non-checksum errors", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    const runtimeImport = await import("../../src/runtime/index.js");
+    const fetchSpy = vi
+      .spyOn(runtimeImport.ManagedPlaywrightRuntime.prototype, "fetchConnector")
+      .mockRejectedValueOnce(new Error("Network timeout"));
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    fetchSpy.mockRestore();
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("GitHub is not available.");
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        lastRunOutcome: "connector_unavailable",
+      }),
+    );
+  });
+
+  it("fails for legacy auth connectors without a display server", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "shop", name: "Shop", authMode: "legacy" },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+
+    const originalPlatform = process.platform;
+    const originalDisplay = process.env.DISPLAY;
+    const originalWayland = process.env.WAYLAND_DISPLAY;
+    Object.defineProperty(process, "platform", { value: "linux" });
+    delete process.env.DISPLAY;
+    delete process.env.WAYLAND_DISPLAY;
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "shop"]);
+
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+    if (originalDisplay !== undefined) process.env.DISPLAY = originalDisplay;
+    if (originalWayland !== undefined)
+      process.env.WAYLAND_DISPLAY = originalWayland;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("requires a browser window");
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "shop",
+      expect.objectContaining({
+        lastRunOutcome: "legacy_auth",
+      }),
+    );
+  });
+
+  it("handles cancelled prompt input during connect (ctrl+c)", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "steam", name: "Steam", authMode: "interactive" },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/valve/steam-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "steam",
+        message: "Log in to Steam",
+        fields: ["username", "password"],
+      },
+    ];
+    mockInput.mockRejectedValueOnce(new ExitPromptError());
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "steam"]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Cancelled.");
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "steam",
+      expect.objectContaining({
+        lastRunOutcome: "needs_input",
+        lastError: "Cancelled before input was completed.",
+      }),
+    );
+  });
+
+  it("server sync shows themed scope results with next step guidance", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          lastResultPath: "/tmp/results/github.json",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-complete",
+        source: "github",
+        scopeResults: [
+          { scope: "github.profile", status: "stored" },
+          { scope: "github.repositories", status: "stored" },
+        ],
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("\u2713");
+    expect(stdout).toContain("github.profile");
+    expect(stdout).toContain("github.repositories");
+    expect(stdout).toContain("Synced 1 dataset(s).");
+    expect(stdout).toContain("Next:");
+    expect(stdout).toContain("vana data list");
+  });
+
+  it("server sync suggests retry when some scopes fail", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          lastResultPath: "/tmp/results/github.json",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-partial",
+        source: "github",
+        scopeResults: [
+          { scope: "github.profile", status: "stored" },
+          {
+            scope: "github.starred",
+            status: "failed",
+            error: "schema not registered",
+          },
+        ],
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("\u2713");
+    expect(stdout).toContain("\u2717");
+    expect(stdout).toContain("github.profile");
+    expect(stdout).toContain("schema not registered");
+    expect(stdout).toContain("Next:");
+    expect(stdout).toContain("vana server sync");
   });
 });
