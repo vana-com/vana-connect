@@ -3906,12 +3906,10 @@ async function runSkillList(options: GlobalOptions): Promise<number> {
     }
 
     for (const skill of enriched) {
-      const badges: Array<{ text: string; tone?: RenderTone }> = [];
-      if (skill.installed) {
-        badges.push({ text: "installed", tone: "success" });
-      }
-      emit.sourceTitle(skill.name, badges);
-      emit.detail(skill.description);
+      const tag = skill.installed
+        ? ` ${emit.badge("installed", "accent")}`
+        : "";
+      emit.info(`  ${skill.name}${tag}`);
     }
 
     const uninstalled = enriched.find((s) => !s.installed);
@@ -3950,9 +3948,14 @@ async function runSkillInstall(
     }
 
     emit.success(`Installed ${name}.`);
-    emit.detail(formatDisplayPath(installedPath));
     emit.blank();
-    emit.next("vana skill list");
+    const skills = await listAvailableSkills();
+    const installed = await readInstalledSkills();
+    const installedIds = new Set([...installed.map((s) => s.id), name]);
+    const nextSkill = skills.find((s) => !installedIds.has(s.id));
+    emit.next(
+      nextSkill ? `vana skill install ${nextSkill.id}` : "vana skill list",
+    );
 
     return 0;
   } catch (error) {
