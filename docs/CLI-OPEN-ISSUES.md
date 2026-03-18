@@ -462,6 +462,14 @@ already has that version.
 
 ## New (March 18, 2026)
 
+### Non-TTY IPC mode for requestInput (agent auth unlock)
+
+The runtime already has file-based IPC for credential prompts: `pending-input-{runId}.json` written by the connector, `input-response-{runId}.json` polled for the answer (`src/runtime/playwright/in-process-run.ts:231-239`). Currently the CLI reads the pending file and prompts via inquirer (interactive stdin).
+
+For agents: a `--ipc` mode where the CLI leaves the pending-input file for the agent to discover. The agent reads the question, asks the user, writes the response file. The connector resumes. No interactive stdin needed. This works with Claude Code's fire-and-forget Bash tool: run `vana connect github --ipc` in background, poll for `~/.vana/pending-input-*.json`, ask user, write response, poll for completion.
+
+This is the key unlock for agent-driven auth on interactive sources. Without it, agents cannot connect any source that requires credentials.
+
 ### Stale browser profile lock after interrupted connect
 
 When `vana connect` is interrupted (ctrl+c, agent background task killed), the Chromium `SingletonLock` file at `~/.vana/browser-profiles/{source}/SingletonLock` is not cleaned up. Subsequent connect attempts fail with "Failed to create a ProcessSingleton." The CLI should detect and remove stale lock files before launching the browser.

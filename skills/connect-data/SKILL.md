@@ -94,26 +94,35 @@ If the requested platform is present, use the CLI flow below.
 
 **If no connector exists for the platform,** tell the user you'll build one — this involves researching the platform's data APIs, writing the extraction code, and testing it. Let them know it'll take a bit and they're welcome to do something else while you work. Then read `CREATE.md` and follow it.
 
-### 2. Connect with the CLI
+### 2. Check the source's auth mode
 
-Start with the agent-safe probe:
+Each source has an `authMode` in `vana sources --json`:
+
+- `interactive` — prompts for credentials in the terminal. **You can handle this directly.**
+- `legacy` — opens a headed browser window. **You cannot do this. Tell the user to run it in their own terminal.**
+- `automated` — no auth needed. Fully autonomous.
+
+### 3. Connect with the CLI
+
+**For `interactive` or `automated` sources:** Run directly in the foreground (NOT as a background task). You will be prompted for credentials — type them when asked.
+
+```bash
+vana connect <platform>
+```
+
+IMPORTANT: Do NOT run this in the background. Do NOT use `run_in_background`. You need to see and respond to credential prompts interactively.
+
+**For `legacy` (browser) sources:** You cannot connect these. Tell the user:
+
+> Run `vana connect <platform>` in your terminal. It will open a browser for you to log in. Say "done" when finished.
+
+**For a quick status check without connecting:** Use the `--json --no-input` probe. This checks if a saved session works without prompting:
 
 ```bash
 vana connect <platform> --json --no-input
 ```
 
-This will:
-
-- ensure the runtime is installed
-- resolve and cache the connector
-- try a saved session if one exists
-- return structured events and a final outcome such as `needs_input`, `legacy_auth`, `connected_local_only`, or `connected_and_ingested`
-
-If the outcome is `needs_input`, rerun interactively:
-
-```bash
-vana connect <platform>
-```
+Outcomes: `needs_input`, `legacy_auth`, `connected_local_only`, or `connected_and_ingested`.
 
 If the user specifically wants to inspect current state before rerunning, use:
 

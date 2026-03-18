@@ -106,6 +106,7 @@ If `~/.vana/next-prompt.md` says not to notify for this type of task, skip the p
 
 1. Never fabricate data. Only reference what's actually in the result files.
 2. Respect the notify/don't-notify preferences in the config.
-3. If no data is connected, say so and suggest `vana connect`.
-4. Weight time-sensitive items higher (messages aging toward an SLA, expiring deadlines).
-5. Don't repeat suggestions the user has already dismissed.
+3. If no data is connected, list the unconnected sources and tell the user to connect them in their own terminal. Do NOT run `vana connect` yourself — that is a separate skill (`connect-data`) and most sources require a headed browser you cannot access.
+4. Work with whatever data IS available. Do not block on missing sources.
+5. Weight time-sensitive items higher (messages aging toward an SLA, expiring deadlines).
+6. Don't repeat suggestions the user has already dismissed.
