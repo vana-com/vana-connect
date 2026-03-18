@@ -34,6 +34,14 @@ export async function connect(
   const signer = createRequestSigner({ privateKey: config.privateKey });
   const granteeAddress = signer.address;
 
+  const mode = config.mode ?? "connect";
+  const scopes =
+    config.scopes && config.scopes.length > 0
+      ? config.scopes
+      : mode === "auth"
+        ? ["identity.auth"]
+        : [];
+
   const relay = createSessionRelay({
     privateKey: config.privateKey,
     granteeAddress,
@@ -41,7 +49,7 @@ export async function connect(
   });
 
   const relayResult = await relay.initSession({
-    scopes: config.scopes,
+    scopes,
     webhookUrl: config.webhookUrl,
     appUserId: config.appUserId,
   });
@@ -49,6 +57,10 @@ export async function connect(
   // Build the account.vana.org connect URL from the relay response
   const connectUrl = new URL("/connect", accountUrl);
   connectUrl.searchParams.set("sessionId", relayResult.sessionId);
+  if (mode === "auth") {
+    connectUrl.searchParams.set("mode", "auth");
+    connectUrl.searchParams.set("relayUrl", sessionRelayUrl);
+  }
   if (typeof config.appUrl === "string" && config.appUrl.trim().length > 0) {
     connectUrl.searchParams.set("appUrl", config.appUrl.trim());
   }

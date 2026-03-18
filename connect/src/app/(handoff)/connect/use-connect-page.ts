@@ -91,6 +91,9 @@ export function useConnectPage() {
   const { wallets, ready: walletsReady } = useWallets();
   const { createWallet } = useCreateWallet();
 
+  const isAuthOnly = handoffContext?.mode === "auth";
+  const relayUrl = handoffContext?.relayUrl ?? null;
+
   const [view, setView] = useState<ConnectPageView>("loading");
   const [error, setError] = useState<string | null>(null);
   const [masterKeySig, setMasterKeySig] = useState<string | null>(null);
@@ -202,6 +205,65 @@ export function useConnectPage() {
     isUiDebugScenarioActive,
   ]);
 
+  // Auth-only mode: after Privy auth + wallet ready, claim+approve directly on relay.
+  // Skips master key signing and DataConnect deep link entirely.
+  const authOnlyAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthOnly) return;
+    if (!authenticated || !embeddedWalletAddress) return;
+    if (!sessionId || !secret || !relayUrl) return;
+    if (view === "ready" || view === "error") return;
+    if (authOnlyAttemptedRef.current) return;
+    authOnlyAttemptedRef.current = true;
+
+    setView("signing");
+
+    (async () => {
+      // Step 1: Claim the session (pending → claimed)
+      const claimRes = await fetch(`${relayUrl}/v1/session/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, secret }),
+      });
+      if (!claimRes.ok) {
+        const text = await claimRes.text();
+        throw new Error(`Claim failed: ${claimRes.status} ${text}`);
+      }
+
+      // Step 2: Approve with user address (claimed → approved)
+      const approveRes = await fetch(
+        `${relayUrl}/v1/session/${sessionId}/approve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            secret,
+            grantId: "auth-only",
+            userAddress: embeddedWalletAddress,
+            scopes: ["identity.auth"],
+          }),
+        },
+      );
+      if (!approveRes.ok) {
+        const text = await approveRes.text();
+        throw new Error(`Approve failed: ${approveRes.status} ${text}`);
+      }
+
+      setView("ready");
+    })().catch((err) => {
+      setError(err instanceof Error ? err.message : "Auth-only flow failed");
+      setView("error");
+    });
+  }, [
+    isAuthOnly,
+    authenticated,
+    embeddedWalletAddress,
+    sessionId,
+    secret,
+    relayUrl,
+    view,
+  ]);
+
   // Ensure a Privy embedded wallet exists for signing.
   useEffect(() => {
     if (isUiDebugScenarioActive) return;
@@ -261,9 +323,10 @@ export function useConnectPage() {
     };
   }, []);
 
-  // Sign the master key after authentication
+  // Sign the master key after authentication (skipped in auth-only mode)
   useEffect(() => {
     if (isUiDebugScenarioActive) return;
+    if (isAuthOnly) return;
     if (view === "error" || view === "ready") return;
     if (phase !== "signing-ready" || signingRef.current) return;
 
@@ -350,6 +413,7 @@ export function useConnectPage() {
     error: ui.error,
     sessionId: ui.sessionId,
     isAuthenticated: ready && authenticated,
+    isAuthOnly,
     deepLinkUrl: ui.deepLinkUrl,
     appContext: handoffContext
       ? {

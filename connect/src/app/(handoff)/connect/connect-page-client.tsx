@@ -73,6 +73,7 @@ export function ConnectPageClient({
     error,
     sessionId,
     isAuthenticated,
+    isAuthOnly,
     deepLinkUrl,
     appContext,
     downloadDataConnectHref,
@@ -121,7 +122,17 @@ export function ConnectPageClient({
               <ConnectLoadingState app={app} />
             ) : null}
 
-            {view === "ready" && deepLinkUrl ? (
+            {view === "ready" && isAuthOnly ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="text-2xl text-green-500">&#10003;</div>
+                <h2 className="text-lg font-semibold">Connected</h2>
+                <p className="text-sm text-muted-foreground">
+                  You have been authenticated. You can close this tab.
+                </p>
+              </div>
+            ) : null}
+
+            {view === "ready" && !isAuthOnly && deepLinkUrl ? (
               <ConnectReadyState
                 app={app}
                 requestedDataLabel={appQuery.requestedDataLabel}

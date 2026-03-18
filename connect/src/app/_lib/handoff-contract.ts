@@ -20,6 +20,10 @@ export type ConnectHandoffContext = {
   version: typeof HANDOFF_CONTEXT_VERSION;
   sessionId: string;
   secret: string | null;
+  /** Flow mode: "auth" for identity-only (skip DataConnect), null for default connect flow. */
+  mode: string | null;
+  /** Session Relay URL, provided when mode is "auth" so the portal can call claim/approve directly. */
+  relayUrl: string | null;
   appUrl: string | null;
   dataSource: string | null;
   scopes?: string[];
@@ -37,6 +41,8 @@ type SearchParamReader = {
 type NormalizableInput = {
   sessionId: unknown;
   secret: unknown;
+  mode: unknown;
+  relayUrl: unknown;
   appUrl: unknown;
   dataSource: unknown;
   scopes: unknown;
@@ -97,6 +103,8 @@ function normalizeContext(
   if (!sessionId) return null;
 
   const secret = readNonEmptyString(input.secret);
+  const mode = readNonEmptyString(input.mode);
+  const relayUrl = readNonEmptyString(input.relayUrl);
   const appUrl = readNonEmptyString(input.appUrl);
   const dataSource = readNonEmptyString(input.dataSource);
   const scopes = normalizeScopes(input.scopes);
@@ -110,6 +118,8 @@ function normalizeContext(
     version: HANDOFF_CONTEXT_VERSION,
     sessionId,
     secret,
+    mode,
+    relayUrl,
     appUrl,
     dataSource,
     ...(scopes ? { scopes } : {}),
@@ -131,6 +141,8 @@ export function parseFromSearchParams(
     {
       sessionId: searchParams.get("sessionId"),
       secret: searchParams.get("secret"),
+      mode: searchParams.get("mode"),
+      relayUrl: searchParams.get("relayUrl"),
       appUrl: searchParams.get("appUrl"),
       dataSource: searchParams.get("dataSource"),
       scopes: searchParams.get("scopes") ?? searchParams.get("scope"),
@@ -156,6 +168,8 @@ function parseContextJsonPayload(
       {
         sessionId: parsed.sessionId,
         secret: parsed.secret,
+        mode: parsed.mode,
+        relayUrl: parsed.relayUrl,
         appUrl: parsed.appUrl,
         dataSource: parsed.dataSource,
         scopes: parsed.scopes,
@@ -430,6 +444,8 @@ function createHandoffQueryParams(
     ConnectHandoffContext,
     | "sessionId"
     | "secret"
+    | "mode"
+    | "relayUrl"
     | "appUrl"
     | "dataSource"
     | "scopes"
@@ -444,6 +460,12 @@ function createHandoffQueryParams(
   params.set("sessionId", context.sessionId);
   if (context.secret) {
     params.set("secret", context.secret);
+  }
+  if (context.mode) {
+    params.set("mode", context.mode);
+  }
+  if (context.relayUrl) {
+    params.set("relayUrl", context.relayUrl);
   }
   if (context.appUrl) {
     params.set("appUrl", context.appUrl);

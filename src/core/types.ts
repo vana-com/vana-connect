@@ -96,8 +96,15 @@ export interface DataClientConfig {
 export interface ConnectConfig {
   /** Builder private key in hex format. */
   privateKey: `0x${string}`;
-  /** Data scopes to request. */
-  scopes: string[];
+  /** Data scopes to request. Defaults to `["identity.auth"]` when mode is `"auth"`. */
+  scopes?: string[];
+  /**
+   * Flow mode.
+   * - `"connect"` (default): full data grant flow via DataConnect.
+   * - `"auth"`: identity-only — user authenticates and returns their address,
+   *   no DataConnect required.
+   */
+  mode?: "auth" | "connect";
   /** Public app URL used by Connect UI to resolve favicon branding. */
   appUrl?: string;
   /** Human-readable label for the requested data source shown in Connect UI. */
