@@ -474,6 +474,20 @@ For agents: a `--ipc` mode where the CLI leaves the pending-input file for the a
 
 This is the key unlock for agent-driven auth on interactive sources. Without it, agents cannot connect any source that requires credentials.
 
+### Release pipeline: auto-sync all distribution channels
+
+The canary release CI publishes to npm and uploads GitHub release assets but doesn't sync downstream distribution channels automatically. Each desync causes user-facing failures:
+
+- **Homebrew formula**: checksums in `vana-com/homebrew-vana` go stale when new binaries overwrite the release tag. `brew install vana` fails. The `sync-formula.yml` workflow exists but requires manual trigger.
+- **Hosted installer** (`install.sh`): references a specific version. May point to stale binary.
+- **Demo assets**: transcripts and VHS GIFs are CI artifacts, not committed back. Checked-in docs go stale.
+
+Fix: add a final `sync-distribution` job to `prerelease.yml` that:
+
+1. Dispatches `sync-formula.yml` in `vana-com/homebrew-vana`
+2. Verifies the hosted installer resolves to the new binary
+3. Optionally commits updated transcripts back to the repo
+
 ### Stale browser profile lock after interrupted connect
 
 When `vana connect` is interrupted (ctrl+c, agent background task killed), the Chromium `SingletonLock` file at `~/.vana/browser-profiles/{source}/SingletonLock` is not cleaned up. Subsequent connect attempts fail with "Failed to create a ProcessSingleton." The CLI should detect and remove stale lock files before launching the browser.
