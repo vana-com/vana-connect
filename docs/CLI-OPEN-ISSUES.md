@@ -462,6 +462,22 @@ already has that version.
 
 ## New (March 18, 2026)
 
+### Stale browser profile lock after interrupted connect
+
+When `vana connect` is interrupted (ctrl+c, agent background task killed), the Chromium `SingletonLock` file at `~/.vana/browser-profiles/{source}/SingletonLock` is not cleaned up. Subsequent connect attempts fail with "Failed to create a ProcessSingleton." The CLI should detect and remove stale lock files before launching the browser.
+
+### Agent-friendly credential passing
+
+Interactive connectors (authMode: "interactive") use inquirer prompts for credentials. Agents can't reliably handle interactive stdin. Need a `--credentials-stdin` or `--credentials-json` flag that pre-fills fields without prompting, enabling one-shot agent credential flow: agent asks user for creds, pipes them in, done.
+
+### MCP connect_source should check auth mode before spawning
+
+The MCP `connect_source` tool currently spawns a child process for any source. For `legacy` (browser auth) sources, it should return immediately with instructions for the user instead of hanging or failing silently. Check auth mode via `vana sources --json` before attempting connection.
+
+### Skill composition: next-prompt should not attempt connections
+
+The next-prompt skill should only work with already-connected data. It should not invoke the connect flow. If sources aren't connected, it should list them and tell the user to connect them in their own terminal. The connect-data skill handles connections — skills should not overlap.
+
 ### Async/background connect
 
 `vana connect chatgpt` took 4m50s synchronously. For large sources, this blocks the terminal. Need `--background` mode that starts collection and returns immediately, with status queryable via `vana status` or `vana connect --status`. Terminal bell or system notification on completion.
