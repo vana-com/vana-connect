@@ -104,13 +104,32 @@ Each source has an `authMode` in `vana sources --json`:
 
 ### 3. Connect with the CLI
 
-**For `interactive` or `automated` sources:** Run directly in the foreground (NOT as a background task). You will be prompted for credentials — type them when asked.
+**For `interactive` or `automated` sources:** Use IPC mode. This writes credential prompts to a file instead of stdin, so you can handle them asynchronously.
 
 ```bash
-vana connect <platform>
+vana connect <platform> --json --ipc
 ```
 
-IMPORTANT: Do NOT run this in the background. Do NOT use `run_in_background`. You need to see and respond to credential prompts interactively.
+Run this in the background. When the connector needs credentials, it writes a question to `~/.vana/pending-input-*.json`. Poll for that file:
+
+```bash
+ls ~/.vana/pending-input-*.json
+```
+
+When it appears, read it to see what fields are needed, ask the user for the values, then write the response:
+
+```bash
+cat ~/.vana/pending-input-*.json
+# Shows: {"message":"...","schema":{"properties":{"username":{},"password":{}}},"responseInputPath":"/home/user/.vana/input-response-xxx.json"}
+```
+
+Ask the user for the credentials, then write the response file:
+
+```bash
+echo '{"username":"alice","password":"secret"}' > /path/from/responseInputPath
+```
+
+The connector will pick up the response and continue. Wait for the background task to complete.
 
 **For `legacy` (browser) sources:** You cannot connect these. Tell the user:
 
