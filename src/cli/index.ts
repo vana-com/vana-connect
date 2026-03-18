@@ -180,8 +180,8 @@ Server:
 
 Agent:
   vana mcp               Start MCP server (for Claude Code, Cursor, etc.)
-  vana skill list         List available agent skills
-  vana skill install      Install a skill for your agent
+  vana skills list         List available agent skills
+  vana skills install      Install a skill for your agent
 
 Background:
   vana connect <src> --detach   Connect in the background
@@ -493,14 +493,14 @@ Examples:
       await startMcpServer();
     });
 
-  const skill = program.command("skill").description("Manage agent skills");
+  const skill = program.command("skills").description("Manage agent skills");
   skill.addHelpText(
     "after",
     `
 Examples:
-  vana skill list
-  vana skill install connect-data
-  vana skill show connect-data
+  vana skills list
+  vana skills install connect-data
+  vana skills show connect-data
 `,
   );
   skill.action(() => {
@@ -4547,7 +4547,7 @@ async function runSkillList(options: GlobalOptions): Promise<number> {
     const uninstalled = enriched.find((s) => !s.installed);
     if (uninstalled) {
       emit.blank();
-      emit.next(`vana skill install ${uninstalled.id}`);
+      emit.next(`vana skills install ${uninstalled.id}`);
     }
 
     return 0;
@@ -4586,7 +4586,7 @@ async function runSkillInstall(
     const installedIds = new Set([...installed.map((s) => s.id), name]);
     const nextSkill = skills.find((s) => !installedIds.has(s.id));
     emit.next(
-      nextSkill ? `vana skill install ${nextSkill.id}` : "vana skill list",
+      nextSkill ? `vana skills install ${nextSkill.id}` : "vana skills list",
     );
 
     return 0;
@@ -4620,7 +4620,7 @@ async function runSkillShow(
       } else {
         emit.info(`No skill found with id "${name}".`);
         emit.blank();
-        emit.next("vana skill list");
+        emit.next("vana skills list");
       }
       return 1;
     }
@@ -4645,7 +4645,7 @@ async function runSkillShow(
 
     if (!isInstalled) {
       emit.blank();
-      emit.next(`vana skill install ${match.id}`);
+      emit.next(`vana skills install ${match.id}`);
     }
 
     return 0;
