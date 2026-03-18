@@ -291,6 +291,17 @@ export async function launchPersistentContext(
 ): Promise<BrowserContext> {
   fs.mkdirSync(userDataDir, { recursive: true });
 
+  // Remove stale SingletonLock left by a previous crashed browser.
+  // Chromium creates this file to prevent multiple instances on the same
+  // profile. If the process was interrupted, the lock is never cleaned up
+  // and subsequent launches fail with "Failed to create a ProcessSingleton."
+  const lockPath = path.join(userDataDir, "SingletonLock");
+  try {
+    fs.rmSync(lockPath, { force: true });
+  } catch {
+    // Ignore — file might not exist or be unremovable.
+  }
+
   const launchOptions: Parameters<typeof chromium.launchPersistentContext>[1] =
     {
       headless,

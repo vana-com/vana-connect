@@ -522,7 +522,8 @@ function createPageApi({
         responseInputPath,
       };
 
-      if (request.noInput || !request.onNeedInput) {
+      if (request.noInput) {
+        // --no-input mode: fail immediately
         await writePendingInput({
           pendingInputPath,
           responseInputPath,
@@ -535,10 +536,37 @@ function createPageApi({
           message: inputRequest.message ?? "Additional input is required.",
           fields: inputRequest.fields,
           schema: inputRequest.schema,
+          pendingInputPath,
           responseInputPath,
           logPath,
         });
         throw new NeedsInputError();
+      }
+
+      if (!request.onNeedInput) {
+        // IPC mode: write question file, emit event, poll for answer.
+        // An external agent reads the pending file, collects input from
+        // the user, and writes the response file.
+        await writePendingInput({
+          pendingInputPath,
+          responseInputPath,
+          message: inputRequest.message ?? "Additional input is required.",
+          schema: inputRequest.schema,
+        });
+        pushEvent({
+          type: "needs-input",
+          source: request.source,
+          message: inputRequest.message ?? "Additional input is required.",
+          fields: inputRequest.fields,
+          schema: inputRequest.schema,
+          pendingInputPath,
+          responseInputPath,
+          logPath,
+        });
+
+        const response = await pollForInputResponse(responseInputPath, 300_000); // 5 min timeout
+        await fsp.rm(pendingInputPath, { force: true });
+        return response;
       }
 
       const input = await request.onNeedInput(inputRequest);
@@ -867,6 +895,25 @@ function classifyRuntimeError(
     message,
     logPath,
   };
+}
+
+async function pollForInputResponse(
+  responsePath: string,
+  timeoutMs: number,
+): Promise<Record<string, string>> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const content = await fsp.readFile(responsePath, "utf8");
+      const parsed = JSON.parse(content) as Record<string, string>;
+      await fsp.rm(responsePath, { force: true });
+      return parsed;
+    } catch {
+      // File doesn't exist yet, keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new NeedsInputError();
 }
 
 async function writePendingInput({

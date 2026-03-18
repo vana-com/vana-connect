@@ -91,6 +91,25 @@ export async function startMcpServer(): Promise<void> {
     "Connect a platform and collect personal data. Runs the full connect flow: setup, authentication, data collection, and sync",
     { source: z.string().describe("Source identifier (e.g. github, twitter)") },
     async ({ source }) => {
+      // Check auth mode before spawning — legacy sources need a headed
+      // browser and cannot be connected by an agent.
+      const sourcesResult = await querySources();
+      const sourceInfo = sourcesResult.sources?.find(
+        (s) =>
+          s.id === source || s.name?.toLowerCase() === source.toLowerCase(),
+      );
+
+      if (sourceInfo?.authMode === "legacy") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `${sourceInfo.name ?? source} requires browser login. The user must run this in their own terminal:\n\nvana connect ${source}\n\nThis source cannot be connected by an agent.`,
+            },
+          ],
+        };
+      }
+
       return await runConnectAsChild(source);
     },
   );
@@ -139,11 +158,14 @@ export async function startMcpServer(): Promise<void> {
 // ── Child process runner for connect_source ──────────────────────────
 
 /**
- * Run `vana connect <source> --json --no-input` as a child process.
+ * Run `vana connect <source> --json --ipc` as a child process.
  *
  * The MCP server's stdout is the JSON-RPC transport, so the connect flow
  * must run in a separate process. We collect the child's stdout (JSONL events)
  * and stderr, parse the final outcome, and return a structured summary.
+ *
+ * Uses --ipc instead of --no-input so the connector can pause for
+ * credential input via file-based IPC rather than failing immediately.
  */
 async function runConnectAsChild(source: string) {
   return new Promise<{
@@ -152,7 +174,7 @@ async function runConnectAsChild(source: string) {
   }>((resolve) => {
     const child = spawn(
       process.execPath,
-      [process.argv[1], "connect", source, "--json", "--no-input"],
+      [process.argv[1], "connect", source, "--json", "--ipc"],
       {
         stdio: ["ignore", "pipe", "pipe"],
         env: { ...process.env },

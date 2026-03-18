@@ -7,6 +7,7 @@ export interface RuntimeNeedInputEvent {
   schema?: {
     properties?: Record<string, unknown>;
   };
+  pendingInputPath?: string;
   responseInputPath?: string;
 }
 

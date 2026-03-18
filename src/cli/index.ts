@@ -81,6 +81,7 @@ import {
 interface GlobalOptions {
   json?: boolean;
   noInput?: boolean;
+  ipc?: boolean;
   yes?: boolean;
   quiet?: boolean;
 }
@@ -207,6 +208,7 @@ More:
     .description("Connect a source and collect data")
     .option("--json", "Output machine-readable JSON")
     .option("--no-input", "Fail instead of prompting for input")
+    .option("--ipc", "Use file-based IPC for credential prompts (for agents)")
     .option("--yes", "Approve safe setup prompts automatically")
     .option("--quiet", "Reduce non-essential output")
     .action(async (source?: string) => {
@@ -221,6 +223,7 @@ Examples:
   vana connect
   vana connect github
   vana connect github --json --no-input
+  vana connect github --json --ipc
 `,
   );
 
@@ -248,6 +251,7 @@ Examples:
     .description("Re-collect data from a previously connected source")
     .option("--json", "Output machine-readable JSON")
     .option("--no-input", "Fail instead of prompting for input")
+    .option("--ipc", "Use file-based IPC for credential prompts (for agents)")
     .option("--yes", "Approve safe setup prompts automatically")
     .option("--quiet", "Reduce non-essential output")
     .action(async (source?: string) => {
@@ -762,48 +766,60 @@ async function runConnect(
         }>
       | undefined;
 
+    // In IPC mode (--ipc), don’t provide an interactive callback.
+    // The runtime will write a pending-input file and poll for the
+    // response, letting an external agent handle credential collection.
+    const interactiveCallback = options.ipc
+      ? undefined
+      : async (needInput: {
+          message?: string;
+          fields: string[];
+          schema?: { properties?: Record<string, unknown> };
+          responseInputPath: string;
+        }) => {
+          renderer?.pauseForPrompt();
+
+          // Show connector’s prompt message
+          if (renderer) {
+            const promptMessage =
+              needInput.message ?? `${displayName} needs your login.`;
+            process.stderr.write(`\n${promptMessage}\n\n`);
+          }
+
+          const values: Record<string, string> = {};
+          try {
+            for (const field of needInput.fields) {
+              const isPasswordField = field.toLowerCase().includes("password");
+              if (isPasswordField) {
+                values[field] = await password({
+                  message: humanizeField(field),
+                  ...vanaPromptTheme,
+                });
+              } else {
+                values[field] = await input({
+                  message: humanizeField(field),
+                  ...vanaPromptTheme,
+                });
+              }
+            }
+          } catch (error) {
+            if (isPromptCancelled(error)) {
+              throw new Error("__vana_prompt_cancelled__");
+            }
+            throw error;
+          }
+          if (renderer) {
+            process.stderr.write("\n");
+          }
+          renderer?.resumeAfterPrompt();
+          return values;
+        };
+
     for await (const event of runtime.runConnector({
       connectorPath: resolution.connectorPath,
       source: resolution.source,
-      noInput: options.noInput,
-      onNeedInput: async (needInput) => {
-        renderer?.pauseForPrompt();
-
-        // Show connector’s prompt message
-        if (renderer) {
-          const promptMessage =
-            needInput.message ?? `${displayName} needs your login.`;
-          process.stderr.write(`\n${promptMessage}\n\n`);
-        }
-
-        const values: Record<string, string> = {};
-        try {
-          for (const field of needInput.fields) {
-            const isPasswordField = field.toLowerCase().includes("password");
-            if (isPasswordField) {
-              values[field] = await password({
-                message: humanizeField(field),
-                ...vanaPromptTheme,
-              });
-            } else {
-              values[field] = await input({
-                message: humanizeField(field),
-                ...vanaPromptTheme,
-              });
-            }
-          }
-        } catch (error) {
-          if (isPromptCancelled(error)) {
-            throw new Error("__vana_prompt_cancelled__");
-          }
-          throw error;
-        }
-        if (renderer) {
-          process.stderr.write("\n");
-        }
-        renderer?.resumeAfterPrompt();
-        return values;
-      },
+      noInput: options.ipc ? false : options.noInput,
+      onNeedInput: interactiveCallback,
     })) {
       emit.event(event);
       if (event.logPath) {
@@ -3388,6 +3404,7 @@ function extractGlobalOptions(argv: string[]): GlobalOptions {
   return {
     json: argv.includes("--json"),
     noInput: argv.includes("--no-input"),
+    ipc: argv.includes("--ipc"),
     yes: argv.includes("--yes"),
     quiet: argv.includes("--quiet"),
   };
