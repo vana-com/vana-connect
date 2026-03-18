@@ -58,6 +58,7 @@ async function main() {
       marker: "data-show-github",
       argv: ["vana", "data", "show", "github"],
       env: seededEnv,
+      allowFailure: true,
     },
     {
       marker: "data-show-github-missing",
@@ -193,7 +194,7 @@ function run(argv, env, allowFailure = false) {
 
 function normalizeTranscript(output) {
   return output.replace(
-    /(~\/\.dataconnect\/logs\/(?:run|fetch|setup)-[A-Za-z0-9_-]+)-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.log/g,
+    /(~\/\.vana\/logs\/(?:run|fetch|setup)-[A-Za-z0-9_-]+)-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.log/g,
     "$1-<timestamp>.log",
   );
 }
