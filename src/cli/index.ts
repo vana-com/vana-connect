@@ -166,9 +166,10 @@ Data:
 Server:
   vana server            Personal Server status and management
 
-Skills:
-  vana skill list        List available agent skills
-  vana skill install     Install a skill for your agent
+Agent:
+  vana mcp               Start MCP server (for Claude Code, Cursor, etc.)
+  vana skill list         List available agent skills
+  vana skill install      Install a skill for your agent
 
 More:
   vana doctor            Detailed diagnostics
@@ -451,6 +452,14 @@ Examples:
     .option("--json", "Output machine-readable JSON")
     .action(async (scope?: string) => {
       process.exitCode = await runServerData(scope, parsedOptions);
+    });
+
+  program
+    .command("mcp")
+    .description("Start MCP server for agent integration")
+    .action(async () => {
+      const { startMcpServer } = await import("./mcp-server.js");
+      await startMcpServer();
     });
 
   const skill = program.command("skill").description("Manage agent skills");
