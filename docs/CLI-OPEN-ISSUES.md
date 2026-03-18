@@ -462,6 +462,10 @@ already has that version.
 
 ## New (March 18, 2026)
 
+### Test MCP server with Claude Code
+
+Configure Claude Code to use `vana mcp` as an MCP server and verify: tools appear in the agent's tool list, `check_status` and `list_sources` return correct data, `connect_source` correctly rejects legacy sources and works for interactive sources via IPC, `show_data` returns collected datasets. Test with both local dev build and canary install.
+
 ### Non-TTY IPC mode for requestInput (agent auth unlock)
 
 The runtime already has file-based IPC for credential prompts: `pending-input-{runId}.json` written by the connector, `input-response-{runId}.json` polled for the answer (`src/runtime/playwright/in-process-run.ts:231-239`). Currently the CLI reads the pending file and prompts via inquirer (interactive stdin).

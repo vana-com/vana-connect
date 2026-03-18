@@ -564,7 +564,10 @@ function createPageApi({
           logPath,
         });
 
-        const response = await pollForInputResponse(responseInputPath, 300_000); // 5 min timeout
+        const response = await pollForInputResponse(
+          responseInputPath,
+          1_800_000,
+        ); // 30 min timeout
         await fsp.rm(pendingInputPath, { force: true });
         return response;
       }
