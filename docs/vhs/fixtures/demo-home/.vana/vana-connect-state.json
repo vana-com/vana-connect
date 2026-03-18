@@ -3,26 +3,30 @@
   "sources": {
     "github": {
       "sessionPresent": true,
-      "lastRunAt": "2026-03-14T13:10:03.677Z",
-      "lastRunOutcome": "connected_local_only",
+      "lastRunAt": "2026-03-18T23:23:47.198Z",
+      "lastRunOutcome": "connected_and_ingested",
       "dataState": "ingested_personal_server",
-      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.vana/last-result.json",
-      "lastLogPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.vana/logs/run-github-demo.log",
+      "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/results/github.json",
+      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/run-github-2026-03-18T23-23-43-530Z.log",
+      "connectorInstalled": true,
+      "lastError": null,
+      "lastCollectedAt": "2026-03-18T23:23:47.198Z",
+      "connectionHealth": "healthy",
       "ingestScopes": [
         {
           "scope": "github.profile",
           "status": "stored",
-          "syncedAt": "2026-03-17T07:49:42.184Z"
+          "syncedAt": "2026-03-18T23:23:47.198Z"
         },
         {
           "scope": "github.repositories",
-          "status": "failed",
-          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
+          "status": "stored",
+          "syncedAt": "2026-03-18T23:23:47.198Z"
         },
         {
           "scope": "github.starred",
-          "status": "failed",
-          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
+          "status": "stored",
+          "syncedAt": "2026-03-18T23:23:47.198Z"
         }
       ]
     },
@@ -30,32 +34,20 @@
       "lastRunAt": "2026-03-14T13:11:10.000Z",
       "lastRunOutcome": "legacy_auth",
       "dataState": "none",
-      "lastLogPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.vana/logs/run-shop-demo.log"
+      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/run-shop-demo.log"
     },
     "steam": {
       "lastRunAt": "2026-03-14T13:12:00.000Z",
       "lastRunOutcome": "connector_unavailable",
       "dataState": "none",
       "lastError": "No connector is available for steam right now.",
-      "lastLogPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.vana/logs/fetch-steam-demo.log"
+      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/fetch-steam-demo.log"
     },
     "spotify": {
       "lastRunAt": "2026-03-13T21:23:00.000Z",
       "lastRunOutcome": "connected_local_only",
-      "dataState": "ingested_personal_server",
-      "lastResultPath": "/home/tnunamak/code/vana-connect-cli-pr/docs/vhs/fixtures/demo-home/.vana/spotify-result.json",
-      "ingestScopes": [
-        {
-          "scope": "spotify.profile",
-          "status": "stored",
-          "syncedAt": "2026-03-17T07:49:42.272Z"
-        },
-        {
-          "scope": "spotify.playlists",
-          "status": "failed",
-          "error": "HTTP 400: {\"error\":\"INVALID_BODY\",\"message\":\"Request body must be a JSON object\"}"
-        }
-      ]
+      "dataState": "collected_local",
+      "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/spotify-result.json"
     }
   }
 }

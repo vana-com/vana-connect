@@ -18,3 +18,11 @@ docs/vhs/*.gif
 docs/vhs/fixtures/demo-home/.cache/
 docs/vhs/fixtures/demo-home/.config/
 docs/vhs/fixtures/demo-home/.pki/
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/GrShaderCache/
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/GraphiteDawnCache/
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/ShaderCache/
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/segmentation_platform/
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/first_party_sets*
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/Variations
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/Local State
+docs/vhs/fixtures/demo-home/.vana/browser-profiles/*/Last Version
