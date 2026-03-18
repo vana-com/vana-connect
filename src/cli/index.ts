@@ -988,6 +988,45 @@ async function runConnect(
       }
 
       if (event.type === "collection-complete" && event.resultPath) {
+        // Check if the result is actually an error object
+        try {
+          const raw = await fsp.readFile(event.resultPath, "utf8");
+          const parsed = JSON.parse(raw);
+          if (
+            parsed &&
+            typeof parsed === "object" &&
+            "error" in parsed &&
+            Object.keys(parsed).length <= 2
+          ) {
+            // Connector returned an error, not real data
+            await updateSourceState(source, {
+              lastRunAt: new Date().toISOString(),
+              lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
+              connectionHealth: "error",
+              lastError:
+                typeof parsed.error === "string"
+                  ? parsed.error
+                  : "Collection returned an error",
+              lastLogPath: runLogPath ?? fetchLogPath,
+            });
+            renderer?.fail(`Problem connecting ${displayName}.`);
+            renderer?.detail(
+              typeof parsed.error === "string"
+                ? parsed.error
+                : "The connector returned an error instead of data.",
+            );
+            emit.event({
+              type: "outcome",
+              status: CliOutcomeStatus.RUNTIME_ERROR,
+              source,
+            });
+            terminalExitCode = 1;
+            continue;
+          }
+        } catch {
+          // Can't read/parse result — proceed normally, let downstream handle it
+        }
+
         collectedResult = true;
         // Copy result to per-source path so multiple sources can coexist
         const sourceResultPath = getSourceResultPath(source);
@@ -1320,11 +1359,7 @@ async function runList(options: GlobalOptions): Promise<number> {
       emit.section("Available");
     }
 
-    // Show the first 3 unconnected sources with descriptions
-    const expanded = unconnectedSources.slice(0, 3);
-    const collapsed = unconnectedSources.slice(3);
-
-    for (const source of expanded) {
+    for (const source of unconnectedSources) {
       const badges: Array<{ text: string; tone?: RenderTone }> = [];
       if (
         recommendedSource?.id === source.id &&
@@ -1336,11 +1371,6 @@ async function runList(options: GlobalOptions): Promise<number> {
       if (source.description) {
         emit.detail(cleanDescription(source.description));
       }
-    }
-
-    if (collapsed.length > 0) {
-      emit.blank();
-      emit.detail(collapsed.map((s) => s.name).join(" \u00B7 "));
     }
 
     if (recommendedSource) {

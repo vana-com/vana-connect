@@ -193,3 +193,10 @@ jobs:
           BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
           TAG="canary-${BRANCH_SLUG}"
           node ./scripts/assert-release-demo-assets.mjs --tag "$TAG" --repo "$GITHUB_REPOSITORY"
+      - name: Sync Homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_SLUG=$(printf "%s" "$GITHUB_REF_NAME" | tr '/_' '-' | tr -cd '[:alnum:]-')
+          TAG="canary-${BRANCH_SLUG}"
+          gh workflow run sync-formula.yml --repo vana-com/homebrew-vana -f release_tag="$TAG"
