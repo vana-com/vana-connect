@@ -1,0 +1,195 @@
+{
+  "agent_question": "Daemon and background service patterns for Node.js CLIs",
+  "findings": [
+    {
+      "name": "PM2 God Daemon — dual Unix socket architecture",
+      "what": "PM2 runs a persistent background process (the 'God Daemon') that communicates via two separate Unix sockets in ~/.pm2/: rpc.sock for synchronous request-reply commands (start, stop, restart, list) and pub.sock for event broadcasting (log output, process state changes). The CLI spawns the daemon on first use if not running. The axon library handles socket transport; axon-rpc layers an RPC protocol on top. God exposes methods like prepare(), getMonitorData(), startProcessId(), stopProcessId() over RPC. The daemon maintains a clusters_db hash map as its in-memory process registry.",
+      "evidence": "PM2 source: Daemon class initializes PUB socket at cst.DAEMON_PUB_PORT and RPC socket at cst.DAEMON_RPC_PORT. Client class auto-spawns daemon if connection fails. Socket files at $HOME/.pm2/pub.sock and $HOME/.pm2/rpc.sock.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/Unitech/pm2/2-core-components",
+      "sub_theme": "pm2_architecture"
+    },
+    {
+      "name": "PM2 crash recovery — exponential backoff with min_uptime reset",
+      "what": "PM2's handleExit method tracks prev_restart_delay and doubles it on each crash (e.g., 100ms -> 200ms -> 400ms). The backoff resets when a process stays alive longer than min_uptime. A Worker loop runs every 30 seconds to monitor health and reset delays for stable processes. max_restarts caps total attempts to prevent infinite loops. max_memory_restart triggers reload if a process exceeds a memory threshold.",
+      "evidence": "handleExit tracks prev_restart_delay for exponential backoff. Worker system runs every 30s monitoring health. Configurable via ecosystem.config.js: min_uptime, max_restarts, max_memory_restart.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/Unitech/pm2/2-core-components",
+      "sub_theme": "pm2_crash_recovery"
+    },
+    {
+      "name": "PM2 startup — cross-platform init script generation",
+      "what": "pm2 startup auto-detects the host OS init system (systemd, launchd, upstart, init.d, rcd, systemv) and generates appropriate service files. On systemd, it creates a unit file targeting multi-user.target. pm2 save serializes current process list to ~/.pm2/dump.pm2. On boot, the init script starts PM2 which reads dump.pm2 and resurrects all saved processes with their exact configurations. pm2-windows-service extends this to Windows.",
+      "evidence": "pm2 startup [systemd|launchd|upstart|systemv] generates platform-specific init scripts. pm2 save writes dump.pm2. pm2 resurrect restores from dump.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/pm2-doc-single-page/",
+      "sub_theme": "pm2_startup"
+    },
+    {
+      "name": "PM2 ecosystem.config.js — declarative multi-process config",
+      "what": "ecosystem.config.js exports { apps: [...], deploy: {...} }. Each app entry specifies: name, script, exec_mode (fork|cluster), instances, max_memory_restart, cron_restart (cron expression for scheduled restarts), error_file, out_file, log_date_format, env variables, and watch options. The God daemon parses this via Configuration.getSync() to populate pm2_env for each process. Supports multiple apps in a single file with different configurations.",
+      "evidence": "module.exports = { apps: [{ name, script, exec_mode, instances, max_memory_restart, cron_restart, ... }], deploy: { production: { user, host, ref, repo, path } } }",
+      "status": "live",
+      "source_url": "https://deepwiki.com/Unitech/pm2/2-core-components",
+      "sub_theme": "pm2_config"
+    },
+    {
+      "name": "PM2 web dashboard — RPC socket + Socket.io bridge",
+      "what": "PM2 Plus is the official SaaS dashboard for remote monitoring with email/Slack notifications, custom metrics, and exception tracking (free tier: 4 servers). For self-hosted, pm2-gui connects directly to PM2's RPC socket, reads process metrics, and serves a web UI over Socket.io for real-time CPU/memory monitoring and process control (restart/stop/delete). The dashboard bridges PM2's Unix socket IPC to WebSocket for browser consumption.",
+      "evidence": "pm2-gui communicates with PM2 through RPC socket directly, uses Socket.io between client and server. PM2 Plus provides issues tracking, deployment reporting, real-time logs, email/Slack notifications.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/monitoring/",
+      "sub_theme": "pm2_dashboard"
+    },
+    {
+      "name": "PM2 graceful shutdown — signal cascade and state dump",
+      "what": "Daemon's gracefullExit() method: (1) dumps process list to disk, (2) sends SIGINT to each managed process with a configurable kill_timeout, (3) falls back to SIGKILL after timeout, (4) cleans up socket files (rpc.sock, pub.sock), (5) removes PID file. Signal handlers: SIGTERM/SIGINT/SIGQUIT trigger graceful exit; SIGUSR2 triggers log rotation/reload.",
+      "evidence": "Daemon signal handlers: SIGTERM, SIGINT, SIGQUIT -> gracefullExit(). SIGUSR2 -> log reload. gracefullExit dumps process lists, stops managed processes, cleans socket files, removes PID files.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/Unitech/pm2/2-core-components",
+      "sub_theme": "pm2_shutdown"
+    },
+    {
+      "name": "Turborepo daemon — on-demand gRPC over Unix socket with graceful degradation",
+      "what": "Turborepo's Rust daemon spawns transparently via DaemonConnector: if no daemon exists, the CLI forks one. Communication uses gRPC (Protocol Buffers) over a Unix domain socket at .turbo/daemon.sock (named pipe on Windows). A .turbo/daemon.pid lock file prevents multiple instances; stale PID detection allows recovery. The daemon auto-disables in CI (checks CI=true env var). If the daemon crashes or socket fails, the CLI falls back to synchronous operation — builds complete without caching/watching benefits but never fail due to daemon unavailability.",
+      "evidence": "DaemonConnector spawns daemon on-demand. TurboGrpcService listens on .turbo/daemon.sock. .turbo/daemon.pid for lock. CI detection disables daemon. Graceful degradation: CLI falls back to synchronous ops if daemon unavailable.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/vercel/turborepo/2-architecture",
+      "sub_theme": "turborepo_daemon"
+    },
+    {
+      "name": "Turborepo file watching — layered watchers with cookie synchronization",
+      "what": "The daemon's FileSystemWatcher uses specialized sub-watchers: PackageWatcher (package.json changes), HashWatcher (source file content hashes for cache invalidation), GlobWatcher (turbo.json task input/output patterns). A CookieWriter/CookieWatcher system uses marker files in .turbo/cookies/ to synchronize file events back to CLI clients through the daemon socket, ensuring consistent state between file system events and build decisions.",
+      "evidence": "PackageWatcher, HashWatcher, GlobWatcher, CookieWriter/CookieWatcher all under FileSystemWatcher. Cookie files in .turbo/cookies/ synchronize events to gRPC clients.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/vercel/turborepo/2-architecture",
+      "sub_theme": "turborepo_file_watching"
+    },
+    {
+      "name": "Docker daemon — systemd socket activation for on-demand startup",
+      "what": "Docker supports systemd socket activation: docker.socket creates /var/run/docker.sock, and dockerd only starts when something connects. The daemon can listen on Unix, TCP, or fd:// (systemd file descriptors). PID file at /var/run/docker.pid prevents duplicate instances. The REST API is exposed over the Unix socket. Client-server model means CLI (docker) and daemon (dockerd) are fully decoupled — the daemon persists state independently of any CLI session.",
+      "evidence": "dockerd -H fd:// for systemd socket activation. Default socket at /var/run/docker.sock. PIDFile in docker.service unit. REST API over Unix socket. Supports unix, tcp, fd socket types.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "docker_daemon"
+    },
+    {
+      "name": "Homebrew services — thin wrapper generating launchd plists and systemd units",
+      "what": "brew services start <formula> generates a .plist XML file and symlinks it to ~/Library/LaunchAgents (user-level) or /Library/LaunchDaemons (root/boot-level). The plist contains: Label, ProgramArguments, RunAtLoad, KeepAlive, WorkingDirectory, StandardOutPath, StandardErrorPath. On Linux, brew services generates systemd user units instead. The formula's #startup_plist method defines the service configuration. It's a thin mapping layer — all actual supervision is delegated to launchd/systemd.",
+      "evidence": "brew services creates .plist symlinks to ~/Library/LaunchAgents or /Library/LaunchDaemons. On Linux, uses systemd user units. Formula implements #startup_plist for config.",
+      "status": "live",
+      "source_url": "https://www.dorokhovich.com/blog/homebrew-services",
+      "sub_theme": "homebrew_services"
+    },
+    {
+      "name": "Temporal.io — durable execution with event-sourced workflow recovery",
+      "what": "Temporal's architecture: a Temporal Cluster tracks all workflow state, and long-lived Worker processes execute Workflows (orchestration logic) and Activities (individual steps like API calls). Every state change is recorded in an append-only Event History, enabling exact-point-of-failure recovery. Workers can be restarted and will resume workflows from their last recorded state. TypeScript SDK available. This is a server-side pattern requiring infrastructure (Temporal Cluster), not suitable for a local CLI daemon, but the event-sourcing pattern for state recovery is highly relevant.",
+      "evidence": "Temporal records every state change in Event History, a complete append-only log. Workers execute Workflows and Activities. TypeScript SDK for Node.js. Requires running Temporal Cluster.",
+      "status": "live",
+      "source_url": "https://docs.temporal.io/workflows",
+      "sub_theme": "workflow_orchestration"
+    },
+    {
+      "name": "Inngest — serverless event-driven workflow alternative",
+      "what": "Inngest takes a serverless, event-driven approach vs Temporal's dedicated-server model. Uses native language primitives (no runtime proxying), making debugging simpler. The Inngest platform manages event log, state storage, and scheduling. Better for cloud-deployed workflows. Less relevant for a local CLI daemon, but the event-driven step function model (each step is independently retryable) is a useful design pattern for scheduled collection tasks.",
+      "evidence": "Inngest uses native language primitives for direct execution. Platform handles event log, state storage, scheduling. Serverless model vs Temporal's worker model.",
+      "status": "live",
+      "source_url": "https://www.inngest.com/compare-to-temporal",
+      "sub_theme": "workflow_orchestration"
+    },
+    {
+      "name": "VS Code extension host — process isolation with lazy activation and JSON-RPC IPC",
+      "what": "VS Code runs extensions in a separate Extension Host process (Node.js), isolating them from the UI. Communication uses JSON-RPC over IPC (extension API calls serialized to JSON requests). Extensions activate lazily based on activation events (onLanguage, onCommand, etc.) — unused extensions consume zero memory. Each window gets its own extension host. Extensions can spawn child processes. ExtensionMemento provides persistent state storage per extension. This pattern of lazy activation + process isolation + persistent state is directly applicable to a CLI daemon.",
+      "evidence": "Extension Host runs in separate Node.js process. Communication via JSON-RPC over IPC. Lazy activation via activation events. ExtensionMemento for persistent state. One extension host per window.",
+      "status": "live",
+      "source_url": "https://code.visualstudio.com/api/advanced-topics/extension-host",
+      "sub_theme": "vscode_extension_host"
+    },
+    {
+      "name": "IPC mechanism comparison — Unix sockets best for same-machine Node.js",
+      "what": "Benchmarks show Unix sockets and named pipes have virtually identical performance, while TCP is 20-40% slower. The bottleneck is serialization/deserialization, not the transport. For small messages (<100 bytes), named pipes edge out; for larger messages (10KB+), sockets are faster. The node-ipc library provides a unified API that auto-converts Unix socket paths to Windows named pipes. For a Node.js CLI daemon, Unix domain sockets are the recommended IPC mechanism: fast, simple, no port conflicts, and the socket file doubles as a liveness indicator.",
+      "evidence": "Practically no performance difference between native pipe and unix sockets; TCP is 20-40% slower. node-ipc auto-converts Unix socket paths to Windows named pipes. Bottleneck is serialization, not transport.",
+      "status": "live",
+      "source_url": "https://60devs.com/performance-of-inter-process-communications-in-nodejs.html",
+      "sub_theme": "ipc_mechanisms"
+    },
+    {
+      "name": "Electron tray pattern — minimize to system tray for persistent background operation",
+      "what": "Electron apps persist in the background by intercepting window-all-closed (don't quit) and window close events (hide instead of destroy). A Tray icon in the OS system tray (macOS menu bar, Windows taskbar) provides a menu for re-opening windows or quitting. The app process stays alive with no visible windows. This pattern is relevant for a companion desktop app but not directly for a headless CLI daemon. The key insight: users expect background processes to be visible/controllable via system tray, not invisible.",
+      "evidence": "Listen to window-all-closed, don't call app.quit(). Hide windows on close instead of destroying. Create Tray with menu for show/quit. Process persists with no visible windows.",
+      "status": "live",
+      "source_url": "https://moinism.medium.com/how-to-keep-an-electron-app-running-in-the-background-f6a7c0e1ee4f",
+      "sub_theme": "electron_background"
+    },
+    {
+      "name": "PID file stale detection — check /proc/$pid/cmdline, not just process existence",
+      "what": "Simply checking if a PID exists is insufficient — the OS may have recycled the PID to a different process. Robust stale detection: (1) read PID from lock file, (2) check if /proc/$PID/cmdline matches expected command, (3) if not matching or process dead, overwrite lock file with new PID. The pidlock library uses an atomic directory-rename strategy: create temp dir named after PID, atomically rename to lock path. On ungraceful kill (SIGKILL), the lock file remains but stale detection handles recovery. Never delete PID files in signal handlers — use atexit handlers instead, but note SIGKILL bypasses all handlers.",
+      "evidence": "pidlock creates directory with PID name, atomically renames to lock file. Validates lock authenticity by checking /proc/$old_pid/cmdline. SIGKILL bypasses all signal handlers and atexit, so stale detection on next startup is essential.",
+      "status": "live",
+      "source_url": "https://www.guido-flohr.net/never-delete-your-pid-file/",
+      "sub_theme": "pid_management"
+    },
+    {
+      "name": "Cross-platform startup — PM2 startup for *nix, launchd plist, systemd unit, Windows Task Scheduler",
+      "what": "For a Node.js CLI daemon, the cross-platform startup matrix: macOS uses launchd (~/Library/LaunchAgents for user-level, /Library/LaunchDaemons for system), Linux uses systemd user units (~/.config/systemd/user/), Windows uses Task Scheduler or node-windows for native service registration. PM2's pm2 startup command abstracts this by detecting the init system and generating the right script. For a standalone CLI, generating platform-specific service files (plist XML on macOS, .service INI on Linux) gives maximum control. The brew services pattern of thin wrappers around OS service managers is the most maintainable approach.",
+      "evidence": "PM2 auto-detects init system: systemd, launchd, upstart, systemv. brew services generates plists for macOS, systemd units for Linux. Windows requires Task Scheduler or node-windows/pm2-windows-service.",
+      "status": "live",
+      "source_url": "https://blog.appsignal.com/2022/03/09/a-complete-guide-to-nodejs-process-management-with-pm2.html",
+      "sub_theme": "cross_platform_startup"
+    },
+    {
+      "name": "Bree — worker-thread-based Node.js job scheduler with graceful shutdown",
+      "what": "Bree spawns each job in a separate worker thread (sandboxed), supports cron expressions, human-friendly intervals, async/await, retries, throttling, and concurrency control. Graceful shutdown stops all workers cleanly. No daemon required — runs in-process. Croner is lighter (used by PM2 itself, Uptime Kuma) and works in Node, Deno, and browser. node-cron is the simplest (66KB) for basic cron scheduling. For a CLI daemon, Bree or Croner provides the scheduling layer while the daemon process itself handles lifecycle.",
+      "evidence": "Bree v9.1.3: worker threads, cron/dates/ms/human-friendly, retries, throttling, concurrency, graceful shutdown. Croner: used by PM2, Uptime Kuma, cross-runtime. node-cron v4.2.1: 66KB, basic cron.",
+      "status": "live",
+      "source_url": "https://jobscheduler.net/",
+      "sub_theme": "job_schedulers"
+    },
+    {
+      "name": "Recommended architecture for vana daemon — forked process + Unix socket + JSON-RPC + OS service registration",
+      "what": "Synthesis of research: (1) Daemon spawned on-demand by CLI via child_process.fork() (Turborepo pattern). (2) IPC via Unix domain socket with JSON-RPC protocol (VS Code pattern) — socket file also serves as liveness check. (3) PID file with /proc cmdline validation for stale detection (pidlock pattern). (4) Scheduler using Croner or Bree for cron-based collection triggers. (5) State persisted to JSON/SQLite file, restored on startup (PM2 dump.pm2 pattern). (6) Graceful degradation: CLI works without daemon, daemon crash doesn't break manual CLI usage (Turborepo pattern). (7) OS service registration via generated launchd plist / systemd user unit for boot persistence (Homebrew services pattern). (8) Auth failure detection pauses scheduler, sends notification (desktop notification API + optional webhook), resumes after re-auth.",
+      "evidence": "Composite pattern from PM2 (dual socket, state dump, startup scripts), Turborepo (on-demand spawn, graceful degradation, CI detection), Docker (socket activation), VS Code (JSON-RPC, lazy activation, persistent state), Homebrew (thin OS service wrappers).",
+      "status": "recommendation",
+      "source_url": "",
+      "sub_theme": "synthesis"
+    },
+    {
+      "name": "Key design decision — embedded daemon vs. external process manager",
+      "what": "Two viable approaches: (A) Embedded daemon: CLI itself can fork a background process (like Turborepo). Simpler for users (no PM2 dependency), but you own all lifecycle management, crash recovery, and log rotation. (B) External PM2: Users install PM2 and run 'pm2 start vana -- daemon'. PM2 handles crash recovery, log rotation, startup scripts. More dependencies, but battle-tested. Recommendation: Start with embedded daemon (approach A) for v1 — it's simpler for users and avoids the PM2 dependency. Add 'vana daemon install' to generate OS service files (approach inspired by Homebrew services) for boot persistence.",
+      "evidence": "Turborepo and Docker both use embedded daemons. PM2 is itself an embedded daemon that manages other processes. The trend in modern CLI tools is toward self-contained daemon management rather than requiring external process managers.",
+      "status": "recommendation",
+      "source_url": "",
+      "sub_theme": "design_decision"
+    },
+    {
+      "name": "Notification channels for auth failure — desktop notifications + terminal bell + optional webhook",
+      "what": "When the daemon detects an auth failure mid-collection, it should: (1) Pause the scheduler (don't retry with bad creds). (2) Write state to disk (which connector failed, when, why). (3) Send desktop notification via node-notifier (cross-platform: macOS Notification Center, Linux libnotify, Windows toast). (4) On next CLI invocation, show a prominent banner about the auth failure. (5) Optionally, call a user-configured webhook URL for remote notification (Slack, email, etc.). The 'laptop may be off' constraint means notification must be stored durably and shown on next interaction, not just fire-and-forget.",
+      "evidence": "PM2 Plus sends email/Slack notifications on process events. Desktop notifications via node-notifier. Durable state means the daemon writes failure state to disk and the CLI reads it on next run.",
+      "status": "recommendation",
+      "source_url": "",
+      "sub_theme": "notification_design"
+    }
+  ],
+  "gaps": [
+    {
+      "name": "SQLite vs JSON file for daemon state persistence",
+      "what": "Need to evaluate whether daemon state (schedule config, last run times, auth status, collection history) warrants SQLite (better for concurrent access, querying) vs a simple JSON file (simpler, no native dependency). SQLite has the better-sqlite3 package which is synchronous and fast but requires native compilation. JSON is zero-dependency but risks corruption on ungraceful shutdown without write-ahead patterns."
+    },
+    {
+      "name": "Windows support complexity",
+      "what": "Windows lacks Unix domain sockets (uses named pipes instead) and has no launchd/systemd equivalent (Task Scheduler is cron-like, not a process supervisor). Need to decide if Windows is a v1 target or can be deferred. node-ipc handles socket/pipe abstraction but Windows service registration (via node-windows or nssm) adds significant complexity."
+    },
+    {
+      "name": "Daemon log management and rotation",
+      "what": "Long-running daemons accumulate logs. PM2 handles this with pm2-logrotate module. Need a strategy for the vana daemon: file-based logging with rotation, or structured logging to a bounded file. Also need to decide how 'vana daemon logs' surfaces these to the user."
+    },
+    {
+      "name": "Security of Unix socket — file permissions and access control",
+      "what": "The daemon's Unix socket file should be readable/writable only by the owning user (mode 0600). Need to verify Node.js net.createServer for Unix sockets respects umask or requires explicit chmod. PM2 has had issues with root-owned socket files after reboot (GitHub issue #4226)."
+    },
+    {
+      "name": "Daemon version mismatch handling",
+      "what": "If the user updates the CLI package, the running daemon may be an older version. Need a protocol version check on connection (like Docker API versioning) and a strategy for graceful daemon restart on version mismatch. Turborepo handles this but details of their approach were not found."
+    }
+  ]
+}

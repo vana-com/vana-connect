@@ -1,0 +1,160 @@
+{
+  "agent_question": "Auth expiry and re-authentication patterns in data aggregation services",
+  "findings": [
+    {
+      "name": "Plaid Item health state model",
+      "what": "Plaid tracks Item health via a status object on /item/get containing last_successful_update and last_failed_update timestamps per product (transactions, investments). The update_type field indicates 'background' (automatic) vs 'user_present_required'. There is a consent_expiration_time field (ISO 8601) that is non-null for institutions enforcing consent expiry (common in EU, rare in US). Error states are surfaced via error objects with error_type, error_code, and error_code_reason. Key error codes: ITEM_LOGIN_REQUIRED (password changed, MFA expired, OAuth consent invalid), INVALID_CREDENTIALS, INVALID_MFA, ITEM_LOCKED (3-5 failed attempts), ACCESS_NOT_GRANTED, NO_ACCOUNTS, INSUFFICIENT_CREDENTIALS.",
+      "evidence": "Plaid /item/get API docs: status.transactions.last_successful_update, status.investments.last_failed_update, consent_expiration_time fields. Error codes documented at plaid.com/docs/errors/item/.",
+      "status": "live",
+      "source_url": "https://plaid.com/docs/api/items/",
+      "sub_theme": "connection_health_state_model"
+    },
+    {
+      "name": "Plaid webhook-driven expiry notification system",
+      "what": "Plaid sends proactive webhooks for connection health changes: (1) PENDING_DISCONNECT (US/CA) or PENDING_EXPIRATION (UK/EU) sent 7 days before consent expires, (2) ITEM:ERROR webhook when ITEM_LOGIN_REQUIRED occurs, (3) LOGIN_REPAIRED when an Item exits error state (even if repaired via another app), (4) NEW_ACCOUNTS_AVAILABLE when new shareable accounts detected, (5) USER_PERMISSION_REVOKED when user removes access. Developers must handle duplicate and out-of-order webhooks with idempotency.",
+      "evidence": "Plaid webhooks docs and Link update mode docs describe 7-day advance notice via PENDING_DISCONNECT/PENDING_EXPIRATION.",
+      "status": "live",
+      "source_url": "https://plaid.com/docs/api/webhooks/",
+      "sub_theme": "advance_warning_notifications"
+    },
+    {
+      "name": "Plaid Link update mode — abbreviated re-auth UX",
+      "what": "When an Item needs re-authentication, Plaid presents an abbreviated flow requesting only the minimum input needed to repair it. Example: if an OTP token expired, the user provides a new OTP without full re-login. Update mode can be triggered by access_token (single Item) or user_token (multi-Item). Successfully completing update mode resets consent_expiration_time as if the Item were newly created. Update mode also supports adding/removing accounts, granting new product permissions, and consent renewal.",
+      "evidence": "Plaid Link update mode docs: 'For most institutions, Plaid will present an abbreviated re-authentication flow requesting only the minimum user input required to repair the Item.'",
+      "status": "live",
+      "source_url": "https://plaid.com/docs/link/update-mode/",
+      "sub_theme": "reauth_ux_patterns"
+    },
+    {
+      "name": "Plaid consent expiry timelines vary by region and institution",
+      "what": "UK: 90-day consent cycle, 7-day advance notice, re-consent handled by TPP (Plaid) without bank redirect since FCA 2022 changes. EU: Extended from 90 to 180 days (July 2023 EBA change), but re-consent still requires bank authentication via TPP redirect. US: Some institutions (e.g. Bank of America) enforce 12-month consent expiry, but most US Items do not expire. OAuth-based connections are more likely to have consent expiry than credential-based ones.",
+      "evidence": "Plaid blog 'A more seamless way to reauthenticate in the UK': 7-day advance notification, TPP-managed re-consent. Plaid blog 'Now you can enjoy 180 days': EU 90->180 day extension, still requires bank auth. Plaid docs: consent_expiration_time is null for most US institutions.",
+      "status": "live",
+      "source_url": "https://plaid.com/blog/90-day-are-you-ready/",
+      "sub_theme": "consent_expiry_timelines"
+    },
+    {
+      "name": "Stripe Connect OAuth — tokens don't expire but can be revoked",
+      "what": "Stripe Connect Standard account access tokens do not expire. They remain valid until the user explicitly deauthorizes the connected account, which triggers an account.application.deauthorized webhook. Refresh tokens are rolled on every exchange, so the expiry is always 1 year from last use — effectively never expiring if used regularly. This is a fundamentally different model from credential-based connections: once authorized, connections persist indefinitely unless user-revoked. Stripe Apps (different context) use 1-hour access tokens with 1-year refresh tokens.",
+      "evidence": "Stripe Connect OAuth docs: 'the access token does not expire but may be revoked by the user at any time'. Refresh tokens roll on exchange, 1-year expiry from last use.",
+      "status": "live",
+      "source_url": "https://docs.stripe.com/connect/oauth-reference",
+      "sub_theme": "never_expire_model"
+    },
+    {
+      "name": "MX Platform — 13+ member connection statuses",
+      "what": "MX uses a granular connection_status enum for members (user-institution connections): CONNECTED (healthy), CHALLENGED (MFA required — security question or access code), DENIED (invalid credentials), DISCONNECTED (institution not updating data), PREVENTED (3 consecutive failed attempts, locked out), EXPIRED, LOCKED, IMPEDED, IMPAIRED, REJECTED, IMPORTED, DISABLED, DISCONTINUED, CLOSED. Terminal states requiring new aggregation and possible user input: PREVENTED, DENIED, IMPEDED, IMPAIRED, REJECTED, EXPIRED, LOCKED, IMPORTED, DISABLED, DISCONTINUED, CLOSED. CHALLENGED is an interactive state requiring MFA response.",
+      "evidence": "MX Academy 'Member Connection Statuses Overview': lists all statuses. CHALLENGED requires user to answer MFA. PREVENTED occurs after 3 consecutive failures.",
+      "status": "live",
+      "source_url": "https://academy.mx.com/hc/en-us/articles/4708854368525-Member-Connection-Statuses-Overview",
+      "sub_theme": "connection_health_state_model"
+    },
+    {
+      "name": "Google OAuth — multiple silent revocation triggers",
+      "what": "Google refresh tokens can be revoked/expired by: (1) 6-month inactivity — unused tokens auto-invalidate, (2) Password change — revokes tokens with Gmail scopes, (3) User-initiated removal from Google Account settings, (4) Testing-mode apps — 7-day automatic expiry, (5) 100-token-per-client ceiling — oldest tokens silently invalidated when exceeded, (6) Workspace admin policy changes restricting scopes or setting time-limited access, (7) Undocumented security heuristics. Access tokens expire after 1 hour (extendable to 12 hours). Mitigation: touch tokens every few days, persist rotated refresh tokens, monitor invalid_grant spikes, move to production status.",
+      "evidence": "Nango blog 'Google OAuth invalid_grant': documents all revocation triggers including 6-month inactivity, 100-token ceiling, testing-mode 7-day expiry. Google OAuth docs confirm 1-hour access token, 6-month inactivity rule.",
+      "status": "live",
+      "source_url": "https://nango.dev/blog/google-oauth-invalid-grant-token-has-been-expired-or-revoked",
+      "sub_theme": "silent_revocation_triggers"
+    },
+    {
+      "name": "Salesforce — configurable refresh token expiry policies",
+      "what": "Salesforce connected apps offer 4 refresh token policies: (1) Valid until revoked (default — indefinite), (2) Immediately expire refresh token, (3) Expire if not used for N time (inactivity-based, resets on use), (4) Expire after N time (absolute). Admins can change policies at any time, retroactively affecting existing tokens. Access token lifetime is determined by session timeout value. This represents a 'platform-configurable' model where the service provider (not the aggregator) controls token lifetime.",
+      "evidence": "Salesforce help docs: 'Manage OAuth Access Policies for a Connected App' describes all 4 policies. Default is 'valid until revoked'.",
+      "status": "live",
+      "source_url": "https://help.salesforce.com/s/articleView?id=sf.connected_app_manage_oauth.htm&language=en_US&type=5",
+      "sub_theme": "platform_controlled_expiry"
+    },
+    {
+      "name": "Strava OAuth — 6-hour access tokens with rotating refresh tokens",
+      "what": "Strava access tokens expire after 6 hours. Refresh tokens are rotated on every exchange — each refresh response includes a new refresh token, and the old one becomes invalid. Apps must persist the latest refresh token. During the transition window, both old and new access tokens work until the old one naturally expires. On 401 Unauthorized, apps should use the refresh token to obtain a new access token. No push notification for token expiry — apps must proactively check expiry before API calls. If a user's connection breaks (e.g., Garmin-Strava sync), the fix is typically disconnect and reconnect.",
+      "evidence": "Strava developer docs: 'Access tokens expire six hours after they are created'. 'Once a new refresh token code has been returned, the older code will no longer work.'",
+      "status": "live",
+      "source_url": "https://developers.strava.com/docs/authentication/",
+      "sub_theme": "short_lived_token_rotation"
+    },
+    {
+      "name": "Banking app session expiry UX patterns",
+      "what": "Common patterns for session expiry in banking/financial apps: (1) Pre-timeout warning — gentle nudge before auto-logout with option to extend, (2) Biometric re-authentication on mobile — Face ID/Touch ID for frictionless re-auth without full login, (3) Silent token renewal in background — refresh tokens used transparently, (4) Context-aware security — adjust auth requirements based on user behavior, location, device trust level, (5) Push notification for suspicious login attempts (approve/deny model). Data-sensitive apps (banking) tend to auto-logout after idle periods rather than silently renewing, prioritizing security over convenience.",
+      "evidence": "Smashing Magazine 'Rethinking Authentication UX', OneSignal banking push notification patterns, HID Global blog on UX sweet spot for online banking.",
+      "status": "live",
+      "source_url": "https://www.smashingmagazine.com/2022/08/authentication-ux-design-guidelines/",
+      "sub_theme": "session_expiry_ux"
+    },
+    {
+      "name": "Apple HealthKit — persistent permissions, no expiry",
+      "what": "HealthKit uses a persistent authorization model: once a user grants read/write access to health data types, the permission persists until explicitly revoked in Settings > Health > Data Access & Devices. There is no token expiry or re-consent cycle. Apps can become 'inactive' data sources after iOS upgrades (a known bug/behavior), requiring users to toggle permissions in Health settings. Apps should check authorization status on foreground entry (willEnterForeground notification) to detect user-initiated revocations. No push notification system for permission changes.",
+      "evidence": "Apple Developer docs on HealthKit authorization. Apple Community forums document inactive data source behavior after iOS upgrades.",
+      "status": "live",
+      "source_url": "https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data",
+      "sub_theme": "persistent_permission_model"
+    },
+    {
+      "name": "Password managers — expiry tracking is nascent",
+      "what": "1Password added item expiry dates (Q1 2025) viewable in Watchtower, but does not send push/email notifications when passwords approach expiry — users must check Watchtower manually. Bitwarden has had long-standing community requests for password expiration dates and rotation reminders (GitHub issue #227, 2017) but the feature remains limited. Neither product offers automated credential rotation or proactive expiry alerts. This is relevant because it shows that even credential management tools lack mature expiry notification systems.",
+      "evidence": "1Password blog 'Q1 2025 usability updates': expiry dates visible in Watchtower only. Bitwarden community forums: feature requests for expiration dates span years without full implementation.",
+      "status": "live",
+      "source_url": "https://1password.com/blog/1password-q1-2025-usability-updates",
+      "sub_theme": "credential_rotation_alerts"
+    },
+    {
+      "name": "Finicity (Mastercard Open Banking) — aggregation status codes",
+      "what": "Finicity uses numeric aggregation status codes to represent connection health. MFA challenges are handled inline during aggregation — the API returns MFA questions and an mfa_session token, and the app must relay answers back. Finicity's test bank continually returns MFA challenges for integration testing. OAuth connections are handled via institution-managed tokens. The aggregation status code system provides granular feedback on why a connection succeeded or failed, similar to HTTP status codes for data aggregation.",
+      "evidence": "Finicity docs (now Mastercard Open Banking): authentication-and-integration docs describe MFA challenge flow with mfa_session headers. GitHub client libraries show MFA handling patterns.",
+      "status": "live",
+      "source_url": "https://developer.mastercard.com/open-banking-us/documentation/",
+      "sub_theme": "mfa_challenge_handling"
+    },
+    {
+      "name": "Cross-cutting pattern: three-tier connection health model",
+      "what": "Across all services studied, connection health follows a three-tier model: (1) HEALTHY — data flows normally, background updates succeed; (2) DEGRADED/PENDING — connection will expire soon or is experiencing intermittent failures, advance warning sent (Plaid: 7 days, Google: none/silent); (3) BROKEN — requires user interaction to repair (re-login, re-consent, MFA). The key differentiator is whether the transition from DEGRADED to BROKEN is predictable (consent expiry with known date) or unpredictable (user changes password, admin revokes, platform security flag). Services with predictable expiry (Plaid, Salesforce) can send advance warnings. Services with unpredictable revocation (Google, Stripe) can only react after the fact.",
+      "evidence": "Synthesized from Plaid (PENDING_EXPIRATION -> ITEM_LOGIN_REQUIRED), MX (CONNECTED -> CHALLENGED/DENIED/EXPIRED), Google (valid -> invalid_grant), Strava (valid -> 401).",
+      "status": "live",
+      "source_url": "",
+      "sub_theme": "universal_state_model"
+    },
+    {
+      "name": "Cross-cutting pattern: notification channel preferences",
+      "what": "Services use different notification channels for auth expiry: (1) Webhooks to developer servers — Plaid (PENDING_EXPIRATION, ITEM:ERROR), Stripe (account.application.deauthorized), MX (connection status change callbacks). This is the primary channel for B2B2C services. (2) In-app prompts — shown when user next opens the app, common in consumer apps (banking, fitness). (3) Push notifications — used by banking apps for session expiry and login approval. (4) Email — used by some services for consent renewal reminders. (5) No notification (silent failure) — Google silently invalidates tokens, Strava returns 401 on next API call. For a CLI tool doing background collection, the closest analog is the webhook model: the system detects failure and queues a notification for the user's next interactive session.",
+      "evidence": "Plaid webhooks, Stripe webhooks, MX callbacks, banking app push notifications, Google silent revocation patterns.",
+      "status": "live",
+      "source_url": "",
+      "sub_theme": "notification_channels"
+    },
+    {
+      "name": "Cross-cutting pattern: re-auth UX spectrum from minimal to full",
+      "what": "Re-authentication complexity varies: (1) Silent/automatic — refresh token exchange, no user involvement (Strava, Google, Salesforce when tokens valid), (2) Minimal/abbreviated — single MFA prompt or consent checkbox without full re-login (Plaid UK update mode, biometric re-auth in banking apps), (3) Redirect to provider — user sent to institution's OAuth page to re-authorize (Plaid EU, Garmin-Strava reconnect), (4) Full re-setup — complete teardown and reconnect from scratch (MX PREVENTED status after 3 failures, Strava disconnect+reconnect). For browser-automation-based collection: the equivalent of (1) is session cookies still valid, (2) is re-entering MFA/OTP in automated browser, (3) is launching a full interactive browser session for login, (4) is clearing all cookies and starting over.",
+      "evidence": "Plaid abbreviated update mode, MX PREVENTED requiring new aggregation, Strava disconnect/reconnect pattern, banking biometric re-auth.",
+      "status": "live",
+      "source_url": "",
+      "sub_theme": "reauth_complexity_spectrum"
+    }
+  ],
+  "gaps": [
+    {
+      "topic": "MX webhook payload structure and connection status change callbacks",
+      "reason": "MX Academy and docs.mx.com pages were not fully accessible. Could not extract webhook payload schemas or callback mechanisms for connection status transitions.",
+      "suggested_source": "https://docs.mx.com/resources/webhooks/"
+    },
+    {
+      "topic": "Finicity aggregation status codes — full numeric code list",
+      "reason": "Finicity docs redirect to Mastercard Open Banking portal which did not expose the aggregation status codes page directly. The specific numeric codes (e.g., 103=MFA required, 185=credentials changed) were not extracted.",
+      "suggested_source": "https://developer.mastercard.com/open-banking-us/documentation/api-reference/"
+    },
+    {
+      "topic": "Quantitative data on re-auth conversion rates",
+      "reason": "Plaid and other services do not publish conversion/drop-off rates for re-authentication flows. Industry benchmarks for re-auth completion rates are not publicly available.",
+      "suggested_source": "Plaid sales team or industry reports"
+    },
+    {
+      "topic": "Browser automation session longevity by platform",
+      "reason": "No research was found on how long browser sessions/cookies typically last for specific platforms (GitHub, ChatGPT, LinkedIn) before requiring re-authentication. This is critical for the CLI's scheduling design.",
+      "suggested_source": "Empirical testing or platform-specific documentation"
+    },
+    {
+      "topic": "Yodlee connection health model details",
+      "reason": "Yodlee developer portal content was not fully extractable from search results. Their error code taxonomy and connection lifecycle management details remain unclear.",
+      "suggested_source": "https://developer.yodlee.com/resources/yodlee/error-codes/docs"
+    }
+  ]
+}
