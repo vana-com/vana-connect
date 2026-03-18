@@ -37,6 +37,7 @@ import {
 import type { ConnectRenderer } from "./render/connect-renderer.js";
 import {
   CliOutcomeStatus,
+  checkLegacyDataHome,
   getBrowserProfilesDir,
   getConnectorCacheDir,
   getLogsDir,
@@ -145,6 +146,15 @@ type SourceStatusDetail =
     };
 
 export async function runCli(argv = process.argv): Promise<number> {
+  // Check for legacy data directory and inform the user
+  const legacyHome = checkLegacyDataHome();
+  if (legacyHome) {
+    process.stderr.write(
+      `Your data is at ${legacyHome} (old location).\n` +
+        `Run: mv ${legacyHome} ~/.vana\n\n`,
+    );
+  }
+
   const normalizedArgv = normalizeArgv(argv);
   if (normalizedArgv.length <= 2) {
     normalizedArgv.push("--help");

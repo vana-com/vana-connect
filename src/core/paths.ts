@@ -1,8 +1,23 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 export function getVanaHome(): string {
   return path.join(os.homedir(), ".vana");
+}
+
+/**
+ * Check if data exists at the old ~/.dataconnect path and needs migration.
+ * Returns the old path if migration is needed, null otherwise.
+ * Does NOT perform the migration — the caller decides how to handle it.
+ */
+export function checkLegacyDataHome(): string | null {
+  const vanaHome = getVanaHome();
+  const oldHome = path.join(os.homedir(), ".dataconnect");
+  if (!fs.existsSync(vanaHome) && fs.existsSync(oldHome)) {
+    return oldHome;
+  }
+  return null;
 }
 
 export function getConnectorCacheDir(): string {

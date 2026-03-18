@@ -466,55 +466,16 @@ already has that version.
 
 Configure Claude Code to use `vana mcp` as an MCP server and verify: tools appear in the agent's tool list, `check_status` and `list_sources` return correct data, `connect_source` correctly rejects legacy sources and works for interactive sources via IPC, `show_data` returns collected datasets. Test with both local dev build and canary install.
 
-### Non-TTY IPC mode for requestInput (agent auth unlock)
+### Release pipeline: hosted installer and demo assets
 
-The runtime already has file-based IPC for credential prompts: `pending-input-{runId}.json` written by the connector, `input-response-{runId}.json` polled for the answer (`src/runtime/playwright/in-process-run.ts:231-239`). Currently the CLI reads the pending file and prompts via inquirer (interactive stdin).
+Homebrew formula auto-sync is now in CI. Remaining:
 
-For agents: a `--ipc` mode where the CLI leaves the pending-input file for the agent to discover. The agent reads the question, asks the user, writes the response file. The connector resumes. No interactive stdin needed. This works with Claude Code's fire-and-forget Bash tool: run `vana connect github --ipc` in background, poll for `~/.vana/pending-input-*.json`, ask user, write response, poll for completion.
+- Hosted installer (`install.sh`) may reference stale versions
+- Demo transcripts/VHS are CI artifacts, not committed back
 
-This is the key unlock for agent-driven auth on interactive sources. Without it, agents cannot connect any source that requires credentials.
+### Checkpoint-resume for --ipc (v2)
 
-### Release pipeline: auto-sync all distribution channels
-
-The canary release CI publishes to npm and uploads GitHub release assets but doesn't sync downstream distribution channels automatically. Each desync causes user-facing failures:
-
-- **Homebrew formula**: checksums in `vana-com/homebrew-vana` go stale when new binaries overwrite the release tag. `brew install vana` fails. The `sync-formula.yml` workflow exists but requires manual trigger.
-- **Hosted installer** (`install.sh`): references a specific version. May point to stale binary.
-- **Demo assets**: transcripts and VHS GIFs are CI artifacts, not committed back. Checked-in docs go stale.
-
-Fix: add a final `sync-distribution` job to `prerelease.yml` that:
-
-1. Dispatches `sync-formula.yml` in `vana-com/homebrew-vana`
-2. Verifies the hosted installer resolves to the new binary
-3. Optionally commits updated transcripts back to the repo
-
-### Stale browser profile lock after interrupted connect
-
-When `vana connect` is interrupted (ctrl+c, agent background task killed), the Chromium `SingletonLock` file at `~/.vana/browser-profiles/{source}/SingletonLock` is not cleaned up. Subsequent connect attempts fail with "Failed to create a ProcessSingleton." The CLI should detect and remove stale lock files before launching the browser.
-
-### Agent-friendly credential passing
-
-Interactive connectors (authMode: "interactive") use inquirer prompts for credentials. Agents can't reliably handle interactive stdin. Need a `--credentials-stdin` or `--credentials-json` flag that pre-fills fields without prompting, enabling one-shot agent credential flow: agent asks user for creds, pipes them in, done.
-
-### MCP connect_source should check auth mode before spawning
-
-The MCP `connect_source` tool currently spawns a child process for any source. For `legacy` (browser auth) sources, it should return immediately with instructions for the user instead of hanging or failing silently. Check auth mode via `vana sources --json` before attempting connection.
-
-### Skill composition: next-prompt should not attempt connections
-
-The next-prompt skill should only work with already-connected data. It should not invoke the connect flow. If sources aren't connected, it should list them and tell the user to connect them in their own terminal. The connect-data skill handles connections — skills should not overlap.
-
-### Async/background connect (v2, deferred by design)
-
-Research across 11 CLIs (Stripe, Vercel, Railway, Fly, Heroku, Docker, GitHub, AWS, K8s, Terraform, npm) shows: 9/11 block by default for operations under 5 minutes. `--detach` is the standard opt-out. Our connect flow takes 1-5 minutes, firmly in blocking territory.
-
-Current UX is already best-in-class for blocking: heartbeat bloom spinner, scope manifest, terminal bell. For agents: IPC mode handles background operation. For scheduling: the next-prompt skill checks freshness and suggests recollection.
-
-Build `--detach` when: a connector regularly takes >10 minutes, or users explicitly request it. See `research/async-cli/design-rounds.md` for the full three-round analysis.
-
-### Scheduled collection
-
-Cron-like re-collection of connected sources on a cadence. Related to the `next-prompt` skill which needs fresh data. Prior art: Dependabot (fully async, results as PRs), OpenClaw (cron-scheduled tasks), ChatGPT Scheduled Tasks.
+Current IPC mode requires background task coordination. A cleaner agent UX: exit on needs-input with special exit code, agent writes response, reruns with --resume. Deferred — current IPC works with proper skill instructions.
 
 ### SEA binary stack trace on unknown commands
 
