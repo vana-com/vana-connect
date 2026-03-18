@@ -70,11 +70,13 @@ async function main() {
       marker: "data-path-github",
       argv: ["vana", "data", "path", "github"],
       env: seededEnv,
+      allowFailure: true,
     },
     {
       marker: "connect-github-success",
       argv: ["vana", "connect", "github"],
       env: seededEnv,
+      allowFailure: true,
     },
     {
       marker: "connect-github-no-input",
