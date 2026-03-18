@@ -457,3 +457,31 @@ already has that version.
       labeled clearly
 - [x] ~~Clean error handling for command typos~~ — no stack traces on unknown
       commands
+
+---
+
+## New (March 18, 2026)
+
+### Async/background connect
+
+`vana connect chatgpt` took 4m50s synchronously. For large sources, this blocks the terminal. Need `--background` mode that starts collection and returns immediately, with status queryable via `vana status` or `vana connect --status`. Terminal bell or system notification on completion.
+
+### Scheduled collection
+
+Cron-like re-collection of connected sources on a cadence. Related to the `next-prompt` skill which needs fresh data. Prior art: Dependabot (fully async, results as PRs), OpenClaw (cron-scheduled tasks), ChatGPT Scheduled Tasks.
+
+### SEA binary stack trace on unknown commands
+
+`vana disconnect` shows a full `CommanderError` stack trace in the SEA (single executable) build. The local dev build handles this correctly. The SEA packaging needs its own top-level catch. (GitHub issue #59)
+
+### Stale checked-in transcripts
+
+`docs/CLI-TRANSCRIPTS.md` is stale. CI generates fresh transcripts as release artifacts but doesn't commit them back. Either auto-commit from CI or accept that checked-in transcripts are reference-only. (GitHub issue #60)
+
+### Mechanical date filtering for collected data
+
+To support `vana next` properly, need the ability to extract "what changed in the last 24 hours" mechanically. Approaches: diff between collection runs (requires result versioning), connector-level timestamp annotations, or upstream activity feeds. For now, the `next-prompt` skill teaches the agent to parse timestamps from raw data. (GitHub issue #57)
+
+### Data versioning and result history
+
+Currently each source stores only the latest result. For diffing and trend analysis, need historical snapshots with a retention policy. (GitHub issue #58)
