@@ -34,13 +34,20 @@ Read `~/.vana/next-prompt.md` for the user's guidance. If it doesn't exist, crea
 
 ## Flow
 
-### 1. Gather context
+### 1. Gather context and check freshness
 
 ```bash
 vana status --json
 ```
 
-This tells you what sources are connected and their sync state.
+This tells you what sources are connected, their sync state, and `lastCollectedAt` timestamps.
+
+Check freshness: if any source's `lastCollectedAt` is more than 24 hours old, suggest recollection before generating prompts:
+
+- For one source: `vana collect <source>`
+- For all stale sources: `vana collect` (re-collects all connected sources)
+
+Only suggest recollection, don't block on it. Work with whatever data is available.
 
 ### 2. Read connected data
 

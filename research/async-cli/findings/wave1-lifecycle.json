@@ -1,0 +1,147 @@
+{
+  "agent_question": "Background process lifecycle management in CLIs",
+  "findings": [
+    {
+      "name": "Docker daemon (dockerd)",
+      "what": "Runs as a persistent daemon process managed by systemd. Uses --pidfile flag (default /var/run/docker.pid) to store process ID. Communicates via Unix domain socket at /var/run/docker.sock, with optional TCP binding for remote access. Supports systemd socket activation via fd:// syntax. SIGHUP reloads configuration without restart; systemd handles crash recovery and auto-restart. Multiple daemon instances require unique PID file and socket paths. The docker CLI is a thin client that sends commands over the socket; the daemon does all container management.",
+      "evidence": "dockerd docs: '--pidfile=/var/run/docker.pid' flag, '-H unix:///var/run/docker.sock' default socket, SIGHUP for config reload. PR #41465 added PIDFile to docker.service unit so systemd reliably cleans up stale PID files on crash.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "daemon_with_systemd"
+    },
+    {
+      "name": "PM2 (Node.js process manager)",
+      "what": "Two-process architecture: a persistent 'God Daemon' and a thin CLI client. Daemon communicates via two Unix sockets: ~/.pm2/rpc.sock (commands) and ~/.pm2/pub.sock (events/logs). PID files stored in ~/.pm2/pids/<app>-<id>.pid. On 'pm2 start', CLI connects to daemon (spawning it if needed), daemon forks the target process. Graceful shutdown sends SIGINT first, then SIGKILL after configurable kill_timeout (default 1.6s). Auto-restart on crash with exponential backoff option. 'pm2 startup' generates platform-specific init scripts (systemd/launchd/upstart). 'pm2 save' + 'pm2 resurrect' persists process list across reboots via dump.pm2 file.",
+      "evidence": "PM2 docs: 'PM2 is a daemon process manager', PID files at ~/.pm2/pids/, socket files at ~/.pm2/rpc.sock and ~/.pm2/pub.sock, 'pm2 startup' generates systemd/launchd/upstart scripts, exponential backoff via --exp-backoff-restart-delay, kill_timeout configurable.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/pm2-doc-single-page/",
+      "sub_theme": "node_daemon_manager"
+    },
+    {
+      "name": "Homebrew services (brew services)",
+      "what": "Thin wrapper that generates OS-native service definitions. On macOS: writes LaunchAgent plist files to ~/Library/LaunchAgents/homebrew.mxcl.<name>.plist (user) or /Library/LaunchDaemons/ (root). On Linux: writes systemd unit files to ~/.config/systemd/user/ (user) or /usr/lib/systemd/system/ (root). The plist/unit includes KeepAlive/Restart=always for auto-restart on crash, RunAtLoad for boot start, and log paths. 'brew services start' registers with launchctl/systemctl; 'brew services stop' unregisters. No custom PID management -- delegates entirely to OS service manager.",
+      "evidence": "Plist includes <key>KeepAlive</key><true/> and <key>RunAtLoad</key><true/>. Files at ~/Library/LaunchAgents/homebrew.mxcl.<service>.plist. Linux uses systemd user units.",
+      "status": "live",
+      "source_url": "https://www.dorokhovich.com/blog/homebrew-services",
+      "sub_theme": "os_service_wrapper"
+    },
+    {
+      "name": "Supervisor (supervisord)",
+      "what": "Client/server architecture: supervisord daemon manages child processes, supervisorctl CLI sends commands. Expects to be the direct parent of managed processes (children must NOT daemonize themselves). Provides pidproxy tool for processes that fork. Configuration via INI-style [program:x] sections. Supports process groups, event listeners for notifications, and XML-RPC API for programmatic control. Separate activity log (supervisord operations) and child process logs. Designed to start at boot but NOT as PID 1.",
+      "evidence": "Supervisor docs: 'client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems', supports [program:x] config, event listeners, XML-RPC API.",
+      "status": "live",
+      "source_url": "https://supervisord.org/",
+      "sub_theme": "process_supervisor"
+    },
+    {
+      "name": "runit",
+      "what": "Lightweight cross-platform init scheme with service supervision. Each service is a directory containing a 'run' script. The runsv process supervises each service, automatically restarting it on exit. Optional './check' script for readiness polling. Optional './log/run' for dedicated log service per process. Can replace PID 1 or run alongside other init systems. Uses a simple directory-based state model: service is 'up' if its run script is running, 'down' if not.",
+      "evidence": "Arch Wiki: 'runit runs on GNU/Linux, *BSD, MacOSX, Solaris'. Gentoo wiki: 'Process supervision is a type of operating system service management in which some master process remains the parent of the service processes.'",
+      "status": "live",
+      "source_url": "https://smarden.org/runit/",
+      "sub_theme": "process_supervisor"
+    },
+    {
+      "name": "Turborepo daemon",
+      "what": "Background Rust daemon for file watching and package discovery. Communicates via gRPC over Unix domain sockets at .turbo/daemon.sock. Uses PID lock file at .turbo/daemon.pid to prevent multiple instances. CLI spawns daemon on first connect if not running (DaemonConnector.connect()). Daemon provides FileSystemWatcher, PackageWatcher, HashWatcher, and GlobWatcher services. Uses cookie files in .turbo/cookies/ for synchronization between watchers. --daemon/--no-daemon flags control usage; automatically disabled in CI. On crash, CLI detects disconnection and can continue without daemon or spawn a replacement.",
+      "evidence": "DeepWiki: socket at '.turbo/daemon.sock', PID lock at '.turbo/daemon.pid', gRPC IPC via TurboGrpcService, DaemonConnector manages CLI connections, disabled in CI automatically.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/vercel/turborepo/2-architecture",
+      "sub_theme": "cli_embedded_daemon"
+    },
+    {
+      "name": "forever (Node.js)",
+      "what": "Legacy Node.js daemon manager (now recommends pm2/nodemon for new projects). Runs a Flatiron server as daemon to manage child processes. PID files stored in ~/.forever/ directory. Supports --pidFile for custom PID location. Has built-in cleanup for extraneous/stale PID files (forever.cleanUp() emits 'cleanUp' event). Auto-restarts crashed processes. 'forever start' daemonizes; 'forever stop/stopall' terminates; 'forever list' shows running processes.",
+      "evidence": "npm docs: 'A simple CLI tool for ensuring that a given script runs continuously (i.e. forever)', default files in $HOME/.forever, cleanUp functionality for stale PIDs.",
+      "status": "live",
+      "source_url": "https://github.com/foreversd/forever",
+      "sub_theme": "node_daemon_manager"
+    },
+    {
+      "name": "PID file stale detection patterns",
+      "what": "Three main approaches: (1) kill(pid, 0) / kill -0 -- sends signal 0 which checks process existence without actually sending a signal. Returns success if process exists, ESRCH error if not. Caveat: non-root users may get EPERM for others' processes, which still means the process exists. (2) pgrep -F <pidfile> -- reads PID from file and checks if process exists, returning exit status 1 if stale. (3) File locking (flock/fcntl) -- process holds advisory lock on PID file; if lock is obtainable, previous process is dead. File locking is the most robust approach as it handles PID recycling. All approaches should be combined with atexit/signal-handler cleanup to remove PID file on normal exit.",
+      "evidence": "Python pid library uses flock. Node.js daemon-pid provides 'start-time verification to ensure the recorded process-id was not recycled by the OS'. Common pattern: check kill(pid, 0), if ESRCH then stale, if EPERM then process exists but owned by another user.",
+      "status": "live",
+      "source_url": "https://github.com/trbs/pid",
+      "sub_theme": "pid_management"
+    },
+    {
+      "name": "systemd service integration pattern",
+      "what": "CLIs that install themselves as systemd services write a .service unit file to ~/.config/systemd/user/ (user) or /etc/systemd/system/ (system). Key directives: ExecStart (binary path), Restart=on-failure or always, RestartSec (delay between restarts), PIDFile (for forking daemons), Type=simple|forking|notify. Socket activation via .socket units allows on-demand daemon startup. 'systemctl --user enable <service>' persists across reboots. Journal logging (journalctl -u <service>) replaces custom log files. Health checks via systemd-notify for Type=notify services.",
+      "evidence": "Docker's docker.service uses PIDFile directive. Homebrew generates systemd user units on Linux. PM2's 'pm2 startup' generates systemd unit files. Turborepo and other modern CLIs prefer to manage their own daemon rather than relying on systemd.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "os_service_integration"
+    },
+    {
+      "name": "launchd plist integration pattern",
+      "what": "macOS CLIs register as LaunchAgents (user-level) or LaunchDaemons (system-level). Plist XML defines: Label (unique ID), ProgramArguments (command), RunAtLoad (start on login/boot), KeepAlive (auto-restart on crash), StandardOutPath/StandardErrorPath (log files), WorkingDirectory. 'launchctl load/unload <plist>' manages lifecycle. Files at ~/Library/LaunchAgents/ (user) or /Library/LaunchDaemons/ (system). No PID file needed -- launchd tracks child PIDs internally.",
+      "evidence": "Homebrew services generates plists with KeepAlive=true and RunAtLoad=true. PostgreSQL example shows full plist structure with ProgramArguments, log paths, and working directory.",
+      "status": "live",
+      "source_url": "https://www.dorokhovich.com/blog/homebrew-services",
+      "sub_theme": "os_service_integration"
+    },
+    {
+      "name": "kubectl watch pattern",
+      "what": "kubectl uses --watch/-w flag for long-running observation of resource changes. This is NOT a background process -- it's a foreground streaming connection using Kubernetes watch API (HTTP long-poll with chunked transfer). 'kubectl get pods -w' streams state changes in real-time. The CLI maintains a persistent connection to the API server. No PID management needed since it runs in the foreground. For background monitoring, users rely on external tools (Kubernetes controllers, operators) that run as pods themselves.",
+      "evidence": "kubectl docs: '--watch' flag starts watching updates. 'kubectl get events --watch --field-selector involvedObject.name=myapp-pod' for targeted watching. Kubernetes controllers handle actual background supervision.",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/reference/kubectl/",
+      "sub_theme": "foreground_streaming"
+    },
+    {
+      "name": "Gatsby develop (foreground long-running CLI)",
+      "what": "Runs as a foreground process with file watching via webpack. No daemon mode -- process lives in the terminal. Uses port-based conflict detection: checks if port 8000 is in use and warns 'Looks like develop for this site is already running'. Known issues with Ctrl+C not properly killing the process (zombie process problem). Relies on the user's terminal for lifecycle management. No PID file, no daemon mode, no auto-restart.",
+      "evidence": "GitHub issue #5810: 'Ctrl+C not quitting CLI'. Discussion #26869: infinite loop with stale port detection. Gatsby develop is purely foreground with webpack-dev-server.",
+      "status": "live",
+      "source_url": "https://www.gatsbyjs.com/docs/reference/gatsby-cli/",
+      "sub_theme": "foreground_dev_server"
+    },
+    {
+      "name": "Node.js graceful shutdown patterns",
+      "what": "Best practice for Node.js daemons: listen for SIGINT and SIGTERM (cross-platform safe). On signal: (1) stop accepting new connections, (2) drain existing connections with timeout, (3) close database pools, (4) remove PID file, (5) call process.exit(). Use a forced-exit timeout (e.g., setTimeout(() => process.exit(1), 10000)) as safety net. PID file cleanup via process.on('exit') or atexit-style handlers. SIGUSR1/SIGUSR2 not safe on Windows. For containers (PID 1 trap): Node.js doesn't forward signals to children when running as PID 1 -- use tini or dumb-init as entrypoint.",
+      "evidence": "Medium article on PID 1 trap: 'Node.js doesn't forward signals to children when running as PID 1'. Node.js docs recommend only SIGINT and SIGTERM for cross-platform compatibility.",
+      "status": "live",
+      "source_url": "https://medium.com/@etienne.rossignon/stop-killing-your-node-js-containers-the-pid-1-trap-5c18abffd72c",
+      "sub_theme": "graceful_shutdown"
+    },
+    {
+      "name": "Unix socket IPC pattern (daemon communication)",
+      "what": "Production CLIs overwhelmingly prefer Unix domain sockets over PID files for daemon communication. Pattern: daemon creates socket file (e.g., /var/run/docker.sock, ~/.pm2/rpc.sock, .turbo/daemon.sock), CLI connects as client. Socket existence + successful connect = daemon is alive (no need for PID file to check liveness). Socket files are automatically cleaned up by the OS on process termination if using abstract sockets. For file-based sockets, daemon removes on clean shutdown; stale sockets detected by failed connect attempt. Advantages over PID files: bidirectional communication, no PID recycling problem, atomic liveness check.",
+      "evidence": "Docker uses /var/run/docker.sock, PM2 uses ~/.pm2/rpc.sock + ~/.pm2/pub.sock, Turborepo uses .turbo/daemon.sock. All three use socket connectivity as the primary liveness check rather than PID files.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "ipc_pattern"
+    },
+    {
+      "name": "nohup and terminal multiplexer patterns",
+      "what": "Lightweight background process approaches without daemon infrastructure: (1) nohup -- detaches process from terminal, redirects output to nohup.out, survives terminal close. No monitoring, no auto-restart, no PID management. (2) tmux/screen -- session persistence, user can reattach to see output. Some CLIs document 'run in tmux' as official guidance for long-running tasks. (3) disown -- bash builtin to remove job from shell's job table. These are user-managed approaches with no supervision; commonly used for ad-hoc tasks rather than production services.",
+      "evidence": "Multiple Node.js deployment guides suggest nohup for simple cases, pm2/systemd for production. tmux/screen commonly recommended in CLI docs for long-running tasks that need output inspection.",
+      "status": "live",
+      "source_url": "https://pixeljets.com/blog/using-supervisorctl-for-node-processes-common-gotchas/",
+      "sub_theme": "lightweight_background"
+    }
+  ],
+  "gaps": [
+    {
+      "topic": "s6 supervision suite",
+      "note": "s6 is a modern alternative to runit/daemontools popular in Alpine/container images. Did not deep-dive into its readiness notification (s6-notifyoncheck) and dependency management which are more sophisticated than runit."
+    },
+    {
+      "topic": "Windows service integration",
+      "note": "Focused on Unix patterns. Windows has different mechanisms: Windows Service Control Manager, NSSM (Non-Sucking Service Manager), and named pipes instead of Unix sockets. Relevant if CLI targets Windows."
+    },
+    {
+      "topic": "Electron/desktop app daemon patterns",
+      "note": "Apps like VS Code, Slack, and Docker Desktop manage background processes differently (tray icon, auto-update daemons). Not explored."
+    },
+    {
+      "topic": "Health check endpoints",
+      "note": "Many daemons expose HTTP health check endpoints (e.g., Docker's /_ping, Kubernetes liveness/readiness probes). Patterns for CLI-started daemons with health check URLs not deeply explored."
+    },
+    {
+      "topic": "Log rotation and management",
+      "note": "PM2's pm2-logrotate module and systemd's journald handle log rotation, but specific patterns for CLI-managed daemon logs (file size limits, rotation policies) not deeply covered."
+    }
+  ]
+}

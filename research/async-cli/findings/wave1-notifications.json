@@ -1,0 +1,136 @@
+{
+  "agent_question": "CLI task completion notification patterns",
+  "findings": [
+    {
+      "name": "Terminal bell (\\a / BEL)",
+      "what": "The simplest, most universal notification: print \\a (ASCII 7) to stdout. Modern terminals map this to OS-native behavior — visual flash, taskbar urgency hint, or native notification depending on config. Zero dependencies. Works over SSH. Warp disables audible bell by default but supports it. iTerm2, Ghostty, Alacritty, Windows Terminal, and foot all support it. Claude Code uses `preferredNotifChannel: terminal_bell` as its primary mechanism.",
+      "evidence": "Claude Code ships terminal_bell as a configurable notification channel. Warp docs show audible bell as a separate setting from desktop notifications. The muxup.com article demonstrates mapping BEL to urgency hints in tiling WMs. Ghostty maps BEL to macOS native notifications when unfocused.",
+      "status": "live",
+      "source_url": "https://muxup.com/2023q4/let-the-terminal-bells-ring-out",
+      "sub_theme": "zero-dependency"
+    },
+    {
+      "name": "OSC 9 / OSC 777 escape sequences",
+      "what": "Terminal escape sequences that trigger native OS desktop notifications without any external dependency. OSC 9 (iTerm2/Windows Terminal format): `\\033]9;Message\\007`. OSC 777 (rxvt-unicode/VSCode format): `\\033]777;notify;Title;Message\\007`. Works over SSH when terminal forwards escape sequences. VSCode integrated terminal forwards these from remote hosts.",
+      "evidence": "Claude Code hooks use both OSC 9 and OSC 777 for desktop notifications. Ghostty, iTerm2, Windows Terminal, VSCode integrated terminal, and foot terminal all support one or both. A VSCode extension (terminal-osc-notifier) exists specifically for this.",
+      "status": "live",
+      "source_url": "https://github.com/ghostty-org/ghostty/discussions/3555",
+      "sub_theme": "zero-dependency"
+    },
+    {
+      "name": "Terminal-native command completion notifications (iTerm2, Warp, Ghostty)",
+      "what": "Modern terminals have built-in 'notify when command finishes' features that require shell integration (OSC 133 marks) but no app-side code. iTerm2: Cmd+Alt+A toggles 'Alert on next mark'. Warp: configurable threshold (e.g. 5s), only fires when app unfocused. Ghostty (1.3+): `notify-on-command-finish = unfocused | always | never` with `notify-on-command-finish-after = 5s`. These are the gold standard UX — the terminal handles everything.",
+      "evidence": "Ghostty issue #8991 and discussion #3555 document the feature. Warp docs at docs.warp.dev/terminal/more-features/notifications. iTerm2 shell integration docs.",
+      "status": "live",
+      "source_url": "https://docs.warp.dev/terminal/more-features/notifications",
+      "sub_theme": "terminal-native"
+    },
+    {
+      "name": "gh run watch (GitHub CLI polling pattern)",
+      "what": "GitHub CLI's `gh run watch` polls a CI run and streams progress with a live-updating table, then exits 0/1 on completion. It does NOT send any notification itself — the user chains it: `gh run watch && notify-send 'done'`. This is the canonical 'poll-then-exit' pattern: the CLI's job is to block until done, and the user composes notification on top.",
+      "evidence": "gh run watch docs at cli.github.com. Stuart Leeks blog post shows chaining with Windows toast notifications. GitHub blog post from 2021 introducing the feature.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "poll-then-exit"
+    },
+    {
+      "name": "node-notifier (cross-platform OS notifications from Node.js)",
+      "what": "Node.js library that sends native desktop notifications on macOS (Notification Center), Windows (Toaster/Balloons), and Linux (notify-send). Supports title, message, icon, sound, click-to-open URL. Has a separate CLI package (node-notifier-cli). 7M+ weekly npm downloads. This is the go-to for Node.js CLIs that want desktop notifications.",
+      "evidence": "npm page shows massive adoption. CLI variant allows `notify -t 'Title' -m 'Message' -s`. Used by webpack, Jest, and many build tools for completion notifications.",
+      "status": "live",
+      "source_url": "https://www.npmjs.com/package/node-notifier",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "terminal-notifier (macOS-specific)",
+      "what": "macOS-only CLI tool for sending native Notification Center notifications. Simpler and more reliable than node-notifier on macOS since it's a native binary. Commonly used: `terminal-notifier -title 'Build' -message 'Done'`. Claude Code users frequently configure it as a hook.",
+      "evidence": "GitHub repo julienXX/terminal-notifier. Multiple blog posts show Claude Code hook integration. Andrea Grandi's blog post on using it with Claude Code.",
+      "status": "live",
+      "source_url": "https://github.com/julienXX/terminal-notifier",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "notify-send (Linux)",
+      "what": "Linux-native CLI for desktop notifications via D-Bus/libnotify. Pre-installed on most desktop Linux distros. Usage: `notify-send 'Title' 'Message'`. The canonical Linux approach — gh run watch docs suggest chaining with it.",
+      "evidence": "Used in gh run watch examples. opensource.com article on Linux desktop notifications from terminal. undistract-me uses it internally.",
+      "status": "live",
+      "source_url": "https://opensource.com/article/22/1/linux-desktop-notifications",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "ntfy.sh (HTTP push notifications)",
+      "what": "Self-hostable push notification service. Send notifications via simple HTTP PUT/POST: `curl -d 'Build done' ntfy.sh/mytopic`. Phone app subscribes to topics. CLI supports `ntfy publish --wait-cmd <command>` to auto-notify on completion, and `--wait-pid` to watch an already-running process. Free tier available. Great for remote/headless servers.",
+      "evidence": "ntfy.sh docs show CLI integration patterns. Integrations page lists Ansible, cron, systemd, and many CI tools. Self-hosting is well-documented.",
+      "status": "live",
+      "source_url": "https://ntfy.sh/",
+      "sub_theme": "push-notification-service"
+    },
+    {
+      "name": "dschep/ntfy (automatic shell notifications)",
+      "what": "Python utility that auto-detects long-running commands (>10s default) and sends desktop notifications when they finish. Shell integration for bash/zsh hooks into PROMPT_COMMAND / precmd. Supports backends: desktop (dbus), Pushover, Pushbullet, Slack, Telegram. Only notifies when terminal is NOT focused. The most 'magic' solution — requires no per-command opt-in.",
+      "evidence": "GitHub repo dschep/ntfy. auto-ntfy-done.sh provides automatic shell integration. Configurable via LONG_RUNNING_COMMAND_TIMEOUT.",
+      "status": "live",
+      "source_url": "https://github.com/dschep/ntfy",
+      "sub_theme": "automatic-shell-integration"
+    },
+    {
+      "name": "undistract-me (Ubuntu/Debian automatic notifications)",
+      "what": "Shell functions that hook into bash/zsh execution cycle. Auto-notifies for any command >10s when the terminal window is not focused. Configurable threshold via LONG_RUNNING_COMMAND_TIMEOUT. Can play sound via UDM_PLAY_SOUND. Ignore list for commands like `vim`. Pre-packaged in Ubuntu/Debian repos.",
+      "evidence": "GitHub repo jml/undistract-me. Available in Ubuntu repos (`apt install undistract-me`). Configurable ignore list and timeout.",
+      "status": "live",
+      "source_url": "https://github.com/jml/undistract-me",
+      "sub_theme": "automatic-shell-integration"
+    },
+    {
+      "name": "zsh-notify (zsh plugin)",
+      "what": "Zsh-specific plugin that sends desktop notifications for long-running commands. Uses macOS Notification Center or notify-send on Linux. Distinguishes success/failure with different notification styles. Threshold-based (default 30s).",
+      "evidence": "GitHub repo marzocchi/zsh-notify. Active maintenance.",
+      "status": "live",
+      "source_url": "https://github.com/marzocchi/zsh-notify",
+      "sub_theme": "automatic-shell-integration"
+    },
+    {
+      "name": "Slack/Discord webhook notifications",
+      "what": "CLIs that POST to Slack/Discord webhooks on completion. cli-notify-slack wraps any command and sends Slack notification with user, hostname, command, output, and exit status. notify_slack pipes stdout to Slack at configurable intervals. Pattern: set SLACK_TOKEN + SLACK_CHANNEL env vars, then `cli-notify-slack <command>`.",
+      "evidence": "GitHub repos EntilZha/cli-notify-slack and catatsuy/notify_slack. Kubernetes deployment pipelines commonly post to Slack on completion.",
+      "status": "live",
+      "source_url": "https://github.com/EntilZha/cli-notify-slack",
+      "sub_theme": "team-notification"
+    },
+    {
+      "name": "Claude Code hooks system (reference implementation)",
+      "what": "Claude Code implements a multi-level notification system: (1) terminal bell as default, (2) OSC 9/777 for desktop notifications, (3) configurable hooks that run shell commands on 'Stop' event. Users configure via `claude config set --global preferredNotifChannel terminal_bell`. Hook scripts can call terminal-notifier, notify-send, or ntfy.sh. This is the closest prior art to what Vana Connect CLI needs.",
+      "evidence": "Multiple blog posts documenting setup. GitHub gist by michael-swann-rp shows complete multi-level notification config. Claude Code docs at code.claude.com/docs/en/hooks-guide.",
+      "status": "live",
+      "source_url": "https://code.claude.com/docs/en/hooks-guide",
+      "sub_theme": "reference-implementation"
+    },
+    {
+      "name": "Webhook/callback URL pattern",
+      "what": "Some async APIs accept a callback URL in the initial request and POST results there on completion. Not common in CLI tools directly, but the pattern is well-established in API design (Stripe, Twilio, etc.). A CLI could accept --webhook-url and POST on completion. This is heavyweight for most CLI use cases but valuable for CI/CD integration.",
+      "evidence": "Hookdeck guide on webhooks vs callbacks. Standard in cloud APIs but rarely seen in CLI tools themselves.",
+      "status": "pattern",
+      "source_url": "https://hookdeck.com/webhooks/guides/webhooks-callbacks",
+      "sub_theme": "machine-to-machine"
+    }
+  ],
+  "synthesis": {
+    "recommendation_for_1_10_min_tasks": [
+      "Tier 1 (ship immediately): Terminal bell (\\a) — zero deps, works everywhere, users already configure their terminals to handle it. Print \\a when task completes.",
+      "Tier 2 (ship immediately): OSC 9/777 escape sequences — zero deps, native desktop notifications in modern terminals (Ghostty, iTerm2, VSCode, Windows Terminal). Detect terminal and emit the right one.",
+      "Tier 3 (consider): node-notifier — cross-platform desktop notifications for users whose terminals don't support OSC. Adds a dependency but is battle-tested (7M+ weekly downloads).",
+      "Tier 4 (future): ntfy.sh integration via --notify-url flag — for headless/remote/CI scenarios. Simple HTTP POST, phone notifications.",
+      "Tier 5 (future): --webhook-url flag — for CI/CD pipelines and programmatic consumers."
+    ],
+    "what_users_actually_do": "Based on the evidence: (1) Power users configure their terminals (Ghostty/Warp/iTerm2) to auto-notify on long commands — they need nothing from the CLI. (2) Most users want desktop notifications — terminal bell mapped to OS notification is the path of least resistance. (3) The 'poll-then-exit' pattern (like gh run watch) lets users compose their own notification via shell chaining (`vana collect && notify-send done`). (4) Very few users set up Slack/webhook notifications for CLI tools — this is mainly for CI/CD.",
+    "key_insight": "The terminal bell (\\a) is massively underrated. Modern terminals (Ghostty, Warp, iTerm2, Windows Terminal) all map BEL to native OS notifications when the window is unfocused. By just printing \\a, you get desktop notifications for free in most modern terminal setups with zero dependencies. OSC 9/777 is the upgrade path for richer notifications (title + body)."
+  },
+  "gaps": [
+    "No quantitative data on what percentage of users have terminal bell mapped to notifications vs. disabled",
+    "No survey data on CLI notification preferences (Slack vs desktop vs push vs email)",
+    "No data on how many terminal users have shell integration (OSC 133) enabled, which is required for terminal-native auto-notifications",
+    "Email notification for CLI completion: found no CLI tools that implement this — it appears to be a dead pattern for CLI tools (exists only in web-based CI/CD like GitHub Actions)",
+    "No data on notification fatigue — at what frequency do notifications become annoying rather than helpful",
+    "Windows Terminal notification support for OSC 9 is documented but real-world adoption/reliability is unclear"
+  ]
+}

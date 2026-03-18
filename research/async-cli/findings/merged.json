@@ -1,0 +1,630 @@
+{
+  "files_merged": 5,
+  "total_findings": 68,
+  "deduplicated_from": 70,
+  "agent_questions": [
+    "Background process lifecycle management in CLIs",
+    "How best-in-class CLIs handle long-running operations",
+    "CLI task completion notification patterns",
+    "CLI scheduled and recurring task patterns",
+    "Sync vs async mode patterns in CLIs"
+  ],
+  "findings": [
+    {
+      "name": "AWS CLI: S3 transfers show progress by default with opt-out",
+      "what": "aws s3 cp shows file transfer progress by default. For large files (>100MB), it uses multipart upload and shows 'Completed X of Y part(s) with Z file(s) remaining'. --no-progress disables the progress display. --quiet suppresses all output. --only-show-errors shows only errors. --progress-frequency controls update interval. --progress-multiline shows progress on multiple lines.",
+      "evidence": "AWS docs: 'File transfer progress is displayed by default.' '--no-progress: File transfer progress is not displayed.' For large uploads: 'Completed 9896 of 9896 part(s) with 1 file(s) remaining.'",
+      "status": "live",
+      "source_url": "https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html",
+      "sub_theme": "progress display"
+    },
+    {
+      "name": "AWS CLI: wait subcommands poll silently until condition is met",
+      "what": "AWS CLI provides 'wait' subcommands for services with long-running operations (e.g., aws cloudformation wait stack-create-complete). These poll the API at fixed intervals (30 seconds for CloudFormation) until the condition is met or max attempts exceeded (120 for CloudFormation, producing exit code 255). The wait command produces NO terminal output -- it blocks silently. Operations themselves (e.g., aws cloudformation create-stack) return immediately with an ID; waiting is always opt-in via a separate command.",
+      "evidence": "AWS docs for stack-create-complete: 'It will poll every 30 seconds until a successful state has been reached. This will exit with a return code of 255 after 120 failed checks.' 'This command produces no output.'",
+      "status": "live",
+      "source_url": "https://docs.aws.amazon.com/cli/latest/reference/cloudformation/wait/stack-create-complete.html",
+      "sub_theme": "silent polling wait"
+    },
+    {
+      "name": "AWS CloudFormation: deploy blocks, no official --no-wait",
+      "what": "aws cloudformation deploy blocks by default, waiting for the stack operation to complete. There is NO official --no-wait flag despite long-standing feature requests (since 2014). Workaround: use create-stack/update-stack (which return immediately) + custom polling with describe-stacks. The --no-execute-changeset flag is related but different (previews without executing).",
+      "evidence": "GitHub issue #895 (2014) requests synchronous create/update. Issue #12037 on serverless framework requests async deploys. AWS has not shipped --no-wait for deploy as of 2026.",
+      "status": "live",
+      "source_url": "https://github.com/aws/aws-cli/issues/895",
+      "sub_theme": "foreground-default-no-async-escape"
+    },
+    {
+      "name": "Claude Code hooks system (reference implementation)",
+      "what": "Claude Code implements a multi-level notification system: (1) terminal bell as default, (2) OSC 9/777 for desktop notifications, (3) configurable hooks that run shell commands on 'Stop' event. Users configure via `claude config set --global preferredNotifChannel terminal_bell`. Hook scripts can call terminal-notifier, notify-send, or ntfy.sh. This is the closest prior art to what Vana Connect CLI needs.",
+      "evidence": "Multiple blog posts documenting setup. GitHub gist by michael-swann-rp shows complete multi-level notification config. Claude Code docs at code.claude.com/docs/en/hooks-guide.",
+      "status": "live",
+      "source_url": "https://code.claude.com/docs/en/hooks-guide",
+      "sub_theme": "reference-implementation"
+    },
+    {
+      "name": "CLI convention: flag naming consensus",
+      "what": "Three dominant flag names emerge: --detach/-d (Docker, Fly.io, Railway), --no-wait (Vercel, AWS requests), and --background (less common, mostly OS-level). --detach implies the process continues server-side. --no-wait implies you don't care about the outcome. --background implies a local background process. For deploy/connect operations that run server-side, --detach is the most conventional name.",
+      "evidence": "clig.dev: 'Use standard names for flags, if there is a standard. If another commonly used command uses a flag name, it's best to follow that existing pattern.'",
+      "status": "live",
+      "source_url": "https://clig.dev/",
+      "sub_theme": "naming-conventions"
+    },
+    {
+      "name": "Cronie (modern cron daemon)",
+      "what": "Modern implementation of the standard UNIX cron daemon (evolved from vixie-cron). Provides `crontab` CLI for editing/viewing jobs with syntax validation and automatic backup, plus `cronnext` utility for querying upcoming execution times. Adds PAM/SELinux integration, tilde (~) operator for randomization within ranges, support for up to 10,000 entries per user, and NO_MAIL_OUTPUT env var. Not a scheduling CLI itself but the underlying daemon that crontab-wrapper CLIs (like Whenever) write to.",
+      "evidence": "cronnext utility for querying upcoming job execution times. Tilde operator (~) for randomization within ranges. Up to 10,000 crontab entries per user. PAM and SELinux integration. 56 contributors, 611 commits.",
+      "status": "live",
+      "source_url": "https://github.com/cronie-crond/cronie",
+      "sub_theme": "cron daemon"
+    },
+    {
+      "name": "Dkron (distributed cron)",
+      "what": "Distributed, fault-tolerant job scheduling system built in Go using Raft consensus and Serf gossip protocol. Provides web UI, REST API, and CLI for job management. Eliminates single points of failure by distributing scheduling across multiple nodes. Scales to thousands of nodes. Deployed via Docker Compose with `docker compose up -d --scale dkron-server=4 --scale dkron-agent=10`. Web UI at port 8080. Primarily designed for infrastructure teams, not end-user CLIs. 4.7k GitHub stars.",
+      "evidence": "docker compose up -d --scale dkron-server=4 --scale dkron-agent=10. Web UI: http://localhost:8080/ui. Built on Raft consensus + Serf gossip protocol. 'Able to handle high volumes of scheduled jobs and thousands of nodes.'",
+      "status": "live",
+      "source_url": "https://github.com/distribworks/dkron",
+      "sub_theme": "distributed scheduler"
+    },
+    {
+      "name": "docker compose up: foreground default, -d for detach",
+      "what": "docker compose up blocks in the foreground by default, streaming logs from all services. The -d/--detach flag starts containers in the background. This mirrors docker run's pattern and is the most widely-known example of the --detach convention.",
+      "evidence": "Docker docs: 'Running docker compose up --detach starts the containers in the background and leaves them running.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/compose/up/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "Docker daemon (dockerd)",
+      "what": "Runs as a persistent daemon process managed by systemd. Uses --pidfile flag (default /var/run/docker.pid) to store process ID. Communicates via Unix domain socket at /var/run/docker.sock, with optional TCP binding for remote access. Supports systemd socket activation via fd:// syntax. SIGHUP reloads configuration without restart; systemd handles crash recovery and auto-restart. Multiple daemon instances require unique PID file and socket paths. The docker CLI is a thin client that sends commands over the socket; the daemon does all container management.",
+      "evidence": "dockerd docs: '--pidfile=/var/run/docker.pid' flag, '-H unix:///var/run/docker.sock' default socket, SIGHUP for config reload. PR #41465 added PIDFile to docker.service unit so systemd reliably cleans up stale PID files on crash.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "daemon_with_systemd"
+    },
+    {
+      "name": "Docker restart policies (not true scheduling)",
+      "what": "Docker provides --restart flags (no, on-failure[:max-retries], always, unless-stopped) for automatic container restart, but these are recovery mechanisms, not schedulers. An increasing delay (doubling from 100ms, max 1 min) is added before each restart, resetting after 10 seconds of successful runtime. For actual scheduled/recurring container execution, Docker relies on external tools (host cron, Kubernetes CronJobs, Supercronic inside containers). Health checks (--health-cmd, --health-interval, --health-retries) complement restart policies but don't provide scheduling.",
+      "evidence": "docker run --restart=on-failure:10 redis. 'An increasing delay (double the previous delay, starting at 100 milliseconds) is added before each restart.' Health checks: --health-cmd, --health-interval, --health-timeout, --health-retries.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/container/run/",
+      "sub_theme": "container restart (not scheduling)"
+    },
+    {
+      "name": "Docker: docker build --progress controls output format (auto/plain/tty/quiet/rawjson)",
+      "what": "docker build supports five progress output modes. 'auto' (default) selects tty for terminals, plain otherwise. 'tty' uses color and dynamic redrawing with progress bars. 'plain' prints raw build progress as plaintext with step numbers and timing. 'quiet' suppresses all output except final image ID. 'rawjson' outputs JSON lines for programmatic consumption. This demonstrates adaptive output based on terminal capabilities.",
+      "evidence": "Docker docs: '--progress: Set type of progress output (auto, plain, tty, quiet, rawjson). Use plain to show container output (default \"auto\").' 'auto: Uses tty mode if the client is a TTY, otherwise uses plain.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/buildx/build/",
+      "sub_theme": "adaptive output format"
+    },
+    {
+      "name": "Docker: docker run -d (detached) vs foreground is the canonical pattern",
+      "what": "docker run defaults to foreground (attached) mode with stdin/stdout/stderr connected. The -d/--detach flag runs the container in the background, printing only the container ID. In detached mode, closing the terminal does not stop the container. Users check status with 'docker ps', view output with 'docker logs', and re-attach with 'docker attach'. This is the most well-known sync/async dual-mode pattern in CLIs.",
+      "evidence": "Docker docs: 'If you want to run the container in the background, you can use the --detach (or -d) flag.' 'Detached mode means that a Docker container runs in the background of your terminal. It does not receive input or display output.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/engine/containers/run/",
+      "sub_theme": "canonical detach pattern"
+    },
+    {
+      "name": "Docker: foreground by default, -d to detach",
+      "what": "docker run blocks in foreground by default, attaching stdin/stdout/stderr to the terminal. The -d (--detach) flag runs the container in the background and prints only the container ID. Rationale: foreground is the safe, observable default — you see errors immediately. Detached mode is for production/daemon use cases.",
+      "evidence": "Docker docs: 'By default, Docker runs the container in attached mode.' The -d flag 'means that a Docker container runs in the background of your terminal. It does not receive input or display output.' After -d, the user sees only the container ID hash.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/engine/containers/run/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "dschep/ntfy (automatic shell notifications)",
+      "what": "Python utility that auto-detects long-running commands (>10s default) and sends desktop notifications when they finish. Shell integration for bash/zsh hooks into PROMPT_COMMAND / precmd. Supports backends: desktop (dbus), Pushover, Pushbullet, Slack, Telegram. Only notifies when terminal is NOT focused. The most 'magic' solution — requires no per-command opt-in.",
+      "evidence": "GitHub repo dschep/ntfy. auto-ntfy-done.sh provides automatic shell integration. Configurable via LONG_RUNNING_COMMAND_TIMEOUT.",
+      "status": "live",
+      "source_url": "https://github.com/dschep/ntfy",
+      "sub_theme": "automatic-shell-integration"
+    },
+    {
+      "name": "Fly.io: --detach flag may not work as documented",
+      "what": "Community testing suggests the --detach flag may not function correctly. One user reported: 'it ignored the --detach flag completely -- and that matches what I see in the flyctl source code.' There is no documented re-attach mechanism after detaching.",
+      "evidence": "Fly.io community forum post: user reports --detach flag is non-functional based on testing and source code review.",
+      "status": "live",
+      "source_url": "https://community.fly.io/t/how-fly-deploy-detach-works/25607",
+      "sub_theme": "detach reliability"
+    },
+    {
+      "name": "Fly.io: deploy blocks with live monitoring, --detach to return immediately",
+      "what": "fly deploy blocks by default, showing live deployment progress as machines transition through states until healthy. The --detach flag causes the command to 'return immediately instead of monitoring deployment progress.' Important: --detach also disables automatic rollback on failed health checks, which is poorly documented.",
+      "evidence": "Fly.io docs: '--detach: Return immediately instead of monitoring deployment progress.' Community discussion notes that --detach disabling rollbacks should be documented in CLI help.",
+      "status": "live",
+      "source_url": "https://fly.io/docs/flyctl/deploy/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "Fly.io: fly deploy blocks with monitoring, supports --detach flag",
+      "what": "fly deploy builds and deploys, then enters a 'Monitoring Deployment' phase showing machine status counts (e.g., '1 desired, 1 placed, 1 healthy, 0 unhealthy') and health check results. The terminal displays 'You can detach the terminal anytime without stopping the deployment.' The --detach flag returns immediately instead of monitoring. --wait-timeout (default 5m0s) controls how long to wait for machines to become healthy. Smoke checks monitor machines for ~10 seconds after start.",
+      "evidence": "Fly docs: '--detach: Return immediately instead of monitoring deployment progress.' '--wait-timeout: Time duration to wait for individual machines to transition states and become healthy. (default 5m0s).' Community posts show output: 'You can detach the terminal anytime without stopping the deployment' followed by 'Monitoring deployment' with machine status counts.",
+      "status": "live",
+      "source_url": "https://fly.io/docs/flyctl/deploy/",
+      "sub_theme": "blocking with detach"
+    },
+    {
+      "name": "forever (Node.js)",
+      "what": "Legacy Node.js daemon manager (now recommends pm2/nodemon for new projects). Runs a Flatiron server as daemon to manage child processes. PID files stored in ~/.forever/ directory. Supports --pidFile for custom PID location. Has built-in cleanup for extraneous/stale PID files (forever.cleanUp() emits 'cleanUp' event). Auto-restarts crashed processes. 'forever start' daemonizes; 'forever stop/stopall' terminates; 'forever list' shows running processes.",
+      "evidence": "npm docs: 'A simple CLI tool for ensuring that a given script runs continuously (i.e. forever)', default files in $HOME/.forever, cleanUp functionality for stale PIDs.",
+      "status": "live",
+      "source_url": "https://github.com/foreversd/forever",
+      "sub_theme": "node_daemon_manager"
+    },
+    {
+      "name": "Gatsby develop (foreground long-running CLI)",
+      "what": "Runs as a foreground process with file watching via webpack. No daemon mode -- process lives in the terminal. Uses port-based conflict detection: checks if port 8000 is in use and warns 'Looks like develop for this site is already running'. Known issues with Ctrl+C not properly killing the process (zombie process problem). Relies on the user's terminal for lifecycle management. No PID file, no daemon mode, no auto-restart.",
+      "evidence": "GitHub issue #5810: 'Ctrl+C not quitting CLI'. Discussion #26869: infinite loop with stale port detection. Gatsby develop is purely foreground with webpack-dev-server.",
+      "status": "live",
+      "source_url": "https://www.gatsbyjs.com/docs/reference/gatsby-cli/",
+      "sub_theme": "foreground_dev_server"
+    },
+    {
+      "name": "gh run watch (GitHub CLI polling pattern)",
+      "what": "GitHub CLI's `gh run watch` polls a CI run and streams progress with a live-updating table, then exits 0/1 on completion. It does NOT send any notification itself — the user chains it: `gh run watch && notify-send 'done'`. This is the canonical 'poll-then-exit' pattern: the CLI's job is to block until done, and the user composes notification on top.",
+      "evidence": "gh run watch docs at cli.github.com. Stuart Leeks blog post shows chaining with Windows toast notifications. GitHub blog post from 2021 introducing the feature.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "poll-then-exit"
+    },
+    {
+      "name": "GitHub Actions scheduled workflows (gh CLI)",
+      "what": "GitHub Actions supports `schedule` triggers using POSIX cron syntax in workflow YAML files. The `gh` CLI does not create schedules directly—users write `on: schedule: - cron: '...'` in .github/workflows/*.yml. The CLI manages workflows after creation: `gh workflow list/view/run/enable/disable` and `gh run list -e schedule` to filter scheduled runs. State lives in GitHub's cloud. Minimum interval: every 5 minutes. UTC only. Scheduled workflows on public repos auto-disable after 60 days of inactivity. Runs can be delayed during high load. Failures show as failed runs in `gh run list -s failure`.",
+      "evidence": "on: schedule: - cron: '30 5 * * 1,3'. gh workflow list; gh workflow run <workflow>; gh run list -e schedule -s completed. 'The shortest interval you can run scheduled workflows is once every 5 minutes.' 'In a public repository, scheduled workflows are automatically disabled when no repository activity has occurred in 60 days.'",
+      "status": "live",
+      "source_url": "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "GitHub CLI: gh run watch polls and displays workflow progress",
+      "what": "gh run watch monitors a GitHub Actions workflow run until it completes. It polls at a configurable interval (--interval, default 3 seconds) and displays step-by-step progress. --compact shows only relevant/failed steps. --exit-status exits with non-zero on failure. Without arguments, interactively selects from active runs. Can be chained: 'gh run watch && notify-send \"done\"'. Closing the terminal does not cancel the workflow -- the operation is server-side.",
+      "evidence": "GitHub CLI docs: 'Watch a run until it completes, showing its progress.' '--interval: Refresh interval in seconds (default 3).' '--exit-status: Exit with non-zero status if run fails.'",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "separate watch command"
+    },
+    {
+      "name": "GitHub CLI: gh workflow run fires and forgets, separate from watching",
+      "what": "gh workflow run triggers a workflow dispatch event and returns immediately. It does not wait for or monitor execution. Users must separately use 'gh run watch' or 'gh run view' to monitor. This is a clean separation: trigger is async, monitoring is opt-in via a separate command.",
+      "evidence": "GitHub CLI manual separates 'gh workflow run' (trigger) from 'gh run watch' (monitor) as distinct commands.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_workflow_run",
+      "sub_theme": "fire-and-forget with separate monitor"
+    },
+    {
+      "name": "GitHub CLI: trigger is async, watch is opt-in sync",
+      "what": "gh workflow run triggers a workflow and returns immediately (async). gh run watch <run-id> blocks and polls every 3 seconds showing live progress until the run completes. gh run list shows a snapshot of recent runs. This is the two-command pattern: fire-and-forget trigger + optional blocking monitor.",
+      "evidence": "GitHub CLI docs: 'gh run watch watches a run until it completes, showing its progress.' The interface refreshes every 3 seconds. --compact shows only relevant/failed steps.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "async-default-opt-in-watch"
+    },
+    {
+      "name": "Heroku Scheduler",
+      "what": "Free add-on that runs one-off dyno commands at fixed intervals (every 10 min, hourly, or daily). Configuration is done via a web dashboard opened with `heroku addons:open scheduler`—there is no declarative config file or CLI flag for defining schedules. State lives entirely in Heroku's cloud. Monitoring is via `heroku logs --ps scheduler.1`. No built-in retry, no failure notifications, and execution is best-effort ('known to occasionally miss'). For reliable scheduling, Heroku recommends a custom clock process instead. Key limitation: only 3 interval choices, no cron expressions, dashboard-only config.",
+      "evidence": "heroku addons:create scheduler:standard; heroku addons:open scheduler; heroku logs --ps scheduler.1. Task definition: Task: rake update_feed, Frequency: Hourly, Time: :30. Jobs execute as one-off dynos named scheduler.X visible via heroku ps.",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/scheduler",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "Heroku: git push blocks, but Ctrl+C detaches without canceling",
+      "what": "git push heroku main blocks by default, streaming build output in real-time (compiling, installing dependencies, etc.). Pressing Ctrl+C detaches from the build output but does NOT cancel the build or deploy -- it continues server-side and creates a new release when complete. Status can be checked afterward with 'heroku releases' (release history), 'heroku ps' (running processes), and 'heroku releases:output' (build output for a specific release).",
+      "evidence": "Heroku docs: 'After you initiate a Heroku deploy with git push, you can detach from the resulting build process by pressing Ctrl + C. Detaching doesn't cancel the build or the deploy. The build continues in the background and creates a new release as soon as it completes.' | Heroku docs: 'After you initiate a Heroku deploy with git push, you can detach from the resulting build process by pressing Ctrl + C. Detaching doesn't cancel the build or the deploy.'",
+      "status": "live",
+      "source_urls": ["https://devcenter.heroku.com/articles/git"],
+      "sub_theme": "Ctrl+C detach pattern",
+      "merged_from": 2
+    },
+    {
+      "name": "Homebrew Services (brew services)",
+      "what": "CLI that manages OS-native services (launchd on macOS, systemd on Linux). Commands: `brew services start/stop/restart/run/list/info/kill/cleanup`. `start` both launches and registers for auto-start at login/boot. `run` launches without auto-start registration. Automatically generates plist (macOS) or systemd unit files. Service files live in ~/Library/LaunchAgents or ~/.config/systemd/user (user-level) or system directories (root). Monitoring via `brew services list --json` and OS-level tools (journalctl, launchctl). No built-in cron/scheduling syntax—it delegates to the formula's service definition. Mainly manages long-running daemons, not one-shot scheduled tasks.",
+      "evidence": "Plist includes <key>KeepAlive</key><true/> and <key>RunAtLoad</key><true/>. Files at ~/Library/LaunchAgents/homebrew.mxcl.<service>.plist. Linux uses systemd user units. | brew services start <formula>; brew services list --json; brew services run <formula> (no auto-start). macOS: ~/Library/LaunchAgents. Linux: ~/.config/systemd/user. --file for custom service files. brew services cleanup removes unused definitions.",
+      "status": "live",
+      "source_urls": [
+        "https://www.dorokhovich.com/blog/homebrew-services",
+        "https://docs.brew.sh/Manpage#services-subcommand"
+      ],
+      "sub_theme": "OS service integration",
+      "merged_from": 2
+    },
+    {
+      "name": "Jobber (cron alternative with error handling)",
+      "what": "Go-based cron alternative with built-in job execution history, exponential backoff on failure, and configurable failure notifications. Jobs defined in a YAML-like jobfile. Three error handling modes: Stop (disable job after failure), Backoff (exponential delay before retry), Continue (keep running on schedule). Users can configure notifications on every failure or only when a job gets disabled. CLI for listing job status and history. Currently unmaintained (seeking new maintainer). Last release v1.4.4 in June 2020.",
+      "evidence": "Error handling: 'after an initial failure of a job, Jobber can schedule future runs using an exponential backoff algorithm.' Three onError modes: Stop, Backoff, Continue. Notification on failure or on disable. 444 commits, 1.4k stars.",
+      "status": "unmaintained",
+      "source_url": "https://github.com/dshearer/jobber",
+      "sub_theme": "cron alternative"
+    },
+    {
+      "name": "kubectl watch pattern",
+      "what": "kubectl uses --watch/-w flag for long-running observation of resource changes. This is NOT a background process -- it's a foreground streaming connection using Kubernetes watch API (HTTP long-poll with chunked transfer). 'kubectl get pods -w' streams state changes in real-time. The CLI maintains a persistent connection to the API server. No PID management needed since it runs in the foreground. For background monitoring, users rely on external tools (Kubernetes controllers, operators) that run as pods themselves.",
+      "evidence": "kubectl docs: '--watch' flag starts watching updates. 'kubectl get events --watch --field-selector involvedObject.name=myapp-pod' for targeted watching. Kubernetes controllers handle actual background supervision.",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/reference/kubectl/",
+      "sub_theme": "foreground_streaming"
+    },
+    {
+      "name": "Kubernetes CronJobs (kubectl)",
+      "what": "First-class Kubernetes resource for recurring container execution using standard cron syntax. Created via `kubectl create cronjob <name> --image=<img> --schedule='...'` or declarative YAML. Rich configuration surface: concurrencyPolicy (Allow/Forbid/Replace), startingDeadlineSeconds, successfulJobsHistoryLimit, failedJobsHistoryLimit, backoffLimit, timeZone, suspend. State lives in etcd (cluster state). Monitoring via `kubectl get cronjobs`, `kubectl describe cronjob`, `kubectl logs`. Suspend/resume via `kubectl patch cronjob <name> -p '{\"spec\":{\"suspend\":true}}'`. The most complete scheduling model of any CLI tool surveyed—covers concurrency, deadlines, history retention, timezone, and suspension.",
+      "evidence": "kubectl create cronjob hello --image=busybox:1.28 --schedule='* * * * *'. YAML spec fields: schedule, concurrencyPolicy (Allow|Forbid|Replace), startingDeadlineSeconds, successfulJobsHistoryLimit (default 3), failedJobsHistoryLimit (default 1), suspend, timeZone. Macros: @yearly, @monthly, @weekly, @daily, @hourly.",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/",
+      "sub_theme": "infrastructure scheduler"
+    },
+    {
+      "name": "Kubernetes: kubectl apply returns immediately (async default), rollout status blocks",
+      "what": "kubectl apply is async by default — it submits the manifest and returns immediately without waiting for pods to be ready. To block, you compose a second command: kubectl rollout status deployment/NAME, which watches until the rollout completes. kubectl wait provides generic condition-based waiting. This is the opposite pattern from most deploy CLIs.",
+      "evidence": "Kubernetes docs: 'kubectl apply doesn't have a --wait option, so the success of a deploy doesn't actually indicate the deploy succeeded, as the rollout happens asynchronously.' kubectl rollout status 'watches the status of the latest rollout until it's done.'",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/kubectl_rollout_status/",
+      "sub_theme": "async-default-opt-in-wait"
+    },
+    {
+      "name": "launchd plist integration pattern",
+      "what": "macOS CLIs register as LaunchAgents (user-level) or LaunchDaemons (system-level). Plist XML defines: Label (unique ID), ProgramArguments (command), RunAtLoad (start on login/boot), KeepAlive (auto-restart on crash), StandardOutPath/StandardErrorPath (log files), WorkingDirectory. 'launchctl load/unload <plist>' manages lifecycle. Files at ~/Library/LaunchAgents/ (user) or /Library/LaunchDaemons/ (system). No PID file needed -- launchd tracks child PIDs internally.",
+      "evidence": "Homebrew services generates plists with KeepAlive=true and RunAtLoad=true. PostgreSQL example shows full plist structure with ProgramArguments, log paths, and working directory.",
+      "status": "live",
+      "source_url": "https://www.dorokhovich.com/blog/homebrew-services",
+      "sub_theme": "os_service_integration"
+    },
+    {
+      "name": "node-notifier (cross-platform OS notifications from Node.js)",
+      "what": "Node.js library that sends native desktop notifications on macOS (Notification Center), Windows (Toaster/Balloons), and Linux (notify-send). Supports title, message, icon, sound, click-to-open URL. Has a separate CLI package (node-notifier-cli). 7M+ weekly npm downloads. This is the go-to for Node.js CLIs that want desktop notifications.",
+      "evidence": "npm page shows massive adoption. CLI variant allows `notify -t 'Title' -m 'Message' -s`. Used by webpack, Jest, and many build tools for completion notifications.",
+      "status": "live",
+      "source_url": "https://www.npmjs.com/package/node-notifier",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "Node.js graceful shutdown patterns",
+      "what": "Best practice for Node.js daemons: listen for SIGINT and SIGTERM (cross-platform safe). On signal: (1) stop accepting new connections, (2) drain existing connections with timeout, (3) close database pools, (4) remove PID file, (5) call process.exit(). Use a forced-exit timeout (e.g., setTimeout(() => process.exit(1), 10000)) as safety net. PID file cleanup via process.on('exit') or atexit-style handlers. SIGUSR1/SIGUSR2 not safe on Windows. For containers (PID 1 trap): Node.js doesn't forward signals to children when running as PID 1 -- use tini or dumb-init as entrypoint.",
+      "evidence": "Medium article on PID 1 trap: 'Node.js doesn't forward signals to children when running as PID 1'. Node.js docs recommend only SIGINT and SIGTERM for cross-platform compatibility.",
+      "status": "live",
+      "source_url": "https://medium.com/@etienne.rossignon/stop-killing-your-node-js-containers-the-pid-1-trap-5c18abffd72c",
+      "sub_theme": "graceful_shutdown"
+    },
+    {
+      "name": "nohup and terminal multiplexer patterns",
+      "what": "Lightweight background process approaches without daemon infrastructure: (1) nohup -- detaches process from terminal, redirects output to nohup.out, survives terminal close. No monitoring, no auto-restart, no PID management. (2) tmux/screen -- session persistence, user can reattach to see output. Some CLIs document 'run in tmux' as official guidance for long-running tasks. (3) disown -- bash builtin to remove job from shell's job table. These are user-managed approaches with no supervision; commonly used for ad-hoc tasks rather than production services.",
+      "evidence": "Multiple Node.js deployment guides suggest nohup for simple cases, pm2/systemd for production. tmux/screen commonly recommended in CLI docs for long-running tasks that need output inspection.",
+      "status": "live",
+      "source_url": "https://pixeljets.com/blog/using-supervisorctl-for-node-processes-common-gotchas/",
+      "sub_theme": "lightweight_background"
+    },
+    {
+      "name": "notify-send (Linux)",
+      "what": "Linux-native CLI for desktop notifications via D-Bus/libnotify. Pre-installed on most desktop Linux distros. Usage: `notify-send 'Title' 'Message'`. The canonical Linux approach — gh run watch docs suggest chaining with it.",
+      "evidence": "Used in gh run watch examples. opensource.com article on Linux desktop notifications from terminal. undistract-me uses it internally.",
+      "status": "live",
+      "source_url": "https://opensource.com/article/22/1/linux-desktop-notifications",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "npm/pnpm install: always blocks, no async mode",
+      "what": "npm install and pnpm install always block the terminal. There is no --background or --async flag. This makes sense because subsequent commands (build, test, run) depend on install completing. The user sees a progress bar/spinner and package resolution output.",
+      "evidence": "No --background, --async, or --no-wait flags exist in npm or pnpm CLI documentation. Install is a prerequisite step that must complete before anything else can run.",
+      "status": "live",
+      "source_url": "https://docs.npmjs.com/cli/commands/npm-install",
+      "sub_theme": "foreground-only-no-async"
+    },
+    {
+      "name": "ntfy.sh (HTTP push notifications)",
+      "what": "Self-hostable push notification service. Send notifications via simple HTTP PUT/POST: `curl -d 'Build done' ntfy.sh/mytopic`. Phone app subscribes to topics. CLI supports `ntfy publish --wait-cmd <command>` to auto-notify on completion, and `--wait-pid` to watch an already-running process. Free tier available. Great for remote/headless servers.",
+      "evidence": "ntfy.sh docs show CLI integration patterns. Integrations page lists Ansible, cron, systemd, and many CI tools. Self-hosting is well-documented.",
+      "status": "live",
+      "source_url": "https://ntfy.sh/",
+      "sub_theme": "push-notification-service"
+    },
+    {
+      "name": "OSC 9 / OSC 777 escape sequences",
+      "what": "Terminal escape sequences that trigger native OS desktop notifications without any external dependency. OSC 9 (iTerm2/Windows Terminal format): `\\033]9;Message\\007`. OSC 777 (rxvt-unicode/VSCode format): `\\033]777;notify;Title;Message\\007`. Works over SSH when terminal forwards escape sequences. VSCode integrated terminal forwards these from remote hosts.",
+      "evidence": "Claude Code hooks use both OSC 9 and OSC 777 for desktop notifications. Ghostty, iTerm2, Windows Terminal, VSCode integrated terminal, and foot terminal all support one or both. A VSCode extension (terminal-osc-notifier) exists specifically for this.",
+      "status": "live",
+      "source_url": "https://github.com/ghostty-org/ghostty/discussions/3555",
+      "sub_theme": "zero-dependency"
+    },
+    {
+      "name": "Pattern: CLIs that offer both sync and async for the same operation",
+      "what": "Multiple CLIs implement dual-mode patterns for the same operation: (1) Vercel: vercel deploy blocks by default, --no-wait returns immediately. (2) Railway: railway up attaches by default, --detach returns immediately. (3) Fly.io: fly deploy monitors by default, --detach returns immediately (though may be buggy). (4) Docker: docker run attaches by default, -d detaches. (5) AWS CloudFormation: create-stack returns immediately, 'wait stack-create-complete' blocks. The dominant pattern is block-by-default with opt-out, except AWS which is async-by-default with opt-in waiting.",
+      "evidence": "Compiled from official documentation for each CLI. Vercel: --no-wait flag. Railway: --detach flag. Fly.io: --detach flag. Docker: -d flag. AWS: separate wait subcommand.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "cross-CLI pattern"
+    },
+    {
+      "name": "Pattern: What happens when the terminal is closed mid-operation",
+      "what": "Server-side operations continue regardless of terminal state: Heroku builds continue after Ctrl+C. GitHub Actions workflows run independently of gh run watch. AWS CloudFormation stacks deploy independently of the CLI. Fly.io deployments continue if detached. Client-side operations stop: Stripe listen/logs tail stop when the terminal closes (they are local processes maintaining connections). The key distinction is whether the operation is server-side (survives terminal close) or client-side (dies with terminal).",
+      "evidence": "Heroku docs explicitly state: 'Detaching doesn't cancel the build or the deploy.' GitHub Actions workflows are server-side by nature. Stripe listen requires an active terminal connection.",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/git",
+      "sub_theme": "terminal close behavior"
+    },
+    {
+      "name": "PID file stale detection patterns",
+      "what": "Three main approaches: (1) kill(pid, 0) / kill -0 -- sends signal 0 which checks process existence without actually sending a signal. Returns success if process exists, ESRCH error if not. Caveat: non-root users may get EPERM for others' processes, which still means the process exists. (2) pgrep -F <pidfile> -- reads PID from file and checks if process exists, returning exit status 1 if stale. (3) File locking (flock/fcntl) -- process holds advisory lock on PID file; if lock is obtainable, previous process is dead. File locking is the most robust approach as it handles PID recycling. All approaches should be combined with atexit/signal-handler cleanup to remove PID file on normal exit.",
+      "evidence": "Python pid library uses flock. Node.js daemon-pid provides 'start-time verification to ensure the recorded process-id was not recycled by the OS'. Common pattern: check kill(pid, 0), if ESRCH then stale, if EPERM then process exists but owned by another user.",
+      "status": "live",
+      "source_url": "https://github.com/trbs/pid",
+      "sub_theme": "pid_management"
+    },
+    {
+      "name": "PM2 (cron_restart + startup)",
+      "what": "Node.js process manager with daemon mode, cron-based restart scheduling, and OS init system integration. Scheduling via `pm2 start app.js --cron-restart='0 0 * * *'` or ecosystem.config.js `cron_restart` field. PM2 runs as a persistent daemon—not pure cron. `pm2 startup` generates init scripts for systemd/launchd/upstart/openrc, and `pm2 save` persists the process list for resurrection on reboot. Monitoring via `pm2 monit`, `pm2 logs`, `pm2 list`. Failure handling via exponential backoff restart delay, max_memory_restart, and stop_exit_codes. Key distinction: PM2's cron_restart restarts an already-running daemon on a schedule, rather than running a one-shot task.",
+      "evidence": "pm2 start app.js --cron-restart='0 0 * * *'. ecosystem.config.js: { cron_restart: '0 0 * * *' }. pm2 startup (detects systemd/launchd/upstart). pm2 save (persists process list). --exp-backoff-restart-delay=100 for exponential backoff.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/restart-strategies/",
+      "sub_theme": "daemon process manager"
+    },
+    {
+      "name": "PM2 (Node.js process manager)",
+      "what": "Two-process architecture: a persistent 'God Daemon' and a thin CLI client. Daemon communicates via two Unix sockets: ~/.pm2/rpc.sock (commands) and ~/.pm2/pub.sock (events/logs). PID files stored in ~/.pm2/pids/<app>-<id>.pid. On 'pm2 start', CLI connects to daemon (spawning it if needed), daemon forks the target process. Graceful shutdown sends SIGINT first, then SIGKILL after configurable kill_timeout (default 1.6s). Auto-restart on crash with exponential backoff option. 'pm2 startup' generates platform-specific init scripts (systemd/launchd/upstart). 'pm2 save' + 'pm2 resurrect' persists process list across reboots via dump.pm2 file.",
+      "evidence": "PM2 docs: 'PM2 is a daemon process manager', PID files at ~/.pm2/pids/, socket files at ~/.pm2/rpc.sock and ~/.pm2/pub.sock, 'pm2 startup' generates systemd/launchd/upstart scripts, exponential backoff via --exp-backoff-restart-delay, kill_timeout configurable.",
+      "status": "live",
+      "source_url": "https://pm2.keymetrics.io/docs/usage/pm2-doc-single-page/",
+      "sub_theme": "node_daemon_manager"
+    },
+    {
+      "name": "Railway CLI: railway logs for monitoring after detach",
+      "what": "railway logs streams logs by default via WebSocket, or fetches historical logs when using --lines, --since, or --until flags. The -d flag shows deployment logs, -b shows build logs. Can target a specific deployment ID.",
+      "evidence": "Railway docs: 'Stream mode (the default) connects via WebSocket and streams logs in real-time.' 'Use railway logs with the deployment ID to stream the failed build/deploy logs.'",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/logs",
+      "sub_theme": "log streaming"
+    },
+    {
+      "name": "Railway CLI: railway up has three modes: attached (default), --detach, --ci",
+      "what": "railway up uploads and deploys, defaulting to attached mode that streams build and deployment logs in real-time. --detach (-d) returns immediately after uploading; the deployment continues in the background and can be monitored via dashboard or 'railway logs'. --ci (-c) streams only build logs and exits when the build completes, designed for CI/CD pipelines.",
+      "evidence": "Railway docs: 'By default, railway up operates in attached mode and streams build and deployment logs to your terminal.' '--detach: return immediately after uploading.' '--ci: stream only build logs and exit when the build completes.'",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/deploying",
+      "sub_theme": "three-mode pattern"
+    },
+    {
+      "name": "Railway: deploy blocks with log streaming, -d/--detach to skip",
+      "what": "railway up blocks by default, streaming build logs to the terminal. The -d/--detach flag 'returns immediately after uploading, with the deployment continuing in the background.' Also offers -c/--ci which streams only build logs and exits when build (not deploy) completes — a middle ground between full sync and full detach.",
+      "evidence": "Railway docs: '--detach prevents attaching to the log stream.' The -c/--ci flag 'streams only build logs and exits when the build completes' — useful for CI/CD.",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/deploying",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "runit",
+      "what": "Lightweight cross-platform init scheme with service supervision. Each service is a directory containing a 'run' script. The runsv process supervises each service, automatically restarting it on exit. Optional './check' script for readiness polling. Optional './log/run' for dedicated log service per process. Can replace PID 1 or run alongside other init systems. Uses a simple directory-based state model: service is 'up' if its run script is running, 'down' if not.",
+      "evidence": "Arch Wiki: 'runit runs on GNU/Linux, *BSD, MacOSX, Solaris'. Gentoo wiki: 'Process supervision is a type of operating system service management in which some master process remains the parent of the service processes.'",
+      "status": "live",
+      "source_url": "https://smarden.org/runit/",
+      "sub_theme": "process_supervisor"
+    },
+    {
+      "name": "Slack/Discord webhook notifications",
+      "what": "CLIs that POST to Slack/Discord webhooks on completion. cli-notify-slack wraps any command and sends Slack notification with user, hostname, command, output, and exit status. notify_slack pipes stdout to Slack at configurable intervals. Pattern: set SLACK_TOKEN + SLACK_CHANNEL env vars, then `cli-notify-slack <command>`.",
+      "evidence": "GitHub repos EntilZha/cli-notify-slack and catatsuy/notify_slack. Kubernetes deployment pipelines commonly post to Slack on completion.",
+      "status": "live",
+      "source_url": "https://github.com/EntilZha/cli-notify-slack",
+      "sub_theme": "team-notification"
+    },
+    {
+      "name": "Stripe CLI: stripe listen runs as a foreground-only long-lived process",
+      "what": "stripe listen maintains a persistent WebSocket connection to Stripe, forwarding webhook events to a local endpoint. It displays 'Ready! Your webhook signing secret is ... (^C to quit)' and then streams events as they arrive. There is no background/detach mode; the process runs until Ctrl+C. If the terminal is closed, the listener stops.",
+      "evidence": "Stripe docs state: 'Ready! Your webhook signing secret is {{WEBHOOK_SIGNING_SECRET}} (^C to quit)'. The listen command establishes a direct connection with Stripe, delivering webhook events to your computer directly.",
+      "status": "live",
+      "source_url": "https://docs.stripe.com/stripe-cli/use-cli",
+      "sub_theme": "foreground-only long-lived process"
+    },
+    {
+      "name": "Stripe CLI: stripe logs tail streams API logs in real-time",
+      "what": "stripe logs tail establishes a direct connection with Stripe and streams test mode API request logs in real-time. It supports filters (--filter-account, --filter-http-method, --filter-request-path, --filter-request-status). It runs in the foreground with no detach mode.",
+      "evidence": "Stripe docs: 'The logs tail command establishes a direct connection with Stripe and enables you to tail your test mode Stripe API request logs in real-time from your terminal.'",
+      "status": "live",
+      "source_url": "https://docs.stripe.com/cli/logs/tail",
+      "sub_theme": "foreground-only long-lived process"
+    },
+    {
+      "name": "Supercronic (container cron)",
+      "what": "Crontab-compatible job runner designed for containers. Solves cron-in-Docker problems: preserves environment variables (traditional cron purges them), logs to stdout/stderr (not syslog), handles SIGTERM gracefully, prevents concurrent execution by default. Reads a standard crontab file. Supports second-level precision. CLI flags: -debug, -split-logs, -test (validate without running), -overlapping (allow concurrent), -inotify (auto-reload on file change), -sentry-dsn (error tracking). No daemon management—runs as PID 1 in a container. Key differentiator: drop-in cron replacement that works correctly in containerized environments.",
+      "evidence": "supercronic /path/to/crontab. Flags: -test (validate syntax), -overlapping (allow parallel), -inotify (reload on file change), -sentry-dsn (Sentry integration), -split-logs (stdout vs stderr). 'When a job exceeds its scheduled interval, the system logs a warning but delays the next execution until the current one completes.'",
+      "status": "live",
+      "source_url": "https://github.com/aptible/supercronic",
+      "sub_theme": "container-native cron"
+    },
+    {
+      "name": "Supervisor (supervisord)",
+      "what": "Client/server architecture: supervisord daemon manages child processes, supervisorctl CLI sends commands. Expects to be the direct parent of managed processes (children must NOT daemonize themselves). Provides pidproxy tool for processes that fork. Configuration via INI-style [program:x] sections. Supports process groups, event listeners for notifications, and XML-RPC API for programmatic control. Separate activity log (supervisord operations) and child process logs. Designed to start at boot but NOT as PID 1.",
+      "evidence": "Supervisor docs: 'client/server system that allows its users to monitor and control a number of processes on UNIX-like operating systems', supports [program:x] config, event listeners, XML-RPC API.",
+      "status": "live",
+      "source_url": "https://supervisord.org/",
+      "sub_theme": "process_supervisor"
+    },
+    {
+      "name": "systemd service integration pattern",
+      "what": "CLIs that install themselves as systemd services write a .service unit file to ~/.config/systemd/user/ (user) or /etc/systemd/system/ (system). Key directives: ExecStart (binary path), Restart=on-failure or always, RestartSec (delay between restarts), PIDFile (for forking daemons), Type=simple|forking|notify. Socket activation via .socket units allows on-demand daemon startup. 'systemctl --user enable <service>' persists across reboots. Journal logging (journalctl -u <service>) replaces custom log files. Health checks via systemd-notify for Type=notify services.",
+      "evidence": "Docker's docker.service uses PIDFile directive. Homebrew generates systemd user units on Linux. PM2's 'pm2 startup' generates systemd unit files. Turborepo and other modern CLIs prefer to manage their own daemon rather than relying on systemd.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "os_service_integration"
+    },
+    {
+      "name": "Terminal bell (\\a / BEL)",
+      "what": "The simplest, most universal notification: print \\a (ASCII 7) to stdout. Modern terminals map this to OS-native behavior — visual flash, taskbar urgency hint, or native notification depending on config. Zero dependencies. Works over SSH. Warp disables audible bell by default but supports it. iTerm2, Ghostty, Alacritty, Windows Terminal, and foot all support it. Claude Code uses `preferredNotifChannel: terminal_bell` as its primary mechanism.",
+      "evidence": "Claude Code ships terminal_bell as a configurable notification channel. Warp docs show audible bell as a separate setting from desktop notifications. The muxup.com article demonstrates mapping BEL to urgency hints in tiling WMs. Ghostty maps BEL to macOS native notifications when unfocused.",
+      "status": "live",
+      "source_url": "https://muxup.com/2023q4/let-the-terminal-bells-ring-out",
+      "sub_theme": "zero-dependency"
+    },
+    {
+      "name": "Terminal-native command completion notifications (iTerm2, Warp, Ghostty)",
+      "what": "Modern terminals have built-in 'notify when command finishes' features that require shell integration (OSC 133 marks) but no app-side code. iTerm2: Cmd+Alt+A toggles 'Alert on next mark'. Warp: configurable threshold (e.g. 5s), only fires when app unfocused. Ghostty (1.3+): `notify-on-command-finish = unfocused | always | never` with `notify-on-command-finish-after = 5s`. These are the gold standard UX — the terminal handles everything.",
+      "evidence": "Ghostty issue #8991 and discussion #3555 document the feature. Warp docs at docs.warp.dev/terminal/more-features/notifications. iTerm2 shell integration docs.",
+      "status": "live",
+      "source_url": "https://docs.warp.dev/terminal/more-features/notifications",
+      "sub_theme": "terminal-native"
+    },
+    {
+      "name": "terminal-notifier (macOS-specific)",
+      "what": "macOS-only CLI tool for sending native Notification Center notifications. Simpler and more reliable than node-notifier on macOS since it's a native binary. Commonly used: `terminal-notifier -title 'Build' -message 'Done'`. Claude Code users frequently configure it as a hook.",
+      "evidence": "GitHub repo julienXX/terminal-notifier. Multiple blog posts show Claude Code hook integration. Andrea Grandi's blog post on using it with Claude Code.",
+      "status": "live",
+      "source_url": "https://github.com/julienXX/terminal-notifier",
+      "sub_theme": "os-notification-library"
+    },
+    {
+      "name": "Terraform: apply blocks, no CLI-level async flag",
+      "what": "terraform apply blocks by default, waiting for all resources to reach their expected lifecycle state. There is no --async or --background CLI flag. Some providers (e.g. OCI) support an async=true resource-level attribute that skips waiting per-resource, but this is provider-specific, not a terraform core feature. After async resource creation, state has nulls; you must run terraform refresh.",
+      "evidence": "Terraform docs: 'By default, when Terraform creates, updates, or deletes a resource it waits for that resource to reach its expected lifecycle state before proceeding.' OCI provider supports async=true at resource level only.",
+      "status": "live",
+      "source_url": "https://developer.hashicorp.com/terraform/cli/commands/apply",
+      "sub_theme": "foreground-default-no-async-escape"
+    },
+    {
+      "name": "Turborepo daemon",
+      "what": "Background Rust daemon for file watching and package discovery. Communicates via gRPC over Unix domain sockets at .turbo/daemon.sock. Uses PID lock file at .turbo/daemon.pid to prevent multiple instances. CLI spawns daemon on first connect if not running (DaemonConnector.connect()). Daemon provides FileSystemWatcher, PackageWatcher, HashWatcher, and GlobWatcher services. Uses cookie files in .turbo/cookies/ for synchronization between watchers. --daemon/--no-daemon flags control usage; automatically disabled in CI. On crash, CLI detects disconnection and can continue without daemon or spawn a replacement.",
+      "evidence": "DeepWiki: socket at '.turbo/daemon.sock', PID lock at '.turbo/daemon.pid', gRPC IPC via TurboGrpcService, DaemonConnector manages CLI connections, disabled in CI automatically.",
+      "status": "live",
+      "source_url": "https://deepwiki.com/vercel/turborepo/2-architecture",
+      "sub_theme": "cli_embedded_daemon"
+    },
+    {
+      "name": "undistract-me (Ubuntu/Debian automatic notifications)",
+      "what": "Shell functions that hook into bash/zsh execution cycle. Auto-notifies for any command >10s when the terminal window is not focused. Configurable threshold via LONG_RUNNING_COMMAND_TIMEOUT. Can play sound via UDM_PLAY_SOUND. Ignore list for commands like `vim`. Pre-packaged in Ubuntu/Debian repos.",
+      "evidence": "GitHub repo jml/undistract-me. Available in Ubuntu repos (`apt install undistract-me`). Configurable ignore list and timeout.",
+      "status": "live",
+      "source_url": "https://github.com/jml/undistract-me",
+      "sub_theme": "automatic-shell-integration"
+    },
+    {
+      "name": "Unix socket IPC pattern (daemon communication)",
+      "what": "Production CLIs overwhelmingly prefer Unix domain sockets over PID files for daemon communication. Pattern: daemon creates socket file (e.g., /var/run/docker.sock, ~/.pm2/rpc.sock, .turbo/daemon.sock), CLI connects as client. Socket existence + successful connect = daemon is alive (no need for PID file to check liveness). Socket files are automatically cleaned up by the OS on process termination if using abstract sockets. For file-based sockets, daemon removes on clean shutdown; stale sockets detected by failed connect attempt. Advantages over PID files: bidirectional communication, no PID recycling problem, atomic liveness check.",
+      "evidence": "Docker uses /var/run/docker.sock, PM2 uses ~/.pm2/rpc.sock + ~/.pm2/pub.sock, Turborepo uses .turbo/daemon.sock. All three use socket connectivity as the primary liveness check rather than PID files.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/dockerd/",
+      "sub_theme": "ipc_pattern"
+    },
+    {
+      "name": "Vercel CLI: deploy blocks by default, has --no-wait flag",
+      "what": "vercel deploy blocks by default, showing progress phases: uploading, building, completing. Terminal output shows an Inspect URL and Preview/Production URL with timing. Example output: 'Inspect: https://vercel.com/myorg/project/2x6dq3wmp [3s]' then 'Preview: https://my-project.vercel.app [6s]'. The --no-wait flag exits immediately after initiating the deploy without waiting for completion. The --logs flag additionally prints build logs. stdout is always the deployment URL, enabling piping (vercel > deployment-url.txt).",
+      "evidence": "Vercel docs: '--no-wait: does not wait for a deployment to finish before exiting from the deploy command.' Also: 'When deploying, stdout is always the Deployment URL.' Example output shows Inspect and Preview URLs with timing brackets.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "blocking with opt-out"
+    },
+    {
+      "name": "Vercel CLI: status check via vercel inspect after --no-wait",
+      "what": "After using --no-wait, users can check deployment status with vercel inspect, which shows deployment details and state. There is no built-in 'watch' or re-attach command for monitoring a deployment initiated with --no-wait.",
+      "evidence": "Vercel CLI docs list vercel inspect as a separate command for examining deployments. The --no-wait docs do not describe a re-attach mechanism.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "status checking"
+    },
+    {
+      "name": "Vercel Cron Jobs",
+      "what": "Cron jobs defined in vercel.json that trigger HTTP GET requests to Vercel Functions at the production URL. Configuration is declarative in vercel.json `crons` array with `path` and `schedule` fields. No CLI commands for managing crons—changes require editing vercel.json and redeploying. State lives in Vercel's cloud. Monitoring via dashboard Settings > Cron Jobs and runtime logs. No automatic retry on failure. Hobby tier: once per day only with hourly precision (±59 min). Pro/Enterprise: per-minute precision. 100 cron jobs per project on all plans. Security via CRON_SECRET env var. Duplicate invocations possible—idempotency recommended. No concurrency control built in (suggests Redis locks).",
+      "evidence": "vercel.json: {\"crons\": [{\"path\": \"/api/cron\", \"schedule\": \"0 5 * * *\"}]}. Hobby: once/day, ±59min precision. Pro: once/min, per-minute precision. 100 cron jobs per project. 'Vercel will not retry an invocation if a cron job fails.' User-Agent: vercel-cron/1.0.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cron-jobs",
+      "sub_theme": "cloud-managed scheduler"
+    },
+    {
+      "name": "Vercel: blocks by default, --no-wait to skip",
+      "what": "vercel deploy blocks by default, waiting for the deployment to finish. stdout is always the deployment URL. The --no-wait flag 'does not wait for a deployment to finish before exiting.' The --logs flag additionally streams build logs. Default shows a progress indicator and prints the URL on completion.",
+      "evidence": "Vercel CLI docs for deploy: '--no-wait: Does not wait for a deployment to finish before exiting from the deploy command.' Separate --logs flag prints build logs. CI/CD scripts capture the deployment URL from stdout.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "foreground-default-no-wait-opt-in"
+    },
+    {
+      "name": "Webhook/callback URL pattern",
+      "what": "Some async APIs accept a callback URL in the initial request and POST results there on completion. Not common in CLI tools directly, but the pattern is well-established in API design (Stripe, Twilio, etc.). A CLI could accept --webhook-url and POST on completion. This is heavyweight for most CLI use cases but valuable for CI/CD integration.",
+      "evidence": "Hookdeck guide on webhooks vs callbacks. Standard in cloud APIs but rarely seen in CLI tools themselves.",
+      "status": "pattern",
+      "source_url": "https://hookdeck.com/webhooks/guides/webhooks-callbacks",
+      "sub_theme": "machine-to-machine"
+    },
+    {
+      "name": "Whenever (Ruby crontab DSL)",
+      "what": "Ruby gem that provides a human-readable DSL for defining cron jobs in config/schedule.rb, then writes them directly to the system crontab. CLI: `whenever` (preview cron output), `whenever --update-crontab` (write to crontab), `whenever --clear-crontab` (remove entries). DSL supports `every 3.hours do`, `every :sunday, at: '12pm'`, `every 1.day, at: '4:30 am'`. Three job types: runner (Rails method), rake (Rake task), command (shell). Uses identifier-based namespacing so multiple apps can share a crontab without conflicts. Integrates with Capistrano for deploy-time crontab updates. State is the system crontab itself. No daemon—pure cron. No built-in failure handling or monitoring.",
+      "evidence": "schedule.rb: every 3.hours do; runner 'MyModel.some_process'; end. CLI: whenever --update-crontab --user app. Custom job types: job_type :awesome, '/usr/local/bin/awesome :task :fun_level'. Capistrano: require 'whenever/capistrano'.",
+      "status": "live",
+      "source_url": "https://github.com/javan/whenever",
+      "sub_theme": "crontab wrapper/generator"
+    },
+    {
+      "name": "zsh-notify (zsh plugin)",
+      "what": "Zsh-specific plugin that sends desktop notifications for long-running commands. Uses macOS Notification Center or notify-send on Linux. Distinguishes success/failure with different notification styles. Threshold-based (default 30s).",
+      "evidence": "GitHub repo marzocchi/zsh-notify. Active maintenance.",
+      "status": "live",
+      "source_url": "https://github.com/marzocchi/zsh-notify",
+      "sub_theme": "automatic-shell-integration"
+    }
+  ],
+  "gaps": [
+    {
+      "topic": "s6 supervision suite",
+      "note": "s6 is a modern alternative to runit/daemontools popular in Alpine/container images. Did not deep-dive into its readiness notification (s6-notifyoncheck) and dependency management which are more sophisticated than runit."
+    },
+    {
+      "topic": "Windows service integration",
+      "note": "Focused on Unix patterns. Windows has different mechanisms: Windows Service Control Manager, NSSM (Non-Sucking Service Manager), and named pipes instead of Unix sockets. Relevant if CLI targets Windows."
+    },
+    {
+      "topic": "Electron/desktop app daemon patterns",
+      "note": "Apps like VS Code, Slack, and Docker Desktop manage background processes differently (tray icon, auto-update daemons). Not explored."
+    },
+    {
+      "topic": "Health check endpoints",
+      "note": "Many daemons expose HTTP health check endpoints (e.g., Docker's /_ping, Kubernetes liveness/readiness probes). Patterns for CLI-started daemons with health check URLs not deeply explored."
+    },
+    {
+      "topic": "Log rotation and management",
+      "note": "PM2's pm2-logrotate module and systemd's journald handle log rotation, but specific patterns for CLI-managed daemon logs (file size limits, rotation policies) not deeply covered."
+    },
+    {
+      "description": "Exact terminal output of Vercel CLI during the build phase (between Inspect and Preview URLs) is not documented in detail -- only the final Inspect/Preview URLs with timing are shown in docs and blog posts.",
+      "attempted_sources": [
+        "https://vercel.com/docs/cli/deploy",
+        "https://www.alexchantastic.com/deploying-with-vercel-cli"
+      ]
+    },
+    {
+      "description": "Fly.io's exact monitoring output format (what the step-by-step progress looks like) is described only in community forum posts, not in official documentation.",
+      "attempted_sources": [
+        "https://fly.io/docs/flyctl/deploy/",
+        "https://community.fly.io/t/how-fly-deploy-detach-works/25607"
+      ]
+    },
+    {
+      "description": "Railway CLI's exact terminal output format during railway up (what the progress looks like) is not shown in the docs -- docs say 'real-time deployment logs' but don't show example output.",
+      "attempted_sources": ["https://docs.railway.com/cli/deploying"]
+    },
+    {
+      "description": "Whether Stripe CLI has any reconnection/retry logic when the listen or logs tail connection drops is not documented.",
+      "attempted_sources": ["https://docs.stripe.com/stripe-cli/use-cli"]
+    },
+    {
+      "description": "How Heroku users check the status of a build that was detached via Ctrl+C -- heroku releases and heroku ps are documented separately but not in the context of post-detach monitoring.",
+      "attempted_sources": [
+        "https://devcenter.heroku.com/articles/git",
+        "https://devcenter.heroku.com/articles/releases"
+      ]
+    },
+    "No quantitative data on what percentage of users have terminal bell mapped to notifications vs. disabled",
+    "No survey data on CLI notification preferences (Slack vs desktop vs push vs email)",
+    "No data on how many terminal users have shell integration (OSC 133) enabled, which is required for terminal-native auto-notifications",
+    "Email notification for CLI completion: found no CLI tools that implement this — it appears to be a dead pattern for CLI tools (exists only in web-based CI/CD like GitHub Actions)",
+    "No data on notification fatigue — at what frequency do notifications become annoying rather than helpful",
+    "Windows Terminal notification support for OSC 9 is documented but real-world adoption/reliability is unclear",
+    "Linear CLI: could not access Linear docs on cycles/automation (404 errors). Linear has cycles and auto-close/auto-archive workflows but unclear if these are exposed via any CLI tool.",
+    "Jobber jobfile format: detailed YAML configuration docs were inaccessible (readthedocs 404). The error handling model (Stop/Backoff/Continue with notifications) is confirmed from the GitHub README but specific YAML syntax examples were not retrieved.",
+    "OpenClaw/NanoClaw: no relevant results found. The agent framework landscape for cron-scheduled tasks was not explored in this wave.",
+    "systemd timers as a scheduling mechanism: not researched as a standalone pattern. systemd timers are an alternative to cron with richer features (OnCalendar, Persistent=true for catching up missed runs, RandomizedDelaySec). Would be worth a dedicated investigation.",
+    "Temporal / Inngest / Trigger.dev: cloud-based workflow engines with scheduled triggers that could be relevant as 'schedule from CLI, runs in cloud' patterns. Not covered in this wave.",
+    "macOS launchd scheduled agents: launchd plist files with StartCalendarInterval provide native macOS scheduling without cron. Homebrew Services generates these but the raw launchd scheduling model was not deeply explored.",
+    "Could not find detailed Vercel --no-wait user experience (what exactly prints after --no-wait — just the URL, or also a message?)",
+    "Heroku has no explicit async flag — only the Ctrl+C convention. Could not verify if newer Heroku CLI versions added one.",
+    "Did not research Render, Netlify, or Cloudflare Workers deploy CLIs which may have additional patterns.",
+    "Did not research long-running data pipeline CLIs (Spark, dbt) which may have different async conventions relevant to data connector use cases."
+  ]
+}

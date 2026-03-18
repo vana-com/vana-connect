@@ -490,9 +490,13 @@ The MCP `connect_source` tool currently spawns a child process for any source. F
 
 The next-prompt skill should only work with already-connected data. It should not invoke the connect flow. If sources aren't connected, it should list them and tell the user to connect them in their own terminal. The connect-data skill handles connections — skills should not overlap.
 
-### Async/background connect
+### Async/background connect (v2, deferred by design)
 
-`vana connect chatgpt` took 4m50s synchronously. For large sources, this blocks the terminal. Need `--background` mode that starts collection and returns immediately, with status queryable via `vana status` or `vana connect --status`. Terminal bell or system notification on completion.
+Research across 11 CLIs (Stripe, Vercel, Railway, Fly, Heroku, Docker, GitHub, AWS, K8s, Terraform, npm) shows: 9/11 block by default for operations under 5 minutes. `--detach` is the standard opt-out. Our connect flow takes 1-5 minutes, firmly in blocking territory.
+
+Current UX is already best-in-class for blocking: heartbeat bloom spinner, scope manifest, terminal bell. For agents: IPC mode handles background operation. For scheduling: the next-prompt skill checks freshness and suggests recollection.
+
+Build `--detach` when: a connector regularly takes >10 minutes, or users explicitly request it. See `research/async-cli/design-rounds.md` for the full three-round analysis.
 
 ### Scheduled collection
 

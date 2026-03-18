@@ -1,0 +1,172 @@
+{
+  "agent_question": "How best-in-class CLIs handle long-running operations",
+  "findings": [
+    {
+      "name": "Stripe CLI: stripe listen runs as a foreground-only long-lived process",
+      "what": "stripe listen maintains a persistent WebSocket connection to Stripe, forwarding webhook events to a local endpoint. It displays 'Ready! Your webhook signing secret is ... (^C to quit)' and then streams events as they arrive. There is no background/detach mode; the process runs until Ctrl+C. If the terminal is closed, the listener stops.",
+      "evidence": "Stripe docs state: 'Ready! Your webhook signing secret is {{WEBHOOK_SIGNING_SECRET}} (^C to quit)'. The listen command establishes a direct connection with Stripe, delivering webhook events to your computer directly.",
+      "status": "live",
+      "source_url": "https://docs.stripe.com/stripe-cli/use-cli",
+      "sub_theme": "foreground-only long-lived process"
+    },
+    {
+      "name": "Stripe CLI: stripe logs tail streams API logs in real-time",
+      "what": "stripe logs tail establishes a direct connection with Stripe and streams test mode API request logs in real-time. It supports filters (--filter-account, --filter-http-method, --filter-request-path, --filter-request-status). It runs in the foreground with no detach mode.",
+      "evidence": "Stripe docs: 'The logs tail command establishes a direct connection with Stripe and enables you to tail your test mode Stripe API request logs in real-time from your terminal.'",
+      "status": "live",
+      "source_url": "https://docs.stripe.com/cli/logs/tail",
+      "sub_theme": "foreground-only long-lived process"
+    },
+    {
+      "name": "Vercel CLI: deploy blocks by default, has --no-wait flag",
+      "what": "vercel deploy blocks by default, showing progress phases: uploading, building, completing. Terminal output shows an Inspect URL and Preview/Production URL with timing. Example output: 'Inspect: https://vercel.com/myorg/project/2x6dq3wmp [3s]' then 'Preview: https://my-project.vercel.app [6s]'. The --no-wait flag exits immediately after initiating the deploy without waiting for completion. The --logs flag additionally prints build logs. stdout is always the deployment URL, enabling piping (vercel > deployment-url.txt).",
+      "evidence": "Vercel docs: '--no-wait: does not wait for a deployment to finish before exiting from the deploy command.' Also: 'When deploying, stdout is always the Deployment URL.' Example output shows Inspect and Preview URLs with timing brackets.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "blocking with opt-out"
+    },
+    {
+      "name": "Vercel CLI: status check via vercel inspect after --no-wait",
+      "what": "After using --no-wait, users can check deployment status with vercel inspect, which shows deployment details and state. There is no built-in 'watch' or re-attach command for monitoring a deployment initiated with --no-wait.",
+      "evidence": "Vercel CLI docs list vercel inspect as a separate command for examining deployments. The --no-wait docs do not describe a re-attach mechanism.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "status checking"
+    },
+    {
+      "name": "Railway CLI: railway up has three modes: attached (default), --detach, --ci",
+      "what": "railway up uploads and deploys, defaulting to attached mode that streams build and deployment logs in real-time. --detach (-d) returns immediately after uploading; the deployment continues in the background and can be monitored via dashboard or 'railway logs'. --ci (-c) streams only build logs and exits when the build completes, designed for CI/CD pipelines.",
+      "evidence": "Railway docs: 'By default, railway up operates in attached mode and streams build and deployment logs to your terminal.' '--detach: return immediately after uploading.' '--ci: stream only build logs and exit when the build completes.'",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/deploying",
+      "sub_theme": "three-mode pattern"
+    },
+    {
+      "name": "Railway CLI: railway logs for monitoring after detach",
+      "what": "railway logs streams logs by default via WebSocket, or fetches historical logs when using --lines, --since, or --until flags. The -d flag shows deployment logs, -b shows build logs. Can target a specific deployment ID.",
+      "evidence": "Railway docs: 'Stream mode (the default) connects via WebSocket and streams logs in real-time.' 'Use railway logs with the deployment ID to stream the failed build/deploy logs.'",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/logs",
+      "sub_theme": "log streaming"
+    },
+    {
+      "name": "Fly.io: fly deploy blocks with monitoring, supports --detach flag",
+      "what": "fly deploy builds and deploys, then enters a 'Monitoring Deployment' phase showing machine status counts (e.g., '1 desired, 1 placed, 1 healthy, 0 unhealthy') and health check results. The terminal displays 'You can detach the terminal anytime without stopping the deployment.' The --detach flag returns immediately instead of monitoring. --wait-timeout (default 5m0s) controls how long to wait for machines to become healthy. Smoke checks monitor machines for ~10 seconds after start.",
+      "evidence": "Fly docs: '--detach: Return immediately instead of monitoring deployment progress.' '--wait-timeout: Time duration to wait for individual machines to transition states and become healthy. (default 5m0s).' Community posts show output: 'You can detach the terminal anytime without stopping the deployment' followed by 'Monitoring deployment' with machine status counts.",
+      "status": "live",
+      "source_url": "https://fly.io/docs/flyctl/deploy/",
+      "sub_theme": "blocking with detach"
+    },
+    {
+      "name": "Fly.io: --detach flag may not work as documented",
+      "what": "Community testing suggests the --detach flag may not function correctly. One user reported: 'it ignored the --detach flag completely -- and that matches what I see in the flyctl source code.' There is no documented re-attach mechanism after detaching.",
+      "evidence": "Fly.io community forum post: user reports --detach flag is non-functional based on testing and source code review.",
+      "status": "live",
+      "source_url": "https://community.fly.io/t/how-fly-deploy-detach-works/25607",
+      "sub_theme": "detach reliability"
+    },
+    {
+      "name": "Heroku: git push blocks, but Ctrl+C detaches without canceling",
+      "what": "git push heroku main blocks by default, streaming build output in real-time (compiling, installing dependencies, etc.). Pressing Ctrl+C detaches from the build output but does NOT cancel the build or deploy -- it continues server-side and creates a new release when complete. Status can be checked afterward with 'heroku releases' (release history), 'heroku ps' (running processes), and 'heroku releases:output' (build output for a specific release).",
+      "evidence": "Heroku docs: 'After you initiate a Heroku deploy with git push, you can detach from the resulting build process by pressing Ctrl + C. Detaching doesn't cancel the build or the deploy. The build continues in the background and creates a new release as soon as it completes.'",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/git",
+      "sub_theme": "Ctrl+C detach pattern"
+    },
+    {
+      "name": "GitHub CLI: gh run watch polls and displays workflow progress",
+      "what": "gh run watch monitors a GitHub Actions workflow run until it completes. It polls at a configurable interval (--interval, default 3 seconds) and displays step-by-step progress. --compact shows only relevant/failed steps. --exit-status exits with non-zero on failure. Without arguments, interactively selects from active runs. Can be chained: 'gh run watch && notify-send \"done\"'. Closing the terminal does not cancel the workflow -- the operation is server-side.",
+      "evidence": "GitHub CLI docs: 'Watch a run until it completes, showing its progress.' '--interval: Refresh interval in seconds (default 3).' '--exit-status: Exit with non-zero status if run fails.'",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "separate watch command"
+    },
+    {
+      "name": "GitHub CLI: gh workflow run fires and forgets, separate from watching",
+      "what": "gh workflow run triggers a workflow dispatch event and returns immediately. It does not wait for or monitor execution. Users must separately use 'gh run watch' or 'gh run view' to monitor. This is a clean separation: trigger is async, monitoring is opt-in via a separate command.",
+      "evidence": "GitHub CLI manual separates 'gh workflow run' (trigger) from 'gh run watch' (monitor) as distinct commands.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_workflow_run",
+      "sub_theme": "fire-and-forget with separate monitor"
+    },
+    {
+      "name": "AWS CLI: wait subcommands poll silently until condition is met",
+      "what": "AWS CLI provides 'wait' subcommands for services with long-running operations (e.g., aws cloudformation wait stack-create-complete). These poll the API at fixed intervals (30 seconds for CloudFormation) until the condition is met or max attempts exceeded (120 for CloudFormation, producing exit code 255). The wait command produces NO terminal output -- it blocks silently. Operations themselves (e.g., aws cloudformation create-stack) return immediately with an ID; waiting is always opt-in via a separate command.",
+      "evidence": "AWS docs for stack-create-complete: 'It will poll every 30 seconds until a successful state has been reached. This will exit with a return code of 255 after 120 failed checks.' 'This command produces no output.'",
+      "status": "live",
+      "source_url": "https://docs.aws.amazon.com/cli/latest/reference/cloudformation/wait/stack-create-complete.html",
+      "sub_theme": "silent polling wait"
+    },
+    {
+      "name": "AWS CLI: S3 transfers show progress by default with opt-out",
+      "what": "aws s3 cp shows file transfer progress by default. For large files (>100MB), it uses multipart upload and shows 'Completed X of Y part(s) with Z file(s) remaining'. --no-progress disables the progress display. --quiet suppresses all output. --only-show-errors shows only errors. --progress-frequency controls update interval. --progress-multiline shows progress on multiple lines.",
+      "evidence": "AWS docs: 'File transfer progress is displayed by default.' '--no-progress: File transfer progress is not displayed.' For large uploads: 'Completed 9896 of 9896 part(s) with 1 file(s) remaining.'",
+      "status": "live",
+      "source_url": "https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html",
+      "sub_theme": "progress display"
+    },
+    {
+      "name": "Docker: docker run -d (detached) vs foreground is the canonical pattern",
+      "what": "docker run defaults to foreground (attached) mode with stdin/stdout/stderr connected. The -d/--detach flag runs the container in the background, printing only the container ID. In detached mode, closing the terminal does not stop the container. Users check status with 'docker ps', view output with 'docker logs', and re-attach with 'docker attach'. This is the most well-known sync/async dual-mode pattern in CLIs.",
+      "evidence": "Docker docs: 'If you want to run the container in the background, you can use the --detach (or -d) flag.' 'Detached mode means that a Docker container runs in the background of your terminal. It does not receive input or display output.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/engine/containers/run/",
+      "sub_theme": "canonical detach pattern"
+    },
+    {
+      "name": "Docker: docker build --progress controls output format (auto/plain/tty/quiet/rawjson)",
+      "what": "docker build supports five progress output modes. 'auto' (default) selects tty for terminals, plain otherwise. 'tty' uses color and dynamic redrawing with progress bars. 'plain' prints raw build progress as plaintext with step numbers and timing. 'quiet' suppresses all output except final image ID. 'rawjson' outputs JSON lines for programmatic consumption. This demonstrates adaptive output based on terminal capabilities.",
+      "evidence": "Docker docs: '--progress: Set type of progress output (auto, plain, tty, quiet, rawjson). Use plain to show container output (default \"auto\").' 'auto: Uses tty mode if the client is a TTY, otherwise uses plain.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/buildx/build/",
+      "sub_theme": "adaptive output format"
+    },
+    {
+      "name": "Pattern: CLIs that offer both sync and async for the same operation",
+      "what": "Multiple CLIs implement dual-mode patterns for the same operation: (1) Vercel: vercel deploy blocks by default, --no-wait returns immediately. (2) Railway: railway up attaches by default, --detach returns immediately. (3) Fly.io: fly deploy monitors by default, --detach returns immediately (though may be buggy). (4) Docker: docker run attaches by default, -d detaches. (5) AWS CloudFormation: create-stack returns immediately, 'wait stack-create-complete' blocks. The dominant pattern is block-by-default with opt-out, except AWS which is async-by-default with opt-in waiting.",
+      "evidence": "Compiled from official documentation for each CLI. Vercel: --no-wait flag. Railway: --detach flag. Fly.io: --detach flag. Docker: -d flag. AWS: separate wait subcommand.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "cross-CLI pattern"
+    },
+    {
+      "name": "Pattern: What happens when the terminal is closed mid-operation",
+      "what": "Server-side operations continue regardless of terminal state: Heroku builds continue after Ctrl+C. GitHub Actions workflows run independently of gh run watch. AWS CloudFormation stacks deploy independently of the CLI. Fly.io deployments continue if detached. Client-side operations stop: Stripe listen/logs tail stop when the terminal closes (they are local processes maintaining connections). The key distinction is whether the operation is server-side (survives terminal close) or client-side (dies with terminal).",
+      "evidence": "Heroku docs explicitly state: 'Detaching doesn't cancel the build or the deploy.' GitHub Actions workflows are server-side by nature. Stripe listen requires an active terminal connection.",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/git",
+      "sub_theme": "terminal close behavior"
+    }
+  ],
+  "gaps": [
+    {
+      "description": "Exact terminal output of Vercel CLI during the build phase (between Inspect and Preview URLs) is not documented in detail -- only the final Inspect/Preview URLs with timing are shown in docs and blog posts.",
+      "attempted_sources": [
+        "https://vercel.com/docs/cli/deploy",
+        "https://www.alexchantastic.com/deploying-with-vercel-cli"
+      ]
+    },
+    {
+      "description": "Fly.io's exact monitoring output format (what the step-by-step progress looks like) is described only in community forum posts, not in official documentation.",
+      "attempted_sources": [
+        "https://fly.io/docs/flyctl/deploy/",
+        "https://community.fly.io/t/how-fly-deploy-detach-works/25607"
+      ]
+    },
+    {
+      "description": "Railway CLI's exact terminal output format during railway up (what the progress looks like) is not shown in the docs -- docs say 'real-time deployment logs' but don't show example output.",
+      "attempted_sources": ["https://docs.railway.com/cli/deploying"]
+    },
+    {
+      "description": "Whether Stripe CLI has any reconnection/retry logic when the listen or logs tail connection drops is not documented.",
+      "attempted_sources": ["https://docs.stripe.com/stripe-cli/use-cli"]
+    },
+    {
+      "description": "How Heroku users check the status of a build that was detached via Ctrl+C -- heroku releases and heroku ps are documented separately but not in the context of post-detach monitoring.",
+      "attempted_sources": [
+        "https://devcenter.heroku.com/articles/git",
+        "https://devcenter.heroku.com/articles/releases"
+      ]
+    }
+  ]
+}

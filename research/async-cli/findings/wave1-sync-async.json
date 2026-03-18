@@ -1,0 +1,116 @@
+{
+  "agent_question": "Sync vs async mode patterns in CLIs",
+  "findings": [
+    {
+      "name": "Docker: foreground by default, -d to detach",
+      "what": "docker run blocks in foreground by default, attaching stdin/stdout/stderr to the terminal. The -d (--detach) flag runs the container in the background and prints only the container ID. Rationale: foreground is the safe, observable default — you see errors immediately. Detached mode is for production/daemon use cases.",
+      "evidence": "Docker docs: 'By default, Docker runs the container in attached mode.' The -d flag 'means that a Docker container runs in the background of your terminal. It does not receive input or display output.' After -d, the user sees only the container ID hash.",
+      "status": "live",
+      "source_url": "https://docs.docker.com/engine/containers/run/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "Vercel: blocks by default, --no-wait to skip",
+      "what": "vercel deploy blocks by default, waiting for the deployment to finish. stdout is always the deployment URL. The --no-wait flag 'does not wait for a deployment to finish before exiting.' The --logs flag additionally streams build logs. Default shows a progress indicator and prints the URL on completion.",
+      "evidence": "Vercel CLI docs for deploy: '--no-wait: Does not wait for a deployment to finish before exiting from the deploy command.' Separate --logs flag prints build logs. CI/CD scripts capture the deployment URL from stdout.",
+      "status": "live",
+      "source_url": "https://vercel.com/docs/cli/deploy",
+      "sub_theme": "foreground-default-no-wait-opt-in"
+    },
+    {
+      "name": "AWS CloudFormation: deploy blocks, no official --no-wait",
+      "what": "aws cloudformation deploy blocks by default, waiting for the stack operation to complete. There is NO official --no-wait flag despite long-standing feature requests (since 2014). Workaround: use create-stack/update-stack (which return immediately) + custom polling with describe-stacks. The --no-execute-changeset flag is related but different (previews without executing).",
+      "evidence": "GitHub issue #895 (2014) requests synchronous create/update. Issue #12037 on serverless framework requests async deploys. AWS has not shipped --no-wait for deploy as of 2026.",
+      "status": "live",
+      "source_url": "https://github.com/aws/aws-cli/issues/895",
+      "sub_theme": "foreground-default-no-async-escape"
+    },
+    {
+      "name": "Terraform: apply blocks, no CLI-level async flag",
+      "what": "terraform apply blocks by default, waiting for all resources to reach their expected lifecycle state. There is no --async or --background CLI flag. Some providers (e.g. OCI) support an async=true resource-level attribute that skips waiting per-resource, but this is provider-specific, not a terraform core feature. After async resource creation, state has nulls; you must run terraform refresh.",
+      "evidence": "Terraform docs: 'By default, when Terraform creates, updates, or deletes a resource it waits for that resource to reach its expected lifecycle state before proceeding.' OCI provider supports async=true at resource level only.",
+      "status": "live",
+      "source_url": "https://developer.hashicorp.com/terraform/cli/commands/apply",
+      "sub_theme": "foreground-default-no-async-escape"
+    },
+    {
+      "name": "Fly.io: deploy blocks with live monitoring, --detach to return immediately",
+      "what": "fly deploy blocks by default, showing live deployment progress as machines transition through states until healthy. The --detach flag causes the command to 'return immediately instead of monitoring deployment progress.' Important: --detach also disables automatic rollback on failed health checks, which is poorly documented.",
+      "evidence": "Fly.io docs: '--detach: Return immediately instead of monitoring deployment progress.' Community discussion notes that --detach disabling rollbacks should be documented in CLI help.",
+      "status": "live",
+      "source_url": "https://fly.io/docs/flyctl/deploy/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "Railway: deploy blocks with log streaming, -d/--detach to skip",
+      "what": "railway up blocks by default, streaming build logs to the terminal. The -d/--detach flag 'returns immediately after uploading, with the deployment continuing in the background.' Also offers -c/--ci which streams only build logs and exits when build (not deploy) completes — a middle ground between full sync and full detach.",
+      "evidence": "Railway docs: '--detach prevents attaching to the log stream.' The -c/--ci flag 'streams only build logs and exits when the build completes' — useful for CI/CD.",
+      "status": "live",
+      "source_url": "https://docs.railway.com/cli/deploying",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "Kubernetes: kubectl apply returns immediately (async default), rollout status blocks",
+      "what": "kubectl apply is async by default — it submits the manifest and returns immediately without waiting for pods to be ready. To block, you compose a second command: kubectl rollout status deployment/NAME, which watches until the rollout completes. kubectl wait provides generic condition-based waiting. This is the opposite pattern from most deploy CLIs.",
+      "evidence": "Kubernetes docs: 'kubectl apply doesn't have a --wait option, so the success of a deploy doesn't actually indicate the deploy succeeded, as the rollout happens asynchronously.' kubectl rollout status 'watches the status of the latest rollout until it's done.'",
+      "status": "live",
+      "source_url": "https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/kubectl_rollout_status/",
+      "sub_theme": "async-default-opt-in-wait"
+    },
+    {
+      "name": "Heroku: git push blocks but Ctrl+C detaches without canceling",
+      "what": "git push heroku main blocks by default, streaming build output. Pressing Ctrl+C detaches from the build stream but does NOT cancel the deploy — the build continues in the background. There is no explicit --detach or --no-wait flag; the escape hatch is just Ctrl+C.",
+      "evidence": "Heroku docs: 'After you initiate a Heroku deploy with git push, you can detach from the resulting build process by pressing Ctrl + C. Detaching doesn't cancel the build or the deploy.'",
+      "status": "live",
+      "source_url": "https://devcenter.heroku.com/articles/git",
+      "sub_theme": "foreground-default-implicit-detach"
+    },
+    {
+      "name": "npm/pnpm install: always blocks, no async mode",
+      "what": "npm install and pnpm install always block the terminal. There is no --background or --async flag. This makes sense because subsequent commands (build, test, run) depend on install completing. The user sees a progress bar/spinner and package resolution output.",
+      "evidence": "No --background, --async, or --no-wait flags exist in npm or pnpm CLI documentation. Install is a prerequisite step that must complete before anything else can run.",
+      "status": "live",
+      "source_url": "https://docs.npmjs.com/cli/commands/npm-install",
+      "sub_theme": "foreground-only-no-async"
+    },
+    {
+      "name": "GitHub CLI: trigger is async, watch is opt-in sync",
+      "what": "gh workflow run triggers a workflow and returns immediately (async). gh run watch <run-id> blocks and polls every 3 seconds showing live progress until the run completes. gh run list shows a snapshot of recent runs. This is the two-command pattern: fire-and-forget trigger + optional blocking monitor.",
+      "evidence": "GitHub CLI docs: 'gh run watch watches a run until it completes, showing its progress.' The interface refreshes every 3 seconds. --compact shows only relevant/failed steps.",
+      "status": "live",
+      "source_url": "https://cli.github.com/manual/gh_run_watch",
+      "sub_theme": "async-default-opt-in-watch"
+    },
+    {
+      "name": "docker compose up: foreground default, -d for detach",
+      "what": "docker compose up blocks in the foreground by default, streaming logs from all services. The -d/--detach flag starts containers in the background. This mirrors docker run's pattern and is the most widely-known example of the --detach convention.",
+      "evidence": "Docker docs: 'Running docker compose up --detach starts the containers in the background and leaves them running.'",
+      "status": "live",
+      "source_url": "https://docs.docker.com/reference/cli/docker/compose/up/",
+      "sub_theme": "foreground-default-detach-opt-in"
+    },
+    {
+      "name": "CLI convention: flag naming consensus",
+      "what": "Three dominant flag names emerge: --detach/-d (Docker, Fly.io, Railway), --no-wait (Vercel, AWS requests), and --background (less common, mostly OS-level). --detach implies the process continues server-side. --no-wait implies you don't care about the outcome. --background implies a local background process. For deploy/connect operations that run server-side, --detach is the most conventional name.",
+      "evidence": "clig.dev: 'Use standard names for flags, if there is a standard. If another commonly used command uses a flag name, it's best to follow that existing pattern.'",
+      "status": "live",
+      "source_url": "https://clig.dev/",
+      "sub_theme": "naming-conventions"
+    }
+  ],
+  "synthesis": {
+    "dominant_pattern": "Foreground/blocking is the overwhelming default for deploy-like operations (Docker, Vercel, Fly.io, Railway, Heroku, Terraform, AWS CF). Only Kubernetes kubectl apply and GitHub CLI workflow triggers default to async.",
+    "why_sync_default": "Three reasons: (1) Users need immediate feedback on success/failure, (2) CLI commands often chain in scripts where order matters, (3) Errors surfaced synchronously are caught faster than errors discovered later.",
+    "why_async_exists": "Two reasons: (1) CI/CD pipelines where blocking wastes compute, (2) Long-running operations where the user wants their terminal back.",
+    "recommended_flag_name": "--detach or -d is the most conventional for server-side operations. --no-wait is the runner-up (Vercel). Avoid --background (implies local process) and --async (uncommon).",
+    "what_sync_shows": "Progress indicators, log streaming, final status. Vercel shows deployment URL on stdout. Docker streams container output. Fly.io shows machine health transitions.",
+    "what_async_returns": "A job/resource ID (Docker prints container ID), a URL (Vercel prints deployment URL), or nothing (Fly.io just returns). Best practice: always print an identifier the user can use to check status later.",
+    "recommendation_for_vana_connect": "Default to blocking/foreground for `vana connect github`. Users expect to see progress and know when it's done. Offer --detach to return immediately, printing a session ID or status URL. Consider Railway's middle-ground --ci flag pattern if there are distinct build vs. runtime phases."
+  },
+  "gaps": [
+    "Could not find detailed Vercel --no-wait user experience (what exactly prints after --no-wait — just the URL, or also a message?)",
+    "Heroku has no explicit async flag — only the Ctrl+C convention. Could not verify if newer Heroku CLI versions added one.",
+    "Did not research Render, Netlify, or Cloudflare Workers deploy CLIs which may have additional patterns.",
+    "Did not research long-running data pipeline CLIs (Spark, dbt) which may have different async conventions relevant to data connector use cases."
+  ]
+}
