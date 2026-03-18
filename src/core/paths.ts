@@ -17,6 +17,16 @@ export function getCliStatePath(): string {
   return path.join(getDataConnectHome(), "vana-connect-state.json");
 }
 
+export function getResultsDir(): string {
+  return path.join(getDataConnectHome(), "results");
+}
+
+export function getSourceResultPath(source: string): string {
+  const safe = source.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
+  return path.join(getResultsDir(), `${safe}.json`);
+}
+
+/** Internal temp path for connector output. Use getSourceResultPath() for storage. */
 export function getLastResultPath(): string {
   return path.join(getDataConnectHome(), "last-result.json");
 }

@@ -37,7 +37,7 @@ import {
   CliOutcomeStatus,
   getBrowserProfilesDir,
   getConnectorCacheDir,
-  getLastResultPath,
+  getSourceResultPath,
   readCliState,
   readCliConfig,
   updateCliConfig,
@@ -751,7 +751,7 @@ async function runConnect(
       CliOutcomeStatus.UNEXPECTED_INTERNAL_ERROR;
     let finalDataState: SourceStatus["dataState"] = "none";
     let ingestFailureMessage: string | null = null;
-    let resultPath = getLastResultPath();
+    let resultPath = getSourceResultPath(source);
     let collectedResult = false;
     let ingestScopeResults:
       | Array<{
@@ -903,7 +903,15 @@ async function runConnect(
 
       if (event.type === "collection-complete" && event.resultPath) {
         collectedResult = true;
-        resultPath = event.resultPath;
+        // Copy result to per-source path so multiple sources can coexist
+        const sourceResultPath = getSourceResultPath(source);
+        try {
+          await fsp.mkdir(path.dirname(sourceResultPath), { recursive: true });
+          await fsp.copyFile(event.resultPath, sourceResultPath);
+          resultPath = sourceResultPath;
+        } catch {
+          resultPath = event.resultPath; // fall back to original path
+        }
         const ingestEvents = await ingestResult(
           resolution.source,
           resultPath,

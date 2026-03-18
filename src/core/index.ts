@@ -13,6 +13,8 @@ export {
   getBrowserProfilesDir,
   getCliStatePath,
   getLastResultPath,
+  getResultsDir,
+  getSourceResultPath,
   getLogsDir,
   getTimestampedLogPath,
 } from "./paths.js";
