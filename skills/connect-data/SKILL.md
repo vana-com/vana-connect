@@ -104,32 +104,37 @@ Each source has an `authMode` in `vana sources --json`:
 
 ### 3. Connect with the CLI
 
-**For `interactive` or `automated` sources:** Use IPC mode. This writes credential prompts to a file instead of stdin, so you can handle them asynchronously.
+**For `interactive` or `automated` sources:** Use IPC mode with `run_in_background`.
+
+IMPORTANT: You MUST use `run_in_background: true` for the connect command. The process will block while waiting for credentials. If you run it in the foreground, your bash call will hang and you won't be able to respond to prompts.
+
+Step 1: Start the connect in the background.
 
 ```bash
-vana connect <platform> --json --ipc
+vana connect <platform> --json --ipc 2>&1
 ```
 
-Run this in the background. When the connector needs credentials, it writes a question to `~/.vana/pending-input-*.json`. Poll for that file:
+Use `run_in_background: true` for this command.
+
+Step 2: Immediately read the background task output. Look for a `needs-input` JSON line containing `pendingInputPath` and `responseInputPath`. If you see `connected` instead, the saved session worked and you're done.
+
+Step 3: If credentials are needed, read the pending input file to see what fields are required:
 
 ```bash
-ls ~/.vana/pending-input-*.json
+cat <pendingInputPath from the needs-input event>
 ```
 
-When it appears, read it to see what fields are needed, ask the user for the values, then write the response:
+Step 4: Ask the user for the required credentials.
+
+Step 5: Write the response file (use the exact `responseInputPath` from the event):
 
 ```bash
-cat ~/.vana/pending-input-*.json
-# Shows: {"message":"...","schema":{"properties":{"username":{},"password":{}}},"responseInputPath":"/home/user/.vana/input-response-xxx.json"}
+echo '{"username":"value","password":"value"}' > <responseInputPath>
 ```
 
-Ask the user for the credentials, then write the response file:
+Step 6: Check the background task output again. The connector may prompt again (e.g. for 2FA). If so, repeat steps 3-5 with the new pending input file. If the task completes, you're done.
 
-```bash
-echo '{"username":"alice","password":"secret"}' > /path/from/responseInputPath
-```
-
-The connector will pick up the response and continue. Wait for the background task to complete.
+Note: The connector polls for up to 5 minutes per prompt. If the user takes longer, it will time out and you'll need to rerun.
 
 **For `legacy` (browser) sources:** You cannot connect these. Tell the user:
 
