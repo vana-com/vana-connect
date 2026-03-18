@@ -2,16 +2,11 @@
 
 Let your users bring their own data to your app.
 
-## CLI preview
+## CLI
 
-This branch also carries the new `vana` collection CLI preview.
+The `vana` CLI collects your personal data from any platform. See the **[CLI README](./cli/README.md)**.
 
-Start with the dedicated CLI README:
-
-- [CLI README](./docs/CLI-README.md)
-- [CLI review surface](./docs/CLI-REVIEW-SURFACE.md)
-
-Install the current canary on macOS with Homebrew:
+Install on macOS with Homebrew:
 
 ```bash
 brew tap vana-com/vana
