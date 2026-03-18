@@ -4042,6 +4042,20 @@ async function runDetached(
   const sourceLabels = createSourceLabelMap(registrySources);
   const displayName = displaySource(source, sourceLabels);
 
+  // Check if source has been previously connected (has a session to reuse).
+  // Detach is for re-collection with existing sessions, not first-time auth.
+  const state = await readCliState();
+  const sourceState = state.sources[source];
+  if (!sourceState?.lastResultPath && !sourceState?.sessionPresent) {
+    emit.info(
+      `Run ${emit.code(`vana connect ${source}`)} first to authenticate.`,
+    );
+    emit.detail(
+      "Use --detach for background re-collection after the first connect.",
+    );
+    return 1;
+  }
+
   const sessionsDir = getSessionsDir();
   const logsDir = getLogsDir();
   await fsp.mkdir(sessionsDir, { recursive: true });
@@ -4052,7 +4066,16 @@ async function runDetached(
 
   const logFd = fs.openSync(logPath, "a");
 
-  const childArgs = [process.argv[1], command, source, "--json", "--quiet"];
+  // --no-input: if auth is needed, fail fast and record needs_reauth.
+  // Don't use --ipc: nobody is watching a detached process.
+  const childArgs = [
+    process.argv[1],
+    command,
+    source,
+    "--json",
+    "--quiet",
+    "--no-input",
+  ];
   const child = spawn(process.execPath, childArgs, {
     detached: true,
     stdio: ["ignore", logFd, logFd],
