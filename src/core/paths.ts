@@ -31,6 +31,10 @@ export function getLastResultPath(): string {
   return path.join(getVanaHome(), "last-result.json");
 }
 
+export function getSessionsDir(): string {
+  return path.join(getVanaHome(), "sessions");
+}
+
 export function getLogsDir(): string {
   return path.join(getVanaHome(), "logs");
 }

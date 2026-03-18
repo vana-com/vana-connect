@@ -2,6 +2,8 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { spawn, execSync } from "node:child_process";
+import os from "node:os";
 
 import { confirm, input, password, select } from "@inquirer/prompts";
 import { Command, CommanderError } from "commander";
@@ -37,6 +39,8 @@ import {
   CliOutcomeStatus,
   getBrowserProfilesDir,
   getConnectorCacheDir,
+  getLogsDir,
+  getSessionsDir,
   getSourceResultPath,
   readCliState,
   readCliConfig,
@@ -84,6 +88,7 @@ interface GlobalOptions {
   ipc?: boolean;
   yes?: boolean;
   quiet?: boolean;
+  detach?: boolean;
 }
 
 interface SourceLabelMap {
@@ -172,6 +177,11 @@ Agent:
   vana skill list         List available agent skills
   vana skill install      Install a skill for your agent
 
+Background:
+  vana connect <src> --detach   Connect in the background
+  vana schedule add             Schedule daily collection
+  vana schedule list            Show scheduled tasks
+
 More:
   vana doctor            Detailed diagnostics
   vana logs [source]     View run logs
@@ -211,7 +221,12 @@ More:
     .option("--ipc", "Use file-based IPC for credential prompts (for agents)")
     .option("--yes", "Approve safe setup prompts automatically")
     .option("--quiet", "Reduce non-essential output")
+    .option("--detach", "Run in the background")
     .action(async (source?: string) => {
+      if (parsedOptions.detach && source) {
+        process.exitCode = await runDetached("connect", source, parsedOptions);
+        return;
+      }
       process.exitCode = source
         ? await runConnect(source, parsedOptions)
         : await runConnectEntry(parsedOptions);
@@ -254,7 +269,13 @@ Examples:
     .option("--ipc", "Use file-based IPC for credential prompts (for agents)")
     .option("--yes", "Approve safe setup prompts automatically")
     .option("--quiet", "Reduce non-essential output")
+    .option("--detach", "Run in the background")
+    .option("--all", "Collect from all connected sources")
     .action(async (source?: string) => {
+      if (parsedOptions.detach && source) {
+        process.exitCode = await runDetached("collect", source, parsedOptions);
+        return;
+      }
       process.exitCode = source
         ? await runCollect(source, parsedOptions)
         : await runCollectAll(parsedOptions);
@@ -501,6 +522,52 @@ Examples:
     .description("Show skill details")
     .action(async (name: string) => {
       process.exitCode = await runSkillShow(name, parsedOptions);
+    });
+
+  // --- Schedule commands ---
+  const schedule = program
+    .command("schedule")
+    .description("Manage scheduled data collection");
+  schedule.addHelpText(
+    "after",
+    `
+Examples:
+  vana schedule add
+  vana schedule add --every 12h
+  vana schedule list
+  vana schedule remove
+`,
+  );
+  schedule.action(() => {
+    schedule.outputHelp();
+    process.exitCode = 0;
+  });
+
+  schedule
+    .command("add")
+    .description("Add a scheduled collection")
+    .option(
+      "--every <interval>",
+      "Collection interval (e.g. 24h, 12h, 1h)",
+      "24h",
+    )
+    .action(async (opts: { every: string }) => {
+      process.exitCode = await runScheduleAdd(opts.every, parsedOptions);
+    });
+
+  schedule
+    .command("list")
+    .description("Show scheduled tasks")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runScheduleList(parsedOptions);
+    });
+
+  schedule
+    .command("remove")
+    .description("Remove the scheduled collection")
+    .action(async () => {
+      process.exitCode = await runScheduleRemove(parsedOptions);
     });
 
   try {
@@ -836,6 +903,7 @@ async function runConnect(
           lastRunOutcome: CliOutcomeStatus.NEEDS_INPUT,
           lastError: event.message ?? "Input required.",
           lastLogPath: event.logPath,
+          connectionHealth: "needs_reauth",
         });
         emit.event({
           type: "outcome",
@@ -877,6 +945,7 @@ async function runConnect(
           lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
           lastError: event.message ?? "Connector run failed.",
           lastLogPath: event.logPath,
+          connectionHealth: "error",
         });
         renderer?.fail(`Problem connecting ${displayName}.`);
         renderer?.detail(event.message ?? "Connector run failed.");
@@ -903,6 +972,7 @@ async function runConnect(
           dataState: "none",
           lastResultPath: null,
           lastLogPath: event.logPath,
+          connectionHealth: "needs_reauth",
         });
         renderer?.fail(`Manual step required for ${displayName}.`);
         renderer?.detail(
@@ -1018,6 +1088,7 @@ async function runConnect(
       lastError: ingestFailureMessage,
       lastResultPath: resultPath,
       lastLogPath: runLogPath ?? fetchLogPath ?? setupLogPath ?? null,
+      connectionHealth: "healthy",
       ingestScopes: ingestScopeResults,
     });
 
@@ -1282,6 +1353,24 @@ async function runList(options: GlobalOptions): Promise<number> {
 
 async function runStatus(options: GlobalOptions): Promise<number> {
   const { status, nextSteps } = await queryStatus();
+  const state = await readCliState();
+
+  // Build per-source health map from stored state
+  const sourceHealthMap: Record<
+    string,
+    {
+      connectionHealth?: string;
+      lastCollectedAt?: string;
+    }
+  > = {};
+  for (const [sourceId, stored] of Object.entries(state.sources)) {
+    if (stored) {
+      sourceHealthMap[sourceId] = {
+        connectionHealth: stored.connectionHealth,
+        lastCollectedAt: stored.lastCollectedAt,
+      };
+    }
+  }
 
   if (options.json) {
     const compactJson = {
@@ -1292,6 +1381,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         connected: status.summary?.connectedCount ?? 0,
         needsAttention: status.summary?.needsAttentionCount ?? 0,
       },
+      sourceHealth: sourceHealthMap,
       next: nextSteps[0] ?? null,
     };
     process.stdout.write(`${JSON.stringify(compactJson)}\n`);
@@ -1299,6 +1389,8 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
 
   const emit = createEmitter(options);
+  const registrySources = await loadRegistrySources();
+  const sourceLabels = createSourceLabelMap(registrySources);
   emit.title("Vana Connect");
   emit.blank();
   emit.keyValue("Runtime", status.runtime, toneForRuntime(status.runtime));
@@ -1328,6 +1420,43 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         ? "success"
         : "muted",
   );
+
+  // Show per-source health when sources are connected
+  const connectedSources = Object.entries(state.sources).filter(
+    ([, stored]) =>
+      stored?.connectorInstalled &&
+      (stored.dataState === "collected_local" ||
+        stored.dataState === "ingested_personal_server" ||
+        stored.dataState === "ingest_failed" ||
+        stored.connectionHealth),
+  );
+  if (connectedSources.length > 0) {
+    emit.blank();
+    let needsReauthSource: string | null = null;
+    for (const [sourceId, stored] of connectedSources) {
+      const health = stored?.connectionHealth ?? "healthy";
+      const displayName = displaySource(sourceId, sourceLabels);
+      const healthTone = toneForHealth(health);
+      const healthLabel = health === "needs_reauth" ? "needs login" : health;
+      const collectedAgo = stored?.lastCollectedAt
+        ? `collected ${formatRelativeTime(stored.lastCollectedAt)}`
+        : "";
+      emit.keyValue(
+        `  ${displayName}`,
+        `${healthLabel}     ${collectedAgo}`,
+        healthTone,
+      );
+      if (health === "needs_reauth" && !needsReauthSource) {
+        needsReauthSource = sourceId;
+      }
+    }
+    if (needsReauthSource) {
+      emit.blank();
+      emit.next(`vana connect ${needsReauthSource}`);
+      return 0;
+    }
+  }
+
   if (nextSteps.length > 0) {
     emit.blank();
     const command = extractCommand(nextSteps[0]);
@@ -3407,6 +3536,7 @@ function extractGlobalOptions(argv: string[]): GlobalOptions {
     ipc: argv.includes("--ipc"),
     yes: argv.includes("--yes"),
     quiet: argv.includes("--quiet"),
+    detach: argv.includes("--detach"),
   };
 }
 
@@ -3881,6 +4011,432 @@ function toneForLogOutcome(
     return "muted";
   }
   return "muted";
+}
+
+function toneForHealth(health: string): RenderTone {
+  switch (health) {
+    case "healthy":
+      return "accent";
+    case "needs_reauth":
+      return "warning";
+    case "error":
+      return "error";
+    case "stale":
+      return "muted";
+    default:
+      return "muted";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detach (background process)
+// ---------------------------------------------------------------------------
+
+async function runDetached(
+  command: string,
+  source: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+  const registrySources = await loadRegistrySources();
+  const sourceLabels = createSourceLabelMap(registrySources);
+  const displayName = displaySource(source, sourceLabels);
+
+  const sessionsDir = getSessionsDir();
+  const logsDir = getLogsDir();
+  await fsp.mkdir(sessionsDir, { recursive: true });
+  await fsp.mkdir(logsDir, { recursive: true });
+
+  const logPath = path.join(logsDir, `${source}-detach.log`);
+  const sessionPath = path.join(sessionsDir, `${source}.json`);
+
+  const logFd = fs.openSync(logPath, "a");
+
+  const childArgs = [process.argv[1], command, source, "--json", "--quiet"];
+  const child = spawn(process.execPath, childArgs, {
+    detached: true,
+    stdio: ["ignore", logFd, logFd],
+    env: { ...process.env, VANA_DETACHED: "1" },
+  });
+  child.unref();
+  fs.closeSync(logFd);
+
+  // Write session file
+  const session = {
+    source,
+    command,
+    pid: child.pid,
+    startedAt: new Date().toISOString(),
+    status: "running",
+    logPath,
+  };
+  await fsp.writeFile(sessionPath, `${JSON.stringify(session, null, 2)}\n`);
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(session)}\n`);
+    return 0;
+  }
+
+  const verb = command === "connect" ? "Connecting" : "Collecting";
+  emit.info(`${verb} ${displayName} in the background.`);
+  emit.detail(`Check progress: ${emit.code("vana status")}`);
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Schedule commands
+// ---------------------------------------------------------------------------
+
+const LAUNCHD_LABEL = "com.vana.collect";
+const LAUNCHD_PLIST_PATH = path.join(
+  os.homedir(),
+  "Library",
+  "LaunchAgents",
+  `${LAUNCHD_LABEL}.plist`,
+);
+const CRONTAB_MARKER = "# vana-scheduled-collection";
+
+function parseIntervalSeconds(interval: string): number {
+  const lower = interval.toLowerCase().trim();
+  const match = /^(\d+)\s*(h|d|m|w)$/i.exec(lower);
+  if (match) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+    if (unit === "h") return value * 3600;
+    if (unit === "d") return value * 86400;
+    if (unit === "w") return value * 7 * 86400;
+    if (unit === "m") return value * 30 * 86400;
+  }
+  if (lower === "daily") return 86400;
+  if (lower === "weekly") return 7 * 86400;
+  // Default to 24h
+  return 86400;
+}
+
+function formatIntervalHuman(seconds: number): string {
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
+}
+
+function resolveVanaBinaryPath(): string {
+  // For SEA binaries, process.execPath is the binary itself
+  const installMethod = getCliInstallMethod();
+  if (installMethod === "homebrew" || installMethod === "installer") {
+    return process.execPath;
+  }
+  // For development, try to find the vana binary via which
+  try {
+    return execSync("which vana", { encoding: "utf8" }).trim();
+  } catch {
+    // Fall back to process.execPath + argv[1]
+    return `${process.execPath} ${process.argv[1]}`;
+  }
+}
+
+function generateLaunchdPlist(
+  vanaBinary: string,
+  intervalSeconds: number,
+): string {
+  const logsPath = path.join(getLogsDir(), "schedule.log");
+  // Handle the case where vanaBinary might contain a space (node + script)
+  const programArgs = vanaBinary.includes(" ")
+    ? vanaBinary
+        .split(" ")
+        .map((arg) => `    <string>${arg}</string>`)
+        .join("\n")
+    : `    <string>${vanaBinary}</string>`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LAUNCHD_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+${programArgs}
+    <string>collect</string>
+    <string>--all</string>
+    <string>--quiet</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>${intervalSeconds}</integer>
+  <key>StandardOutPath</key>
+  <string>${logsPath}</string>
+  <key>StandardErrorPath</key>
+  <string>${logsPath}</string>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
+`;
+}
+
+function generateCrontabEntry(
+  vanaBinary: string,
+  intervalHours: number,
+): string {
+  const logsPath = path.join(getLogsDir(), "schedule.log");
+  const hourExpr = intervalHours >= 24 ? "0" : `0`;
+  const dayExpr = "*";
+  const hourInterval =
+    intervalHours >= 24 ? "0" : intervalHours >= 1 ? `*/${intervalHours}` : "*";
+  return `${hourExpr} ${hourInterval} ${dayExpr} * * ${vanaBinary} collect --all --quiet >> ${logsPath} 2>&1 ${CRONTAB_MARKER}`;
+}
+
+async function runScheduleAdd(
+  interval: string,
+  options: GlobalOptions,
+): Promise<number> {
+  const emit = createEmitter(options);
+  const intervalSeconds = parseIntervalSeconds(interval);
+  const intervalLabel = formatIntervalHuman(intervalSeconds);
+  const vanaBinary = resolveVanaBinaryPath();
+
+  await fsp.mkdir(getLogsDir(), { recursive: true });
+
+  if (process.platform === "darwin") {
+    // macOS: launchd
+    const plist = generateLaunchdPlist(vanaBinary, intervalSeconds);
+    const plistDir = path.dirname(LAUNCHD_PLIST_PATH);
+    await fsp.mkdir(plistDir, { recursive: true });
+
+    // Unload existing if present
+    try {
+      execSync(`launchctl unload "${LAUNCHD_PLIST_PATH}" 2>/dev/null`, {
+        stdio: "ignore",
+      });
+    } catch {
+      // Not loaded, that's fine
+    }
+
+    await fsp.writeFile(LAUNCHD_PLIST_PATH, plist);
+
+    try {
+      execSync(`launchctl load "${LAUNCHD_PLIST_PATH}"`, { stdio: "ignore" });
+    } catch {
+      emit.info("Could not load the launchd plist. Load it manually:");
+      emit.detail(`launchctl load "${LAUNCHD_PLIST_PATH}"`);
+      return 1;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: true, interval: intervalLabel, mechanism: "launchd", plistPath: LAUNCHD_PLIST_PATH })}\n`,
+      );
+      return 0;
+    }
+
+    emit.info(
+      `Added ${intervalLabel === "1d" ? "daily" : `every ${intervalLabel}`} collection schedule.`,
+    );
+    emit.detail(`Runs: ${emit.code("vana collect --all --quiet")}`);
+    emit.detail(`Managed by: launchd`);
+    return 0;
+  }
+
+  if (process.platform === "linux") {
+    // Linux: crontab
+    const intervalHours = Math.max(1, Math.round(intervalSeconds / 3600));
+    const entry = generateCrontabEntry(vanaBinary, intervalHours);
+
+    try {
+      // Read existing crontab, filter out old vana entries, add new one
+      let existing = "";
+      try {
+        existing = execSync("crontab -l 2>/dev/null", {
+          encoding: "utf8",
+        });
+      } catch {
+        // No existing crontab
+      }
+      const filtered = existing
+        .split("\n")
+        .filter((line) => !line.includes(CRONTAB_MARKER))
+        .join("\n");
+      const newCrontab = `${filtered.trimEnd()}\n${entry}\n`;
+      execSync("crontab -", {
+        input: newCrontab,
+        encoding: "utf8",
+      });
+    } catch {
+      emit.info("Could not update crontab. Add this entry manually:");
+      emit.detail(entry);
+      return 1;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: true, interval: intervalLabel, mechanism: "cron" })}\n`,
+      );
+      return 0;
+    }
+
+    emit.info(
+      `Added ${intervalLabel === "1d" ? "daily" : `every ${intervalLabel}`} collection schedule.`,
+    );
+    emit.detail(`Runs: ${emit.code("vana collect --all --quiet")}`);
+    emit.detail(`Managed by: cron`);
+    return 0;
+  }
+
+  // Unsupported platform
+  emit.info(
+    "Scheduled collection requires launchd (macOS) or cron (Linux). Run `vana collect --all` manually or set up a cron job.",
+  );
+  return 1;
+}
+
+async function runScheduleList(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+
+  if (process.platform === "darwin") {
+    // Check launchd plist
+    try {
+      await fsp.access(LAUNCHD_PLIST_PATH);
+      const content = await fsp.readFile(LAUNCHD_PLIST_PATH, "utf8");
+      const intervalMatch = content.match(
+        /<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/,
+      );
+      const intervalSeconds = intervalMatch
+        ? parseInt(intervalMatch[1], 10)
+        : 86400;
+      const intervalLabel = formatIntervalHuman(intervalSeconds);
+      const nextInSeconds = intervalSeconds; // Approximate; launchd doesn't expose exact next-run
+      const nextLabel = `~${formatIntervalHuman(nextInSeconds)}`;
+
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({
+            scheduled: true,
+            interval: intervalLabel,
+            intervalSeconds,
+            mechanism: "launchd",
+            plistPath: LAUNCHD_PLIST_PATH,
+          })}\n`,
+        );
+        return 0;
+      }
+
+      emit.keyValue(
+        "Daily collection",
+        `every ${intervalLabel}    next: ${nextLabel}`,
+        "muted",
+      );
+      emit.detail(`Managed by: ${LAUNCHD_PLIST_PATH}`);
+      return 0;
+    } catch {
+      // No plist found
+    }
+  }
+
+  if (process.platform === "linux") {
+    // Check crontab
+    try {
+      const crontab = execSync("crontab -l 2>/dev/null", {
+        encoding: "utf8",
+      });
+      const vanaLine = crontab
+        .split("\n")
+        .find((line) => line.includes(CRONTAB_MARKER));
+      if (vanaLine) {
+        if (options.json) {
+          process.stdout.write(
+            `${JSON.stringify({
+              scheduled: true,
+              mechanism: "cron",
+              entry: vanaLine,
+            })}\n`,
+          );
+          return 0;
+        }
+
+        emit.keyValue("Daily collection", "cron", "muted");
+        emit.detail(`Entry: ${vanaLine.replace(CRONTAB_MARKER, "").trim()}`);
+        return 0;
+      }
+    } catch {
+      // No crontab available
+    }
+  }
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ scheduled: false })}\n`);
+    return 0;
+  }
+
+  emit.info("No scheduled collection found.");
+  emit.detail(`Add one with ${emit.code("vana schedule add")}.`);
+  return 0;
+}
+
+async function runScheduleRemove(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+
+  if (process.platform === "darwin") {
+    try {
+      await fsp.access(LAUNCHD_PLIST_PATH);
+      try {
+        execSync(`launchctl unload "${LAUNCHD_PLIST_PATH}"`, {
+          stdio: "ignore",
+        });
+      } catch {
+        // Already unloaded
+      }
+      await fsp.unlink(LAUNCHD_PLIST_PATH);
+
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ ok: true, removed: true })}\n`,
+        );
+        return 0;
+      }
+
+      emit.info("Removed daily collection schedule.");
+      return 0;
+    } catch {
+      // No plist found, fall through
+    }
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const existing = execSync("crontab -l 2>/dev/null", {
+        encoding: "utf8",
+      });
+      if (existing.includes(CRONTAB_MARKER)) {
+        const filtered = existing
+          .split("\n")
+          .filter((line) => !line.includes(CRONTAB_MARKER))
+          .join("\n");
+        execSync("crontab -", {
+          input: `${filtered.trimEnd()}\n`,
+          encoding: "utf8",
+        });
+
+        if (options.json) {
+          process.stdout.write(
+            `${JSON.stringify({ ok: true, removed: true })}\n`,
+          );
+          return 0;
+        }
+
+        emit.info("Removed daily collection schedule.");
+        return 0;
+      }
+    } catch {
+      // No crontab available
+    }
+  }
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ ok: true, removed: false })}\n`);
+    return 0;
+  }
+
+  emit.info("No scheduled collection found to remove.");
+  return 0;
 }
 
 function isPromptCancelled(error: unknown): boolean {

@@ -27,6 +27,7 @@ export interface StoredSourceState {
   lastError?: string | null;
   lastResultPath?: string | null;
   lastLogPath?: string | null;
+  connectionHealth?: "healthy" | "needs_reauth" | "error" | "stale";
   ingestScopes?: Array<{
     scope: string;
     status: "stored" | "failed";

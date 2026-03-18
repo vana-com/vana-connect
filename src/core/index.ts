@@ -16,6 +16,7 @@ export {
   getResultsDir,
   getSourceResultPath,
   getLogsDir,
+  getSessionsDir,
   getTimestampedLogPath,
 } from "./paths.js";
 export {
