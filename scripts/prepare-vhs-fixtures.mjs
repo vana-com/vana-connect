@@ -15,8 +15,8 @@ async function main() {
   await fs.rm(homeRoot, { recursive: true, force: true });
   await fs.rm(demoDataConnectorsRoot, { recursive: true, force: true });
 
-  await seedDemoHome();
   await seedDemoDataConnectors();
+  await seedDemoHome();
 
   process.stdout.write(
     `Prepared VHS fixtures at ${homeRoot} with demo connectors at ${demoDataConnectorsRoot}\n`,
@@ -47,10 +47,21 @@ async function seedDemoHome() {
     },
   );
 
-  await fs.writeFile(
+  // Copy the demo connector (not the real one) to the cache so the runtime
+  // uses it directly without fetching from VANA_DATA_CONNECTORS_DIR.
+  const demoConnectorSrc = path.join(
+    repoRoot,
+    "docs",
+    "vhs",
+    "fixtures",
+    "demo-data-connectors",
+    "connectors",
+    "github",
+    "github-playwright.js",
+  );
+  await fs.copyFile(
+    demoConnectorSrc,
     path.join(dataConnectRoot, "connectors", "github", "github-playwright.js"),
-    "// demo fixture\n",
-    "utf8",
   );
   await fs.writeFile(
     path.join(dataConnectRoot, "connectors", "shop", "shop-playwright.js"),
