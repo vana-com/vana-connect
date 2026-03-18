@@ -1,5 +1,7 @@
 # CLI Agent-Friendly Integration
 
+_March 16, 2026_
+
 Research and roadmap for making the `vana` CLI a first-class tool for AI agents
 (coding agents, automation pipelines, MCP clients).
 

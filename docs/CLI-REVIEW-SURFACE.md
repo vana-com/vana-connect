@@ -1,5 +1,7 @@
 # CLI Review Surface
 
+_March 15, 2026_
+
 This document is the quickest way to review the current `vana` CLI as a
 product.
 

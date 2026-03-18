@@ -1,5 +1,7 @@
 # CLI Design Skill
 
+_March 17, 2026_
+
 How to design and implement user-facing CLI surfaces for `vana`.
 
 Use this document when: building new commands, modifying existing

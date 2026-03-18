@@ -1,5 +1,7 @@
 # CLI Open Issues
 
+_March 16, 2026_
+
 Tracked issues for the CLI, organized by what kind of work each requires.
 
 **Task types:**

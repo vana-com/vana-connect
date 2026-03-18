@@ -1,5 +1,7 @@
 # CLI Demo Guidelines
 
+_March 16, 2026_
+
 Design guidelines for the VHS terminal demo GIFs in `docs/vhs/`.
 
 Based on research into what ships in production CLIs (Charm, Vercel, GitHub

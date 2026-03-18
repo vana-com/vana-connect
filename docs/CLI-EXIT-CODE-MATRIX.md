@@ -1,5 +1,7 @@
 # CLI Exit Code Matrix
 
+_March 14, 2026_
+
 This document defines the current `vana` exit-code contract.
 
 The guiding rule is simple:

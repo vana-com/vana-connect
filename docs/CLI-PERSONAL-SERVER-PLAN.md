@@ -1,5 +1,7 @@
 # CLI ↔ Personal Server Integration Plan
 
+_March 17, 2026_
+
 ## Context
 
 The CLI claims "Synced to Personal Server" after `vana connect`, but no data

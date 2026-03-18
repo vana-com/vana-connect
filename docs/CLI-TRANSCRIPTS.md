@@ -1,5 +1,7 @@
 # CLI Transcripts
 
+_March 15, 2026_
+
 Generated review artifacts for the human-mode CLI. These are deterministic
 fixture-based captures — not live runs.
 

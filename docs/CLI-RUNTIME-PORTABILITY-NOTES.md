@@ -1,5 +1,7 @@
 # CLI Runtime Portability Notes
 
+_March 14, 2026_
+
 This note records the current local conclusions for Batch 5B.
 
 It is intentionally narrower than the full execution playbook. Its purpose is

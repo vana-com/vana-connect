@@ -1,5 +1,7 @@
 # Connect Flow Execution Plan
 
+_March 17, 2026_
+
 Implementation plan for transforming `vana connect <source>`.
 
 Reference: CLI-DESIGN-SKILL.md for principles, CLI-CONNECT-FLOW-DESIGN.md
