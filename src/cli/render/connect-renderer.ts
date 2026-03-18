@@ -175,6 +175,21 @@ export function createConnectRenderer(): ConnectRenderer {
       );
       if (existing) return;
 
+      // Auto-complete any previously active scopes
+      for (const s of scopes) {
+        if (s.state === "active") {
+          s.state = "done";
+          if (!canAnimate) {
+            const check = rgb(...ACCENT, "\u2713");
+            const detailStr = s.detail ? ` ${dim(`\u2014 ${s.detail}`)}` : "";
+            process.stderr.write(`  ${check} ${s.name}${detailStr}\n`);
+          }
+        }
+      }
+      // Reset spinner for new scope
+      spinnerFrameIndex = 0;
+      spinnerElapsed = 0;
+
       scopes.push({ name: scope, state: "active" });
       startSpinner();
       paint();
