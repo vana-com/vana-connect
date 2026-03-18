@@ -37,7 +37,7 @@ import {
 import type { ConnectRenderer } from "./render/connect-renderer.js";
 import {
   CliOutcomeStatus,
-  checkLegacyDataHome,
+  migrateLegacyDataHome,
   getBrowserProfilesDir,
   getConnectorCacheDir,
   getLogsDir,
@@ -146,13 +146,9 @@ type SourceStatusDetail =
     };
 
 export async function runCli(argv = process.argv): Promise<number> {
-  // Check for legacy data directory and inform the user
-  const legacyHome = checkLegacyDataHome();
-  if (legacyHome) {
-    process.stderr.write(
-      `Your data is at ${legacyHome} (old location).\n` +
-        `Run: mv ${legacyHome} ~/.vana\n\n`,
-    );
+  // Migrate ~/.dataconnect → ~/.vana, symlink old path for DataConnect compat
+  if (migrateLegacyDataHome()) {
+    process.stderr.write("Moved your data to ~/.vana.\n\n");
   }
 
   const normalizedArgv = normalizeArgv(argv);

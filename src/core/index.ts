@@ -8,7 +8,7 @@ export {
   type VanaEnvironment,
 } from "./constants.js";
 export {
-  checkLegacyDataHome,
+  migrateLegacyDataHome,
   getVanaHome,
   getConnectorCacheDir,
   getBrowserProfilesDir,
