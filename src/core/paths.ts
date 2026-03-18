@@ -7,24 +7,46 @@ export function getVanaHome(): string {
 }
 
 /**
- * Migrate ~/.dataconnect to ~/.vana if needed.
- * Renames the directory and creates a symlink at the old path so
- * DataConnect (which still references ~/.dataconnect) keeps working.
- * Returns true if migration was performed.
+ * Ensure ~/.vana and ~/.dataconnect both resolve to the same directory.
+ *
+ * Cases:
+ * 1. ~/.dataconnect exists, ~/.vana doesn't → rename + symlink old path
+ * 2. ~/.vana exists, ~/.dataconnect doesn't → create symlink at old path
+ * 3. Both exist (no symlink) → leave as-is (user manages manually)
+ *
+ * The symlink at ~/.dataconnect ensures vana-com/data-connect (DataConnect
+ * desktop app) keeps working. DataConnect hardcodes ~/.dataconnect in
+ * src-tauri/src/commands/connector.rs:66. It should adopt ~/.vana upstream.
+ *
+ * Returns true if any migration or symlink was performed.
  */
 export function migrateLegacyDataHome(): boolean {
   const vanaHome = getVanaHome();
   const oldHome = path.join(os.homedir(), ".dataconnect");
-  if (fs.existsSync(vanaHome) || !fs.existsSync(oldHome)) {
-    return false;
+
+  // Case 1: old exists, new doesn't → migrate
+  if (!fs.existsSync(vanaHome) && fs.existsSync(oldHome)) {
+    try {
+      fs.renameSync(oldHome, vanaHome);
+      fs.symlinkSync(vanaHome, oldHome);
+      return true;
+    } catch {
+      return false;
+    }
   }
-  try {
-    fs.renameSync(oldHome, vanaHome);
-    fs.symlinkSync(vanaHome, oldHome);
-    return true;
-  } catch {
-    return false;
+
+  // Case 2: new exists, old doesn't → create compat symlink
+  // so DataConnect (which hardcodes ~/.dataconnect) finds the data
+  if (fs.existsSync(vanaHome) && !fs.existsSync(oldHome)) {
+    try {
+      fs.symlinkSync(vanaHome, oldHome);
+      return true;
+    } catch {
+      return false;
+    }
   }
+
+  return false;
 }
 
 export function getConnectorCacheDir(): string {
