@@ -21,6 +21,15 @@
           "create-connector/reference/PATTERNS.md"
         ]
       }
+    },
+    {
+      "id": "next-prompt",
+      "name": "Next Prompt",
+      "description": "Generate and execute the next agent prompt from connected personal data",
+      "version": "1.0.0",
+      "files": {
+        "skill": "next-prompt/SKILL.md"
+      }
     }
   ]
 }
