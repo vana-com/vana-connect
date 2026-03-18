@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { getConnectorCacheDir } from "../core/paths.js";
+
 const REGISTRY_URL =
   "https://raw.githubusercontent.com/vana-com/data-connectors/main/registry.json";
 const BASE_URL =
@@ -264,14 +266,22 @@ async function detectAuthMode(
   }
 
   let script = "";
-  if (dataConnectorsDir) {
-    try {
-      script = await fs.readFile(
-        path.join(dataConnectorsDir, relativePath),
-        "utf8",
-      );
-    } catch {
-      script = "";
+
+  // Try the connector cache first (most up-to-date after fetch)
+  const cacheDir = getConnectorCacheDir();
+  try {
+    script = await fs.readFile(path.join(cacheDir, relativePath), "utf8");
+  } catch {
+    // Not cached — try local data-connectors checkout
+    if (dataConnectorsDir) {
+      try {
+        script = await fs.readFile(
+          path.join(dataConnectorsDir, relativePath),
+          "utf8",
+        );
+      } catch {
+        script = "";
+      }
     }
   }
 
