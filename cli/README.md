@@ -6,11 +6,6 @@
 ![macOS · Linux · Windows](https://img.shields.io/badge/platform-macOS%20·%20Linux%20·%20Windows-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<p align="center">
-  <img src="../docs/assets/demo.gif" width="720" />
-  <br />
-  <sub>One command. Your professional identity, exported and yours.</sub>
-</p>
 
 `vana` collects your data from platforms you use. You log in through a browser
 on your machine, and the CLI saves it locally as JSON.
