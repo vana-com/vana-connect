@@ -3,32 +3,11 @@
   "sources": {
     "github": {
       "sessionPresent": true,
-      "lastRunAt": "2026-03-18T23:23:47.198Z",
-      "lastRunOutcome": "connected_and_ingested",
-      "dataState": "ingested_personal_server",
-      "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/results/github.json",
-      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/run-github-2026-03-18T23-23-43-530Z.log",
-      "connectorInstalled": true,
-      "lastError": null,
-      "lastCollectedAt": "2026-03-18T23:23:47.198Z",
-      "connectionHealth": "healthy",
-      "ingestScopes": [
-        {
-          "scope": "github.profile",
-          "status": "stored",
-          "syncedAt": "2026-03-18T23:23:47.198Z"
-        },
-        {
-          "scope": "github.repositories",
-          "status": "stored",
-          "syncedAt": "2026-03-18T23:23:47.198Z"
-        },
-        {
-          "scope": "github.starred",
-          "status": "stored",
-          "syncedAt": "2026-03-18T23:23:47.198Z"
-        }
-      ]
+      "lastRunAt": "2026-03-14T13:10:03.677Z",
+      "lastRunOutcome": "connected_local_only",
+      "dataState": "collected_local",
+      "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/last-result.json",
+      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/run-github-demo.log"
     },
     "shop": {
       "lastRunAt": "2026-03-14T13:11:10.000Z",
@@ -48,6 +27,40 @@
       "lastRunOutcome": "connected_local_only",
       "dataState": "collected_local",
       "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/spotify-result.json"
+    },
+    "linkedin": {
+      "connectorInstalled": true,
+      "sessionPresent": true,
+      "lastError": null,
+      "lastLogPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/logs/run-linkedin-2026-03-19T05-17-56-841Z.log",
+      "lastRunAt": "2026-03-19T05:18:01.249Z",
+      "lastCollectedAt": "2026-03-19T05:18:01.249Z",
+      "lastRunOutcome": "connected_and_ingested",
+      "dataState": "ingested_personal_server",
+      "lastResultPath": "/home/tnunamak/code/vana-connect/docs/vhs/fixtures/demo-home/.vana/results/linkedin.json",
+      "connectionHealth": "healthy",
+      "ingestScopes": [
+        {
+          "scope": "linkedin.profile",
+          "status": "stored",
+          "syncedAt": "2026-03-19T05:18:01.249Z"
+        },
+        {
+          "scope": "linkedin.experience",
+          "status": "stored",
+          "syncedAt": "2026-03-19T05:18:01.249Z"
+        },
+        {
+          "scope": "linkedin.skills",
+          "status": "stored",
+          "syncedAt": "2026-03-19T05:18:01.249Z"
+        },
+        {
+          "scope": "linkedin.connections",
+          "status": "failed",
+          "error": "HTTP 400: {\"error\":\"NO_SCHEMA\",\"message\":\"No schema registered for scope: linkedin.connections\"}"
+        }
+      ]
     }
   }
 }

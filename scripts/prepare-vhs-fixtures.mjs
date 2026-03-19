@@ -13,9 +13,15 @@ const dataConnectRoot = path.join(homeRoot, ".vana");
 
 async function main() {
   await fs.rm(homeRoot, { recursive: true, force: true });
-  await fs.rm(demoDataConnectorsRoot, { recursive: true, force: true });
-
-  await seedDemoDataConnectors();
+  // demo-data-connectors is checked in — don't delete and recreate.
+  // Only regenerate if missing.
+  const registryExists = await fs
+    .access(path.join(demoDataConnectorsRoot, "registry.json"))
+    .then(() => true)
+    .catch(() => false);
+  if (!registryExists) {
+    await seedDemoDataConnectors();
+  }
   await seedDemoHome();
 
   process.stdout.write(
@@ -25,6 +31,9 @@ async function main() {
 
 async function seedDemoHome() {
   await fs.mkdir(path.join(dataConnectRoot, "connectors", "github"), {
+    recursive: true,
+  });
+  await fs.mkdir(path.join(dataConnectRoot, "connectors", "linkedin"), {
     recursive: true,
   });
   await fs.mkdir(path.join(dataConnectRoot, "connectors", "shop"), {
@@ -62,6 +71,25 @@ async function seedDemoHome() {
   await fs.copyFile(
     demoConnectorSrc,
     path.join(dataConnectRoot, "connectors", "github", "github-playwright.js"),
+  );
+  const linkedinDemoSrc = path.join(
+    repoRoot,
+    "docs",
+    "vhs",
+    "fixtures",
+    "demo-data-connectors",
+    "connectors",
+    "linkedin",
+    "linkedin-playwright.js",
+  );
+  await fs.copyFile(
+    linkedinDemoSrc,
+    path.join(
+      dataConnectRoot,
+      "connectors",
+      "linkedin",
+      "linkedin-playwright.js",
+    ),
   );
   await fs.writeFile(
     path.join(dataConnectRoot, "connectors", "shop", "shop-playwright.js"),

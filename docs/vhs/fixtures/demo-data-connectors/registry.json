@@ -10,6 +10,15 @@
       }
     },
     {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "company": "linkedin",
+      "description": "Exports your LinkedIn profile, experience, skills, and connections.",
+      "files": {
+        "script": "connectors/linkedin/linkedin-playwright.js"
+      }
+    },
+    {
       "id": "shop",
       "name": "Shop",
       "company": "shop",
