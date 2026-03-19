@@ -30,7 +30,6 @@ Once installed:
 vana connect linkedin
 ```
 
-<img src="https://github.com/vana-com/vana-connect/releases/download/canary-main/demo.gif" width="720" alt="vana connect linkedin" />
 
 ## What problem this solves
 
