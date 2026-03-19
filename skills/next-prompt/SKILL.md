@@ -104,19 +104,9 @@ The user's `Permissions` section overrides these defaults.
 
 **Do not present a numbered list of options.** Pick the best one. If you're wrong, the user will redirect you. That's faster than making them choose every time.
 
-## What to look for in each source
+## Reading sources
 
-**GitHub:** Recent commits (what was worked on), open issues, PRs awaiting review, dependency alerts, repos with recent activity vs. stale repos.
-
-**ChatGPT:** Recent conversation topics (what the user is thinking about), saved memories (stated preferences and goals), repeated questions (knowledge gaps or recurring concerns).
-
-**LinkedIn:** Unread messages (especially from contacts matching focus areas), profile views, job-relevant activity.
-
-**Spotify:** Listening patterns can indicate work state (focus music = deep work, podcasts = learning, silence = meetings or away).
-
-**YouTube:** Recent watch history and subscriptions signal what the user is learning about or interested in.
-
-**Shop/Uber:** Time-sensitive receipts, returns windows, upcoming trips.
+Each result file in `~/.vana/results/` is a different connected source. Don't assume a fixed set — new sources will appear over time. Read the JSON structure to understand what each source contains and look for what's actionable: recent activity, pending items, time-sensitive deadlines, unanswered messages, recurring patterns.
 
 ## Rules
 
