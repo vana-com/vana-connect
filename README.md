@@ -30,7 +30,6 @@ Once installed:
 vana connect linkedin
 ```
 
-
 ## What problem this solves
 
 Your users already have rich personal data — ChatGPT conversations, Instagram activity, Gmail, purchase history — but it's locked inside the platforms that collected it. As a builder, you can't easily use that data to personalize onboarding, tailor recommendations, or skip lengthy signup forms.
