@@ -22,6 +22,11 @@ Set Padding 20
 Set BorderRadius 10
 Set LoopOffset 60%
 
+Hide
+Type "export VANA_DEMO_FAST_SUCCESS=1"
+Enter
+Sleep 500ms
+Show
 Type "vana connect linkedin"
 Sleep 500ms
 Enter
