@@ -6,7 +6,7 @@
 #         VANA_DEMO_FAST_SUCCESS=1 \
 #         vhs docs/vhs/demo.tape
 
-Output docs/assets/demo.gif
+Output docs/vhs/demo.gif
 
 Set Shell "bash"
 Set FontSize 22

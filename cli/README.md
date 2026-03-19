@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <p align="center">
-  <img src="../docs/assets/demo.gif" width="720" />
+  <img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/demo.gif" width="720" />
   <br />
   <sub>One command. Your professional identity, exported and yours.</sub>
 </p>
