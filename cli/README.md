@@ -7,9 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <p align="center">
-  <img src="docs/assets/demo.gif" width="720" />
+  <img src="../docs/assets/demo.gif" width="720" />
   <br />
-  <sub>Connecting GitHub and inspecting the results. Credentials never leave your machine.</sub>
+  <sub>One command. Your professional identity, exported and yours.</sub>
 </p>
 
 `vana` collects your data from platforms you use. You log in through a browser
