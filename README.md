@@ -24,26 +24,13 @@ Branch prerelease:
 
 - `https://github.com/vana-com/vana-connect/releases/tag/canary-feat-connect-cli-v1`
 
-Once installed, the best way to evaluate the CLI quickly is:
+Once installed:
 
 ```bash
-vana --version
-vana doctor
-vana status
-vana sources
-vana connect github
-vana data list
-vana data show github
-vana logs github
+vana connect linkedin
 ```
 
-Key demo media:
-
-<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/status.gif" width="800" alt="vana status" />
-
-<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/connect-github-success.gif" width="800" alt="vana connect github" />
-
-<img src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/data-show-github.gif" width="600" alt="vana data show github" />
+<img src="https://github.com/vana-com/vana-connect/releases/download/canary-main/demo.gif" width="720" alt="vana connect linkedin" />
 
 ## What problem this solves
 

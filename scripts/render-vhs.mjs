@@ -54,6 +54,8 @@ const tapes = [
   { tape: "connect-shop.tape", env: "seeded" },
   { tape: "connect-steam.tape", env: "seeded" },
   { tape: "connect-steam-no-input.tape", env: "seeded" },
+  // Hero demo — LinkedIn connect with enriched scope labels
+  { tape: "demo.tape", env: "seeded", resetFixtures: true },
   // Runs last — mutates fixture state by writing a new result file
   { tape: "connect-github-success.tape", env: "seeded", resetFixtures: true },
 ];
