@@ -56,41 +56,32 @@ async function seedDemoHome() {
     },
   );
 
-  // Copy the demo connector (not the real one) to the cache so the runtime
-  // uses it directly without fetching from VANA_DATA_CONNECTORS_DIR.
-  const demoConnectorSrc = path.join(
-    repoRoot,
-    "docs",
-    "vhs",
-    "fixtures",
-    "demo-data-connectors",
-    "connectors",
-    "github",
-    "github-playwright.js",
-  );
-  await fs.copyFile(
-    demoConnectorSrc,
-    path.join(dataConnectRoot, "connectors", "github", "github-playwright.js"),
-  );
-  const linkedinDemoSrc = path.join(
-    repoRoot,
-    "docs",
-    "vhs",
-    "fixtures",
-    "demo-data-connectors",
-    "connectors",
-    "linkedin",
-    "linkedin-playwright.js",
-  );
-  await fs.copyFile(
-    linkedinDemoSrc,
-    path.join(
+  // Copy demo connectors to the cache at the path fetchConnectorToCache expects.
+  // The registry lists scripts as "connectors/{company}/{script}.js" and the
+  // cache dir is ~/.vana/connectors/, so the full cached path has double
+  // "connectors/connectors/".
+  for (const connector of [
+    "github/github-playwright.js",
+    "linkedin/linkedin-playwright.js",
+  ]) {
+    const src = path.join(
+      repoRoot,
+      "docs",
+      "vhs",
+      "fixtures",
+      "demo-data-connectors",
+      "connectors",
+      connector,
+    );
+    const dest = path.join(
       dataConnectRoot,
       "connectors",
-      "linkedin",
-      "linkedin-playwright.js",
-    ),
-  );
+      "connectors",
+      connector,
+    );
+    await fs.mkdir(path.dirname(dest), { recursive: true });
+    await fs.copyFile(src, dest);
+  }
   await fs.writeFile(
     path.join(dataConnectRoot, "connectors", "shop", "shop-playwright.js"),
     "// demo fixture\n",
