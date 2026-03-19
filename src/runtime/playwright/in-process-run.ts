@@ -295,32 +295,44 @@ export function startInProcessConnectorRun({
 
     try {
       const connectorCode = await fsp.readFile(request.connectorPath, "utf8");
-      runState.browserPath = resolveBrowserPath();
-      writeLog(`[runtime] Using browser: ${runState.browserPath}`);
 
-      const markerFile = path.join(runState.userDataDir, ".cookies-imported");
-      if (isSystemChrome(runState.browserPath) && !fs.existsSync(markerFile)) {
-        writeLog("[runtime] Initializing browser profile before cookie import");
-        const tempContext = await launchPersistentContext(
-          runState.userDataDir,
+      // Skip browser launch for demo/fixture connectors that don't need it.
+      // VANA_DEMO_FAST_SUCCESS connectors only use page.setData/setProgress/return.
+      const skipBrowser = process.env.VANA_DEMO_FAST_SUCCESS === "1";
+
+      if (!skipBrowser) {
+        runState.browserPath = resolveBrowserPath();
+        writeLog(`[runtime] Using browser: ${runState.browserPath}`);
+
+        const markerFile = path.join(runState.userDataDir, ".cookies-imported");
+        if (
+          isSystemChrome(runState.browserPath) &&
+          !fs.existsSync(markerFile)
+        ) {
+          writeLog(
+            "[runtime] Initializing browser profile before cookie import",
+          );
+          const tempContext = await launchPersistentContext(
+            runState.userDataDir,
+            true,
+            runState.browserPath,
+          );
+          await tempContext.close();
+          importChromeCookies(runState.userDataDir, runState.browserPath);
+        }
+
+        await reopenContext(
+          runState,
+          new Map<string, NetworkCaptureConfig>(),
+          new Map<string, { url: string; data: unknown; timestamp: number }>(),
           true,
-          runState.browserPath,
+          writeLog,
+          pushEvent,
+          request.source,
+          logPath,
         );
-        await tempContext.close();
-        importChromeCookies(runState.userDataDir, runState.browserPath);
+        activeContext = runState.context;
       }
-
-      await reopenContext(
-        runState,
-        new Map<string, NetworkCaptureConfig>(),
-        new Map<string, { url: string; data: unknown; timestamp: number }>(),
-        true,
-        writeLog,
-        pushEvent,
-        request.source,
-        logPath,
-      );
-      activeContext = runState.context;
 
       const pageApi = createPageApi({
         request,
@@ -332,9 +344,11 @@ export function startInProcessConnectorRun({
         writeLog,
       });
 
-      await runState.page?.goto("about:blank", {
-        waitUntil: "domcontentloaded",
-      });
+      if (!skipBrowser) {
+        await runState.page?.goto("about:blank", {
+          waitUntil: "domcontentloaded",
+        });
+      }
       const connectorFunction = buildConnectorFunction(connectorCode);
       const result = await connectorFunction.call(null, pageApi);
       if (runState.legacyAuthTriggered) {
