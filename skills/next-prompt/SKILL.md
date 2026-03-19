@@ -9,27 +9,39 @@ description: >
 
 # Next Prompt
 
-Generate the next task from connected personal data and user-defined guidance.
+Pick the single most valuable thing the user should know or have done, based on their connected data and stated focus, and do it.
 
 ## Config
 
-Read `~/.vana/next-prompt.md` for the user's guidance. If it doesn't exist, create it:
+Read `~/.vana/next-prompt.md` for the user's guidance. This file is the user's standing directive — like a system prompt that steers what you focus on and how you behave. It is **not** a task list or backlog. Do not write tasks, action items, or deliverables into it.
+
+If the file doesn't exist, create it with the default template below and tell the user to edit it — but don't block on that. Work with whatever you have.
 
 ```markdown
 # Next Prompt
 
-## Priorities
+## Focus
 
-- (edit this list to steer your agent)
+What I care about right now. Use this as context for deciding what's worth my attention — not as a checklist.
+
+## Permissions
+
+Do without asking:
+
+- Research and analysis
+- Writing summaries, memos, or drafts to local files
+- Code exploration and reading
+
+Ask first:
+
+- Sending messages or emails to anyone
+- Creating PRs, issues, or public posts
+- Anything involving money, credentials, or shared infrastructure
+- Deleting data or force-pushing
 
 ## Standing instructions
 
-- Prefer small, completable tasks
-
-## Notify me when
-
-- Something needs my decision
-- You're about to take an irreversible action
+- (your preferences for how the agent works)
 ```
 
 ## Flow
@@ -71,31 +83,26 @@ If timestamps aren't available, treat all data as current.
 cat ~/.vana/next-prompt.md
 ```
 
-### 4. Reason and generate
+### 4. Decide and act
 
-Based on the connected data and guidance, generate 1-3 prioritized suggestions. Each suggestion should be:
+Pick **one** action. The best action is:
 
-- Specific enough to execute without further clarification
-- Aligned with the user's stated priorities
-- Informed by what the data shows (recent activity, pending items, time-sensitive things)
+- **Time-sensitive over evergreen.** A message aging toward an SLA beats a code cleanup.
+- **Aligned with the user's stated focus** in the guidance file.
+- **Informed by what the data actually shows**, not what you assume.
+- **Specific and completable** in one agent turn.
 
-Present them:
+Classify the action's risk:
 
-```
-Based on your data and priorities:
+| Risk level      | Examples                                                     | What to do                                                                 |
+| --------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **Safe**        | Research, analysis, local file drafts, code reading          | Just do it. Tell the user what you did when done.                          |
+| **Visible**     | Sending messages, creating PRs, posting publicly             | Describe exactly what you'd do in one sentence, then wait for a thumbs up. |
+| **Destructive** | Deleting data, force-pushing, closing issues, spending money | Explain the action and consequences, then wait for explicit approval.      |
 
-1. [Most important action with reasoning]
-2. [Second action]
-3. [Third action]
+The user's `Permissions` section overrides these defaults.
 
-Pick one, or say "go" and I'll start on #1.
-```
-
-### 5. Execute or wait
-
-If the user picks one or says "go", execute it as your next task.
-
-If `~/.vana/next-prompt.md` says not to notify for this type of task, skip the prompt and execute directly.
+**Do not present a numbered list of options.** Pick the best one. If you're wrong, the user will redirect you. That's faster than making them choose every time.
 
 ## What to look for in each source
 
@@ -103,17 +110,19 @@ If `~/.vana/next-prompt.md` says not to notify for this type of task, skip the p
 
 **ChatGPT:** Recent conversation topics (what the user is thinking about), saved memories (stated preferences and goals), repeated questions (knowledge gaps or recurring concerns).
 
-**LinkedIn:** Unread messages (especially from contacts matching "anchor customer" or similar priority labels), profile views, job-relevant activity.
+**LinkedIn:** Unread messages (especially from contacts matching focus areas), profile views, job-relevant activity.
 
 **Spotify:** Listening patterns can indicate work state (focus music = deep work, podcasts = learning, silence = meetings or away).
+
+**YouTube:** Recent watch history and subscriptions signal what the user is learning about or interested in.
 
 **Shop/Uber:** Time-sensitive receipts, returns windows, upcoming trips.
 
 ## Rules
 
 1. Never fabricate data. Only reference what's actually in the result files.
-2. Respect the notify/don't-notify preferences in the config.
-3. If no data is connected, list the unconnected sources and tell the user to connect them in their own terminal. Do NOT run `vana connect` yourself — that is a separate skill (`connect-data`) and most sources require a headed browser you cannot access.
+2. Respect `Permissions` from the guidance file.
+3. If no data is connected, say so and suggest connecting sources. Do NOT run `vana connect` yourself — that is a separate skill (`connect-data`) and most sources require a headed browser you cannot access.
 4. Work with whatever data IS available. Do not block on missing sources.
-5. Weight time-sensitive items higher (messages aging toward an SLA, expiring deadlines).
+5. One action at a time. Do it well. Move on.
 6. Don't repeat suggestions the user has already dismissed.
