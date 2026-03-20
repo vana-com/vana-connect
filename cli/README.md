@@ -6,7 +6,6 @@
 ![macOS · Linux · Windows](https://img.shields.io/badge/platform-macOS%20·%20Linux%20·%20Windows-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-
 `vana` collects your data from platforms you use. You log in through a browser
 on your machine, and the CLI saves it locally as JSON.
 
@@ -24,7 +23,7 @@ on your machine, and the CLI saves it locally as JSON.
 macOS (Homebrew):
 
 ```bash
-brew install vana-com/tap/vana
+brew install vana-com/vana/vana
 ```
 
 macOS and Linux:
