@@ -1,4 +1,10 @@
+import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require("../../package.json") as {
+  version: string;
+};
 import {
   cliDataListSchema,
   cliDataPathSchema,
@@ -346,7 +352,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "--version"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("0.8.1");
+    expect(stdout.trim()).toBe(PKG_VERSION);
   });
 
   it("prints the CLI version with the version command", async () => {
@@ -354,7 +360,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "version"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("0.8.1 (stable, development checkout)");
+    expect(stdout.trim()).toBe(`${PKG_VERSION} (stable, development checkout)`);
   });
 
   it("prints structured version info in json mode", async () => {
@@ -364,7 +370,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(parsed).toEqual({
-      cliVersion: "0.8.1",
+      cliVersion: PKG_VERSION,
       channel: "stable",
       installMethod: "development",
     });
@@ -381,7 +387,7 @@ describe("runCli", () => {
 
       expect(exitCode).toBe(0);
       expect(parsed).toEqual({
-        cliVersion: "0.8.1",
+        cliVersion: PKG_VERSION,
         channel: "stable",
         installMethod: "installer",
       });
@@ -406,7 +412,7 @@ describe("runCli", () => {
 
       expect(exitCode).toBe(0);
       expect(parsed).toEqual({
-        cliVersion: "0.8.1",
+        cliVersion: PKG_VERSION,
         channel: "canary",
         installMethod: "installer",
       });
@@ -515,7 +521,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(parsed).toMatchObject({
-      cliVersion: "0.8.1",
+      cliVersion: PKG_VERSION,
       channel: "stable",
       installMethod: "development",
       runtime: "installed",

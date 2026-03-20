@@ -810,7 +810,7 @@ async function runConnect(
       }
     }
     if (fetched.updated && fetched.previousVersion) {
-      emit.detail(
+      renderer?.detail(
         `Updated connector (${fetched.previousVersion} → ${fetched.version}).`,
       );
     }
@@ -1202,11 +1202,7 @@ async function runConnect(
     }
 
     // Auto-schedule collection if no schedule exists (non-blocking)
-    await maybeAutoSchedule(
-      fetched.exportFrequency ?? sourceDetails?.exportFrequency,
-      emit,
-      options,
-    ).catch(() => {});
+    await maybeAutoSchedule(emit, options).catch(() => {});
 
     // --- Phase 7: Success summary ---
     renderer?.success(`Connected ${displayName}.`);
@@ -4335,7 +4331,6 @@ async function getExistingScheduleInterval(): Promise<number | null> {
 }
 
 async function maybeAutoSchedule(
-  exportFrequency: string | undefined,
   emit: Emitter,
   options: GlobalOptions,
 ): Promise<void> {
@@ -4344,31 +4339,14 @@ async function maybeAutoSchedule(
   // Skip unsupported platforms
   if (!["darwin", "linux", "win32"].includes(process.platform)) return;
 
-  const newInterval = exportFrequency
-    ? parseIntervalSeconds(exportFrequency)
-    : 86400;
   const existing = await getExistingScheduleInterval();
+  if (existing !== null) return; // Schedule already exists
 
-  if (existing === null) {
-    // No schedule → create one
-    await runScheduleAdd(exportFrequency ?? "daily", {
-      json: false,
-      quiet: true,
-    });
-    emit.detail(
-      `Auto-scheduled collection every ${formatIntervalHuman(newInterval)}.`,
-    );
-  } else if (newInterval < existing) {
-    // New source has shorter frequency → adjust down
-    await runScheduleAdd(exportFrequency ?? "daily", {
-      json: false,
-      quiet: true,
-    });
-    emit.detail(
-      `Adjusted schedule to every ${formatIntervalHuman(newInterval)} (was ${formatIntervalHuman(existing)}).`,
-    );
-  }
-  // else: existing schedule is already at or below needed frequency, no-op
+  // Create a schedule. On Linux this is always hourly (cron doesn't defer
+  // missed jobs, so isCollectionDue() filters per-source at each tick).
+  // On macOS/Windows the OS handles missed-job deferral natively.
+  await runScheduleAdd("daily", { json: false, quiet: true });
+  emit.detail("Auto-scheduled collection.");
 }
 
 function generateLaunchdPlist(
