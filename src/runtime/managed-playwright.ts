@@ -92,11 +92,16 @@ export class ManagedPlaywrightRuntime {
     };
   }
 
-  async fetchConnector(source: string): Promise<{
+  async fetchConnector(
+    source: string,
+    currentVersion?: string,
+  ): Promise<{
     connectorPath: string;
     logPath: string;
     version?: string;
     exportFrequency?: string;
+    updated?: boolean;
+    previousVersion?: string;
   }> {
     const dataConnectorsDir = findDataConnectorsDir();
     const logPath = getTimestampedLogPath(`fetch-${source}`);
@@ -107,6 +112,7 @@ export class ManagedPlaywrightRuntime {
         source,
         getConnectorCacheDir(),
         dataConnectorsDir ?? undefined,
+        currentVersion,
       );
       await fsp.writeFile(
         logPath,
@@ -125,6 +131,8 @@ export class ManagedPlaywrightRuntime {
         connectorPath: resolution.connectorPath,
         logPath,
         version: resolution.version,
+        updated: resolution.updated,
+        previousVersion: resolution.previousVersion,
       };
     } catch (error) {
       await fsp.writeFile(

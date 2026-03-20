@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import nodeFs from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -41,6 +42,8 @@ export interface ConnectorResolution {
   description?: string;
   connectorPath: string;
   version?: string;
+  updated?: boolean;
+  previousVersion?: string;
 }
 
 export interface AvailableSource {
@@ -113,12 +116,60 @@ export async function resolveConnector(
   };
 }
 
+export function findCachedConnectorScript(
+  source: string,
+  connectorCacheDir: string,
+): string | null {
+  const normalizedSource = source.toLowerCase();
+  try {
+    const entries = nodeFs.readdirSync(connectorCacheDir, {
+      withFileTypes: true,
+    });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const companyDir = path.join(connectorCacheDir, entry.name);
+      const files = nodeFs.readdirSync(companyDir);
+      for (const file of files) {
+        if (
+          file.endsWith("-playwright.js") &&
+          file.replace(/-playwright\.js$/, "").toLowerCase() ===
+            normalizedSource
+        ) {
+          return path.join(companyDir, file);
+        }
+      }
+    }
+  } catch {
+    // Cache dir may not exist
+  }
+  return null;
+}
+
 export async function fetchConnectorToCache(
   source: string,
   connectorCacheDir: string,
   dataConnectorsDir?: string,
+  currentVersion?: string,
 ): Promise<ConnectorResolution> {
-  const registry = await loadRegistry(dataConnectorsDir);
+  let registry: { connectors?: ConnectorRegistryEntry[] };
+  try {
+    registry = await loadRegistry(dataConnectorsDir);
+  } catch (error) {
+    // Offline fallback: if currentVersion provided and cache exists, return cached
+    if (currentVersion) {
+      const cachedPath = findCachedConnectorScript(source, connectorCacheDir);
+      if (cachedPath) {
+        return {
+          source: normalizeSourceName(source) ?? source,
+          name: normalizeSourceName(source) ?? source,
+          connectorPath: cachedPath,
+          version: currentVersion,
+          updated: false,
+        };
+      }
+    }
+    throw error;
+  }
   const normalizedSource = source.toLowerCase();
   const match = (registry.connectors ?? []).find((entry) => {
     const id = (entry.id ?? "").toLowerCase();
@@ -147,6 +198,25 @@ export async function fetchConnectorToCache(
     throw new Error(
       `Connector metadata for ${source} is missing a script path.`,
     );
+  }
+
+  // Version-aware caching: skip download when versions match and file exists
+  if (match.version && currentVersion && match.version === currentVersion) {
+    const cachedScriptPath = path.join(connectorCacheDir, scriptRelPath);
+    try {
+      await fs.access(cachedScriptPath);
+      return {
+        source: normalizeSourceName(match.id ?? match.name ?? source) ?? source,
+        name: match.name ?? normalizeSourceName(match.id ?? source) ?? source,
+        company: match.company,
+        description: match.description,
+        connectorPath: cachedScriptPath,
+        version: match.version,
+        updated: false,
+      };
+    } catch {
+      // File missing despite version match — fall through to download
+    }
   }
 
   await copyOrFetchFile(scriptRelPath, connectorCacheDir, dataConnectorsDir);
@@ -196,6 +266,8 @@ export async function fetchConnectorToCache(
     description: match.description,
     connectorPath: path.join(connectorCacheDir, scriptRelPath),
     version: match.version,
+    updated: true,
+    previousVersion: currentVersion,
   };
 }
 
