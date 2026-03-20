@@ -85,6 +85,8 @@ export const sourceStatusSchema = z.object({
     .optional(),
   syncedScopeCount: z.number().optional(),
   failedScopeCount: z.number().optional(),
+  suggestedNextCollectionAt: z.string().optional(),
+  isOverdue: z.boolean().optional(),
 });
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 

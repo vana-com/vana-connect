@@ -70,9 +70,20 @@ export function getSourceResultPath(source: string): string {
   return path.join(getResultsDir(), `${safe}.json`);
 }
 
-/** Internal temp path for connector output. Use getSourceResultPath() for storage. */
-export function getLastResultPath(): string {
-  return path.join(getVanaHome(), "last-result.json");
+export function getPreviousResultPath(source: string): string {
+  const safe = source.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
+  return path.join(getResultsDir(), `${safe}.previous.json`);
+}
+
+/** Rotate current result to .previous before overwriting. */
+export async function rotateResult(source: string): Promise<void> {
+  const current = getSourceResultPath(source);
+  const previous = getPreviousResultPath(source);
+  try {
+    await fs.promises.rename(current, previous);
+  } catch {
+    // No existing result to rotate — that's fine
+  }
 }
 
 export function getSessionsDir(): string {

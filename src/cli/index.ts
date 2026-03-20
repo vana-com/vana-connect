@@ -84,6 +84,11 @@ import {
   queryDataShow,
   queryDoctor,
 } from "./queries.js";
+import {
+  readUpdateCheck,
+  isNewerVersion,
+  spawnUpdateCheck,
+} from "./update-check.js";
 
 interface GlobalOptions {
   json?: boolean;
@@ -159,6 +164,35 @@ export async function runCli(argv = process.argv): Promise<number> {
   }
   const parsedOptions = extractGlobalOptions(normalizedArgv);
   const cliVersion = getCliVersion();
+
+  // Non-blocking update check — compute suppression flags early
+  const shouldNotify =
+    !parsedOptions.json &&
+    process.stdout.isTTY &&
+    !process.env.VANA_NO_UPDATE_NOTIFIER &&
+    !process.env.CI &&
+    !process.env.AGENT &&
+    !process.env.VANA_DETACHED;
+
+  let updateNotice: string | undefined;
+  if (shouldNotify) {
+    try {
+      const cached = await readUpdateCheck();
+      if (cached && isNewerVersion(cliVersion, cached.latestVersion)) {
+        const lifecycle = getLifecycleCommands(
+          getCliInstallMethod(),
+          getCliChannel(),
+        );
+        updateNotice = `\nUpdate available: ${cliVersion} → ${cached.latestVersion}\nRun: ${lifecycle.upgrade}\n`;
+      } else if (!cached) {
+        // Cache missing or expired — spawn background check
+        spawnUpdateCheck(cliVersion, getCliInstallMethod());
+      }
+    } catch {
+      // Suppress all errors — update check is purely informational
+    }
+  }
+
   const program = new Command();
   program
     .name("vana")
@@ -581,24 +615,28 @@ Examples:
     });
 
   try {
-    await program.parseAsync(normalizedArgv);
-  } catch (error) {
-    if (error instanceof CommanderError) {
-      if (
-        error.code === "commander.help" ||
-        error.code === "commander.helpDisplayed" ||
-        error.code === "commander.version"
-      ) {
+    try {
+      await program.parseAsync(normalizedArgv);
+    } catch (error) {
+      if (error instanceof CommanderError) {
+        if (
+          error.code === "commander.help" ||
+          error.code === "commander.helpDisplayed" ||
+          error.code === "commander.version"
+        ) {
+          process.exitCode = error.exitCode;
+          return Number(process.exitCode ?? 0);
+        }
+        // Commander already printed to stderr; just set exit code.
         process.exitCode = error.exitCode;
-        return Number(process.exitCode ?? 0);
+        return Number(process.exitCode ?? 1);
       }
-      // Commander already printed to stderr; just set exit code.
-      process.exitCode = error.exitCode;
-      return Number(process.exitCode ?? 1);
+      throw error;
     }
-    throw error;
+    return Number(process.exitCode ?? 0);
+  } finally {
+    if (updateNotice) process.stderr.write(updateNotice);
   }
-  return Number(process.exitCode ?? 0);
 }
 
 async function runConnect(
@@ -682,11 +720,13 @@ async function runConnect(
     }
 
     // --- Phase 2: Connector fetch (silent if cached/fast) ---
+    const preState = await readCliState();
+    const currentVersion = preState.sources[source]?.connectorVersion;
     let fetched: Awaited<
       ReturnType<ManagedPlaywrightRuntime["fetchConnector"]>
     >;
     try {
-      fetched = await runtime.fetchConnector(source);
+      fetched = await runtime.fetchConnector(source, currentVersion);
     } catch (firstError) {
       const firstMessage =
         firstError instanceof Error ? firstError.message : "";
@@ -768,6 +808,11 @@ async function runConnect(
         });
         return 1;
       }
+    }
+    if (fetched.updated && fetched.previousVersion) {
+      emit.detail(
+        `Updated connector (${fetched.previousVersion} → ${fetched.version}).`,
+      );
     }
     fetchLogPath = fetched.logPath;
     const sourceDetails = registrySources.find((item) => item.id === source);
@@ -1038,15 +1083,7 @@ async function runConnect(
         }
 
         collectedResult = true;
-        // Copy result to per-source path so multiple sources can coexist
-        const sourceResultPath = getSourceResultPath(source);
-        try {
-          await fsp.mkdir(path.dirname(sourceResultPath), { recursive: true });
-          await fsp.copyFile(event.resultPath, sourceResultPath);
-          resultPath = sourceResultPath;
-        } catch {
-          resultPath = event.resultPath; // fall back to original path
-        }
+        resultPath = event.resultPath;
         const ingestEvents = await ingestResult(
           resolution.source,
           resultPath,
@@ -1163,6 +1200,13 @@ async function runConnect(
     } else {
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
+
+    // Auto-schedule collection if no schedule exists (non-blocking)
+    await maybeAutoSchedule(
+      fetched.exportFrequency ?? sourceDetails?.exportFrequency,
+      emit,
+      options,
+    ).catch(() => {});
 
     // --- Phase 7: Success summary ---
     renderer?.success(`Connected ${displayName}.`);
@@ -1493,14 +1537,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     for (const [sourceId, stored] of connectedSources) {
       const health = stored?.connectionHealth ?? "healthy";
       const displayName = displaySource(sourceId, sourceLabels);
-      const healthTone = toneForHealth(health);
+      const sourceStatus = status.sources.find((s) => s.source === sourceId);
+      const sourceOverdue = sourceStatus?.isOverdue ?? false;
+      const healthTone = sourceOverdue ? "warning" : toneForHealth(health);
       const healthLabel = health === "needs_reauth" ? "needs login" : health;
+      const staleTag = sourceOverdue
+        ? ` ${emit.badge("stale", "warning")}`
+        : "";
       const collectedAgo = stored?.lastCollectedAt
         ? `collected ${formatRelativeTime(stored.lastCollectedAt)}`
         : "";
       emit.keyValue(
         `  ${displayName}`,
-        `${healthLabel}     ${collectedAgo}`,
+        `${healthLabel}${staleTag}     ${collectedAgo}`,
         healthTone,
       );
       if (health === "needs_reauth" && !needsReauthSource) {
@@ -2962,6 +3011,17 @@ export async function gatherSourceStatuses(
         ingestScopes?.filter((s) => s.status === "stored").length ?? 0;
       const failedScopeCount =
         ingestScopes?.filter((s) => s.status === "failed").length ?? 0;
+      const isOverdue =
+        stored.lastCollectedAt && stored.exportFrequency
+          ? isCollectionDue(stored.exportFrequency, stored.lastCollectedAt)
+          : undefined;
+      const suggestedNextCollectionAt =
+        stored.lastCollectedAt && stored.exportFrequency
+          ? new Date(
+              new Date(stored.lastCollectedAt).getTime() +
+                parseFrequencyToMs(stored.exportFrequency),
+            ).toISOString()
+          : undefined;
       return {
         source,
         name: details?.name,
@@ -2983,6 +3043,8 @@ export async function gatherSourceStatuses(
         ingestScopes,
         syncedScopeCount: syncedScopeCount > 0 ? syncedScopeCount : undefined,
         failedScopeCount: failedScopeCount > 0 ? failedScopeCount : undefined,
+        suggestedNextCollectionAt,
+        isOverdue,
       };
     })
     .sort(compareSourceStatusOrder);
@@ -3564,6 +3626,14 @@ export function getLifecycleCommands(
         uninstall: "brew uninstall vana",
       };
     case "installer":
+      if (process.platform === "win32") {
+        return {
+          upgrade:
+            'powershell -Command "irm https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 | iex"',
+          uninstall:
+            'powershell -Command "Remove-Item $env:LOCALAPPDATA\\Vana -Recurse -Force; Remove-Item $env:USERPROFILE\\.vana -Recurse -Force"',
+        };
+      }
       return {
         upgrade:
           channel === "canary"
@@ -4175,6 +4245,7 @@ const LAUNCHD_PLIST_PATH = path.join(
   `${LAUNCHD_LABEL}.plist`,
 );
 const CRONTAB_MARKER = "# vana-scheduled-collection";
+const WINDOWS_TASK_NAME = "VanaScheduledCollection";
 
 function parseIntervalSeconds(interval: string): number {
   const lower = interval.toLowerCase().trim();
@@ -4205,13 +4276,99 @@ function resolveVanaBinaryPath(): string {
   if (installMethod === "homebrew" || installMethod === "installer") {
     return process.execPath;
   }
-  // For development, try to find the vana binary via which
+  // For development, try to find the vana binary via which/where
   try {
-    return execSync("which vana", { encoding: "utf8" }).trim();
+    const cmd = process.platform === "win32" ? "where vana" : "which vana";
+    const result = execSync(cmd, { encoding: "utf8" }).trim();
+    // `where` on Windows may return multiple lines; take the first
+    return result.split("\n")[0].trim();
   } catch {
     // Fall back to process.execPath + argv[1]
     return `${process.execPath} ${process.argv[1]}`;
   }
+}
+
+async function getExistingScheduleInterval(): Promise<number | null> {
+  if (process.platform === "darwin") {
+    try {
+      const content = await fsp.readFile(LAUNCHD_PLIST_PATH, "utf8");
+      const match = content.match(
+        /<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/,
+      );
+      return match ? parseInt(match[1], 10) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const crontab = execSync("crontab -l 2>/dev/null", { encoding: "utf8" });
+      const vanaLine = crontab
+        .split("\n")
+        .find((line) => line.includes(CRONTAB_MARKER));
+      if (!vanaLine) return null;
+      // Parse hour interval from crontab: look for */N pattern
+      const hourMatch = /\*\/(\d+)/.exec(vanaLine);
+      if (hourMatch) return parseInt(hourMatch[1], 10) * 3600;
+      // Daily (0 0 * * *)
+      return 86400;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "win32") {
+    try {
+      execSync(`schtasks /Query /TN "${WINDOWS_TASK_NAME}" /FO LIST`, {
+        encoding: "utf8",
+      });
+      // Task exists but we can't easily parse the interval; return a
+      // sentinel value (86400) to indicate "schedule present".
+      return 86400;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function maybeAutoSchedule(
+  exportFrequency: string | undefined,
+  emit: Emitter,
+  options: GlobalOptions,
+): Promise<void> {
+  // Skip if --no-input (detached/agent context shouldn't create schedules)
+  if (options.noInput) return;
+  // Skip unsupported platforms
+  if (!["darwin", "linux", "win32"].includes(process.platform)) return;
+
+  const newInterval = exportFrequency
+    ? parseIntervalSeconds(exportFrequency)
+    : 86400;
+  const existing = await getExistingScheduleInterval();
+
+  if (existing === null) {
+    // No schedule → create one
+    await runScheduleAdd(exportFrequency ?? "daily", {
+      json: false,
+      quiet: true,
+    });
+    emit.detail(
+      `Auto-scheduled collection every ${formatIntervalHuman(newInterval)}.`,
+    );
+  } else if (newInterval < existing) {
+    // New source has shorter frequency → adjust down
+    await runScheduleAdd(exportFrequency ?? "daily", {
+      json: false,
+      quiet: true,
+    });
+    emit.detail(
+      `Adjusted schedule to every ${formatIntervalHuman(newInterval)} (was ${formatIntervalHuman(existing)}).`,
+    );
+  }
+  // else: existing schedule is already at or below needed frequency, no-op
 }
 
 function generateLaunchdPlist(
@@ -4239,6 +4396,7 @@ ${programArgs}
     <string>collect</string>
     <string>--all</string>
     <string>--quiet</string>
+    <string>--no-input</string>
   </array>
   <key>StartInterval</key>
   <integer>${intervalSeconds}</integer>
@@ -4262,7 +4420,7 @@ function generateCrontabEntry(
   const dayExpr = "*";
   const hourInterval =
     intervalHours >= 24 ? "0" : intervalHours >= 1 ? `*/${intervalHours}` : "*";
-  return `${hourExpr} ${hourInterval} ${dayExpr} * * ${vanaBinary} collect --all --quiet >> ${logsPath} 2>&1 ${CRONTAB_MARKER}`;
+  return `${hourExpr} ${hourInterval} ${dayExpr} * * ${vanaBinary} collect --all --quiet --no-input >> ${logsPath} 2>&1 ${CRONTAB_MARKER}`;
 }
 
 async function runScheduleAdd(
@@ -4317,9 +4475,10 @@ async function runScheduleAdd(
   }
 
   if (process.platform === "linux") {
-    // Linux: crontab
-    const intervalHours = Math.max(1, Math.round(intervalSeconds / 3600));
-    const entry = generateCrontabEntry(vanaBinary, intervalHours);
+    // Linux: cron doesn't defer missed jobs (unlike launchd), so we run
+    // hourly and let isCollectionDue() filter per-source. This way a
+    // missed 2am tick self-heals at 3am instead of waiting 24h.
+    const entry = generateCrontabEntry(vanaBinary, 1);
 
     try {
       // Read existing crontab, filter out old vana entries, add new one
@@ -4361,9 +4520,67 @@ async function runScheduleAdd(
     return 0;
   }
 
+  if (process.platform === "win32") {
+    // Windows: Task Scheduler
+    const intervalMinutes = Math.max(1, Math.round(intervalSeconds / 60));
+    const trCmd = `\\"${vanaBinary}\\" collect --all --quiet --no-input`;
+
+    try {
+      try {
+        execSync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F 2>nul`, {
+          stdio: "ignore",
+        });
+      } catch {
+        // Not present, that's fine
+      }
+
+      if (intervalSeconds >= 86400) {
+        execSync(
+          `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC DAILY /ST 09:00 /F`,
+          { stdio: "ignore" },
+        );
+      } else {
+        execSync(
+          `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC MINUTE /MO ${intervalMinutes} /F`,
+          { stdio: "ignore" },
+        );
+      }
+
+      // Enable StartWhenAvailable for deferred execution
+      try {
+        execSync(
+          `powershell -Command "$t = Get-ScheduledTask '${WINDOWS_TASK_NAME}'; $t.Settings.StartWhenAvailable = $true; Set-ScheduledTask -InputObject $t"`,
+          { stdio: "ignore" },
+        );
+      } catch {
+        // Non-fatal if PowerShell cmdlet fails
+      }
+    } catch {
+      emit.info("Could not create scheduled task. Create it manually:");
+      emit.detail(
+        `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC DAILY /ST 09:00 /F`,
+      );
+      return 1;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: true, interval: intervalLabel, mechanism: "schtasks" })}\n`,
+      );
+      return 0;
+    }
+
+    emit.info(
+      `Added ${intervalLabel === "1d" ? "daily" : `every ${intervalLabel}`} collection schedule.`,
+    );
+    emit.detail(`Runs: ${emit.code("vana collect --all --quiet")}`);
+    emit.detail(`Managed by: Task Scheduler`);
+    return 0;
+  }
+
   // Unsupported platform
   emit.info(
-    "Scheduled collection requires launchd (macOS) or cron (Linux). Run `vana collect --all` manually or set up a cron job.",
+    "Scheduled collection is not supported on this platform. Run `vana collect --all` manually.",
   );
   return 1;
 }
@@ -4441,6 +4658,34 @@ async function runScheduleList(options: GlobalOptions): Promise<number> {
     }
   }
 
+  if (process.platform === "win32") {
+    try {
+      const output = execSync(
+        `schtasks /Query /TN "${WINDOWS_TASK_NAME}" /FO LIST`,
+        { encoding: "utf8" },
+      );
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({
+            scheduled: true,
+            mechanism: "schtasks",
+            taskName: WINDOWS_TASK_NAME,
+          })}\n`,
+        );
+        return 0;
+      }
+      emit.keyValue("Daily collection", "Task Scheduler", "muted");
+      // Extract schedule info from output
+      const statusLine = output.split("\n").find((l) => l.includes("Status:"));
+      if (statusLine) {
+        emit.detail(statusLine.trim());
+      }
+      return 0;
+    } catch {
+      // Task not found
+    }
+  }
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ scheduled: false })}\n`);
     return 0;
@@ -4507,6 +4752,26 @@ async function runScheduleRemove(options: GlobalOptions): Promise<number> {
       }
     } catch {
       // No crontab available
+    }
+  }
+
+  if (process.platform === "win32") {
+    try {
+      execSync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F`, {
+        stdio: "ignore",
+      });
+
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ ok: true, removed: true })}\n`,
+        );
+        return 0;
+      }
+
+      emit.info("Removed daily collection schedule.");
+      return 0;
+    } catch {
+      // Task not found
     }
   }
 

@@ -252,6 +252,13 @@ export async function queryStatus(): Promise<StatusQueryResult> {
     }
   }
 
+  const overdueCount = sources.filter((s) => s.isOverdue).length;
+  if (overdueCount > 0) {
+    nextSteps.push(
+      `${overdueCount} source(s) overdue for collection. Run \`vana collect --all\`.`,
+    );
+  }
+
   if (pendingSyncCount > 0) {
     nextSteps.push(
       `Sync ${pendingSyncCount} pending dataset(s) with \`vana server sync\`.`,
