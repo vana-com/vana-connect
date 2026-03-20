@@ -614,14 +614,6 @@ Examples:
       process.exitCode = await runScheduleRemove(parsedOptions);
     });
 
-  // Cron catch-up: if a cron schedule exists and sources are overdue, spawn
-  // a detached catch-up process. Skip if we're already in a collect command.
-  const isCollectAll =
-    normalizedArgv.includes("collect") && normalizedArgv.includes("--all");
-  if (!isCollectAll) {
-    runScheduledCatchUp().catch(() => {});
-  }
-
   try {
     await program.parseAsync(normalizedArgv);
   } catch (error) {
@@ -4382,48 +4374,6 @@ async function maybeAutoSchedule(
   // else: existing schedule is already at or below needed frequency, no-op
 }
 
-async function runScheduledCatchUp(): Promise<void> {
-  // Only on Linux (launchd handles via StartInterval natively)
-  if (process.platform !== "linux") return;
-  // Don't run if already in a scheduled/detached context
-  if (process.env.VANA_DETACHED) return;
-  // Check if cron schedule exists
-  try {
-    const crontab = execSync("crontab -l 2>/dev/null", { encoding: "utf8" });
-    if (!crontab.includes(CRONTAB_MARKER)) return;
-  } catch {
-    return;
-  }
-  // Check for overdue sources
-  const state = await readCliState();
-  const overdue = Object.entries(state.sources)
-    .filter(
-      ([, s]) =>
-        s?.connectorInstalled &&
-        isCollectionDue(s.exportFrequency, s.lastCollectedAt),
-    )
-    .map(([id]) => id);
-  if (overdue.length === 0) return;
-  // Spawn detached catch-up
-  const binary = resolveVanaBinaryPath();
-  const logPath = path.join(getLogsDir(), "catchup.log");
-  await fsp.mkdir(getLogsDir(), { recursive: true });
-  const logFd = fs.openSync(logPath, "a");
-  const isSEA =
-    getCliInstallMethod() === "homebrew" ||
-    getCliInstallMethod() === "installer";
-  const childArgs = isSEA
-    ? ["collect", "--all", "--quiet", "--no-input"]
-    : [process.argv[1], "collect", "--all", "--quiet", "--no-input"];
-  const child = spawn(isSEA ? binary : process.execPath, childArgs, {
-    detached: true,
-    stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, VANA_DETACHED: "1" },
-  });
-  child.unref();
-  fs.closeSync(logFd);
-}
-
 function generateLaunchdPlist(
   vanaBinary: string,
   intervalSeconds: number,
@@ -4528,9 +4478,10 @@ async function runScheduleAdd(
   }
 
   if (process.platform === "linux") {
-    // Linux: crontab
-    const intervalHours = Math.max(1, Math.round(intervalSeconds / 3600));
-    const entry = generateCrontabEntry(vanaBinary, intervalHours);
+    // Linux: cron doesn't defer missed jobs (unlike launchd), so we run
+    // hourly and let isCollectionDue() filter per-source. This way a
+    // missed 2am tick self-heals at 3am instead of waiting 24h.
+    const entry = generateCrontabEntry(vanaBinary, 1);
 
     try {
       // Read existing crontab, filter out old vana entries, add new one
