@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - "connect/**"
       - "examples/**"
+      - "worker/**"
   workflow_dispatch:
 
 permissions:
