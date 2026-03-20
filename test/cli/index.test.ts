@@ -1,10 +1,5 @@
 import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { version: PKG_VERSION } = require("../../package.json") as {
-  version: string;
-};
 import {
   cliDataListSchema,
   cliDataPathSchema,
@@ -18,6 +13,11 @@ import {
   cliSourcesSchema,
   sourceRequiredErrorSchema,
 } from "../../src/core/cli-types.js";
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require("../../package.json") as {
+  version: string;
+};
 
 const mockListAvailableSources = vi.fn();
 const mockDetectPersonalServerTarget = vi.fn();
