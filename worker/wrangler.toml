@@ -1,4 +1,5 @@
-name = "personal-server-router"
+name = "personal-server"
+account_id = "5287c8e640ca55532dc18576178f008c"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
@@ -13,4 +14,4 @@ zone_name = "myvana.app"
 # Create via: wrangler kv namespace create SERVER_CACHE
 [[kv_namespaces]]
 binding = "SERVER_CACHE"
-id = "TODO_REPLACE_WITH_KV_NAMESPACE_ID"
+id = "67774b67a2f9431bb60c1990ebee5699"
