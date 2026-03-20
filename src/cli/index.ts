@@ -1038,15 +1038,7 @@ async function runConnect(
         }
 
         collectedResult = true;
-        // Copy result to per-source path so multiple sources can coexist
-        const sourceResultPath = getSourceResultPath(source);
-        try {
-          await fsp.mkdir(path.dirname(sourceResultPath), { recursive: true });
-          await fsp.copyFile(event.resultPath, sourceResultPath);
-          resultPath = sourceResultPath;
-        } catch {
-          resultPath = event.resultPath; // fall back to original path
-        }
+        resultPath = event.resultPath;
         const ingestEvents = await ingestResult(
           resolution.source,
           resultPath,

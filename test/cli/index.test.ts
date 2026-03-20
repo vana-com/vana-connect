@@ -156,7 +156,8 @@ vi.mock("../../src/core/index.js", async () => {
     updateCliConfig: vi.fn().mockResolvedValue(undefined),
     updateSourceState: mockUpdateSourceState,
     getBrowserProfilesDir: vi.fn(() => "/tmp/browser-profiles"),
-    getLastResultPath: vi.fn(() => "/tmp/.vana/last-result.json"),
+    getSourceResultPath: vi.fn((s: string) => `/tmp/.vana/results/${s}.json`),
+    rotateResult: vi.fn(),
   };
 });
 
