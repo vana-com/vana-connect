@@ -4529,29 +4529,40 @@ function isPromptCancelled(error: unknown): boolean {
 // Skill commands
 // ---------------------------------------------------------------------------
 
+const BASE_SKILL_ID = "connect-data";
+
 async function maybePromptSkillInstall(
   emit: ReturnType<typeof createEmitter>,
 ): Promise<void> {
   try {
     const skills = await listAvailableSkills();
-    if (skills.length === 0) return;
+    const baseSkill = skills.find((s) => s.id === BASE_SKILL_ID);
+    if (!baseSkill) return;
+
+    const installed = await readInstalledSkills();
+    if (installed.some((s) => s.id === BASE_SKILL_ID)) {
+      await updateCliConfig({ skillsPromptCompleted: true });
+      return;
+    }
 
     emit.blank();
     const shouldInstall = await confirm({
       message:
-        "Install agent skills so your coding agent can use your connected data?",
+        "Install a skill so your coding agent knows how to use your connected data?",
       default: true,
       ...vanaPromptTheme,
     });
 
     if (shouldInstall) {
-      for (const skill of skills) {
-        try {
-          await installSkill(skill.id);
-          emit.success(`Installed skill: ${skill.name}`);
-        } catch {
-          // Non-fatal — continue with remaining skills.
-        }
+      try {
+        await installSkill(BASE_SKILL_ID);
+        emit.success(`Installed skill: ${baseSkill.name}`);
+      } catch {
+        // Non-fatal.
+      }
+      const remaining = skills.filter((s) => s.id !== BASE_SKILL_ID);
+      if (remaining.length > 0) {
+        emit.next("vana skills");
       }
     }
 
@@ -4594,7 +4605,7 @@ async function runSkillsGuidedPicker(options: GlobalOptions): Promise<number> {
     });
 
     const selectedId = await searchSelect({
-      message: "Select a skill to install or view details.",
+      message: "Select a skill.",
       choices,
       ...vanaPromptTheme,
     });
