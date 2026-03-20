@@ -1201,9 +1201,6 @@ async function runConnect(
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
 
-    // Auto-schedule collection if no schedule exists (non-blocking)
-    await maybeAutoSchedule(emit, options).catch(() => {});
-
     // --- Phase 7: Success summary ---
     renderer?.success(`Connected ${displayName}.`);
     renderer?.detail(successSummary);
@@ -1253,6 +1250,11 @@ async function runConnect(
       source: resolution.source,
       resultPath,
     });
+
+    // Auto-schedule collection if no schedule exists (non-blocking).
+    // Runs after renderer is done to avoid cursor collision.
+    await maybeAutoSchedule(options).catch(() => {});
+
     return 0;
   } catch (error) {
     if (
@@ -4331,7 +4333,6 @@ async function getExistingScheduleInterval(): Promise<number | null> {
 }
 
 async function maybeAutoSchedule(
-  emit: Emitter,
   options: GlobalOptions,
 ): Promise<void> {
   // Skip if --no-input (detached/agent context shouldn't create schedules)
@@ -4343,7 +4344,6 @@ async function maybeAutoSchedule(
   if (existing !== null) return; // Schedule already exists
 
   await runScheduleAdd("daily", { json: false, quiet: true });
-  emit.detail("Auto-scheduled daily collection.");
 }
 
 function generateLaunchdPlist(
