@@ -1,0 +1,16 @@
+name = "personal-server-router"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Secrets (set via `wrangler secret put`):
+#   DATABASE_URL  — Neon Postgres connection string
+
+[[routes]]
+pattern = "*.myvana.app/*"
+zone_name = "myvana.app"
+
+# KV namespace for caching user→VM IP lookups
+# Create via: wrangler kv namespace create SERVER_CACHE
+[[kv_namespaces]]
+binding = "SERVER_CACHE"
+id = "TODO_REPLACE_WITH_KV_NAMESPACE_ID"
