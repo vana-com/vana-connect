@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import nodeFs from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -116,19 +115,19 @@ export async function resolveConnector(
   };
 }
 
-export function findCachedConnectorScript(
+export async function findCachedConnectorScript(
   source: string,
   connectorCacheDir: string,
-): string | null {
+): Promise<string | null> {
   const normalizedSource = source.toLowerCase();
   try {
-    const entries = nodeFs.readdirSync(connectorCacheDir, {
+    const entries = await fs.readdir(connectorCacheDir, {
       withFileTypes: true,
     });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const companyDir = path.join(connectorCacheDir, entry.name);
-      const files = nodeFs.readdirSync(companyDir);
+      const files = await fs.readdir(companyDir);
       for (const file of files) {
         if (
           file.endsWith("-playwright.js") &&
@@ -157,7 +156,10 @@ export async function fetchConnectorToCache(
   } catch (error) {
     // Offline fallback: if currentVersion provided and cache exists, return cached
     if (currentVersion) {
-      const cachedPath = findCachedConnectorScript(source, connectorCacheDir);
+      const cachedPath = await findCachedConnectorScript(
+        source,
+        connectorCacheDir,
+      );
       if (cachedPath) {
         return {
           source: normalizeSourceName(source) ?? source,

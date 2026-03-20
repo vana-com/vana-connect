@@ -4575,7 +4575,7 @@ async function runScheduleAdd(
   if (process.platform === "win32") {
     // Windows: Task Scheduler
     const intervalMinutes = Math.max(1, Math.round(intervalSeconds / 60));
-    const trCmd = `${vanaBinary} collect --all --quiet --no-input`;
+    const trCmd = `\\"${vanaBinary}\\" collect --all --quiet --no-input`;
 
     try {
       try {

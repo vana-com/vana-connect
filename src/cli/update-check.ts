@@ -64,7 +64,7 @@ export function spawnUpdateCheck(
  */
 export function isNewerVersion(current: string, latest: string): boolean {
   const parse = (v: string): number[] =>
-    v.replace(/^v/, "").split(".").map(Number);
+    v.replace(/^v/, "").split("-")[0].split("+")[0].split(".").map(Number);
   const [cMaj = 0, cMin = 0, cPat = 0] = parse(current);
   const [lMaj = 0, lMin = 0, lPat = 0] = parse(latest);
   if (lMaj !== cMaj) return lMaj > cMaj;
