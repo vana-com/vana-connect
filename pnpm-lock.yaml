@@ -10,6 +10,9 @@ importers:
       "@inquirer/prompts":
         specifier: 8.3.0
         version: 8.3.0(@types/node@25.2.2)
+      "@inquirer/search":
+        specifier: ^4.1.6
+        version: 4.1.6(@types/node@25.2.2)
       "@modelcontextprotocol/sdk":
         specifier: ^1.27.1
         version: 1.27.1(zod@4.3.6)
@@ -19,6 +22,9 @@ importers:
       commander:
         specifier: 14.0.3
         version: 14.0.3
+      fuse.js:
+        specifier: ^7.1.0
+        version: 7.1.0
       ora:
         specifier: ^8.2.0
         version: 8.2.0
@@ -1593,6 +1599,13 @@ packages:
       }
     engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
 
+  "@inquirer/ansi@2.0.4":
+    resolution:
+      {
+        integrity: sha512-DpcZrQObd7S0R/U3bFdkcT5ebRwbTTC4D3tCc1vsJizmgPLxNJBo+AAFmrZwe8zk30P2QzgzGWZ3Q9uJwWuhIg==,
+      }
+    engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
+
   "@inquirer/checkbox@5.1.0":
     resolution:
       {
@@ -1653,6 +1666,18 @@ packages:
       "@types/node":
         optional: true
 
+  "@inquirer/core@11.1.7":
+    resolution:
+      {
+        integrity: sha512-1BiBNDk9btIwYIzNZpkikIHXWeNzNncJePPqwDyVMhXhD1ebqbpn1mKGctpoqAbzywZfdG0O4tvmsGIcOevAPQ==,
+      }
+    engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
+    peerDependencies:
+      "@types/node": ">=18"
+    peerDependenciesMeta:
+      "@types/node":
+        optional: true
+
   "@inquirer/editor@5.0.8":
     resolution:
       {
@@ -1700,6 +1725,13 @@ packages:
     resolution:
       {
         integrity: sha512-y09iGt3JKoOCBQ3w4YrSJdokcD8ciSlMIWsD+auPu+OZpfxLuyz+gICAQ6GCBOmJJt4KEQGHuZSVff2jiNOy7g==,
+      }
+    engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
+
+  "@inquirer/figures@2.0.4":
+    resolution:
+      {
+        integrity: sha512-eLBsjlS7rPS3WEhmOmh1znQ5IsQrxWzxWDxO51e4urv+iVrSnIHbq4zqJIOiyNdYLa+BVjwOtdetcQx1lWPpiQ==,
       }
     engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
 
@@ -1763,10 +1795,10 @@ packages:
       "@types/node":
         optional: true
 
-  "@inquirer/search@4.1.4":
+  "@inquirer/search@4.1.6":
     resolution:
       {
-        integrity: sha512-9yPTxq7LPmYjrGn3DRuaPuPbmC6u3fiWcsE9ggfLcdgO/ICHYgxq7mEy1yJ39brVvgXhtOtvDVjDh9slJxE4LQ==,
+        integrity: sha512-3/6kTRae98hhDevENScy7cdFEuURnSpM3JbBNg8yfXLw88HgTOl+neUuy/l9W0No5NzGsLVydhBzTIxZP7yChQ==,
       }
     engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
     peerDependencies:
@@ -1803,6 +1835,18 @@ packages:
     resolution:
       {
         integrity: sha512-cKZN7qcXOpj1h+1eTTcGDVLaBIHNMT1Rz9JqJP5MnEJ0JhgVWllx7H/tahUp5YEK1qaByH2Itb8wLG/iScD5kw==,
+      }
+    engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
+    peerDependencies:
+      "@types/node": ">=18"
+    peerDependenciesMeta:
+      "@types/node":
+        optional: true
+
+  "@inquirer/type@4.0.4":
+    resolution:
+      {
+        integrity: sha512-PamArxO3cFJZoOzspzo6cxVlLeIftyBsZw/S9bKY5DzxqJVZgjoj1oP8d0rskKtp7sZxBycsoer1g6UeJV1BBA==,
       }
     engines: { node: ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0" }
     peerDependencies:
@@ -7365,6 +7409,13 @@ packages:
       }
     engines: { node: ">=18" }
 
+  fuse.js@7.1.0:
+    resolution:
+      {
+        integrity: sha512-trLf4SzuuUxfusZADLINj+dE8clK1frKdmqiJNb1Es75fmI5oY6X2mxLVUciLLjxqw/xr72Dhy+lER6dGd02FQ==,
+      }
+    engines: { node: ">=10" }
+
   fuzzysort@3.1.0:
     resolution:
       {
@@ -7473,6 +7524,7 @@ packages:
         integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==,
       }
     engines: { node: ">=16" }
+    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -13061,6 +13113,8 @@ snapshots:
 
   "@inquirer/ansi@2.0.3": {}
 
+  "@inquirer/ansi@2.0.4": {}
+
   "@inquirer/checkbox@5.1.0(@types/node@25.2.2)":
     dependencies:
       "@inquirer/ansi": 2.0.3
@@ -13131,6 +13185,18 @@ snapshots:
     optionalDependencies:
       "@types/node": 25.2.2
 
+  "@inquirer/core@11.1.7(@types/node@25.2.2)":
+    dependencies:
+      "@inquirer/ansi": 2.0.4
+      "@inquirer/figures": 2.0.4
+      "@inquirer/type": 4.0.4(@types/node@25.2.2)
+      cli-width: 4.1.0
+      fast-wrap-ansi: 0.2.0
+      mute-stream: 3.0.0
+      signal-exit: 4.1.0
+    optionalDependencies:
+      "@types/node": 25.2.2
+
   "@inquirer/editor@5.0.8(@types/node@25.2.2)":
     dependencies:
       "@inquirer/core": 11.1.5(@types/node@25.2.2)
@@ -13156,6 +13222,8 @@ snapshots:
   "@inquirer/figures@1.0.15": {}
 
   "@inquirer/figures@2.0.3": {}
+
+  "@inquirer/figures@2.0.4": {}
 
   "@inquirer/input@5.0.8(@types/node@25.2.2)":
     dependencies:
@@ -13189,7 +13257,7 @@ snapshots:
       "@inquirer/number": 4.0.8(@types/node@25.2.2)
       "@inquirer/password": 5.0.8(@types/node@25.2.2)
       "@inquirer/rawlist": 5.2.4(@types/node@25.2.2)
-      "@inquirer/search": 4.1.4(@types/node@25.2.2)
+      "@inquirer/search": 4.1.6(@types/node@25.2.2)
       "@inquirer/select": 5.1.0(@types/node@25.2.2)
     optionalDependencies:
       "@types/node": 25.2.2
@@ -13201,11 +13269,11 @@ snapshots:
     optionalDependencies:
       "@types/node": 25.2.2
 
-  "@inquirer/search@4.1.4(@types/node@25.2.2)":
+  "@inquirer/search@4.1.6(@types/node@25.2.2)":
     dependencies:
-      "@inquirer/core": 11.1.5(@types/node@25.2.2)
-      "@inquirer/figures": 2.0.3
-      "@inquirer/type": 4.0.3(@types/node@25.2.2)
+      "@inquirer/core": 11.1.7(@types/node@25.2.2)
+      "@inquirer/figures": 2.0.4
+      "@inquirer/type": 4.0.4(@types/node@25.2.2)
     optionalDependencies:
       "@types/node": 25.2.2
 
@@ -13228,6 +13296,10 @@ snapshots:
     optional: true
 
   "@inquirer/type@4.0.3(@types/node@25.2.2)":
+    optionalDependencies:
+      "@types/node": 25.2.2
+
+  "@inquirer/type@4.0.4(@types/node@25.2.2)":
     optionalDependencies:
       "@types/node": 25.2.2
 
@@ -18426,6 +18498,8 @@ snapshots:
   function-bind@1.1.2: {}
 
   function-timeout@1.0.2: {}
+
+  fuse.js@7.1.0: {}
 
   fuzzysort@3.1.0: {}
 

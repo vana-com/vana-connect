@@ -22,6 +22,7 @@ const mockConfirm = vi.fn();
 const mockInput = vi.fn();
 const mockPassword = vi.fn();
 const mockSelect = vi.fn();
+const mockSearchSelect = vi.fn();
 const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
 const mockExistsSync = vi.fn();
@@ -121,6 +122,26 @@ vi.mock("@inquirer/prompts", () => ({
   select: mockSelect,
 }));
 
+vi.mock("../../src/cli/search-select.js", () => ({
+  searchSelect: mockSearchSelect,
+}));
+
+vi.mock("../../src/skills/index.js", () => ({
+  listAvailableSkills: vi.fn().mockResolvedValue([]),
+  installSkill: vi.fn().mockResolvedValue({
+    installedPath: "/tmp/skills",
+    installedPaths: ["/tmp/skills"],
+  }),
+  readInstalledSkills: vi.fn().mockResolvedValue([]),
+  fetchSkillToCache: vi.fn(),
+  getSkillsCacheDir: vi.fn(() => "/tmp/.vana/skills"),
+  findSkillsDir: vi.fn(() => null),
+  getClaudeSkillsDir: vi.fn(() => "/tmp/.claude/skills"),
+  getAgentsSkillsDir: vi.fn(() => "/tmp/.agents/skills"),
+  getSkillInstallDirs: vi.fn(() => ["/tmp/.agents/skills"]),
+  isClaudeCodeInstalled: vi.fn(() => false),
+}));
+
 vi.mock("../../src/personal-server/index.js", () => ({
   detectPersonalServerTarget: mockDetectPersonalServerTarget,
   ingestResult: mockIngestResult,
@@ -131,6 +152,8 @@ vi.mock("../../src/core/index.js", async () => {
   return {
     ...actual,
     readCliState: mockReadCliState,
+    readCliConfig: vi.fn().mockResolvedValue({}),
+    updateCliConfig: vi.fn().mockResolvedValue(undefined),
     updateSourceState: mockUpdateSourceState,
     getBrowserProfilesDir: vi.fn(() => "/tmp/browser-profiles"),
     getLastResultPath: vi.fn(() => "/tmp/.vana/last-result.json"),
@@ -181,6 +204,7 @@ describe("runCli", () => {
     mockUpdateSourceState.mockReset();
     mockConfirm.mockReset();
     mockSelect.mockReset();
+    mockSearchSelect.mockReset();
     mockInput.mockReset();
     mockPassword.mockReset();
     mockReaddir.mockReset();
@@ -204,6 +228,7 @@ describe("runCli", () => {
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue("github");
+    mockSearchSelect.mockResolvedValue("github");
     mockInput.mockResolvedValue("testuser");
     mockPassword.mockResolvedValue("testpass");
     mockReaddir.mockRejectedValue(new Error("missing"));
@@ -1813,7 +1838,7 @@ describe("runCli", () => {
       { id: "spotify", name: "Spotify", authMode: "interactive" },
       { id: "shop", name: "Shop", authMode: "legacy" },
     ]);
-    mockSelect.mockResolvedValueOnce("github");
+    mockSearchSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1838,7 +1863,7 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const callArgs = mockSelect.mock.calls[0]?.[0];
+    const callArgs = mockSearchSelect.mock.calls[0]?.[0];
     expect(callArgs).toBeDefined();
     const choices = callArgs.choices;
     expect(choices).toContainEqual(
@@ -1873,7 +1898,7 @@ describe("runCli", () => {
         },
       },
     });
-    mockSelect.mockResolvedValueOnce("github");
+    mockSearchSelect.mockResolvedValueOnce("github");
 
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
@@ -1898,7 +1923,7 @@ describe("runCli", () => {
       value: originalStdinTty,
     });
 
-    const callArgs = mockSelect.mock.calls[0]?.[0];
+    const callArgs = mockSearchSelect.mock.calls[0]?.[0];
     expect(callArgs).toBeDefined();
     const choices = callArgs.choices;
     // GitHub is connected so gets "connected" description
@@ -1925,7 +1950,7 @@ describe("runCli", () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
     ]);
-    mockSelect.mockRejectedValueOnce(new ExitPromptError());
+    mockSearchSelect.mockRejectedValueOnce(new ExitPromptError());
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
@@ -1950,7 +1975,7 @@ describe("runCli", () => {
     });
 
     expect(exitCode).toBe(1);
-    expect(mockSelect).toHaveBeenCalled();
+    expect(mockSearchSelect).toHaveBeenCalled();
     expect(stdout).toContain("Cancelled.");
   });
 
@@ -1969,7 +1994,7 @@ describe("runCli", () => {
         authMode: "legacy",
       },
     ]);
-    mockSelect.mockRejectedValueOnce(new ExitPromptError());
+    mockSearchSelect.mockRejectedValueOnce(new ExitPromptError());
     const originalStdoutTty = process.stdout.isTTY;
     const originalStdinTty = process.stdin.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {

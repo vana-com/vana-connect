@@ -5,18 +5,20 @@ import { createRequire } from "node:module";
 import { spawn, execSync } from "node:child_process";
 import os from "node:os";
 
-import { confirm, input, password, select } from "@inquirer/prompts";
+import { confirm, input, password } from "@inquirer/prompts";
+import { searchSelect } from "./search-select.js";
 import { Command, CommanderError } from "commander";
 
 // Vana-branded theme for inquirer prompts — matches brand palette
 const VANA_BLUE = "\x1b[38;2;65;65;252m";
+const VANA_GREEN = "\x1b[38;2;0;213;11m";
 const VANA_MUTED = "\x1b[38;2;112;112;112m";
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const BOLD_RESET = "\x1b[22m";
 const vanaPromptTheme = {
   theme: {
-    prefix: { idle: `${VANA_BLUE}?${RESET}`, done: `${VANA_BLUE}✓${RESET}` },
+    prefix: { idle: `${VANA_BLUE}?${RESET}`, done: `${VANA_GREEN}✓${RESET}` },
     style: {
       answer: (text: string) => `${BOLD}${text}${BOLD_RESET}`,
       message: (text: string, status: "idle" | "done" | "loading") =>
@@ -493,7 +495,10 @@ Examples:
       await startMcpServer();
     });
 
-  const skill = program.command("skills").description("Manage agent skills");
+  const skill = program
+    .command("skills")
+    .description("Manage agent skills")
+    .option("--json", "Output as JSON");
   skill.addHelpText(
     "after",
     `
@@ -503,9 +508,8 @@ Examples:
   vana skills show connect-data
 `,
   );
-  skill.action(() => {
-    skill.outputHelp();
-    process.exitCode = 0;
+  skill.action(async () => {
+    process.exitCode = await runSkillsGuidedPicker(parsedOptions);
   });
 
   skill
@@ -1182,7 +1186,25 @@ async function runConnect(
       renderer?.next(`vana data show ${source}`);
     }
 
+    // Suggest skills if not yet installed
+    const installedSkills = await readInstalledSkills();
+    if (installedSkills.length === 0) {
+      renderer?.detail(
+        "Your coding agent can use this data — run `vana skills` to see how.",
+      );
+    }
+
     renderer?.bell();
+
+    // Offer skill install on first successful connect (ask once)
+    if (
+      !state.config?.skillsPromptCompleted &&
+      !options.json &&
+      !options.noInput &&
+      process.stdin.isTTY
+    ) {
+      await maybePromptSkillInstall(emit);
+    }
 
     // Emit for --json consumers (unchanged)
     emit.event({
@@ -1304,10 +1326,9 @@ async function runConnectEntry(options: GlobalOptions): Promise<number> {
   });
 
   try {
-    const source = await select({
+    const source = await searchSelect({
       message: "Choose a source to connect.",
       choices,
-      default: suggestedSource?.id,
       ...vanaPromptTheme,
     });
 
@@ -4509,6 +4530,100 @@ function isPromptCancelled(error: unknown): boolean {
 // Skill commands
 // ---------------------------------------------------------------------------
 
+const BASE_SKILL_ID = "connect-data";
+
+async function maybePromptSkillInstall(
+  emit: ReturnType<typeof createEmitter>,
+): Promise<void> {
+  try {
+    const skills = await listAvailableSkills();
+    const baseSkill = skills.find((s) => s.id === BASE_SKILL_ID);
+    if (!baseSkill) return;
+
+    const installed = await readInstalledSkills();
+    if (installed.some((s) => s.id === BASE_SKILL_ID)) {
+      await updateCliConfig({ skillsPromptCompleted: true });
+      return;
+    }
+
+    emit.blank();
+    const shouldInstall = await confirm({
+      message:
+        "Install a skill so your coding agent knows how to use your connected data?",
+      default: true,
+      ...vanaPromptTheme,
+    });
+
+    if (shouldInstall) {
+      try {
+        await installSkill(BASE_SKILL_ID);
+        emit.success(`Installed skill: ${baseSkill.name}`);
+      } catch {
+        // Non-fatal.
+      }
+      const remaining = skills.filter((s) => s.id !== BASE_SKILL_ID);
+      if (remaining.length > 0) {
+        emit.next("vana skills");
+      }
+    }
+
+    await updateCliConfig({ skillsPromptCompleted: true });
+  } catch {
+    // Prompt cancelled or error — mark as completed to avoid re-asking.
+    await updateCliConfig({ skillsPromptCompleted: true });
+  }
+}
+
+async function runSkillsGuidedPicker(options: GlobalOptions): Promise<number> {
+  const emit = createEmitter(options);
+
+  if (options.json) {
+    // In JSON mode, fall back to list behavior
+    return runSkillList(options);
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return runSkillList(options);
+  }
+
+  try {
+    const skills = await listAvailableSkills();
+    const installed = await readInstalledSkills();
+    const installedIds = new Set(installed.map((s) => s.id));
+
+    if (skills.length === 0) {
+      emit.info("No skills are available right now.");
+      return 0;
+    }
+
+    const choices = skills.map((skill) => {
+      const isInstalled = installedIds.has(skill.id);
+      return {
+        value: skill.id,
+        name: `${skill.name}${isInstalled ? " (installed)" : ""}`,
+        description: skill.description,
+      };
+    });
+
+    const selectedId = await searchSelect({
+      message: "Select a skill.",
+      choices,
+      ...vanaPromptTheme,
+    });
+
+    if (installedIds.has(selectedId)) {
+      return runSkillShow(selectedId, options);
+    }
+    return runSkillInstall(selectedId, options);
+  } catch (error) {
+    if (isPromptCancelled(error)) {
+      emit.info("Cancelled.");
+      return 1;
+    }
+    throw error;
+  }
+}
+
 async function runSkillList(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
 
@@ -4541,7 +4656,8 @@ async function runSkillList(options: GlobalOptions): Promise<number> {
       const tag = skill.installed
         ? ` ${emit.badge("installed", "accent")}`
         : "";
-      emit.info(`  ${skill.id}${tag}`);
+      emit.info(`  ${skill.name}${tag}`);
+      emit.detail(`  ${skill.description}`);
     }
 
     const uninstalled = enriched.find((s) => !s.installed);

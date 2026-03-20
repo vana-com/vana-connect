@@ -70,7 +70,7 @@ structured option but most token-expensive upfront (55,000 tokens for GitHub's
 
 ```yaml
 ---
-name: vana-connect
+name: connect-data
 description: >
   Connect personal data from web platforms (GitHub, Spotify, Shop, etc.)
   via headless browser automation. Use when collecting user data, checking

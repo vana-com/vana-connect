@@ -84,22 +84,22 @@ on disk. Inspect, move, or delete them whenever you want.
 
 ## Commands
 
-| Command                       | What it does                                 |
-| ----------------------------- | -------------------------------------------- |
-| `vana connect [source]`       | Connect a platform and collect your data     |
-| `vana connect <src> --detach` | Connect in the background                    |
-| `vana sources`                | List available platforms                     |
-| `vana data list`              | Show all collected datasets                  |
-| `vana data show <source>`     | Summarize a collected dataset                |
-| `vana status`                 | Connection health and system overview        |
-| `vana collect [source]`       | Re-collect data from a connected source      |
-| `vana schedule add`           | Schedule daily collection (launchd/cron)     |
-| `vana skills list`            | List available agent skills                  |
-| `vana skills install <name>`  | Install a skill for your AI agent            |
-| `vana mcp`                    | Start MCP server (Claude Code, Cursor, etc.) |
-| `vana doctor`                 | Diagnose installation and runtime health     |
-| `vana logs [source]`          | View run logs                                |
-| `vana setup`                  | Install or repair the browser runtime        |
+| Command                       | What it does                                  |
+| ----------------------------- | --------------------------------------------- |
+| `vana connect [source]`       | Connect a platform and collect your data      |
+| `vana connect <src> --detach` | Connect in the background                     |
+| `vana sources`                | List available platforms                      |
+| `vana data list`              | Show all collected datasets                   |
+| `vana data show <source>`     | Summarize a collected dataset                 |
+| `vana status`                 | Connection health and system overview         |
+| `vana collect [source]`       | Re-collect data from a connected source       |
+| `vana schedule add`           | Schedule daily collection (launchd/cron)      |
+| `vana skills`                 | Browse and install agent skills interactively |
+| `vana skills install <name>`  | Install a skill for your AI agent             |
+| `vana mcp`                    | Start MCP server (Claude Code, Cursor, etc.)  |
+| `vana doctor`                 | Diagnose installation and runtime health      |
+| `vana logs [source]`          | View run logs                                 |
+| `vana setup`                  | Install or repair the browser runtime         |
 
 Run `vana <command> --help` for detailed usage.
 

@@ -1,5 +1,5 @@
 ---
-name: vana-connect
+name: connect-data
 description: >
   Connect personal data from any web platform using browser automation.
   Use when: (1) user wants to connect a data source like ChatGPT, Instagram,
@@ -31,8 +31,7 @@ If `vana` is unavailable, install the current published canary. Prefer:
 macOS with Homebrew:
 
 ```bash
-brew tap vana-com/vana
-brew install vana
+brew install vana-com/tap/vana
 ```
 
 macOS and Linux:
