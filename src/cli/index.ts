@@ -4594,7 +4594,7 @@ async function runSkillsGuidedPicker(options: GlobalOptions): Promise<number> {
     });
 
     const selectedId = await searchSelect({
-      message: "Choose a skill.",
+      message: "Select a skill to install or view details.",
       choices,
       ...vanaPromptTheme,
     });
