@@ -45,10 +45,11 @@ jobs:
       - name: Determine next version
         id: version
         run: |
-          # Use a minimal config for the dry-run that skips npm/git/github
-          # verification — we only need the commit analyzer to resolve the
-          # next version number.
-          cat > /tmp/.releaserc-version-only.yaml <<'RCEOF'
+          # Temporarily swap in a minimal releaserc that only runs the
+          # commit analyzer — avoids npm token verification failures
+          # that abort the dry-run before the version is determined.
+          cp .releaserc.yaml .releaserc.yaml.bak
+          cat > .releaserc.yaml <<'EOF'
           branches: ["main"]
           plugins:
             - - "@semantic-release/commit-analyzer"
@@ -56,8 +57,9 @@ jobs:
                 releaseRules:
                   - breaking: true
                     release: minor
-          RCEOF
-          pnpm exec semantic-release --dry-run --extends /tmp/.releaserc-version-only.yaml 2>&1 | tee /tmp/sr-output.txt || true
+          EOF
+          pnpm exec semantic-release --dry-run 2>&1 | tee /tmp/sr-output.txt || true
+          mv .releaserc.yaml.bak .releaserc.yaml
           VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt || true)
           if [ -n "$VERSION" ]; then
             echo "new-release-version=$VERSION" >> "$GITHUB_OUTPUT"
