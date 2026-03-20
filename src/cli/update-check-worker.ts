@@ -1,19 +1,17 @@
 /**
  * Standalone worker script: checks for the latest CLI version and writes
- * the result to ~/.vana/update-check.json. Runs as a detached child process
- * spawned by the main CLI — exits silently on any failure.
+ * the result to a cache file. Runs as a detached child process spawned by
+ * the main CLI — exits silently on any failure.
+ *
+ * argv: [node, script, currentVersion, installMethod, outputPath]
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 
-const VANA_HOME = path.join(os.homedir(), ".vana");
-const UPDATE_CHECK_PATH = path.join(VANA_HOME, "update-check.json");
-
-const [, , currentVersion, installMethod] = process.argv;
+const [, , currentVersion, installMethod, outputPath] = process.argv;
 
 async function main(): Promise<void> {
-  if (!currentVersion || !installMethod) {
+  if (!currentVersion || !installMethod || !outputPath) {
     process.exit(0);
   }
 
@@ -46,7 +44,6 @@ async function main(): Promise<void> {
       break;
     }
     default: {
-      // npm or unknown
       const res = await fetch(
         "https://registry.npmjs.org/@opendatalabs/connect/latest",
         { signal: AbortSignal.timeout(10_000) },
@@ -59,16 +56,13 @@ async function main(): Promise<void> {
   }
 
   if (latestVersion) {
-    await fs.mkdir(VANA_HOME, { recursive: true });
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
     const cache = {
       lastCheckedAt: new Date().toISOString(),
       latestVersion,
       currentVersion,
     };
-    await fs.writeFile(
-      UPDATE_CHECK_PATH,
-      `${JSON.stringify(cache, null, 2)}\n`,
-    );
+    await fs.writeFile(outputPath, `${JSON.stringify(cache, null, 2)}\n`);
   }
 }
 

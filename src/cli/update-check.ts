@@ -50,7 +50,7 @@ export function spawnUpdateCheck(
   );
   const child = spawn(
     process.execPath,
-    [workerPath, currentVersion, installMethod],
+    [workerPath, currentVersion, installMethod, getUpdateCheckPath()],
     {
       detached: true,
       stdio: "ignore",

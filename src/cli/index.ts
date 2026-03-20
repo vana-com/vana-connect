@@ -615,27 +615,28 @@ Examples:
     });
 
   try {
-    await program.parseAsync(normalizedArgv);
-  } catch (error) {
-    if (error instanceof CommanderError) {
-      if (
-        error.code === "commander.help" ||
-        error.code === "commander.helpDisplayed" ||
-        error.code === "commander.version"
-      ) {
+    try {
+      await program.parseAsync(normalizedArgv);
+    } catch (error) {
+      if (error instanceof CommanderError) {
+        if (
+          error.code === "commander.help" ||
+          error.code === "commander.helpDisplayed" ||
+          error.code === "commander.version"
+        ) {
+          process.exitCode = error.exitCode;
+          return Number(process.exitCode ?? 0);
+        }
+        // Commander already printed to stderr; just set exit code.
         process.exitCode = error.exitCode;
-        if (updateNotice) process.stderr.write(updateNotice);
-        return Number(process.exitCode ?? 0);
+        return Number(process.exitCode ?? 1);
       }
-      // Commander already printed to stderr; just set exit code.
-      process.exitCode = error.exitCode;
-      if (updateNotice) process.stderr.write(updateNotice);
-      return Number(process.exitCode ?? 1);
+      throw error;
     }
-    throw error;
+    return Number(process.exitCode ?? 0);
+  } finally {
+    if (updateNotice) process.stderr.write(updateNotice);
   }
-  if (updateNotice) process.stderr.write(updateNotice);
-  return Number(process.exitCode ?? 0);
 }
 
 async function runConnect(
@@ -1536,10 +1537,8 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     for (const [sourceId, stored] of connectedSources) {
       const health = stored?.connectionHealth ?? "healthy";
       const displayName = displaySource(sourceId, sourceLabels);
-      const sourceOverdue =
-        stored?.lastCollectedAt && stored?.exportFrequency
-          ? isCollectionDue(stored.exportFrequency, stored.lastCollectedAt)
-          : false;
+      const sourceStatus = status.sources.find((s) => s.source === sourceId);
+      const sourceOverdue = sourceStatus?.isOverdue ?? false;
       const healthTone = sourceOverdue ? "warning" : toneForHealth(health);
       const healthLabel = health === "needs_reauth" ? "needs login" : health;
       const staleTag = sourceOverdue
@@ -4353,7 +4352,6 @@ async function maybeAutoSchedule(
   if (existing === null) {
     // No schedule → create one
     await runScheduleAdd(exportFrequency ?? "daily", {
-      ...options,
       json: false,
       quiet: true,
     });
@@ -4363,7 +4361,6 @@ async function maybeAutoSchedule(
   } else if (newInterval < existing) {
     // New source has shorter frequency → adjust down
     await runScheduleAdd(exportFrequency ?? "daily", {
-      ...options,
       json: false,
       quiet: true,
     });
