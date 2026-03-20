@@ -3,7 +3,7 @@ import path from "node:path";
 
 import {
   findSkillsDir,
-  getClaudeSkillsDir,
+  getSkillInstallDirs,
   getSkillsCacheDir,
 } from "./paths.js";
 
@@ -92,17 +92,15 @@ export async function fetchSkillToCache(
 }
 
 /**
- * Install a skill to the agent's skills directory.
+ * Install a skill to all detected agent skill directories.
  *
- * 1. Fetches the skill SKILL.md to cache
- * 2. Copies to `~/.claude/skills/vana-{id}/SKILL.md`
- * 3. Copies supplemental files if present
- * 4. Returns the installed path
+ * Installs to `~/.agents/skills/vana-{id}/` (universal) and
+ * `~/.claude/skills/vana-{id}/` if Claude Code is detected.
  */
 export async function installSkill(
   skillId: string,
   skillsDir?: string,
-): Promise<{ installedPath: string }> {
+): Promise<{ installedPath: string; installedPaths: string[] }> {
   const cacheDir = getSkillsCacheDir();
   const registry = await loadSkillsRegistry(skillsDir);
   const match = (registry.skills ?? []).find(
@@ -116,70 +114,84 @@ export async function installSkill(
   // Fetch to cache first
   await fetchSkillToCache(skillId, cacheDir, skillsDir);
 
-  // Install to Claude Code skills directory
-  const claudeSkillsDir = getClaudeSkillsDir();
-  const installDir = path.join(claudeSkillsDir, `vana-${match.id}`);
-  await fs.mkdir(installDir, { recursive: true });
+  const installDirs = getSkillInstallDirs();
+  const installedPaths: string[] = [];
 
-  // Copy the main skill file
-  const cachedSkillPath = path.join(cacheDir, match.files.skill);
-  const installedSkillPath = path.join(installDir, "SKILL.md");
-  const content = await fs.readFile(cachedSkillPath);
-  await fs.writeFile(installedSkillPath, content);
+  for (const baseDir of installDirs) {
+    const installDir = path.join(baseDir, `vana-${match.id}`);
+    await fs.mkdir(installDir, { recursive: true });
 
-  // Copy supplemental files if any
-  if (match.files.supplemental) {
-    for (const supplementalRelPath of match.files.supplemental) {
-      const cachedPath = path.join(cacheDir, supplementalRelPath);
-      // Determine the relative path from the skill's directory
-      const skillDirPrefix = match.id + "/";
-      const relFromSkillDir = supplementalRelPath.startsWith(skillDirPrefix)
-        ? supplementalRelPath.slice(skillDirPrefix.length)
-        : path.basename(supplementalRelPath);
-      const installedPath = path.join(installDir, relFromSkillDir);
-      try {
-        await fs.mkdir(path.dirname(installedPath), { recursive: true });
-        const fileContent = await fs.readFile(cachedPath);
-        await fs.writeFile(installedPath, fileContent);
-      } catch {
-        // Non-fatal if supplemental file is missing from cache.
+    // Copy the main skill file
+    const cachedSkillPath = path.join(cacheDir, match.files.skill);
+    const installedSkillPath = path.join(installDir, "SKILL.md");
+    const content = await fs.readFile(cachedSkillPath);
+    await fs.writeFile(installedSkillPath, content);
+
+    // Copy supplemental files if any
+    if (match.files.supplemental) {
+      for (const supplementalRelPath of match.files.supplemental) {
+        const cachedPath = path.join(cacheDir, supplementalRelPath);
+        const skillDirPrefix = match.id + "/";
+        const relFromSkillDir = supplementalRelPath.startsWith(skillDirPrefix)
+          ? supplementalRelPath.slice(skillDirPrefix.length)
+          : path.basename(supplementalRelPath);
+        const installedPath = path.join(installDir, relFromSkillDir);
+        try {
+          await fs.mkdir(path.dirname(installedPath), { recursive: true });
+          const fileContent = await fs.readFile(cachedPath);
+          await fs.writeFile(installedPath, fileContent);
+        } catch {
+          // Non-fatal if supplemental file is missing from cache.
+        }
       }
     }
+
+    installedPaths.push(installDir);
   }
 
-  return { installedPath: installDir };
+  return { installedPath: installedPaths[0], installedPaths };
 }
 
 /**
- * Read installed skills from the Claude Code skills directory.
- * Looks for directories matching `vana-*` in `~/.claude/skills/`.
+ * Read installed skills from all known agent skills directories.
+ * Checks both `~/.agents/skills/` and `~/.claude/skills/` for `vana-*` dirs.
+ * Deduplicates by skill ID.
  */
 export async function readInstalledSkills(): Promise<
   Array<{ id: string; path: string }>
 > {
-  const claudeSkillsDir = getClaudeSkillsDir();
-  try {
-    const entries = await fs.readdir(claudeSkillsDir, { withFileTypes: true });
-    const installed: Array<{ id: string; path: string }> = [];
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !entry.name.startsWith("vana-")) {
-        continue;
+  const installDirs = getSkillInstallDirs();
+  const seen = new Set<string>();
+  const installed: Array<{ id: string; path: string }> = [];
+
+  for (const baseDir of installDirs) {
+    try {
+      const entries = await fs.readdir(baseDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !entry.name.startsWith("vana-")) {
+          continue;
+        }
+        const id = entry.name.replace(/^vana-/, "");
+        if (seen.has(id)) continue;
+
+        const skillPath = path.join(baseDir, entry.name, "SKILL.md");
+        try {
+          await fs.access(skillPath);
+          seen.add(id);
+          installed.push({
+            id,
+            path: path.join(baseDir, entry.name),
+          });
+        } catch {
+          // Directory exists but no SKILL.md — skip.
+        }
       }
-      const skillPath = path.join(claudeSkillsDir, entry.name, "SKILL.md");
-      try {
-        await fs.access(skillPath);
-        installed.push({
-          id: entry.name.replace(/^vana-/, ""),
-          path: path.join(claudeSkillsDir, entry.name),
-        });
-      } catch {
-        // Directory exists but no SKILL.md — skip.
-      }
+    } catch {
+      // Directory doesn't exist — skip.
     }
-    return installed;
-  } catch {
-    return [];
   }
+
+  return installed;
 }
 
 async function loadSkillsRegistry(skillsDir?: string): Promise<SkillsRegistry> {

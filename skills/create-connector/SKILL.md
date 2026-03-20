@@ -1,3 +1,11 @@
+---
+name: create-connector
+description: >
+  Build, test, validate, and contribute a new data connector for any web
+  platform. Use when: the user wants to create a connector, a requested
+  platform has no connector yet, or a connector needs updating.
+---
+
 # Creating a Connector
 
 Build a data connector for a platform that isn't in the registry yet.

@@ -57,9 +57,37 @@ export function findSkillsDir(cwd = process.cwd()): string | null {
 }
 
 /**
+ * Returns the universal agent skills directory (cross-agent standard).
+ * @returns Absolute path to `~/.agents/skills/`
+ */
+export function getAgentsSkillsDir(): string {
+  return path.join(os.homedir(), ".agents", "skills");
+}
+
+/**
  * Returns the Claude Code skills directory.
  * @returns Absolute path to `~/.claude/skills/`
  */
 export function getClaudeSkillsDir(): string {
   return path.join(os.homedir(), ".claude", "skills");
+}
+
+/**
+ * Detects whether Claude Code is installed by checking for `~/.claude/`.
+ */
+export function isClaudeCodeInstalled(): boolean {
+  return fs.existsSync(path.join(os.homedir(), ".claude"));
+}
+
+/**
+ * Returns all directories where skills should be installed.
+ * Always includes the universal `.agents/skills/` path.
+ * Adds `~/.claude/skills/` if Claude Code is detected.
+ */
+export function getSkillInstallDirs(): string[] {
+  const dirs = [getAgentsSkillsDir()];
+  if (isClaudeCodeInstalled()) {
+    dirs.push(getClaudeSkillsDir());
+  }
+  return dirs;
 }

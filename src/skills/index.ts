@@ -9,4 +9,7 @@ export {
   getSkillsCacheDir,
   findSkillsDir,
   getClaudeSkillsDir,
+  getAgentsSkillsDir,
+  getSkillInstallDirs,
+  isClaudeCodeInstalled,
 } from "./paths.js";

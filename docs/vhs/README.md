@@ -36,6 +36,8 @@ That creates:
 - `status-and-sources.tape`
 - `data-inspection.tape`
 - `connect-success.tape`
+- `skills-list.tape`
+- `skills-install.tape`
 
 The public `connect-success` tape should end on user value, not only progress
 output. In practice that means a successful `vana connect github` run followed

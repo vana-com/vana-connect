@@ -1,6 +1,6 @@
 # CLI Open Issues
 
-_March 16, 2026_
+_Updated March 19, 2026_
 
 Tracked issues for the CLI, organized by what kind of work each requires.
 
@@ -41,38 +41,11 @@ the most important user journey in the CLI.
 
 **Ref:** CLI-UX-QUALITY-BAR.md, CLI-TRANSCRIPTS.md (connect sections)
 
-### State labeling and the headed/headless/agent mental model
+### State labeling and the headed/headless/agent mental model → **Done**
 
-The labels "needs attention", "legacy", and "manual step" in `vana status`
-and `vana sources` are confusing — but relabeling them is only the surface
-issue. The deeper question is: what mental model should users have for how
-connector states flow across different execution contexts?
-
-**The confusion:** "Legacy" means the connector doesn't call
-`requestInput` — so when it needs auth, it calls `showBrowser`/`promptUser`
-instead, which requires a headed display. This makes "legacy" functionally
-equivalent to `--no-input` in a headless environment. But "legacy" sounds
-like "old and broken" when it really means "browser-required auth flow."
-
-**Questions that need answers:**
-
-- When `vana status` shows "needs attention" for Shop, does that mean an
-  agent tried `--no-input` and it needed a browser? Will it auto-resume if
-  run again headed? What's the user's next action?
-- If a connector is "legacy" and the user is in a headed desktop session,
-  should the CLI just open the browser automatically? The label "manual
-  step" implies the user has to do something — but what, exactly?
-- How should an agent interpret these states? Can it recover, or does it
-  need to hand off to a human?
-- Are "legacy" and "interactive" permanent properties of a connector, or
-  can a connector support both modes?
-
-**What to do:** First, map out the actual state transitions across
-contexts (headed interactive, headless interactive, headless no-input,
-agent-driven). Then design labels that help users understand what happened
-and what to do next. The labels should be context-aware if needed.
-
-**Ref:** CLI-TRANSCRIPTS.md (status, connect-shop sections)
+User-facing output now shows "browser login" instead of "legacy". Internal
+code still uses `authMode: "legacy"` for logic, but the label no longer
+confuses users. See Done section.
 
 ### "What I would do next" specificity → **Done**
 
@@ -338,19 +311,13 @@ agent-ready. The UX should reflect that.
 **Tim's input needed on:** Which persona to design for first. How much
 magic vs explicit user action. Whether this is a v1 or v2 feature.
 
-### Bundled skills / agent doc installation
+### Bundled skills / agent doc installation → **Done**
 
-Should `vana` install a SKILL.md into the user's agent directory (e.g.
-`~/.claude/skills/`)? Or is hosting good agent docs online sufficient?
-
-**Possible paths:**
-
-- `vana setup` also installs the SKILL.md for detected agents
-- `vana agent-setup` as a separate command
-- Just host docs at a well-known URL and rely on llms.txt / web discovery
-- Ship the SKILL.md in the npm package, let agents find it
-
-**Ref:** CLI-AGENT-FRIENDLY.md (Tier 1a)
+Skills now install to `~/.agents/skills/` (cross-agent standard) and
+`~/.claude/skills/` (if Claude Code detected). `vana skills install`
+handles multi-target installation. First successful connect prompts to
+install skills (ask-once, stored in state). Also publishable via
+`npx skills add vana-com/vana-connect` (skills.sh compatible).
 
 ---
 
@@ -358,32 +325,15 @@ Should `vana` install a SKILL.md into the user's agent directory (e.g.
 
 Decisions that need Tim's input. These block other work or set direction.
 
-### Source selection and multi-connect interaction patterns
+### Source selection and multi-connect interaction patterns → **Partially resolved**
 
-`vana connect` has a guided picker and `vana sources` lists what's
-available. But the interaction patterns for "I want to connect several
-things" haven't been designed.
+`vana collect --all` now exists for re-collecting from already-connected
+sources. `vana connect` remains one-source-at-a-time with a guided picker
+when no source is specified.
 
-**Questions:**
-
-- Should `vana sources` support multi-select? What does that look like
-  in a terminal (checkboxes, space-to-toggle, like `gum choose --no-limit`)?
-- Should `vana connect` with no args offer to connect everything
-  available, or just pick one?
-- What do best-in-class CLIs do for multi-resource operations? (e.g.
-  `gh repo clone` doesn't batch, but `brew install` does)
-- How does multi-connect interact with the progress UX — parallel or
-  sequential? What if one source needs input and another doesn't?
-- For agents: should `vana connect --all --no-input` be a thing?
-
-**What needs to happen:** Research best-in-class multi-select and
-batch-operation patterns in production CLIs. Then Tim + Claude decide
-whether this is right for v1 or a later iteration, and if so, what the
-interaction model is.
-
-**Tim's input needed on:** Is this a real user need now, or premature
-complexity? What's the expected usage pattern — connect one source at
-a time, or batch onboarding?
+**Remaining question:** Is `vana connect --all` (batch first-time
+onboarding) a real user need, or is one-at-a-time sufficient? The current
+model works well for agents via sequential `vana connect <source>` calls.
 
 ### `--no-input` vs providing input up front (product model)
 
@@ -401,18 +351,11 @@ fully interactive → fully automated?
 **What Tim needs to decide:** Do we want to support #3? If so, what's the
 interface — env vars, a config file, CLI flags, stdin JSON?
 
-### Connector description copy
+### Connector description copy → **Done**
 
-Current: "Exports your X using Playwright browser automation." This is
-verbose and leaks implementation details. But descriptions come from the
-**data-connectors registry**, not the CLI.
-
-**What Tim needs to decide:** Fix upstream in data-connectors? What's the
-right copy pattern? Suggestions:
-
-- "Your GitHub profile, repositories, and starred repos" (drop verb + method)
-- "Collects your GitHub data via Playwright" (shorter)
-- "GitHub profile, repos, and stars" (ultra-terse)
+The CLI now strips "using Playwright browser automation" from connector
+descriptions at display time. Upstream registry.json still has the verbose
+copy, but user-facing output is clean. See Done section.
 
 ---
 
@@ -420,11 +363,11 @@ right copy pattern? Suggestions:
 
 Issues that require changes in other repos first.
 
-### Connector descriptions (data-connectors)
+### Connector descriptions (data-connectors) → **Workaround in place**
 
-Blocked on Tim's copy decision above. Once decided, change
-`registry.json` in data-connectors. Demo fixtures here will follow
-automatically via `prepare-vhs-fixtures.mjs`.
+The CLI strips "using Playwright browser automation" at display time.
+Upstream `registry.json` still has verbose descriptions. A cleaner fix
+would be updating the registry, but the user-facing issue is resolved.
 
 ### Personal server ingest idempotency (personal-server-ts)
 
@@ -459,6 +402,18 @@ already has that version.
       labeled clearly
 - [x] ~~Clean error handling for command typos~~ — no stack traces on unknown
       commands
+- [x] ~~State labeling ("legacy" relabeling)~~ — user-facing output now shows
+      "browser login" instead of "legacy"; internal `authMode` unchanged
+- [x] ~~Connector description copy~~ — CLI strips "using Playwright browser
+      automation" from display; upstream registry unchanged but user-facing
+      output is clean
+- [x] ~~`status` vs `doctor` consolidation~~ — both commands exist and are
+      clearly differentiated: `status` = runtime/PS health, `doctor` = install
+      diagnostics
+- [x] ~~Bundled skills / agent doc installation~~ — skills install to
+      `~/.agents/skills/` (cross-agent) + `~/.claude/skills/` (if detected).
+      `vana skills` shows guided fuzzy picker. First connect prompts to install.
+      skills.sh compatible via `npx skills add vana-com/vana-connect`
 
 ---
 

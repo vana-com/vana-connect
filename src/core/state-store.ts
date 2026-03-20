@@ -38,6 +38,7 @@ export interface StoredSourceState {
 
 export interface CliConfig {
   personalServerUrl?: string;
+  skillsPromptCompleted?: boolean;
 }
 
 export interface CliStateFile {

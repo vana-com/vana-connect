@@ -196,6 +196,22 @@ async function seedDemoHome() {
     "[runtime] Steam demo log\n[data] status=Connector unavailable\n",
     "utf8",
   );
+
+  // Create .dataconnect compat symlink so migration doesn't print
+  const dataconnectLink = path.join(homeRoot, ".dataconnect");
+  await fs.symlink(dataConnectRoot, dataconnectLink).catch(() => {});
+
+  // Seed agent skills so `vana skills list` shows them as installed
+  const agentsSkillsDir = path.join(homeRoot, ".agents", "skills");
+  for (const skillId of ["connect-data", "create-connector", "next-prompt"]) {
+    const skillDir = path.join(agentsSkillsDir, `vana-${skillId}`);
+    await fs.mkdir(skillDir, { recursive: true });
+    await fs.writeFile(
+      path.join(skillDir, "SKILL.md"),
+      `---\nname: ${skillId}\ndescription: Demo fixture skill\n---\n`,
+      "utf8",
+    );
+  }
 }
 
 async function seedDemoDataConnectors() {
