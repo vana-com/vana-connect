@@ -4342,11 +4342,8 @@ async function maybeAutoSchedule(
   const existing = await getExistingScheduleInterval();
   if (existing !== null) return; // Schedule already exists
 
-  // Create a schedule. On Linux this is always hourly (cron doesn't defer
-  // missed jobs, so isCollectionDue() filters per-source at each tick).
-  // On macOS/Windows the OS handles missed-job deferral natively.
   await runScheduleAdd("daily", { json: false, quiet: true });
-  emit.detail("Auto-scheduled collection.");
+  emit.detail("Auto-scheduled daily collection.");
 }
 
 function generateLaunchdPlist(
