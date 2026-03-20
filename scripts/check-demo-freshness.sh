@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-GIF="docs/assets/demo.gif"
+GIF="docs/vhs/demo.gif"
 TAPE="docs/vhs/demo.tape"
 
 # Source paths that affect what the CLI prints in human mode.
