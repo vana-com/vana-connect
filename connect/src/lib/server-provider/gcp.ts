@@ -17,7 +17,7 @@ const GCP_SERVICE_ACCOUNT_EMAIL = process.env.GCP_SERVICE_ACCOUNT_EMAIL ?? "";
 const PS_DOMAIN = process.env.PS_DOMAIN ?? "myvana.app";
 
 const PS_CONTAINER_IMAGE =
-  process.env.PS_CONTAINER_IMAGE ?? "ghcr.io/vana-com/personal-server:latest";
+  process.env.PS_CONTAINER_IMAGE ?? "vanaorg/personal-server:latest";
 
 function mapGcpStatus(gcpStatus: string | null | undefined): ServerState {
   switch (gcpStatus) {
