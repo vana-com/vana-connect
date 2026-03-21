@@ -1580,8 +1580,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       const displayName = displaySource(sourceId, sourceLabels);
       const sourceStatus = status.sources.find((s) => s.source === sourceId);
       const sourceOverdue = sourceStatus?.isOverdue ?? false;
-      const healthTone = sourceOverdue ? "warning" : toneForHealth(health);
-      const healthLabel = health === "needs_reauth" ? "needs login" : health;
+      const dataState = stored?.dataState;
+
+      // Show worst of connectionHealth and dataState
+      let healthLabel: string;
+      let healthTone: RenderTone;
+      if (dataState === "ingest_failed") {
+        healthLabel = "sync failed";
+        healthTone = "warning";
+      } else {
+        healthTone = sourceOverdue ? "warning" : toneForHealth(health);
+        healthLabel = health === "needs_reauth" ? "needs login" : health;
+      }
+
       const staleTag = sourceOverdue
         ? ` ${emit.badge("stale", "warning")}`
         : "";
@@ -1593,7 +1604,10 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         `${healthLabel}${staleTag}     ${collectedAgo}`,
         healthTone,
       );
-      if (
+      if (dataState === "ingest_failed") {
+        const errMsg = stored?.lastError ?? "sync failed";
+        emit.detail(`  \u21b3 ${errMsg}. Run \`vana connect ${sourceId}\``);
+      } else if (
         (health === "needs_reauth" || health === "error") &&
         stored?.connectionHealthReason
       ) {
@@ -3858,6 +3872,12 @@ export function getSourceStatusPresentation(source: SourceStatus): {
     return { label: "not connected", tone: "muted" };
   }
 
+  // Check dataState before early-returning on missing lastRunOutcome —
+  // ingest can fail even when lastRunOutcome is unset
+  if (source.dataState === "ingest_failed") {
+    return { label: "sync failed", tone: "error" };
+  }
+
   if (!source.lastRunOutcome) {
     return { label: "installed", tone: "success" };
   }
@@ -3899,10 +3919,6 @@ export function getSourceStatusPresentation(source: SourceStatus): {
 
   if (source.dataState === "collected_local") {
     return { label: "local", tone: "muted" };
-  }
-
-  if (source.dataState === "ingest_failed") {
-    return { label: "sync failed", tone: "error" };
   }
 
   return { label: "connected", tone: "success" };
@@ -4041,6 +4057,9 @@ export function rankSourceStatus(source: SourceStatus): number {
   }
   if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
     return 4;
+  }
+  if (source.dataState === "ingest_failed") {
+    return 2;
   }
   if (source.dataState === "ingested_personal_server") {
     return 5;
