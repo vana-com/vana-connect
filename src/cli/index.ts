@@ -85,9 +85,9 @@ import {
   queryDoctor,
 } from "./queries.js";
 import {
+  checkForUpdate,
   readUpdateCheck,
   isNewerVersion,
-  spawnUpdateCheck,
 } from "./update-check.js";
 
 interface GlobalOptions {
@@ -164,6 +164,7 @@ export async function runCli(argv = process.argv): Promise<number> {
   }
   const parsedOptions = extractGlobalOptions(normalizedArgv);
   const cliVersion = getCliVersion();
+  const installMethod = getCliInstallMethod();
 
   // Non-blocking update check — compute suppression flags early
   const shouldNotify =
@@ -174,24 +175,12 @@ export async function runCli(argv = process.argv): Promise<number> {
     !process.env.AGENT &&
     !process.env.VANA_DETACHED;
 
-  let updateNotice: string | undefined;
-  if (shouldNotify) {
-    try {
-      const cached = await readUpdateCheck();
-      if (cached && isNewerVersion(cliVersion, cached.latestVersion)) {
-        const lifecycle = getLifecycleCommands(
-          getCliInstallMethod(),
-          getCliChannel(),
-        );
-        updateNotice = `\nUpdate available: ${cliVersion} → ${cached.latestVersion}\nRun: ${lifecycle.upgrade}\n`;
-      } else if (!cached) {
-        // Cache missing or expired — spawn background check
-        spawnUpdateCheck(cliVersion, getCliInstallMethod());
-      }
-    } catch {
-      // Suppress all errors — update check is purely informational
-    }
-  }
+  // Fire update check concurrently — no await, runs in the background.
+  // If it finishes before the command completes, the cache is written and
+  // the SAME run can read it for the notification below.
+  const updateCheckPromise = shouldNotify
+    ? checkForUpdate(cliVersion, installMethod).catch(() => {})
+    : undefined;
 
   const program = new Command();
   program
@@ -615,28 +604,45 @@ Examples:
     });
 
   try {
-    try {
-      await program.parseAsync(normalizedArgv);
-    } catch (error) {
-      if (error instanceof CommanderError) {
-        if (
-          error.code === "commander.help" ||
-          error.code === "commander.helpDisplayed" ||
-          error.code === "commander.version"
-        ) {
-          process.exitCode = error.exitCode;
-          return Number(process.exitCode ?? 0);
-        }
-        // Commander already printed to stderr; just set exit code.
+    await program.parseAsync(normalizedArgv);
+  } catch (error) {
+    if (error instanceof CommanderError) {
+      if (
+        error.code === "commander.help" ||
+        error.code === "commander.helpDisplayed" ||
+        error.code === "commander.version"
+      ) {
         process.exitCode = error.exitCode;
-        return Number(process.exitCode ?? 1);
+        return Number(process.exitCode ?? 0);
       }
-      throw error;
+      // Commander already printed to stderr; just set exit code.
+      process.exitCode = error.exitCode;
+      return Number(process.exitCode ?? 1);
     }
-    return Number(process.exitCode ?? 0);
-  } finally {
-    if (updateNotice) process.stderr.write(updateNotice);
+    throw error;
   }
+
+  // Show update notification if a newer version is available.
+  // The concurrent check may have populated the cache during this run.
+  if (shouldNotify) {
+    try {
+      await updateCheckPromise;
+      const cache = await readUpdateCheck();
+      if (cache && isNewerVersion(cliVersion, cache.latestVersion)) {
+        const { upgrade } = getLifecycleCommands(
+          installMethod,
+          getCliChannel(cliVersion),
+        );
+        process.stderr.write(
+          `\nUpdate available: ${cliVersion} → ${cache.latestVersion}\nRun: ${upgrade}\n`,
+        );
+      }
+    } catch {
+      // Never block exit for update notification failures
+    }
+  }
+
+  return Number(process.exitCode ?? 0);
 }
 
 async function runConnect(
