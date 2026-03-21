@@ -10,6 +10,9 @@ import {
 } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
+// Provisioning calls Cloudflare API + GCP API — needs more time than default 15s
+export const maxDuration = 60;
+
 function generateServerId(): string {
   const bytes = crypto.randomBytes(10);
   return `srv_${bytes.toString("base64url")}`;

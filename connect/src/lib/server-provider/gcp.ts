@@ -397,11 +397,12 @@ export class GCPProvider implements ServerProvider {
         url,
       };
 
-      // Health check through the public Cloudflare Tunnel URL
+      // Health check through the public Cloudflare Tunnel URL (short timeout
+      // to avoid exceeding Vercel function limits on cold starts)
       if (state === "running" && url) {
         try {
           const healthResp = await fetch(`${url}/health`, {
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(3000),
           });
           if (healthResp.ok) {
             const health = (await healthResp.json()) as {

@@ -5,6 +5,9 @@ import { toApiServer } from "@/lib/api-server";
 import { findServerById, updateServer } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
+// Allow up to 30s for GCP API calls during provisioning checks
+export const maxDuration = 30;
+
 function extractSignature(request: NextRequest): string | null {
   return (
     request.headers.get("authorization")?.replace("Bearer ", "") ??
@@ -43,7 +46,8 @@ export async function GET(
   }
 
   // Live-check only while provisioning (to detect transition to running).
-  // Once running, return stored state — no unnecessary GCP API calls.
+  // Once running, return stored state — no unnecessary API calls.
+  // Skips the health check to stay within Vercel function timeout.
   if (server.state === "provisioning" && server.provider_id) {
     try {
       const provider = getServerProvider();
