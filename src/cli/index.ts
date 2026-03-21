@@ -96,7 +96,10 @@ import {
   isExpired,
   formatAddress,
   formatExpiresIn,
+  getAuthTarget,
+  resolvePersonalServerUrl,
   runDeviceCodeFlow,
+  runSelfHostedLoginFlow,
 } from "./auth.js";
 
 interface GlobalOptions {
@@ -522,9 +525,10 @@ Examples:
 
   program
     .command("login")
-    .description("Log in to your Vana account")
-    .action(async () => {
-      process.exitCode = await runLogin(parsedOptions);
+    .description("Log in to your Vana account or a self-hosted Personal Server")
+    .option("-s, --server <url>", "Self-hosted Personal Server URL")
+    .action(async (loginOptions: { server?: string }) => {
+      process.exitCode = await runLogin(parsedOptions, loginOptions.server);
     });
 
   program
@@ -5248,7 +5252,71 @@ async function runSkillShow(
 
 // ── Login / Logout ─────────────────────────────────────────────────────
 
-async function runLogin(options: GlobalOptions): Promise<number> {
+async function runLogin(
+  options: GlobalOptions,
+  serverUrl?: string,
+): Promise<number> {
+  // Determine auth target: cloud (account.vana.org) or self-hosted (PS directly)
+  const psUrl = serverUrl ?? resolvePersonalServerUrl() ?? null;
+  const authTarget = getAuthTarget(psUrl);
+
+  // If self-hosted, use /login/v2 flow against the PS
+  if (authTarget === "self-hosted" && psUrl) {
+    const emit = createEmitter(options);
+    emit.blank();
+    emit.info(`  Logging in to ${psUrl}...`);
+    emit.blank();
+
+    try {
+      const result = await runSelfHostedLoginFlow(psUrl, (url: string) => {
+        emit.info(`  ! Open this URL in your browser:`);
+        emit.info(`    ${url}`);
+        emit.blank();
+        emit.info(`  Waiting for authorization...`);
+        // Try to open browser
+        try {
+          const { exec } = require("node:child_process");
+          const cmd =
+            process.platform === "darwin"
+              ? `open "${url}"`
+              : process.platform === "win32"
+                ? `start "${url}"`
+                : `xdg-open "${url}"`;
+          exec(cmd);
+        } catch {
+          // Browser open failed — user will open manually
+        }
+      });
+
+      saveCredentials({
+        account: {
+          address: result.server,
+          session_token: "",
+          expires_at: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+        },
+        personal_server: {
+          url: psUrl,
+          access_token: result.access_token,
+          expires_at: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+        },
+      });
+
+      emit.success(`Logged in to ${psUrl}`);
+      emit.success(`Credentials saved to ~/.vana/auth.json`);
+      return 0;
+    } catch (err) {
+      emit.info(
+        `  ✗ Login failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return 1;
+    }
+  }
+
+  // Cloud flow (account.vana.org)
   // Check env var shortcut
   const envToken = process.env.VANA_SESSION_TOKEN;
   if (envToken) {

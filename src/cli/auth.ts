@@ -328,3 +328,77 @@ export async function runDeviceCodeFlow(callbacks: {
     return null;
   }
 }
+
+// ── Self-hosted PS auth (Nextcloud Login Flow v2) ─────────────────────
+
+export type AuthTarget = "cloud" | "self-hosted";
+
+export function getAuthTarget(psUrl: string | null): AuthTarget {
+  if (!psUrl) return "cloud";
+  if (psUrl.includes(".myvana.app")) return "cloud";
+  if (
+    psUrl.startsWith("http://localhost") ||
+    psUrl.startsWith("http://127.0.0.1")
+  )
+    return "cloud";
+  return "self-hosted";
+}
+
+export function resolvePersonalServerUrl(): string | undefined {
+  return (
+    process.env.VANA_PS_URL ||
+    process.env.VANA_PERSONAL_SERVER_URL ||
+    loadCredentials()?.personal_server?.url
+  );
+}
+
+interface LoginV2InitResponse {
+  login: string;
+  poll: { endpoint: string; token: string };
+}
+
+interface LoginV2PollSuccess {
+  status: "authorized";
+  server: string;
+  access_token: string;
+}
+
+export async function runSelfHostedLoginFlow(
+  serverUrl: string,
+  onLoginUrl: (url: string) => void,
+): Promise<{ server: string; access_token: string }> {
+  const base = serverUrl.replace(/\/$/, "");
+
+  // 1. Initiate login flow
+  const initRes = await fetch(`${base}/login/v2`, { method: "POST" });
+  if (!initRes.ok) {
+    throw new Error(
+      `Server at ${base} does not support CLI login (${initRes.status})`,
+    );
+  }
+  const init = (await initRes.json()) as LoginV2InitResponse;
+
+  // 2. Open browser
+  onLoginUrl(init.login);
+
+  // 3. Poll for completion (5 min timeout)
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const pollRes = await fetch(
+      `${init.poll.endpoint}?token=${encodeURIComponent(init.poll.token)}`,
+    );
+
+    if (pollRes.status === 200) {
+      const result = (await pollRes.json()) as LoginV2PollSuccess;
+      return { server: result.server, access_token: result.access_token };
+    }
+
+    if (pollRes.status !== 404 && pollRes.status !== 202) {
+      throw new Error(`Poll failed: ${pollRes.status}`);
+    }
+  }
+
+  throw new Error("Authorization timed out. Please try again.");
+}
