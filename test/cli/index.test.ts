@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cliDataListSchema,
@@ -12,6 +13,11 @@ import {
   cliSourcesSchema,
   sourceRequiredErrorSchema,
 } from "../../src/core/cli-types.js";
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require("../../package.json") as {
+  version: string;
+};
 
 const mockListAvailableSources = vi.fn();
 const mockDetectPersonalServerTarget = vi.fn();
@@ -156,7 +162,8 @@ vi.mock("../../src/core/index.js", async () => {
     updateCliConfig: vi.fn().mockResolvedValue(undefined),
     updateSourceState: mockUpdateSourceState,
     getBrowserProfilesDir: vi.fn(() => "/tmp/browser-profiles"),
-    getLastResultPath: vi.fn(() => "/tmp/.vana/last-result.json"),
+    getSourceResultPath: vi.fn((s: string) => `/tmp/.vana/results/${s}.json`),
+    rotateResult: vi.fn(),
   };
 });
 
@@ -345,7 +352,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "--version"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("0.8.1");
+    expect(stdout.trim()).toBe(PKG_VERSION);
   });
 
   it("prints the CLI version with the version command", async () => {
@@ -353,7 +360,7 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "version"]);
 
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("0.8.1 (stable, development checkout)");
+    expect(stdout.trim()).toBe(`${PKG_VERSION} (stable, development checkout)`);
   });
 
   it("prints structured version info in json mode", async () => {
@@ -363,7 +370,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(parsed).toEqual({
-      cliVersion: "0.8.1",
+      cliVersion: PKG_VERSION,
       channel: "stable",
       installMethod: "development",
     });
@@ -380,7 +387,7 @@ describe("runCli", () => {
 
       expect(exitCode).toBe(0);
       expect(parsed).toEqual({
-        cliVersion: "0.8.1",
+        cliVersion: PKG_VERSION,
         channel: "stable",
         installMethod: "installer",
       });
@@ -405,7 +412,7 @@ describe("runCli", () => {
 
       expect(exitCode).toBe(0);
       expect(parsed).toEqual({
-        cliVersion: "0.8.1",
+        cliVersion: PKG_VERSION,
         channel: "canary",
         installMethod: "installer",
       });
@@ -514,7 +521,7 @@ describe("runCli", () => {
 
     expect(exitCode).toBe(0);
     expect(parsed).toMatchObject({
-      cliVersion: "0.8.1",
+      cliVersion: PKG_VERSION,
       channel: "stable",
       installMethod: "development",
       runtime: "installed",
@@ -3128,6 +3135,339 @@ describe("runCli", () => {
     expect(stdout).toContain("Synced 1 dataset(s).");
     expect(stdout).toContain("Next:");
     expect(stdout).toContain("vana data list");
+  });
+
+  it("writes traceability breadcrumbs on needs-input event", async () => {
+    runConnectorEvents = [
+      {
+        type: "needs-input",
+        source: "steam",
+        message: "Steam needs credentials",
+        fields: ["username", "password"],
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "steam", "--no-input"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "steam",
+      expect.objectContaining({
+        connectionHealth: "needs_reauth",
+        connectionHealthChangedAt: expect.any(String),
+        connectionHealthReason: "needs-input: Steam needs credentials",
+      }),
+    );
+  });
+
+  it("writes traceability breadcrumbs on legacy-auth event", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+        description: "Exports Shop data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "legacy-auth",
+        source: "shop",
+        message: "Manual browser step required",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "shop", "--no-input"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "shop",
+      expect.objectContaining({
+        connectionHealth: "needs_reauth",
+        connectionHealthChangedAt: expect.any(String),
+        connectionHealthReason: "legacy-auth: Manual browser step required",
+      }),
+    );
+  });
+
+  it("writes traceability breadcrumbs on runtime-error event", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+        description: "Exports GitHub data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "runtime-error",
+        source: "github",
+        message: "Browser navigation failed",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "github"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        connectionHealth: "error",
+        connectionHealthChangedAt: expect.any(String),
+        connectionHealthReason: "runtime-error: Browser navigation failed",
+      }),
+    );
+  });
+
+  it("preserves degraded health when collection completes after legacy-auth", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "shop",
+        name: "Shop",
+        authMode: "legacy",
+        description: "Exports Shop data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/shop/shop-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "legacy-auth",
+        source: "shop",
+        message: "Manual browser step required",
+        logPath: "/tmp/logs/run.log",
+      },
+      {
+        type: "collection-complete",
+        source: "shop",
+        resultPath: "/tmp/.vana/shop-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockReadFile.mockResolvedValue(JSON.stringify({ orders: [{ id: 1 }] }));
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "connect",
+      "shop",
+      "--no-input",
+    ]);
+
+    // When pendingExitCode is set, health fields should NOT be overwritten
+    // (undefined values are skipped by the merge in updateSourceState)
+    const lastCall =
+      mockUpdateSourceState.mock.calls[
+        mockUpdateSourceState.mock.calls.length - 1
+      ];
+    expect(lastCall[1].connectionHealth).toBeUndefined();
+    expect(lastCall[1].connectionHealthReason).toBeUndefined();
+    // But collection state should still be updated
+    expect(lastCall[1]).toEqual(
+      expect.objectContaining({
+        lastCollectedAt: expect.any(String),
+        lastResultPath: "/tmp/.vana/shop-result.json",
+      }),
+    );
+    // Should still return the pending exit code
+    expect(exitCode).toBe(1);
+  });
+
+  it("records lastError on result file parse failure", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      {
+        id: "github",
+        name: "GitHub",
+        authMode: "interactive",
+        description: "Exports GitHub data.",
+      },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.vana/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    // Make readFile throw to simulate parse failure
+    mockReadFile.mockRejectedValue(new Error("ENOENT: file not found"));
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "github"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        lastError: expect.stringContaining("Failed to parse result file"),
+      }),
+    );
+  });
+
+  it("includes traceability fields in status JSON output", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          sessionPresent: true,
+          lastRunAt: "2026-03-15T10:00:00Z",
+          lastRunOutcome: "needs_input",
+          dataState: "collected_local",
+          connectionHealth: "needs_reauth",
+          connectionHealthChangedAt: "2026-03-15T10:00:00Z",
+          connectionHealthReason: "needs-input: GitHub needs credentials",
+          lastLogPath: "/tmp/logs/run.log",
+          lastError: "GitHub needs credentials",
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status", "--json"]);
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.sourceHealth.github).toEqual(
+      expect.objectContaining({
+        connectionHealth: "needs_reauth",
+        connectionHealthChangedAt: "2026-03-15T10:00:00Z",
+        connectionHealthReason: "needs-input: GitHub needs credentials",
+        lastLogPath: "/tmp/logs/run.log",
+        lastError: "GitHub needs credentials",
+      }),
+    );
+  });
+
+  it("connectionHealth is backward compatible in sourceStatusSchema", async () => {
+    const { sourceStatusSchema } = await import("../../src/core/cli-types.js");
+    // Should parse successfully without connectionHealth
+    const result = sourceStatusSchema.safeParse({
+      source: "github",
+      installed: true,
+      sessionPresent: false,
+    });
+    expect(result.success).toBe(true);
+
+    // Should parse successfully with connectionHealth
+    const resultWithHealth = sourceStatusSchema.safeParse({
+      source: "github",
+      installed: true,
+      sessionPresent: false,
+      connectionHealth: "needs_reauth",
+      connectionHealthChangedAt: "2026-03-15T10:00:00Z",
+      connectionHealthReason: "needs-input: credentials needed",
+    });
+    expect(resultWithHealth.success).toBe(true);
+
+    // Should parse with connectionHealthRetryable
+    const resultWithRetryable = sourceStatusSchema.safeParse({
+      source: "github",
+      installed: true,
+      sessionPresent: false,
+      connectionHealth: "error",
+      connectionHealthReason: "runtime-error: timeout",
+      connectionHealthRetryable: true,
+    });
+    expect(resultWithRetryable.success).toBe(true);
+  });
+
+  it("sets connectionHealthRetryable based on error type for runtime-error", async () => {
+    // Transient error — retryable
+    runConnectorEvents = [
+      {
+        type: "runtime-error",
+        source: "github",
+        message: "Navigation timeout exceeded",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "github"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        connectionHealth: "error",
+        connectionHealthRetryable: true,
+      }),
+    );
+  });
+
+  it("sets connectionHealthRetryable false for non-transient runtime-error", async () => {
+    runConnectorEvents = [
+      {
+        type: "runtime-error",
+        source: "github",
+        message: "Element not found on page",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+
+    const { runCli } = await import("../../src/cli/index.js");
+    await runCli(["node", "vana", "connect", "github"]);
+
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        connectionHealth: "error",
+        connectionHealthRetryable: false,
+      }),
+    );
+  });
+
+  it("formatHealthMessage maps reason prefixes to human messages", async () => {
+    const { formatHealthMessage } = await import("../../src/cli/index.js");
+
+    expect(formatHealthMessage(undefined)).toBeNull();
+    expect(formatHealthMessage("collection-complete")).toBeNull();
+    expect(formatHealthMessage("needs-input: Steam needs credentials")).toBe(
+      "Requires interactive login: Steam needs credentials.",
+    );
+    expect(
+      formatHealthMessage("legacy-auth: Manual browser step required"),
+    ).toBe(
+      "Needed a browser window: Manual browser step required. Reconnect interactively.",
+    );
+    expect(formatHealthMessage("runtime-error: Navigation timeout")).toBe(
+      "Collection failed — Navigation timeout.",
+    );
+    expect(formatHealthMessage("error-result: Session expired")).toBe(
+      "Connector returned an error: Session expired.",
+    );
+    // Trailing period in detail is stripped to avoid double-period
+    expect(
+      formatHealthMessage("legacy-auth: Disabled in --no-input mode."),
+    ).toBe(
+      "Needed a browser window: Disabled in --no-input mode. Reconnect interactively.",
+    );
+    // Unknown prefix falls back gracefully
+    expect(formatHealthMessage("something-new: details")).toBe(
+      "something-new: details",
+    );
   });
 
   it("server sync suggests retry when some scopes fail", async () => {

@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - "connect/**"
       - "examples/**"
+      - "worker/**"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,7 +16,66 @@ permissions:
   id-token: write
 
 jobs:
+  # Phase 1: Determine next version via dry-run.
+  # If no release is needed, all downstream jobs are skipped.
+  resolve-version:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    outputs:
+      new-release-version: ${{ steps.version.outputs.new-release-version }}
+      new-release-published: ${{ steps.version.outputs.new-release-published }}
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: Determine next version
+        id: version
+        run: |
+          # Temporarily swap in a minimal releaserc that only runs the
+          # commit analyzer — avoids npm token verification failures
+          # that abort the dry-run before the version is determined.
+          cp .releaserc.yaml .releaserc.yaml.bak
+          cat > .releaserc.yaml <<'EOF'
+          branches: ["main"]
+          plugins:
+            - - "@semantic-release/commit-analyzer"
+              - preset: conventionalcommits
+                releaseRules:
+                  - breaking: true
+                    release: minor
+          EOF
+          pnpm exec semantic-release --dry-run 2>&1 | tee /tmp/sr-output.txt || true
+          mv .releaserc.yaml.bak .releaserc.yaml
+          VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' /tmp/sr-output.txt || true)
+          if [ -n "$VERSION" ]; then
+            echo "new-release-version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "new-release-published=true" >> "$GITHUB_OUTPUT"
+            echo "Next release: $VERSION"
+          else
+            echo "new-release-published=false" >> "$GITHUB_OUTPUT"
+            echo "No release needed"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  # Phase 2: Build SEA binaries with the correct version baked in.
   build-sea:
+    needs: resolve-version
+    if: needs.resolve-version.outputs.new-release-published == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     strategy:
@@ -53,6 +114,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      # Inject the resolved version into package.json before building
+      - name: Set release version
+        run: npm version ${{ needs.resolve-version.outputs.new-release-version }} --no-git-tag-version --allow-same-version
       - run: pnpm clean
       - run: pnpm build
       - run: pnpm pack:check
@@ -65,7 +129,11 @@ jobs:
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}
             artifacts/sea/vana-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.archive_format }}.sha256
+
+  # Phase 2 (parallel): Build demo assets
   demo-preview:
+    needs: resolve-version
+    if: needs.resolve-version.outputs.new-release-published == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -91,15 +159,24 @@ jobs:
           path: |
             docs/transcripts
             docs/vhs
+
+  # Phase 3: Run semantic-release for real (npm publish, git tag, GitHub release).
   release:
-    needs: [build-sea, demo-preview]
+    needs: [resolve-version, build-sea, demo-preview]
+    if: needs.resolve-version.outputs.new-release-published == 'true'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -121,23 +198,24 @@ jobs:
           path: artifacts/demo-preview
       - run: pnpm exec semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Generate package-manager metadata
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           pnpm package-managers:generate -- --release-tag "$RELEASE_TAG" --package-version "$PACKAGE_VERSION"
       - name: Attach release assets
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           RELEASE_TAG=$(gh api repos/${GITHUB_REPOSITORY}/releases/latest --jq .tag_name)
           mapfile -t RELEASE_FILES < <(node ./scripts/collect-release-assets.mjs)
           gh release upload "$RELEASE_TAG" "${RELEASE_FILES[@]}" --clobber
+
   verify-release-install:
     needs: release
     runs-on: ubuntu-latest

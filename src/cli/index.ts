@@ -84,6 +84,11 @@ import {
   queryDataShow,
   queryDoctor,
 } from "./queries.js";
+import {
+  checkForUpdate,
+  readUpdateCheck,
+  isNewerVersion,
+} from "./update-check.js";
 
 interface GlobalOptions {
   json?: boolean;
@@ -159,6 +164,24 @@ export async function runCli(argv = process.argv): Promise<number> {
   }
   const parsedOptions = extractGlobalOptions(normalizedArgv);
   const cliVersion = getCliVersion();
+  const installMethod = getCliInstallMethod();
+
+  // Non-blocking update check — compute suppression flags early
+  const shouldNotify =
+    !parsedOptions.json &&
+    process.stdout.isTTY &&
+    !process.env.VANA_NO_UPDATE_NOTIFIER &&
+    !process.env.CI &&
+    !process.env.AGENT &&
+    !process.env.VANA_DETACHED;
+
+  // Fire update check concurrently — no await, runs in the background.
+  // If it finishes before the command completes, the cache is written and
+  // the SAME run can read it for the notification below.
+  const updateCheckPromise = shouldNotify
+    ? checkForUpdate(cliVersion, installMethod).catch(() => {})
+    : undefined;
+
   const program = new Command();
   program
     .name("vana")
@@ -598,6 +621,30 @@ Examples:
     }
     throw error;
   }
+
+  // Show update notification if a newer version is available.
+  // The concurrent check may have populated the cache during this run.
+  if (shouldNotify) {
+    try {
+      await Promise.race([
+        updateCheckPromise,
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+      const cache = await readUpdateCheck();
+      if (cache && isNewerVersion(cliVersion, cache.latestVersion)) {
+        const { upgrade } = getLifecycleCommands(
+          installMethod,
+          getCliChannel(cliVersion),
+        );
+        process.stderr.write(
+          `\nUpdate available: ${cliVersion} → ${cache.latestVersion}\nRun: ${upgrade}\n`,
+        );
+      }
+    } catch {
+      // Never block exit for update notification failures
+    }
+  }
+
   return Number(process.exitCode ?? 0);
 }
 
@@ -616,7 +663,7 @@ async function runConnect(
   let setupLogPath: string | undefined;
   let fetchLogPath: string | undefined;
   let runLogPath: string | undefined;
-  let terminalExitCode: number | null = null;
+  let pendingExitCode: number | null = null;
 
   try {
     // Title
@@ -682,11 +729,13 @@ async function runConnect(
     }
 
     // --- Phase 2: Connector fetch (silent if cached/fast) ---
+    const preState = await readCliState();
+    const currentVersion = preState.sources[source]?.connectorVersion;
     let fetched: Awaited<
       ReturnType<ManagedPlaywrightRuntime["fetchConnector"]>
     >;
     try {
-      fetched = await runtime.fetchConnector(source);
+      fetched = await runtime.fetchConnector(source, currentVersion);
     } catch (firstError) {
       const firstMessage =
         firstError instanceof Error ? firstError.message : "";
@@ -768,6 +817,11 @@ async function runConnect(
         });
         return 1;
       }
+    }
+    if (fetched.updated && fetched.previousVersion) {
+      renderer?.detail(
+        `Updated connector (${fetched.previousVersion} → ${fetched.version}).`,
+      );
     }
     fetchLogPath = fetched.logPath;
     const sourceDetails = registrySources.find((item) => item.id === source);
@@ -903,7 +957,7 @@ async function runConnect(
         runLogPath = event.logPath;
       }
 
-      if (terminalExitCode !== null) {
+      if (pendingExitCode !== null && event.type !== "collection-complete") {
         continue;
       }
 
@@ -914,6 +968,9 @@ async function runConnect(
           lastError: event.message ?? "Input required.",
           lastLogPath: event.logPath,
           connectionHealth: "needs_reauth",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `needs-input: ${event.message ?? "Input required."}`,
+          connectionHealthRetryable: false,
         });
         emit.event({
           type: "outcome",
@@ -923,8 +980,7 @@ async function runConnect(
         renderer?.fail(
           `${displayName} needs credentials. Run without --no-input to authenticate.`,
         );
-        terminalExitCode = 1;
-        continue;
+        pendingExitCode = 1;
       }
 
       if (event.type === "progress-update") {
@@ -956,6 +1012,12 @@ async function runConnect(
           lastError: event.message ?? "Connector run failed.",
           lastLogPath: event.logPath,
           connectionHealth: "error",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `runtime-error: ${event.message ?? "Connector run failed."}`,
+          connectionHealthRetryable:
+            /timeout|ECONNREFUSED|ENOTFOUND|rate.?limit|50[234]|socket hang up/i.test(
+              event.message ?? "",
+            ),
         });
         renderer?.fail(`Problem connecting ${displayName}.`);
         renderer?.detail(event.message ?? "Connector run failed.");
@@ -965,7 +1027,7 @@ async function runConnect(
           status: CliOutcomeStatus.RUNTIME_ERROR,
           source: resolution.source,
         });
-        terminalExitCode = 1;
+        pendingExitCode = 1;
         continue;
       }
 
@@ -983,6 +1045,9 @@ async function runConnect(
           lastResultPath: null,
           lastLogPath: event.logPath,
           connectionHealth: "needs_reauth",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `legacy-auth: ${event.message ?? "Legacy authentication is required."}`,
+          connectionHealthRetryable: false,
         });
         renderer?.fail(`Manual step required for ${displayName}.`);
         renderer?.detail(
@@ -993,8 +1058,7 @@ async function runConnect(
           status: CliOutcomeStatus.LEGACY_AUTH,
           source: resolution.source,
         });
-        terminalExitCode = 1;
-        continue;
+        pendingExitCode = 1;
       }
 
       if (event.type === "collection-complete" && event.resultPath) {
@@ -1009,14 +1073,18 @@ async function runConnect(
             Object.keys(parsed).length <= 2
           ) {
             // Connector returned an error, not real data
+            const errorMsg =
+              typeof parsed.error === "string"
+                ? parsed.error
+                : "Collection returned an error";
             await updateSourceState(source, {
               lastRunAt: new Date().toISOString(),
               lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
               connectionHealth: "error",
-              lastError:
-                typeof parsed.error === "string"
-                  ? parsed.error
-                  : "Collection returned an error",
+              connectionHealthChangedAt: new Date().toISOString(),
+              connectionHealthReason: `error-result: ${errorMsg}`,
+              connectionHealthRetryable: false,
+              lastError: errorMsg,
               lastLogPath: runLogPath ?? fetchLogPath,
             });
             renderer?.fail(`Problem connecting ${displayName}.`);
@@ -1030,23 +1098,19 @@ async function runConnect(
               status: CliOutcomeStatus.RUNTIME_ERROR,
               source,
             });
-            terminalExitCode = 1;
+            pendingExitCode = 1;
             continue;
           }
-        } catch {
-          // Can't read/parse result — proceed normally, let downstream handle it
+        } catch (parseError) {
+          const msg =
+            parseError instanceof Error ? parseError.message : "Unknown error";
+          await updateSourceState(source, {
+            lastError: `Failed to parse result file (${event.resultPath}): ${msg}`,
+          });
         }
 
         collectedResult = true;
-        // Copy result to per-source path so multiple sources can coexist
-        const sourceResultPath = getSourceResultPath(source);
-        try {
-          await fsp.mkdir(path.dirname(sourceResultPath), { recursive: true });
-          await fsp.copyFile(event.resultPath, sourceResultPath);
-          resultPath = sourceResultPath;
-        } catch {
-          resultPath = event.resultPath; // fall back to original path
-        }
+        resultPath = event.resultPath;
         const ingestEvents = await ingestResult(
           resolution.source,
           resultPath,
@@ -1099,8 +1163,8 @@ async function runConnect(
       }
     }
 
-    if (terminalExitCode !== null) {
-      return terminalExitCode;
+    if (pendingExitCode !== null && !collectedResult) {
+      return pendingExitCode;
     }
 
     if (!collectedResult) {
@@ -1137,7 +1201,12 @@ async function runConnect(
       lastError: ingestFailureMessage,
       lastResultPath: resultPath,
       lastLogPath: runLogPath ?? fetchLogPath ?? setupLogPath ?? null,
-      connectionHealth: "healthy",
+      connectionHealth: pendingExitCode !== null ? undefined : "healthy",
+      connectionHealthChangedAt:
+        pendingExitCode !== null ? undefined : new Date().toISOString(),
+      connectionHealthReason:
+        pendingExitCode !== null ? undefined : "collection-complete",
+      connectionHealthRetryable: undefined,
       ingestScopes: ingestScopeResults,
     });
 
@@ -1163,6 +1232,9 @@ async function runConnect(
     } else {
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
+
+    // Auto-schedule collection if no schedule exists (non-blocking)
+    await maybeAutoSchedule(emit, options).catch(() => {});
 
     // --- Phase 7: Success summary ---
     renderer?.success(`Connected ${displayName}.`);
@@ -1213,6 +1285,9 @@ async function runConnect(
       source: resolution.source,
       resultPath,
     });
+    if (pendingExitCode !== null) {
+      return pendingExitCode;
+    }
     return 0;
   } catch (error) {
     if (
@@ -1417,14 +1492,24 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     string,
     {
       connectionHealth?: string;
+      connectionHealthChangedAt?: string;
+      connectionHealthReason?: string;
+      connectionHealthRetryable?: boolean;
       lastCollectedAt?: string;
+      lastLogPath?: string | null;
+      lastError?: string | null;
     }
   > = {};
   for (const [sourceId, stored] of Object.entries(state.sources)) {
     if (stored) {
       sourceHealthMap[sourceId] = {
         connectionHealth: stored.connectionHealth,
+        connectionHealthChangedAt: stored.connectionHealthChangedAt,
+        connectionHealthReason: stored.connectionHealthReason,
+        connectionHealthRetryable: stored.connectionHealthRetryable,
         lastCollectedAt: stored.lastCollectedAt,
+        lastLogPath: stored.lastLogPath,
+        lastError: stored.lastError,
       };
     }
   }
@@ -1493,16 +1578,33 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     for (const [sourceId, stored] of connectedSources) {
       const health = stored?.connectionHealth ?? "healthy";
       const displayName = displaySource(sourceId, sourceLabels);
-      const healthTone = toneForHealth(health);
+      const sourceStatus = status.sources.find((s) => s.source === sourceId);
+      const sourceOverdue = sourceStatus?.isOverdue ?? false;
+      const healthTone = sourceOverdue ? "warning" : toneForHealth(health);
       const healthLabel = health === "needs_reauth" ? "needs login" : health;
+      const staleTag = sourceOverdue
+        ? ` ${emit.badge("stale", "warning")}`
+        : "";
       const collectedAgo = stored?.lastCollectedAt
         ? `collected ${formatRelativeTime(stored.lastCollectedAt)}`
         : "";
       emit.keyValue(
         `  ${displayName}`,
-        `${healthLabel}     ${collectedAgo}`,
+        `${healthLabel}${staleTag}     ${collectedAgo}`,
         healthTone,
       );
+      if (
+        (health === "needs_reauth" || health === "error") &&
+        stored?.connectionHealthReason
+      ) {
+        const msg = formatHealthMessage(stored.connectionHealthReason);
+        const ago = stored.connectionHealthChangedAt
+          ? ` (${formatRelativeTime(stored.connectionHealthChangedAt)})`
+          : "";
+        if (msg) {
+          emit.detail(`  \u21b3 ${msg}${ago} Run \`vana connect ${sourceId}\``);
+        }
+      }
       if (health === "needs_reauth" && !needsReauthSource) {
         needsReauthSource = sourceId;
       }
@@ -2611,14 +2713,16 @@ async function runServerData(
 
   // If PS is available, try to list remote scopes via client
   let remoteScopes: Array<{ scope: string; count: number }> = [];
+  let remoteScopeFallbackReason: string | undefined;
   if (target.state === "available" && target.url) {
     try {
       const { createPersonalServerClient: createClient } =
         await import("../personal-server/client.js");
       const client = createClient({ url: target.url });
       remoteScopes = await client.listScopes(scope);
-    } catch {
-      // Auth required or PS unavailable — fall back to local
+    } catch (err) {
+      remoteScopeFallbackReason =
+        err instanceof Error ? err.message : "unknown error";
     }
   }
 
@@ -2640,6 +2744,7 @@ async function runServerData(
         count: scopeList.length,
         scopes: scopeList,
         source: remoteScopes.length > 0 ? "remote" : "local",
+        ...(remoteScopeFallbackReason ? { remoteScopeFallbackReason } : {}),
       })}\n`,
     );
     return 0;
@@ -2962,6 +3067,17 @@ export async function gatherSourceStatuses(
         ingestScopes?.filter((s) => s.status === "stored").length ?? 0;
       const failedScopeCount =
         ingestScopes?.filter((s) => s.status === "failed").length ?? 0;
+      const isOverdue =
+        stored.lastCollectedAt && stored.exportFrequency
+          ? isCollectionDue(stored.exportFrequency, stored.lastCollectedAt)
+          : undefined;
+      const suggestedNextCollectionAt =
+        stored.lastCollectedAt && stored.exportFrequency
+          ? new Date(
+              new Date(stored.lastCollectedAt).getTime() +
+                parseFrequencyToMs(stored.exportFrequency),
+            ).toISOString()
+          : undefined;
       return {
         source,
         name: details?.name,
@@ -2972,6 +3088,10 @@ export async function gatherSourceStatuses(
         connectorVersion: stored.connectorVersion,
         exportFrequency: stored.exportFrequency,
         lastCollectedAt: stored.lastCollectedAt,
+        connectionHealth: stored.connectionHealth,
+        connectionHealthChangedAt: stored.connectionHealthChangedAt,
+        connectionHealthReason: stored.connectionHealthReason,
+        connectionHealthRetryable: stored.connectionHealthRetryable,
         installed,
         sessionPresent: stored.sessionPresent ?? false,
         lastRunAt: stored.lastRunAt ?? null,
@@ -2983,6 +3103,8 @@ export async function gatherSourceStatuses(
         ingestScopes,
         syncedScopeCount: syncedScopeCount > 0 ? syncedScopeCount : undefined,
         failedScopeCount: failedScopeCount > 0 ? failedScopeCount : undefined,
+        suggestedNextCollectionAt,
+        isOverdue,
       };
     })
     .sort(compareSourceStatusOrder);
@@ -3149,6 +3271,15 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
       kind: "row",
       label: "State",
       value: "Saved locally",
+      tone: "muted",
+    });
+  }
+
+  if (source.connectionHealthReason && source.connectionHealth !== "healthy") {
+    details.push({
+      kind: "row",
+      label: "Cause",
+      value: source.connectionHealthReason,
       tone: "muted",
     });
   }
@@ -3402,6 +3533,30 @@ function buildLogsNextSteps(
   ];
 }
 
+/** Derive a human-readable message from a stored `connectionHealthReason`. */
+export function formatHealthMessage(reason: string | undefined): string | null {
+  if (!reason) return null;
+  const colonIndex = reason.indexOf(": ");
+  const prefix = colonIndex > 0 ? reason.slice(0, colonIndex) : reason;
+  const detail =
+    colonIndex > 0 ? reason.slice(colonIndex + 2).replace(/\.$/, "") : "";
+
+  switch (prefix) {
+    case "needs-input":
+      return `Requires interactive login${detail ? `: ${detail}` : ""}.`;
+    case "legacy-auth":
+      return `Needed a browser window${detail ? `: ${detail}` : ""}. Reconnect interactively.`;
+    case "runtime-error":
+      return `Collection failed${detail ? ` — ${detail}` : ""}.`;
+    case "error-result":
+      return `Connector returned an error${detail ? `: ${detail}` : ""}.`;
+    case "collection-complete":
+      return null; // No message needed for healthy state
+    default:
+      return reason; // Graceful fallback for unknown prefixes
+  }
+}
+
 /** Extract a `vana ...` command from a next-step sentence wrapped in backticks. */
 function extractCommand(sentence: string): string | null {
   const match = sentence.match(/`(vana\s[^`]+)`/);
@@ -3564,6 +3719,14 @@ export function getLifecycleCommands(
         uninstall: "brew uninstall vana",
       };
     case "installer":
+      if (process.platform === "win32") {
+        return {
+          upgrade:
+            'powershell -Command "irm https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.ps1 | iex"',
+          uninstall:
+            'powershell -Command "Remove-Item $env:LOCALAPPDATA\\Vana -Recurse -Force; Remove-Item $env:USERPROFILE\\.vana -Recurse -Force"',
+        };
+      }
       return {
         upgrade:
           channel === "canary"
@@ -4175,6 +4338,7 @@ const LAUNCHD_PLIST_PATH = path.join(
   `${LAUNCHD_LABEL}.plist`,
 );
 const CRONTAB_MARKER = "# vana-scheduled-collection";
+const WINDOWS_TASK_NAME = "VanaScheduledCollection";
 
 function parseIntervalSeconds(interval: string): number {
   const lower = interval.toLowerCase().trim();
@@ -4205,13 +4369,78 @@ function resolveVanaBinaryPath(): string {
   if (installMethod === "homebrew" || installMethod === "installer") {
     return process.execPath;
   }
-  // For development, try to find the vana binary via which
+  // For development, try to find the vana binary via which/where
   try {
-    return execSync("which vana", { encoding: "utf8" }).trim();
+    const cmd = process.platform === "win32" ? "where vana" : "which vana";
+    const result = execSync(cmd, { encoding: "utf8" }).trim();
+    // `where` on Windows may return multiple lines; take the first
+    return result.split("\n")[0].trim();
   } catch {
     // Fall back to process.execPath + argv[1]
     return `${process.execPath} ${process.argv[1]}`;
   }
+}
+
+async function getExistingScheduleInterval(): Promise<number | null> {
+  if (process.platform === "darwin") {
+    try {
+      const content = await fsp.readFile(LAUNCHD_PLIST_PATH, "utf8");
+      const match = content.match(
+        /<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/,
+      );
+      return match ? parseInt(match[1], 10) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const crontab = execSync("crontab -l 2>/dev/null", { encoding: "utf8" });
+      const vanaLine = crontab
+        .split("\n")
+        .find((line) => line.includes(CRONTAB_MARKER));
+      if (!vanaLine) return null;
+      // Parse hour interval from crontab: look for */N pattern
+      const hourMatch = /\*\/(\d+)/.exec(vanaLine);
+      if (hourMatch) return parseInt(hourMatch[1], 10) * 3600;
+      // Daily (0 0 * * *)
+      return 86400;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "win32") {
+    try {
+      execSync(`schtasks /Query /TN "${WINDOWS_TASK_NAME}" /FO LIST`, {
+        encoding: "utf8",
+      });
+      // Task exists but we can't easily parse the interval; return a
+      // sentinel value (86400) to indicate "schedule present".
+      return 86400;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function maybeAutoSchedule(
+  emit: Emitter,
+  options: GlobalOptions,
+): Promise<void> {
+  // Skip if --no-input (detached/agent context shouldn't create schedules)
+  if (options.noInput) return;
+  // Skip unsupported platforms
+  if (!["darwin", "linux", "win32"].includes(process.platform)) return;
+
+  const existing = await getExistingScheduleInterval();
+  if (existing !== null) return; // Schedule already exists
+
+  await runScheduleAdd("daily", { json: false, quiet: true });
+  emit.detail("Auto-scheduled daily collection.");
 }
 
 function generateLaunchdPlist(
@@ -4239,6 +4468,7 @@ ${programArgs}
     <string>collect</string>
     <string>--all</string>
     <string>--quiet</string>
+    <string>--no-input</string>
   </array>
   <key>StartInterval</key>
   <integer>${intervalSeconds}</integer>
@@ -4262,7 +4492,7 @@ function generateCrontabEntry(
   const dayExpr = "*";
   const hourInterval =
     intervalHours >= 24 ? "0" : intervalHours >= 1 ? `*/${intervalHours}` : "*";
-  return `${hourExpr} ${hourInterval} ${dayExpr} * * ${vanaBinary} collect --all --quiet >> ${logsPath} 2>&1 ${CRONTAB_MARKER}`;
+  return `${hourExpr} ${hourInterval} ${dayExpr} * * ${vanaBinary} collect --all --quiet --no-input >> ${logsPath} 2>&1 ${CRONTAB_MARKER}`;
 }
 
 async function runScheduleAdd(
@@ -4317,9 +4547,10 @@ async function runScheduleAdd(
   }
 
   if (process.platform === "linux") {
-    // Linux: crontab
-    const intervalHours = Math.max(1, Math.round(intervalSeconds / 3600));
-    const entry = generateCrontabEntry(vanaBinary, intervalHours);
+    // Linux: cron doesn't defer missed jobs (unlike launchd), so we run
+    // hourly and let isCollectionDue() filter per-source. This way a
+    // missed 2am tick self-heals at 3am instead of waiting 24h.
+    const entry = generateCrontabEntry(vanaBinary, 1);
 
     try {
       // Read existing crontab, filter out old vana entries, add new one
@@ -4361,9 +4592,67 @@ async function runScheduleAdd(
     return 0;
   }
 
+  if (process.platform === "win32") {
+    // Windows: Task Scheduler
+    const intervalMinutes = Math.max(1, Math.round(intervalSeconds / 60));
+    const trCmd = `\\"${vanaBinary}\\" collect --all --quiet --no-input`;
+
+    try {
+      try {
+        execSync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F 2>nul`, {
+          stdio: "ignore",
+        });
+      } catch {
+        // Not present, that's fine
+      }
+
+      if (intervalSeconds >= 86400) {
+        execSync(
+          `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC DAILY /ST 09:00 /F`,
+          { stdio: "ignore" },
+        );
+      } else {
+        execSync(
+          `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC MINUTE /MO ${intervalMinutes} /F`,
+          { stdio: "ignore" },
+        );
+      }
+
+      // Enable StartWhenAvailable for deferred execution
+      try {
+        execSync(
+          `powershell -Command "$t = Get-ScheduledTask '${WINDOWS_TASK_NAME}'; $t.Settings.StartWhenAvailable = $true; Set-ScheduledTask -InputObject $t"`,
+          { stdio: "ignore" },
+        );
+      } catch {
+        // Non-fatal if PowerShell cmdlet fails
+      }
+    } catch {
+      emit.info("Could not create scheduled task. Create it manually:");
+      emit.detail(
+        `schtasks /Create /TN "${WINDOWS_TASK_NAME}" /TR "${trCmd}" /SC DAILY /ST 09:00 /F`,
+      );
+      return 1;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ ok: true, interval: intervalLabel, mechanism: "schtasks" })}\n`,
+      );
+      return 0;
+    }
+
+    emit.info(
+      `Added ${intervalLabel === "1d" ? "daily" : `every ${intervalLabel}`} collection schedule.`,
+    );
+    emit.detail(`Runs: ${emit.code("vana collect --all --quiet")}`);
+    emit.detail(`Managed by: Task Scheduler`);
+    return 0;
+  }
+
   // Unsupported platform
   emit.info(
-    "Scheduled collection requires launchd (macOS) or cron (Linux). Run `vana collect --all` manually or set up a cron job.",
+    "Scheduled collection is not supported on this platform. Run `vana collect --all` manually.",
   );
   return 1;
 }
@@ -4441,6 +4730,34 @@ async function runScheduleList(options: GlobalOptions): Promise<number> {
     }
   }
 
+  if (process.platform === "win32") {
+    try {
+      const output = execSync(
+        `schtasks /Query /TN "${WINDOWS_TASK_NAME}" /FO LIST`,
+        { encoding: "utf8" },
+      );
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({
+            scheduled: true,
+            mechanism: "schtasks",
+            taskName: WINDOWS_TASK_NAME,
+          })}\n`,
+        );
+        return 0;
+      }
+      emit.keyValue("Daily collection", "Task Scheduler", "muted");
+      // Extract schedule info from output
+      const statusLine = output.split("\n").find((l) => l.includes("Status:"));
+      if (statusLine) {
+        emit.detail(statusLine.trim());
+      }
+      return 0;
+    } catch {
+      // Task not found
+    }
+  }
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify({ scheduled: false })}\n`);
     return 0;
@@ -4507,6 +4824,26 @@ async function runScheduleRemove(options: GlobalOptions): Promise<number> {
       }
     } catch {
       // No crontab available
+    }
+  }
+
+  if (process.platform === "win32") {
+    try {
+      execSync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F`, {
+        stdio: "ignore",
+      });
+
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ ok: true, removed: true })}\n`,
+        );
+        return 0;
+      }
+
+      emit.info("Removed daily collection schedule.");
+      return 0;
+    } catch {
+      // Task not found
     }
   }
 
