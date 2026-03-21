@@ -5260,7 +5260,7 @@ async function runLogin(
   const psUrl = serverUrl ?? resolvePersonalServerUrl() ?? null;
   const authTarget = getAuthTarget(psUrl);
 
-  // If self-hosted, use /login/v2 flow against the PS
+  // If self-hosted, use /auth/device flow against the PS
   if (authTarget === "self-hosted" && psUrl) {
     const emit = createEmitter(options);
     emit.blank();
@@ -5457,7 +5457,7 @@ async function runLogout(options: GlobalOptions): Promise<number> {
   if (creds?.personal_server?.url && creds.personal_server.access_token) {
     try {
       await fetch(
-        `${creds.personal_server.url.replace(/\/$/, "")}/login/v2/token`,
+        `${creds.personal_server.url.replace(/\/$/, "")}/auth/device/token`,
         {
           method: "DELETE",
           headers: {

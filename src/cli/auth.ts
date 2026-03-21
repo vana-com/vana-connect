@@ -372,7 +372,7 @@ export async function runSelfHostedLoginFlow(
   const base = serverUrl.replace(/\/$/, "");
 
   // 1. Initiate login flow
-  const initRes = await fetch(`${base}/login/v2`, { method: "POST" });
+  const initRes = await fetch(`${base}/auth/device`, { method: "POST" });
   if (!initRes.ok) {
     throw new Error(
       `Server at ${base} does not support CLI login (${initRes.status})`,
