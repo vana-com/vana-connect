@@ -112,7 +112,7 @@ export const listedSourceSchema = z
 export type ListedSource = z.infer<typeof listedSourceSchema>;
 
 export const personalServerSourceSchema = z
-  .enum(["config", "env", "scan"])
+  .enum(["config", "auth", "env", "scan"])
   .nullable()
   .optional();
 
