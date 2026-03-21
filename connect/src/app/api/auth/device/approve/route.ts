@@ -1,0 +1,92 @@
+import crypto from "node:crypto";
+import type { NextRequest } from "next/server";
+import { recoverWalletAddress } from "@/lib/api-auth";
+import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
+import {
+  approveDeviceCode,
+  createSession,
+  findDeviceCodeByUserCode,
+  findServerByUserId,
+} from "@/lib/db/neon";
+
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+export async function OPTIONS() {
+  return apiOptions();
+}
+
+export async function POST(request: NextRequest) {
+  let body: { user_code?: string; masterKeySignature?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("invalid_request_error", "Invalid JSON body", 400);
+  }
+
+  const { user_code, masterKeySignature } = body;
+
+  if (!user_code) {
+    return apiError("invalid_request_error", "Missing user_code", 400);
+  }
+  if (!masterKeySignature) {
+    return apiError("authentication_error", "Missing masterKeySignature", 401);
+  }
+
+  // Recover wallet address from signature
+  let walletAddress: string;
+  try {
+    walletAddress = await recoverWalletAddress(masterKeySignature);
+  } catch {
+    return apiError("authentication_error", "Invalid signature", 401);
+  }
+
+  // Normalize the user code (uppercase, ensure dash)
+  const normalizedCode = user_code.toUpperCase().replace(/\s+/g, "");
+
+  // Find the pending device code
+  const deviceCodeRecord = await findDeviceCodeByUserCode(normalizedCode);
+  if (!deviceCodeRecord) {
+    return apiError(
+      "not_found_error",
+      "Invalid or expired code. Please try again.",
+      404,
+    );
+  }
+
+  // Check expiry
+  if (new Date(deviceCodeRecord.expires_at) < new Date()) {
+    return apiError(
+      "invalid_request_error",
+      "Code has expired. Please request a new one.",
+      400,
+    );
+  }
+
+  // Generate session token
+  const sessionToken = `vana_sess_${crypto.randomBytes(32).toString("hex")}`;
+  const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+  // Look up user's personal server for ps_access_token
+  const userId = walletAddress.toLowerCase();
+  const server = await findServerByUserId(userId);
+
+  // Use the server's existing access_token if available
+  const psAccessToken = (server as Record<string, unknown> | null)
+    ?.access_token as string | null;
+
+  // Create the session
+  await createSession(sessionToken, userId, psAccessToken, sessionExpiresAt);
+
+  // Mark the device code as authorized
+  const approved = await approveDeviceCode(
+    normalizedCode,
+    userId,
+    sessionToken,
+  );
+
+  if (!approved) {
+    return apiError("conflict_error", "Code was already used or expired", 409);
+  }
+
+  return apiSuccess({ status: "approved" });
+}

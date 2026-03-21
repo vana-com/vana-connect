@@ -118,3 +118,117 @@ export async function deleteServer(id: string): Promise<void> {
   const sql = getSQL();
   await sql`DELETE FROM personal_servers WHERE id = ${id}`;
 }
+
+// ---------------------------------------------------------------------------
+// Device code auth
+// ---------------------------------------------------------------------------
+
+export type DeviceCode = {
+  device_code: string;
+  user_code: string;
+  status: "pending" | "authorized" | "expired";
+  wallet_address: string | null;
+  session_token: string | null;
+  last_polled_at: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export type Session = {
+  token: string;
+  wallet_address: string;
+  ps_access_token: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export async function createDeviceCode(
+  deviceCode: string,
+  userCode: string,
+  expiresAt: Date,
+): Promise<DeviceCode> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO device_codes (device_code, user_code, expires_at)
+    VALUES (${deviceCode}, ${userCode}, ${expiresAt.toISOString()})
+    RETURNING *
+  `;
+  return rows[0] as DeviceCode;
+}
+
+export async function findDeviceCode(
+  deviceCode: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM device_codes WHERE device_code = ${deviceCode} LIMIT 1
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function findDeviceCodeByUserCode(
+  userCode: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM device_codes WHERE user_code = ${userCode} AND status = 'pending' LIMIT 1
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function updateDeviceCodeLastPolled(
+  deviceCode: string,
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE device_codes SET last_polled_at = now() WHERE device_code = ${deviceCode}
+  `;
+}
+
+export async function approveDeviceCode(
+  userCode: string,
+  walletAddress: string,
+  sessionToken: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE device_codes
+    SET status = 'authorized', wallet_address = ${walletAddress}, session_token = ${sessionToken}
+    WHERE user_code = ${userCode} AND status = 'pending'
+    RETURNING *
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function createSession(
+  token: string,
+  walletAddress: string,
+  psAccessToken: string | null,
+  expiresAt: Date,
+): Promise<Session> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO sessions (token, wallet_address, ps_access_token, expires_at)
+    VALUES (${token}, ${walletAddress}, ${psAccessToken}, ${expiresAt.toISOString()})
+    RETURNING *
+  `;
+  return rows[0] as Session;
+}
+
+export async function findSession(token: string): Promise<Session | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM sessions WHERE token = ${token} LIMIT 1
+  `;
+  return (rows[0] as Session) ?? null;
+}
+
+export async function updateServerAccessToken(
+  id: string,
+  accessToken: string,
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE personal_servers SET access_token = ${accessToken}, updated_at = now() WHERE id = ${id}
+  `;
+}

@@ -196,6 +196,8 @@ CONTAINER_IMAGE=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/container-image)
 TUNNEL_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/tunnel-token)
+PS_ACCESS_TOKEN_VAL=$(curl -s -H "Metadata-Flavor: Google" \\
+  http://metadata.google.internal/computeMetadata/v1/instance/attributes/ps-access-token || true)
 
 # Mount persistent data disk (second disk)
 DATA_DIR="/var/ps-data"
@@ -228,6 +230,7 @@ docker run -d \\
   -e CLOUD_MODE=true \\
   -e TUNNEL_ENABLED=false \\
   -e DEV_UI_ENABLED=false \\
+  -e PS_ACCESS_TOKEN="$PS_ACCESS_TOKEN_VAL" \\
   "$CONTAINER_IMAGE"
 
 # Run cloudflared via Docker (COS has read-only root + noexec on /home)
@@ -277,9 +280,13 @@ export class GCPProvider implements ServerProvider {
     userId: string;
     masterKeySignature: string;
     ownerAddress: string;
+    psAccessToken?: string;
   }) {
     // Use the DB-unique serverId for the VM name (avoids collisions from truncated userIds)
-    const vmName = `ps-${params.serverId.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 40)}`;
+    const vmName = `ps-${params.serverId
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 40)}`;
 
     // Create Cloudflare Tunnel + DNS before the VM so we have the token
     const tunnel = await createTunnel(params.userId);
@@ -345,6 +352,9 @@ export class GCPProvider implements ServerProvider {
             },
             { key: "container-image", value: PS_CONTAINER_IMAGE },
             { key: "tunnel-token", value: tunnel.tunnelToken },
+            ...(params.psAccessToken
+              ? [{ key: "ps-access-token", value: params.psAccessToken }]
+              : []),
           ],
         },
         tags: {
