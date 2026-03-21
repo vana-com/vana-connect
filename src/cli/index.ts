@@ -1616,6 +1616,66 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     }
   }
 
+  // Show attention-needing sources that weren't already displayed above
+  const displayedSourceIds = new Set(connectedSources.map(([id]) => id));
+  const hiddenAttentionSources = status.sources.filter(
+    (s) => rankSourceStatus(s) <= 4 && !displayedSourceIds.has(s.source),
+  );
+  if (hiddenAttentionSources.length > 0) {
+    if (connectedSources.length === 0) {
+      emit.blank();
+    }
+    for (const source of hiddenAttentionSources) {
+      const displayName = displaySource(source.source, sourceLabels);
+      const presentation = getSourceStatusPresentation(source);
+      const collectedAgo = source.lastCollectedAt
+        ? `collected ${formatRelativeTime(source.lastCollectedAt)}`
+        : "";
+      emit.keyValue(
+        `  ${displayName}`,
+        `${presentation.label}${collectedAgo ? `     ${collectedAgo}` : ""}`,
+        presentation.tone,
+      );
+      // Show actionable detail line
+      if (
+        source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED &&
+        source.ingestScopes
+      ) {
+        const failedScopes = source.ingestScopes.filter(
+          (s) => s.status === "failed",
+        );
+        for (const scope of failedScopes) {
+          const errMsg = scope.error ?? "sync failed";
+          emit.detail(
+            `  \u21b3 ${source.source}.${scope.scope}: ${errMsg}. Run \`vana connect ${source.source}\``,
+          );
+        }
+        if (failedScopes.length === 0) {
+          emit.detail(
+            `  \u21b3 Sync failed. Run \`vana connect ${source.source}\``,
+          );
+        }
+      } else if (
+        source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
+      ) {
+        emit.detail(`  \u21b3 No connector available. Run \`vana sources\``);
+      } else if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+        const reason = source.lastError ?? "runtime error";
+        emit.detail(
+          `  \u21b3 ${reason}. Run \`vana connect ${source.source}\``,
+        );
+      } else if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+        emit.detail(
+          `  \u21b3 Requires interactive login. Run \`vana connect ${source.source}\``,
+        );
+      } else if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+        emit.detail(
+          `  \u21b3 Manual auth step required. Run \`vana connect ${source.source}\``,
+        );
+      }
+    }
+  }
+
   if (nextSteps.length > 0) {
     emit.blank();
     const command = extractCommand(nextSteps[0]);
