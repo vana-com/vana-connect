@@ -253,7 +253,13 @@ export class GCPProvider implements ServerProvider {
 
     const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
     if (saKey) {
-      const key = JSON.parse(saKey);
+      let key: { client_email: string; private_key: string };
+      try {
+        key = JSON.parse(saKey);
+      } catch {
+        // Try base64 decoding (some env var systems mangle raw JSON)
+        key = JSON.parse(Buffer.from(saKey, "base64").toString("utf-8"));
+      }
       this.client = new InstancesClient({
         credentials: {
           client_email: key.client_email,
