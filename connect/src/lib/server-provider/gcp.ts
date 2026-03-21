@@ -149,7 +149,10 @@ async function createTunnel(userId: string): Promise<CloudflareTunnelResult> {
   };
 }
 
-async function deleteTunnel(tunnelId: string, dnsRecordId: string): Promise<void> {
+async function deleteTunnel(
+  tunnelId: string,
+  dnsRecordId: string,
+): Promise<void> {
   const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
   const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
 
@@ -200,14 +203,22 @@ CONTAINER_IMAGE=$(curl -s -H "Metadata-Flavor: Google" \\
 TUNNEL_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/tunnel-token)
 
-# Mount persistent data disk (second disk, /dev/sdb)
-DATA_DISK="/dev/sdb"
+# Mount persistent data disk (second disk)
 DATA_DIR="/var/ps-data"
 mkdir -p "$DATA_DIR"
-if ! blkid "$DATA_DISK"; then
-  mkfs.ext4 -F "$DATA_DISK"
+
+# Find the data disk device (not the boot disk)
+DATA_DISK=$(lsblk -dnp -o NAME,TYPE | grep disk | awk 'NR==2{print $1}')
+if [ -n "$DATA_DISK" ]; then
+  # Format if no filesystem exists
+  if ! blkid -s TYPE -o value "$DATA_DISK" 2>/dev/null | grep -q .; then
+    mkfs.ext4 -F "$DATA_DISK"
+  fi
+  mount "$DATA_DISK" "$DATA_DIR" || true
 fi
-mount "$DATA_DISK" "$DATA_DIR"
+
+# Fix ownership for non-root container user (uid 100 = vana)
+chown -R 100:100 "$DATA_DIR"
 
 # Pull and run the personal server on localhost only (Cloudflare Tunnel handles external traffic)
 docker pull "$CONTAINER_IMAGE"
@@ -220,16 +231,18 @@ docker run -d \\
   -e OWNER_ADDRESS="$OWNER_ADDR" \\
   -e SERVER_ORIGIN="$SERVER_ORIGIN_VAL" \\
   -e PERSONAL_SERVER_ROOT_PATH=/data \\
+  -e CLOUD_MODE=true \\
   -e TUNNEL_ENABLED=false \\
   -e DEV_UI_ENABLED=false \\
   "$CONTAINER_IMAGE"
 
-# Install cloudflared
-curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-
-# Run cloudflared as a systemd service
-cloudflared service install "$TUNNEL_TOKEN"
+# Run cloudflared via Docker (COS has read-only root + noexec on /home)
+docker run -d \\
+  --name cloudflared \\
+  --restart unless-stopped \\
+  --network host \\
+  cloudflare/cloudflared:latest \\
+  tunnel run --token "$TUNNEL_TOKEN"
 `;
 }
 
