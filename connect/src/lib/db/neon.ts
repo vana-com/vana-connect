@@ -10,6 +10,8 @@ export type PersonalServer = {
   state: string;
   disk_id: string | null;
   disk_expires: string | null;
+  tunnel_id: string | null;
+  dns_record_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -55,6 +57,14 @@ export async function insertServerIfNotExists(
   return (rows[0] as PersonalServer) ?? null;
 }
 
+export async function findAllActiveServers(): Promise<PersonalServer[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM personal_servers WHERE state IN ('provisioning', 'running')
+  `;
+  return rows as PersonalServer[];
+}
+
 const UPDATABLE_COLUMNS = new Set([
   "provider_id",
   "vm_ip",
@@ -62,6 +72,8 @@ const UPDATABLE_COLUMNS = new Set([
   "state",
   "disk_id",
   "disk_expires",
+  "tunnel_id",
+  "dns_record_id",
 ]);
 
 export async function updateServer(
@@ -69,7 +81,14 @@ export async function updateServer(
   fields: Partial<
     Pick<
       PersonalServer,
-      "provider_id" | "vm_ip" | "url" | "state" | "disk_id" | "disk_expires"
+      | "provider_id"
+      | "vm_ip"
+      | "url"
+      | "state"
+      | "disk_id"
+      | "disk_expires"
+      | "tunnel_id"
+      | "dns_record_id"
     >
   >,
 ): Promise<PersonalServer | null> {

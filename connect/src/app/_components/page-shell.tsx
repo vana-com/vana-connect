@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BoxIcon, LogOutIcon } from "lucide-react";
+import { ArrowLeftIcon, BoxIcon, LogOutIcon, ServerIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoutActionButton } from "@/app/_components/logout-action-button";
@@ -20,7 +20,7 @@ type PageShellAction = {
   className?: string;
   kind?: PageShellActionPreset;
 };
-type PageShellActionPreset = "logout" | "yourApps" | "dataConnect";
+type PageShellActionPreset = "logout" | "yourApps" | "dataConnect" | "server";
 type PageShellActionInput = PageShellActionPreset | PageShellAction;
 
 export function PageShell({
@@ -34,6 +34,7 @@ export function PageShell({
       logoutHref: APP_ROUTES.logout,
       yourAppsHref: APP_ROUTES.admin,
       downloadDataConnectHref: APP_ROUTES.downloadDataConnect,
+      serverHref: APP_ROUTES.server,
     }),
   );
 
@@ -121,6 +122,7 @@ function resolvePageShellAction(
     logoutHref: string;
     yourAppsHref: string;
     downloadDataConnectHref: string;
+    serverHref: string;
   },
 ): PageShellAction {
   if (typeof action !== "string") return action;
@@ -139,6 +141,14 @@ function resolvePageShellAction(
       icon: <BoxIcon aria-hidden="true" />,
       label: "Your apps",
       kind: "yourApps",
+    };
+  }
+  if (action === "server") {
+    return {
+      href: hrefs.serverHref,
+      icon: <ServerIcon aria-hidden="true" />,
+      label: "Server",
+      kind: "server",
     };
   }
   return {

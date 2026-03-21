@@ -16,9 +16,6 @@ export async function OPTIONS() {
   return apiOptions();
 }
 
-/**
- * GET /api/servers/:id — Get server details with live status from the provider.
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -45,43 +42,28 @@ export async function GET(
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  const apiServer = toApiServer(server);
-  if (server.provider_id) {
+  // Live-check only while provisioning (to detect transition to running).
+  // Once running, return stored state — no unnecessary GCP API calls.
+  if (server.state === "provisioning" && server.provider_id) {
     try {
       const provider = getServerProvider();
       const liveStatus = await provider.status(server.provider_id);
 
-      // Extract VM IP from the provider URL (http://<ip>)
-      const vmIp = liveStatus.url ? new URL(liveStatus.url).hostname : null;
-
-      // Update DB if state or vm_ip has changed
-      const dbUpdates: Record<string, string | null> = {};
-      if (liveStatus.state !== server.state) dbUpdates.state = liveStatus.state;
-      if (vmIp && vmIp !== server.vm_ip) dbUpdates.vm_ip = vmIp;
-      if (liveStatus.url && liveStatus.url !== server.url)
-        dbUpdates.url = liveStatus.url;
-
-      if (Object.keys(dbUpdates).length > 0) {
-        await updateServer(id, dbUpdates);
+      if (liveStatus.state !== server.state) {
+        await updateServer(id, { state: liveStatus.state });
+        return apiSuccess({
+          ...toApiServer(server),
+          state: liveStatus.state,
+        });
       }
-
-      return apiSuccess({
-        ...apiServer,
-        state: liveStatus.state,
-        url: liveStatus.url ?? apiServer.url,
-        health: liveStatus.health ?? null,
-      });
     } catch (err) {
-      console.error("Status check error:", err);
+      console.error("Live status check failed:", err);
     }
   }
 
-  return apiSuccess(apiServer);
+  return apiSuccess(toApiServer(server));
 }
 
-/**
- * DELETE /api/servers/:id — Deprovision the server.
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -111,9 +93,18 @@ export async function DELETE(
   if (server.provider_id) {
     try {
       const provider = getServerProvider();
-      await provider.deprovision(server.provider_id);
+      await provider.deprovision(server.provider_id, {
+        tunnelId: server.tunnel_id ?? undefined,
+        dnsRecordId: server.dns_record_id ?? undefined,
+      });
     } catch (err) {
       console.error("Deprovision error:", err);
+      await updateServer(id, { state: "deprovision_failed" });
+      return apiError(
+        "internal_error",
+        "Failed to deprovision server. Resources may still be running.",
+        500,
+      );
     }
   }
 
@@ -123,7 +114,6 @@ export async function DELETE(
 
   await updateServer(id, {
     state: "stopped",
-    vm_ip: null,
     disk_expires: diskExpires,
   });
 

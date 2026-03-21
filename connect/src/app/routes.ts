@@ -4,6 +4,7 @@ export const APP_ROUTES = {
   login: "/login",
   logout: "/logout",
   admin: "/admin",
+  server: "/server",
   downloadDataConnect: "/download-data-connect",
 } as const;
 
