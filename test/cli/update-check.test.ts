@@ -12,6 +12,7 @@ import {
   readUpdateCheck,
   isNewerVersion,
   getUpdateCheckPath,
+  checkForUpdate,
 } from "../../src/cli/update-check.js";
 
 describe("update-check", () => {
@@ -90,6 +91,93 @@ describe("update-check", () => {
 
     it("handles missing patch version", () => {
       expect(isNewerVersion("0.8", "0.9")).toBe(true);
+    });
+  });
+
+  describe("checkForUpdate", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("fetches npm registry and writes cache file", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ version: "2.0.0" }),
+        }),
+      );
+
+      await checkForUpdate("1.0.0", "installer");
+
+      // installer checks GitHub releases, not npm — but let's verify the
+      // mock was called and the cache written. Use the actual install method
+      // that hits npm (the default branch).
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ version: "2.0.0" }),
+        }),
+      );
+
+      await checkForUpdate("1.0.0", "development");
+
+      const raw = await fs.readFile(getUpdateCheckPath(), "utf8");
+      const cache = JSON.parse(raw);
+      expect(cache.latestVersion).toBe("2.0.0");
+      expect(cache.currentVersion).toBe("1.0.0");
+      expect(cache.lastCheckedAt).toBeTruthy();
+    });
+
+    it("does not write cache when fetch fails", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+      );
+
+      await checkForUpdate("1.0.0", "development");
+
+      await expect(fs.access(getUpdateCheckPath())).rejects.toThrow();
+    });
+
+    it("fetches homebrew API for homebrew install method", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ versions: { stable: "3.0.0" } }),
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      await checkForUpdate("1.0.0", "homebrew");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://formulae.brew.sh/api/formula/vana.json",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+      const raw = await fs.readFile(getUpdateCheckPath(), "utf8");
+      const cache = JSON.parse(raw);
+      expect(cache.latestVersion).toBe("3.0.0");
+    });
+
+    it("fetches GitHub releases for installer install method", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ tag_name: "v4.0.0" }),
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      await checkForUpdate("1.0.0", "installer");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.github.com/repos/vana-com/vana-connect/releases/latest",
+        expect.objectContaining({
+          headers: { "User-Agent": "@opendatalabs/connect" },
+          signal: expect.any(AbortSignal),
+        }),
+      );
+      const raw = await fs.readFile(getUpdateCheckPath(), "utf8");
+      const cache = JSON.parse(raw);
+      expect(cache.latestVersion).toBe("4.0.0");
     });
   });
 });
