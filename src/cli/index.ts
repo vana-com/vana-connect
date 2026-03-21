@@ -5451,6 +5451,25 @@ async function runLogin(
 }
 
 async function runLogout(options: GlobalOptions): Promise<number> {
+  // Revoke the token server-side before clearing local credentials
+  const creds = loadCredentials();
+  if (creds?.personal_server?.url && creds.personal_server.access_token) {
+    try {
+      await fetch(
+        `${creds.personal_server.url.replace(/\/$/, "")}/login/v2/token`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${creds.personal_server.access_token}`,
+          },
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+    } catch {
+      // Best-effort — server may be down, but we still clear local creds
+    }
+  }
+
   await clearCredentials();
 
   if (options.json) {
