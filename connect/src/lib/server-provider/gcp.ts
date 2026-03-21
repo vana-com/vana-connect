@@ -284,77 +284,91 @@ export class GCPProvider implements ServerProvider {
     // Create Cloudflare Tunnel + DNS before the VM so we have the token
     const tunnel = await createTunnel(params.userId);
 
-    const instanceResource: Instance = {
-      name: vmName,
-      machineType: `zones/${GCP_ZONE}/machineTypes/e2-micro`,
-      labels: {
-        "managed-by": "vana-connect",
-        "user-id": params.userId.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
-      },
-      disks: [
-        {
-          initializeParams: {
-            sourceImage: "projects/cos-cloud/global/images/family/cos-stable",
-            diskSizeGb: "10",
-          },
-          autoDelete: true,
-          boot: true,
+    let instanceResource: Instance;
+    try {
+      instanceResource = {
+        name: vmName,
+        machineType: `zones/${GCP_ZONE}/machineTypes/e2-micro`,
+        labels: {
+          "managed-by": "vana-connect",
+          "user-id": params.userId.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
         },
-        {
-          initializeParams: {
-            diskSizeGb: "10",
-            diskType: `zones/${GCP_ZONE}/diskTypes/pd-standard`,
-          },
-          autoDelete: false,
-          boot: false,
-          deviceName: `${vmName}-data`,
-        },
-      ],
-      networkInterfaces: [
-        {
-          network: GCP_SUBNET
-            ? undefined
-            : `projects/${this.project}/global/networks/${GCP_NETWORK}`,
-          subnetwork: GCP_SUBNET || undefined,
-          accessConfigs: [
-            {
-              name: "External NAT",
-              type: "ONE_TO_ONE_NAT",
+        disks: [
+          {
+            initializeParams: {
+              sourceImage: "projects/cos-cloud/global/images/family/cos-stable",
+              diskSizeGb: "10",
             },
+            autoDelete: true,
+            boot: true,
+          },
+          {
+            initializeParams: {
+              diskSizeGb: "10",
+              diskType: `zones/${GCP_ZONE}/diskTypes/pd-standard`,
+            },
+            autoDelete: false,
+            boot: false,
+            deviceName: `${vmName}-data`,
+          },
+        ],
+        networkInterfaces: [
+          {
+            network: GCP_SUBNET
+              ? undefined
+              : `projects/${this.project}/global/networks/${GCP_NETWORK}`,
+            subnetwork: GCP_SUBNET || undefined,
+            accessConfigs: [
+              {
+                name: "External NAT",
+                type: "ONE_TO_ONE_NAT",
+              },
+            ],
+          },
+        ],
+        serviceAccounts: GCP_SERVICE_ACCOUNT_EMAIL
+          ? [
+              {
+                email: GCP_SERVICE_ACCOUNT_EMAIL,
+                scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+              },
+            ]
+          : [],
+        metadata: {
+          items: [
+            { key: "startup-script", value: buildStartupScript() },
+            { key: "owner-address", value: params.ownerAddress },
+            { key: "master-key-signature", value: params.masterKeySignature },
+            {
+              key: "server-origin",
+              value: `https://${params.userId}.${MYVANA_DOMAIN}`,
+            },
+            { key: "container-image", value: PS_CONTAINER_IMAGE },
+            { key: "tunnel-token", value: tunnel.tunnelToken },
           ],
         },
-      ],
-      serviceAccounts: GCP_SERVICE_ACCOUNT_EMAIL
-        ? [
-            {
-              email: GCP_SERVICE_ACCOUNT_EMAIL,
-              scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-            },
-          ]
-        : [],
-      metadata: {
-        items: [
-          { key: "startup-script", value: buildStartupScript() },
-          { key: "owner-address", value: params.ownerAddress },
-          { key: "master-key-signature", value: params.masterKeySignature },
-          {
-            key: "server-origin",
-            value: `https://${params.userId}.${MYVANA_DOMAIN}`,
-          },
-          { key: "container-image", value: PS_CONTAINER_IMAGE },
-          { key: "tunnel-token", value: tunnel.tunnelToken },
-        ],
-      },
-      tags: {
-        items: ["personal-server"],
-      },
-    };
+        tags: {
+          items: ["personal-server"],
+        },
+      };
 
-    await this.client.insert({
-      project: this.project,
-      zone: GCP_ZONE,
-      instanceResource,
-    });
+      await this.client.insert({
+        project: this.project,
+        zone: GCP_ZONE,
+        instanceResource,
+      });
+    } catch (err) {
+      // VM creation failed — clean up the tunnel + DNS we already created
+      try {
+        await deleteTunnel(tunnel.tunnelId, tunnel.dnsRecordId);
+      } catch (cleanupErr) {
+        console.error(
+          "Failed to clean up tunnel after VM creation failure:",
+          cleanupErr,
+        );
+      }
+      throw err;
+    }
 
     return {
       serverId: vmName,
@@ -419,12 +433,19 @@ export class GCPProvider implements ServerProvider {
     serverId: string,
     options?: { tunnelId?: string; dnsRecordId?: string },
   ): Promise<void> {
-    // Clean up Cloudflare Tunnel + DNS if IDs are provided
+    const errors: Error[] = [];
+
+    // 1. Delete Cloudflare Tunnel + DNS (proceed even if this fails)
     if (options?.tunnelId && options?.dnsRecordId) {
-      await deleteTunnel(options.tunnelId, options.dnsRecordId);
+      try {
+        await deleteTunnel(options.tunnelId, options.dnsRecordId);
+      } catch (err) {
+        console.error("Tunnel cleanup failed:", err);
+        errors.push(err instanceof Error ? err : new Error(String(err)));
+      }
     }
 
-    // Delete the GCP VM
+    // 2. Delete the GCP VM (proceed even if this fails)
     try {
       await this.client.delete({
         project: this.project,
@@ -437,8 +458,53 @@ export class GCPProvider implements ServerProvider {
           ? (err as { code: number }).code
           : 0;
       if (code !== 5 && code !== 404) {
-        throw err;
+        console.error("VM deletion failed:", err);
+        errors.push(err instanceof Error ? err : new Error(String(err)));
       }
+    }
+
+    // 3. Delete the persistent data disk (not auto-deleted with VM)
+    const diskName = `${serverId}-data`;
+    try {
+      const { DisksClient } = await import("@google-cloud/compute");
+      const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
+      let disksClient: InstanceType<typeof DisksClient>;
+      if (saKey) {
+        try {
+          const key = JSON.parse(saKey);
+          disksClient = new DisksClient({
+            credentials: {
+              client_email: key.client_email,
+              private_key: key.private_key,
+            },
+            projectId: this.project,
+          });
+        } catch {
+          disksClient = new DisksClient({ projectId: this.project });
+        }
+      } else {
+        disksClient = new DisksClient({ projectId: this.project });
+      }
+      await disksClient.delete({
+        project: this.project,
+        zone: GCP_ZONE,
+        disk: diskName,
+      });
+    } catch (err: unknown) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? (err as { code: number }).code
+          : 0;
+      if (code !== 5 && code !== 404) {
+        console.error("Disk deletion failed:", err);
+        errors.push(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Deprovision partially failed: ${errors.map((e) => e.message).join("; ")}`,
+      );
     }
   }
 }
