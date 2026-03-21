@@ -6,6 +6,7 @@ import { resolveScopes } from "./scope-resolver.js";
 import { createPersonalServerClient } from "./client.js";
 import { readCachedConnectorMetadata } from "../connectors/registry.js";
 import { getConnectorCacheDir } from "../core/paths.js";
+import { loadCredentials } from "../cli/auth.js";
 
 export { createPersonalServerClient } from "./client.js";
 export type {
@@ -26,7 +27,7 @@ export interface PersonalServerHealth {
 export interface PersonalServerTarget {
   state: PersonalServerState;
   url: string | null;
-  source: "config" | "env" | "scan" | null;
+  source: "config" | "auth" | "env" | "scan" | null;
   health: PersonalServerHealth | null;
 }
 
@@ -43,7 +44,19 @@ export async function detectPersonalServerTarget(): Promise<PersonalServerTarget
     };
   }
 
-  // 2. Environment variable
+  // 2. Auth credentials (from `vana login`)
+  const authCreds = loadCredentials();
+  if (authCreds?.personal_server?.url) {
+    const health = await fetchHealth(authCreds.personal_server.url);
+    return {
+      state: health ? "available" : "unavailable",
+      url: authCreds.personal_server.url,
+      source: "auth",
+      health,
+    };
+  }
+
+  // 3. Environment variable
   const explicitUrl = process.env.VANA_PERSONAL_SERVER_URL;
   if (explicitUrl) {
     const health = await fetchHealth(explicitUrl);
@@ -100,7 +113,22 @@ export async function ingestResult(
     ];
   }
 
-  const client = createPersonalServerClient({ url: target.url });
+  // Use Bearer auth for remote (non-localhost) servers
+  const isRemote =
+    !target.url.includes("localhost") && !target.url.includes("127.0.0.1");
+  const psToken = process.env.VANA_PS_TOKEN;
+  const creds = isRemote ? loadCredentials() : null;
+  const authConfig: Parameters<typeof createPersonalServerClient>[0]["auth"] =
+    psToken
+      ? { type: "devToken", token: psToken }
+      : isRemote && creds?.personal_server?.access_token
+        ? { type: "devToken", token: creds.personal_server.access_token }
+        : undefined;
+
+  const client = createPersonalServerClient({
+    url: target.url,
+    auth: authConfig,
+  });
   const events: CliEvent[] = [
     { type: "ingest-started", source, target: target.url },
   ];

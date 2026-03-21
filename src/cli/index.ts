@@ -89,6 +89,15 @@ import {
   readUpdateCheck,
   isNewerVersion,
 } from "./update-check.js";
+import {
+  loadCredentials,
+  saveCredentials,
+  clearCredentials,
+  isExpired,
+  formatAddress,
+  formatExpiresIn,
+  runDeviceCodeFlow,
+} from "./auth.js";
 
 interface GlobalOptions {
   json?: boolean;
@@ -192,6 +201,7 @@ export async function runCli(argv = process.argv): Promise<number> {
       "after",
       `
 Quick start:
+  vana login             Log in to your Vana account
   vana connect           Connect a source and collect data
   vana sources           Browse available sources
   vana status            Check system health
@@ -508,6 +518,20 @@ Examples:
     .option("--json", "Output machine-readable JSON")
     .action(async (scope?: string) => {
       process.exitCode = await runServerData(scope, parsedOptions);
+    });
+
+  program
+    .command("login")
+    .description("Log in to your Vana account")
+    .action(async () => {
+      process.exitCode = await runLogin(parsedOptions);
+    });
+
+  program
+    .command("logout")
+    .description("Log out and remove saved credentials")
+    .action(async () => {
+      process.exitCode = await runLogout(parsedOptions);
     });
 
   program
@@ -1515,10 +1539,18 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
 
   if (options.json) {
+    const jsonAuthCreds = loadCredentials();
     const compactJson = {
       runtime: status.runtime,
       personalServer: status.personalServer,
       personalServerUrl: status.personalServerUrl,
+      auth: jsonAuthCreds
+        ? {
+            authenticated: !isExpired(jsonAuthCreds),
+            address: jsonAuthCreds.account.address,
+            expires_at: jsonAuthCreds.account.expires_at,
+          }
+        : { authenticated: false },
       sources: {
         connected: status.summary?.connectedCount ?? 0,
         needsAttention: status.summary?.needsAttentionCount ?? 0,
@@ -1545,6 +1577,25 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   } else {
     emit.keyValue("Personal Server", "not connected", "warning");
   }
+
+  // Auth state
+  const authCreds = loadCredentials();
+  if (authCreds && !isExpired(authCreds)) {
+    emit.keyValue(
+      "Account",
+      formatAddress(authCreds.account.address),
+      "success",
+    );
+    emit.keyValue(
+      "Auth",
+      `Authenticated (expires in ${formatExpiresIn(authCreds.account.expires_at)})`,
+      "success",
+    );
+  } else {
+    emit.keyValue("Account", "Not logged in", "muted");
+    emit.keyValue("Auth", "Run `vana login` to authenticate", "muted");
+  }
+
   const connectedCount = status.summary?.connectedCount ?? 0;
   const attentionCount = status.summary?.needsAttentionCount ?? 0;
   const sourceParts = [
@@ -1871,9 +1922,11 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
         ? "(auto-detected)"
         : target.source === "config"
           ? "(saved)"
-          : target.source === "env"
-            ? "(from VANA_PERSONAL_SERVER_URL)"
-            : `(${target.source ?? "unknown"})`;
+          : target.source === "auth"
+            ? "(from vana login)"
+            : target.source === "env"
+              ? "(from VANA_PERSONAL_SERVER_URL)"
+              : `(${target.source ?? "unknown"})`;
     emit.keyValue("URL", `${target.url} ${urlSuffix}`, "muted");
   }
 
@@ -5191,4 +5244,152 @@ async function runSkillShow(
     }
     return 1;
   }
+}
+
+// ── Login / Logout ─────────────────────────────────────────────────────
+
+async function runLogin(options: GlobalOptions): Promise<number> {
+  // Check env var shortcut
+  const envToken = process.env.VANA_SESSION_TOKEN;
+  if (envToken) {
+    const creds = loadCredentials();
+    if (creds) {
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ status: "authenticated", source: "env", address: creds.account.address })}\n`,
+        );
+      } else {
+        const emit = createEmitter(options);
+        emit.success(`Already authenticated via VANA_SESSION_TOKEN env var`);
+      }
+      return 0;
+    }
+  }
+
+  // Check if already logged in
+  const existing = loadCredentials();
+  if (existing && !isExpired(existing)) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "authenticated",
+          address: existing.account.address,
+          personal_server: existing.personal_server?.url ?? null,
+          expires_at: existing.account.expires_at,
+        })}\n`,
+      );
+    } else {
+      const emit = createEmitter(options);
+      emit.success(
+        `Already logged in as ${formatAddress(existing.account.address)}`,
+      );
+      if (existing.personal_server) {
+        emit.keyValue(
+          "Personal Server",
+          existing.personal_server.url,
+          "success",
+        );
+      }
+      emit.info(
+        `  Auth expires in ${formatExpiresIn(existing.account.expires_at)}`,
+      );
+      emit.blank();
+      emit.info("  Run `vana logout` first to re-authenticate.");
+    }
+    return 0;
+  }
+
+  if (options.json) {
+    // JSON mode: run flow and output result
+    const creds = await runDeviceCodeFlow({
+      onCode: (code, uri) => {
+        process.stderr.write(
+          JSON.stringify({ event: "device_code", code, uri }) + "\n",
+        );
+      },
+      onWaiting: () => {},
+      onAuthorized: () => {},
+      onExpired: () => {
+        process.stdout.write(
+          JSON.stringify({ status: "expired", error: "Device code expired" }) +
+            "\n",
+        );
+      },
+      onError: (err) => {
+        process.stdout.write(
+          JSON.stringify({ status: "error", error: err.message }) + "\n",
+        );
+      },
+    });
+
+    if (creds) {
+      await saveCredentials(creds);
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "authenticated",
+          address: creds.account.address,
+          personal_server: creds.personal_server?.url ?? null,
+          expires_at: creds.account.expires_at,
+        })}\n`,
+      );
+      return 0;
+    }
+    return 1;
+  }
+
+  // Interactive mode
+  const emit = createEmitter(options);
+  emit.blank();
+  emit.info("  Logging in to Vana...");
+  emit.blank();
+
+  const creds = await runDeviceCodeFlow({
+    onCode: (code, uri) => {
+      emit.info(`  ! Open this URL in your browser:`);
+      emit.info(`    ${uri}`);
+      emit.blank();
+      emit.info(`  ! Enter this code: ${BOLD}${code}${RESET}`);
+      emit.blank();
+    },
+    onWaiting: () => {
+      emit.info("  Waiting for authorization...");
+    },
+    onAuthorized: async (authedCreds) => {
+      await saveCredentials(authedCreds);
+      emit.success(
+        `Logged in as ${formatAddress(authedCreds.account.address)}`,
+      );
+      if (authedCreds.personal_server) {
+        emit.blank();
+        emit.keyValue(
+          "Personal Server",
+          authedCreds.personal_server.url,
+          "success",
+        );
+      }
+      emit.success(`Credentials saved to ~/.vana/auth.json`);
+    },
+    onExpired: () => {
+      emit.info(
+        `  Device code expired. Run ${emit.code("vana login")} to try again.`,
+      );
+    },
+    onError: (err) => {
+      emit.info(`  Error: ${err.message}`);
+    },
+  });
+
+  return creds ? 0 : 1;
+}
+
+async function runLogout(options: GlobalOptions): Promise<number> {
+  await clearCredentials();
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ status: "logged_out" })}\n`);
+  } else {
+    const emit = createEmitter(options);
+    emit.success("Logged out. Credentials removed.");
+  }
+  return 0;
 }

@@ -712,6 +712,8 @@ describe("runCli", () => {
 
         Runtime:       installed
         Personal Server: not connected
+        Account:       Not logged in
+        Auth:          Run \`vana login\` to authenticate
         Sources:       1 connected, 1 needs attention
 
           Shop:        manual step
