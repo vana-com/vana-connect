@@ -1,17 +1,7 @@
-name = "personal-server"
-account_id = "5287c8e640ca55532dc18576178f008c"
+name = "personal-server-router"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
-# Secrets (set via `wrangler secret put`):
-#   DATABASE_URL  — Neon Postgres connection string
-
-[[routes]]
-pattern = "*.myvana.app/*"
-zone_name = "myvana.app"
-
-# KV namespace for caching user→VM IP lookups
-# Create via: wrangler kv namespace create SERVER_CACHE
-[[kv_namespaces]]
-binding = "SERVER_CACHE"
-id = "67774b67a2f9431bb60c1990ebee5699"
+# This worker serves as a fallback for *.myvana.app requests that don't
+# match a Cloudflare Tunnel. Active servers route via tunnel CNAME records.
+# No secrets or KV bindings needed.

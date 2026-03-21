@@ -4,6 +4,7 @@ import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import {
+  findServerById,
   findServerByUserId,
   insertServerIfNotExists,
   updateServer,
@@ -26,9 +27,6 @@ export async function OPTIONS() {
   return apiOptions();
 }
 
-/**
- * GET /api/servers — List the current user's server (at most one).
- */
 export async function GET(request: NextRequest) {
   const sig = extractSignature(request);
 
@@ -51,13 +49,6 @@ export async function GET(request: NextRequest) {
   });
 }
 
-/**
- * POST /api/servers — Provision a new personal server.
- *
- * Body: { masterKeySignature: string }
- *
- * Idempotent: if the user already has a server, return it.
- */
 export async function POST(request: NextRequest) {
   let body: { masterKeySignature?: string };
   try {
@@ -80,7 +71,6 @@ export async function POST(request: NextRequest) {
 
   const userId = walletAddress.toLowerCase();
 
-  // Idempotent: return existing server if already provisioned
   const existing = await findServerByUserId(userId);
   if (existing) {
     return apiSuccess(toApiServer(existing));
@@ -89,7 +79,6 @@ export async function POST(request: NextRequest) {
   const serverId = generateServerId();
   const providerName = process.env.SERVER_PROVIDER ?? "gcp";
 
-  // Race-safe insert: ON CONFLICT returns null, then we re-fetch
   const inserted = await insertServerIfNotExists({
     id: serverId,
     user_id: userId,
@@ -118,6 +107,8 @@ export async function POST(request: NextRequest) {
         provider_id: result.serverId,
         url: result.url,
         state: "provisioning",
+        tunnel_id: result.tunnelId ?? null,
+        dns_record_id: result.dnsRecordId ?? null,
       })) ?? row;
   } catch (err) {
     console.error("Provisioning error:", err);

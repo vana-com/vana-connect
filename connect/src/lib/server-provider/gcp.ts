@@ -14,10 +14,10 @@ const GCP_NETWORK = process.env.GCP_NETWORK ?? "default";
 const GCP_SUBNET = process.env.GCP_SUBNET ?? "";
 const GCP_SERVICE_ACCOUNT_EMAIL = process.env.GCP_SERVICE_ACCOUNT_EMAIL ?? "";
 
-const PS_DOMAIN = process.env.PS_DOMAIN ?? "myvana.app";
-
 const PS_CONTAINER_IMAGE =
-  process.env.PS_CONTAINER_IMAGE ?? "vanaorg/personal-server:latest";
+  process.env.PS_CONTAINER_IMAGE ?? "ghcr.io/vana-com/personal-server:latest";
+
+const MYVANA_DOMAIN = "myvana.app";
 
 function mapGcpStatus(gcpStatus: string | null | undefined): ServerState {
   switch (gcpStatus) {
@@ -37,16 +37,158 @@ function mapGcpStatus(gcpStatus: string | null | undefined): ServerState {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Cloudflare Tunnel helpers
+// ---------------------------------------------------------------------------
+
+interface CloudflareTunnelResult {
+  tunnelId: string;
+  tunnelToken: string;
+  dnsRecordId: string;
+}
+
+async function cfFetch<T = unknown>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const apiToken = requireEnv("CLOUDFLARE_API_TOKEN");
+  const resp = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string> | undefined),
+    },
+  });
+
+  const json = (await resp.json()) as {
+    success: boolean;
+    errors?: { message: string }[];
+    result: T;
+  };
+
+  if (!json.success) {
+    const msg =
+      json.errors?.map((e) => e.message).join("; ") ?? "Unknown CF error";
+    throw new Error(`Cloudflare API error: ${msg}`);
+  }
+
+  return json.result;
+}
+
 /**
- * Build a startup script for Container-Optimized OS (COS).
- * COS already has Docker — no need to install it.
- * Values are passed via instance metadata to avoid shell injection.
+ * Create a Cloudflare Tunnel, configure its ingress, and add a DNS CNAME.
+ * Returns the tunnel ID, tunnel token, and DNS record ID so we can clean up
+ * on deprovision.
+ */
+async function createTunnel(userId: string): Promise<CloudflareTunnelResult> {
+  const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
+  const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
+  const tunnelName = `ps-${userId}`;
+  const hostname = `${userId}.${MYVANA_DOMAIN}`;
+
+  // 1. Create the tunnel — generates a random secret we use as the token
+  const tunnelSecret = Buffer.from(
+    crypto.getRandomValues(new Uint8Array(32)),
+  ).toString("base64");
+
+  const tunnel = await cfFetch<{ id: string; token: string }>(
+    `/accounts/${accountId}/cfd_tunnel`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: tunnelName,
+        tunnel_secret: tunnelSecret,
+        config_src: "cloudflare",
+      }),
+    },
+  );
+
+  const tunnelId = tunnel.id;
+
+  // 2. Configure tunnel ingress: route hostname → localhost:8080
+  await cfFetch(
+    `/accounts/${accountId}/cfd_tunnel/${tunnelId}/configurations`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        config: {
+          ingress: [
+            { hostname, service: "http://localhost:8080" },
+            { service: "http_status:404" }, // catch-all required by CF
+          ],
+        },
+      }),
+    },
+  );
+
+  // 3. Create DNS CNAME: userId.myvana.app → tunnelId.cfargotunnel.com
+  const dnsRecord = await cfFetch<{ id: string }>(
+    `/zones/${zoneId}/dns_records`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        type: "CNAME",
+        name: hostname,
+        content: `${tunnelId}.cfargotunnel.com`,
+        proxied: true,
+        comment: `Managed by vana-connect for ${userId}`,
+      }),
+    },
+  );
+
+  // 4. Get the tunnel token (base64-encoded JSON the cloudflared binary needs)
+  const tunnelToken = await cfFetch<string>(
+    `/accounts/${accountId}/cfd_tunnel/${tunnelId}/token`,
+  );
+
+  return {
+    tunnelId,
+    tunnelToken,
+    dnsRecordId: dnsRecord.id,
+  };
+}
+
+async function deleteTunnel(tunnelId: string, dnsRecordId: string): Promise<void> {
+  const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
+  const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
+
+  // Delete DNS record first (so traffic stops going to the tunnel)
+  try {
+    await cfFetch(`/zones/${zoneId}/dns_records/${dnsRecordId}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.error("Failed to delete DNS record:", err);
+    // Continue to delete the tunnel even if DNS delete fails
+  }
+
+  // Delete the tunnel (must be inactive — cloudflared on the VM should be
+  // stopped by GCP instance deletion which happens after this)
+  try {
+    await cfFetch(
+      `/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`,
+      { method: "DELETE" },
+    );
+  } catch (err) {
+    console.error("Failed to delete tunnel:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Startup script
+// ---------------------------------------------------------------------------
+
+/**
+ * Startup script for Container-Optimized OS (COS).
+ * COS already has Docker. Values read from instance metadata to avoid shell injection.
+ * Installs cloudflared and runs the tunnel so traffic routes through Cloudflare.
  */
 function buildStartupScript(): string {
   return `#!/bin/bash
 set -e
 
-# Read secrets from instance metadata (avoids shell injection)
+# Read from instance metadata (avoids shell injection)
 OWNER_ADDR=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/owner-address)
 MASTER_KEY_SIG=$(curl -s -H "Metadata-Flavor: Google" \\
@@ -55,8 +197,10 @@ SERVER_ORIGIN_VAL=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/server-origin)
 CONTAINER_IMAGE=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/container-image)
+TUNNEL_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \\
+  http://metadata.google.internal/computeMetadata/v1/instance/attributes/tunnel-token)
 
-# Mount the persistent data disk (second disk, /dev/sdb)
+# Mount persistent data disk (second disk, /dev/sdb)
 DATA_DISK="/dev/sdb"
 DATA_DIR="/var/ps-data"
 mkdir -p "$DATA_DIR"
@@ -65,12 +209,12 @@ if ! blkid "$DATA_DISK"; then
 fi
 mount "$DATA_DISK" "$DATA_DIR"
 
-# Pull and run the personal server
+# Pull and run the personal server on localhost only (Cloudflare Tunnel handles external traffic)
 docker pull "$CONTAINER_IMAGE"
 docker run -d \\
   --name personal-server \\
   --restart unless-stopped \\
-  -p 80:8080 \\
+  -p 8080:8080 \\
   -v "$DATA_DIR":/data \\
   -e VANA_MASTER_KEY_SIGNATURE="$MASTER_KEY_SIG" \\
   -e OWNER_ADDRESS="$OWNER_ADDR" \\
@@ -79,8 +223,19 @@ docker run -d \\
   -e TUNNEL_ENABLED=false \\
   -e DEV_UI_ENABLED=false \\
   "$CONTAINER_IMAGE"
+
+# Install cloudflared
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+
+# Run cloudflared as a systemd service
+cloudflared service install "$TUNNEL_TOKEN"
 `;
 }
+
+// ---------------------------------------------------------------------------
+// GCP Provider
+// ---------------------------------------------------------------------------
 
 export class GCPProvider implements ServerProvider {
   private client: InstancesClient;
@@ -113,6 +268,9 @@ export class GCPProvider implements ServerProvider {
       .slice(0, 20)
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, "-")}`;
+
+    // Create Cloudflare Tunnel + DNS before the VM so we have the token
+    const tunnel = await createTunnel(params.userId);
 
     const instanceResource: Instance = {
       name: vmName,
@@ -169,29 +327,28 @@ export class GCPProvider implements ServerProvider {
           { key: "master-key-signature", value: params.masterKeySignature },
           {
             key: "server-origin",
-            value: `https://${params.userId}.${PS_DOMAIN}`,
+            value: `https://${params.userId}.${MYVANA_DOMAIN}`,
           },
           { key: "container-image", value: PS_CONTAINER_IMAGE },
+          { key: "tunnel-token", value: tunnel.tunnelToken },
         ],
       },
       tags: {
-        items: ["http-server", "personal-server"],
+        items: ["personal-server"],
       },
     };
 
-    const [operation] = await this.client.insert({
+    await this.client.insert({
       project: this.project,
       zone: GCP_ZONE,
       instanceResource,
     });
 
-    if (operation.latestResponse) {
-      // Long-running operation — status endpoint tracks convergence
-    }
-
     return {
       serverId: vmName,
-      url: `https://${params.userId}.${PS_DOMAIN}`,
+      url: `https://${params.userId}.${MYVANA_DOMAIN}`,
+      tunnelId: tunnel.tunnelId,
+      dnsRecordId: tunnel.dnsRecordId,
     };
   }
 
@@ -203,20 +360,22 @@ export class GCPProvider implements ServerProvider {
         instance: serverId,
       });
 
-      const externalIp =
-        instance.networkInterfaces?.[0]?.accessConfigs?.[0]?.natIP ?? undefined;
-
       const state = mapGcpStatus(instance.status);
+
+      const url =
+        instance.metadata?.items?.find((m) => m.key === "server-origin")
+          ?.value ?? undefined;
 
       const result: ServerStatus = {
         state,
-        url: externalIp ? `http://${externalIp}` : undefined,
+        url,
       };
 
-      if (state === "running" && externalIp) {
+      // Health check through the public Cloudflare Tunnel URL
+      if (state === "running" && url) {
         try {
-          const healthResp = await fetch(`http://${externalIp}/health`, {
-            signal: AbortSignal.timeout(3000),
+          const healthResp = await fetch(`${url}/health`, {
+            signal: AbortSignal.timeout(5000),
           });
           if (healthResp.ok) {
             const health = (await healthResp.json()) as {
@@ -227,7 +386,7 @@ export class GCPProvider implements ServerProvider {
             };
           }
         } catch {
-          // Health check failed — VM may still be booting
+          // Health check failed — VM or tunnel may still be starting
         }
       }
 
@@ -244,7 +403,16 @@ export class GCPProvider implements ServerProvider {
     }
   }
 
-  async deprovision(serverId: string): Promise<void> {
+  async deprovision(
+    serverId: string,
+    options?: { tunnelId?: string; dnsRecordId?: string },
+  ): Promise<void> {
+    // Clean up Cloudflare Tunnel + DNS if IDs are provided
+    if (options?.tunnelId && options?.dnsRecordId) {
+      await deleteTunnel(options.tunnelId, options.dnsRecordId);
+    }
+
+    // Delete the GCP VM
     try {
       await this.client.delete({
         project: this.project,

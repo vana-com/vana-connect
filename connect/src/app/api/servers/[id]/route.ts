@@ -16,9 +16,6 @@ export async function OPTIONS() {
   return apiOptions();
 }
 
-/**
- * GET /api/servers/:id — Get server details with live status from the provider.
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -51,13 +48,8 @@ export async function GET(
       const provider = getServerProvider();
       const liveStatus = await provider.status(server.provider_id);
 
-      // Extract VM IP from the provider URL (http://<ip>)
-      const vmIp = liveStatus.url ? new URL(liveStatus.url).hostname : null;
-
-      // Update DB if state or vm_ip has changed
       const dbUpdates: Record<string, string | null> = {};
       if (liveStatus.state !== server.state) dbUpdates.state = liveStatus.state;
-      if (vmIp && vmIp !== server.vm_ip) dbUpdates.vm_ip = vmIp;
       if (liveStatus.url && liveStatus.url !== server.url)
         dbUpdates.url = liveStatus.url;
 
@@ -79,9 +71,6 @@ export async function GET(
   return apiSuccess(apiServer);
 }
 
-/**
- * DELETE /api/servers/:id — Deprovision the server.
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -111,7 +100,10 @@ export async function DELETE(
   if (server.provider_id) {
     try {
       const provider = getServerProvider();
-      await provider.deprovision(server.provider_id);
+      await provider.deprovision(server.provider_id, {
+        tunnelId: server.tunnel_id ?? undefined,
+        dnsRecordId: server.dns_record_id ?? undefined,
+      });
     } catch (err) {
       console.error("Deprovision error:", err);
     }
