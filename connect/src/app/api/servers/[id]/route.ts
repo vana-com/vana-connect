@@ -42,33 +42,9 @@ export async function GET(
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  const apiServer = toApiServer(server);
-  if (server.provider_id) {
-    try {
-      const provider = getServerProvider();
-      const liveStatus = await provider.status(server.provider_id);
-
-      const dbUpdates: Record<string, string | null> = {};
-      if (liveStatus.state !== server.state) dbUpdates.state = liveStatus.state;
-      if (liveStatus.url && liveStatus.url !== server.url)
-        dbUpdates.url = liveStatus.url;
-
-      if (Object.keys(dbUpdates).length > 0) {
-        await updateServer(id, dbUpdates);
-      }
-
-      return apiSuccess({
-        ...apiServer,
-        state: liveStatus.state,
-        url: liveStatus.url ?? apiServer.url,
-        health: liveStatus.health ?? null,
-      });
-    } catch (err) {
-      console.error("Status check error:", err);
-    }
-  }
-
-  return apiSuccess(apiServer);
+  // GET returns stored state only — no live checks or DB mutations.
+  // State is synced by a background cron job (POST /api/servers/sync).
+  return apiSuccess(toApiServer(server));
 }
 
 export async function DELETE(
@@ -106,6 +82,12 @@ export async function DELETE(
       });
     } catch (err) {
       console.error("Deprovision error:", err);
+      await updateServer(id, { state: "deprovision_failed" });
+      return apiError(
+        "internal_error",
+        "Failed to deprovision server. Resources may still be running.",
+        500,
+      );
     }
   }
 
@@ -115,7 +97,6 @@ export async function DELETE(
 
   await updateServer(id, {
     state: "stopped",
-    vm_ip: null,
     disk_expires: diskExpires,
   });
 

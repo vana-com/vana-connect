@@ -57,6 +57,14 @@ export async function insertServerIfNotExists(
   return (rows[0] as PersonalServer) ?? null;
 }
 
+export async function findAllActiveServers(): Promise<PersonalServer[]> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM personal_servers WHERE state IN ('provisioning', 'running')
+  `;
+  return rows as PersonalServer[];
+}
+
 const UPDATABLE_COLUMNS = new Set([
   "provider_id",
   "vm_ip",

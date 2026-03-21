@@ -1,6 +1,7 @@
 export type ServerState = "provisioning" | "running" | "stopped" | "error";
 
 export type ProvisionParams = {
+  serverId: string;
   userId: string;
   masterKeySignature: string;
   ownerAddress: string;

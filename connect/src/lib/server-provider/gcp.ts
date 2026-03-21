@@ -166,16 +166,10 @@ async function deleteTunnel(
     // Continue to delete the tunnel even if DNS delete fails
   }
 
-  // Delete the tunnel (must be inactive — cloudflared on the VM should be
-  // stopped by GCP instance deletion which happens after this)
-  try {
-    await cfFetch(
-      `/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`,
-      { method: "DELETE" },
-    );
-  } catch (err) {
-    console.error("Failed to delete tunnel:", err);
-  }
+  // Delete the tunnel — cascade=true cleans up connections even if cloudflared is still running
+  await cfFetch(`/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`, {
+    method: "DELETE",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -273,14 +267,13 @@ export class GCPProvider implements ServerProvider {
   }
 
   async provision(params: {
+    serverId: string;
     userId: string;
     masterKeySignature: string;
     ownerAddress: string;
   }) {
-    const vmName = `ps-${params.userId
-      .slice(0, 20)
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")}`;
+    // Use the DB-unique serverId for the VM name (avoids collisions from truncated userIds)
+    const vmName = `ps-${params.serverId.replace(/[^a-z0-9-]/g, "-")}`;
 
     // Create Cloudflare Tunnel + DNS before the VM so we have the token
     const tunnel = await createTunnel(params.userId);

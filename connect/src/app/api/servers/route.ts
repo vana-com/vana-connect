@@ -4,7 +4,6 @@ import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import {
-  findServerById,
   findServerByUserId,
   insertServerIfNotExists,
   updateServer,
@@ -97,6 +96,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await provider.provision({
+      serverId,
       userId,
       masterKeySignature,
       ownerAddress: walletAddress,
