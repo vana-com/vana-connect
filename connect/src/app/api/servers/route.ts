@@ -111,9 +111,10 @@ export async function POST(request: NextRequest) {
         dns_record_id: result.dnsRecordId ?? null,
       })) ?? row;
   } catch (err) {
-    console.error("Provisioning error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Provisioning error:", msg);
     await updateServer(serverId, { state: "error" });
-    return apiError("internal_error", "Server provisioning failed", 500);
+    return apiError("internal_error", `Provisioning failed: ${msg}`, 500);
   }
 
   return apiSuccess(toApiServer(row), 201);
