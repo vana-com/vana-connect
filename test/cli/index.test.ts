@@ -714,6 +714,9 @@ describe("runCli", () => {
         Personal Server: not connected
         Sources:       1 connected, 1 needs attention
 
+          Shop:        manual step
+          ↳ Manual auth step required. Run \`vana connect shop\`
+
         Next: \`vana connect shop\`
       "
     `);
