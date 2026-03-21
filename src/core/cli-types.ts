@@ -65,6 +65,12 @@ export const sourceStatusSchema = z.object({
   exportFrequency: z.string().optional(),
   lastCollectedAt: z.string().optional(),
   scopeLabels: z.array(z.string()).optional(),
+  connectionHealth: z
+    .enum(["healthy", "needs_reauth", "error", "stale"])
+    .optional(),
+  connectionHealthChangedAt: z.string().optional(),
+  connectionHealthReason: z.string().optional(),
+  connectionHealthRetryable: z.boolean().optional(),
   installed: z.boolean(),
   sessionPresent: z.boolean(),
   lastRunAt: z.string().nullable().optional(),

@@ -654,7 +654,7 @@ async function runConnect(
   let setupLogPath: string | undefined;
   let fetchLogPath: string | undefined;
   let runLogPath: string | undefined;
-  let terminalExitCode: number | null = null;
+  let pendingExitCode: number | null = null;
 
   try {
     // Title
@@ -948,7 +948,7 @@ async function runConnect(
         runLogPath = event.logPath;
       }
 
-      if (terminalExitCode !== null) {
+      if (pendingExitCode !== null && event.type !== "collection-complete") {
         continue;
       }
 
@@ -959,6 +959,9 @@ async function runConnect(
           lastError: event.message ?? "Input required.",
           lastLogPath: event.logPath,
           connectionHealth: "needs_reauth",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `needs-input: ${event.message ?? "Input required."}`,
+          connectionHealthRetryable: false,
         });
         emit.event({
           type: "outcome",
@@ -968,8 +971,7 @@ async function runConnect(
         renderer?.fail(
           `${displayName} needs credentials. Run without --no-input to authenticate.`,
         );
-        terminalExitCode = 1;
-        continue;
+        pendingExitCode = 1;
       }
 
       if (event.type === "progress-update") {
@@ -1001,6 +1003,12 @@ async function runConnect(
           lastError: event.message ?? "Connector run failed.",
           lastLogPath: event.logPath,
           connectionHealth: "error",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `runtime-error: ${event.message ?? "Connector run failed."}`,
+          connectionHealthRetryable:
+            /timeout|ECONNREFUSED|ENOTFOUND|rate.?limit|50[234]|socket hang up/i.test(
+              event.message ?? "",
+            ),
         });
         renderer?.fail(`Problem connecting ${displayName}.`);
         renderer?.detail(event.message ?? "Connector run failed.");
@@ -1010,7 +1018,7 @@ async function runConnect(
           status: CliOutcomeStatus.RUNTIME_ERROR,
           source: resolution.source,
         });
-        terminalExitCode = 1;
+        pendingExitCode = 1;
         continue;
       }
 
@@ -1028,6 +1036,9 @@ async function runConnect(
           lastResultPath: null,
           lastLogPath: event.logPath,
           connectionHealth: "needs_reauth",
+          connectionHealthChangedAt: new Date().toISOString(),
+          connectionHealthReason: `legacy-auth: ${event.message ?? "Legacy authentication is required."}`,
+          connectionHealthRetryable: false,
         });
         renderer?.fail(`Manual step required for ${displayName}.`);
         renderer?.detail(
@@ -1038,8 +1049,7 @@ async function runConnect(
           status: CliOutcomeStatus.LEGACY_AUTH,
           source: resolution.source,
         });
-        terminalExitCode = 1;
-        continue;
+        pendingExitCode = 1;
       }
 
       if (event.type === "collection-complete" && event.resultPath) {
@@ -1054,14 +1064,18 @@ async function runConnect(
             Object.keys(parsed).length <= 2
           ) {
             // Connector returned an error, not real data
+            const errorMsg =
+              typeof parsed.error === "string"
+                ? parsed.error
+                : "Collection returned an error";
             await updateSourceState(source, {
               lastRunAt: new Date().toISOString(),
               lastRunOutcome: CliOutcomeStatus.RUNTIME_ERROR,
               connectionHealth: "error",
-              lastError:
-                typeof parsed.error === "string"
-                  ? parsed.error
-                  : "Collection returned an error",
+              connectionHealthChangedAt: new Date().toISOString(),
+              connectionHealthReason: `error-result: ${errorMsg}`,
+              connectionHealthRetryable: false,
+              lastError: errorMsg,
               lastLogPath: runLogPath ?? fetchLogPath,
             });
             renderer?.fail(`Problem connecting ${displayName}.`);
@@ -1075,11 +1089,15 @@ async function runConnect(
               status: CliOutcomeStatus.RUNTIME_ERROR,
               source,
             });
-            terminalExitCode = 1;
+            pendingExitCode = 1;
             continue;
           }
-        } catch {
-          // Can't read/parse result — proceed normally, let downstream handle it
+        } catch (parseError) {
+          const msg =
+            parseError instanceof Error ? parseError.message : "Unknown error";
+          await updateSourceState(source, {
+            lastError: `Failed to parse result file (${event.resultPath}): ${msg}`,
+          });
         }
 
         collectedResult = true;
@@ -1136,8 +1154,8 @@ async function runConnect(
       }
     }
 
-    if (terminalExitCode !== null) {
-      return terminalExitCode;
+    if (pendingExitCode !== null && !collectedResult) {
+      return pendingExitCode;
     }
 
     if (!collectedResult) {
@@ -1174,7 +1192,12 @@ async function runConnect(
       lastError: ingestFailureMessage,
       lastResultPath: resultPath,
       lastLogPath: runLogPath ?? fetchLogPath ?? setupLogPath ?? null,
-      connectionHealth: "healthy",
+      connectionHealth: pendingExitCode !== null ? undefined : "healthy",
+      connectionHealthChangedAt:
+        pendingExitCode !== null ? undefined : new Date().toISOString(),
+      connectionHealthReason:
+        pendingExitCode !== null ? undefined : "collection-complete",
+      connectionHealthRetryable: undefined,
       ingestScopes: ingestScopeResults,
     });
 
@@ -1200,6 +1223,9 @@ async function runConnect(
     } else {
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
+
+    // Auto-schedule collection if no schedule exists (non-blocking)
+    await maybeAutoSchedule(emit, options).catch(() => {});
 
     // --- Phase 7: Success summary ---
     renderer?.success(`Connected ${displayName}.`);
@@ -1250,11 +1276,9 @@ async function runConnect(
       source: resolution.source,
       resultPath,
     });
-
-    // Auto-schedule collection if no schedule exists (non-blocking).
-    // Runs after renderer is done to avoid cursor collision.
-    await maybeAutoSchedule(options).catch(() => {});
-
+    if (pendingExitCode !== null) {
+      return pendingExitCode;
+    }
     return 0;
   } catch (error) {
     if (
@@ -1459,14 +1483,24 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     string,
     {
       connectionHealth?: string;
+      connectionHealthChangedAt?: string;
+      connectionHealthReason?: string;
+      connectionHealthRetryable?: boolean;
       lastCollectedAt?: string;
+      lastLogPath?: string | null;
+      lastError?: string | null;
     }
   > = {};
   for (const [sourceId, stored] of Object.entries(state.sources)) {
     if (stored) {
       sourceHealthMap[sourceId] = {
         connectionHealth: stored.connectionHealth,
+        connectionHealthChangedAt: stored.connectionHealthChangedAt,
+        connectionHealthReason: stored.connectionHealthReason,
+        connectionHealthRetryable: stored.connectionHealthRetryable,
         lastCollectedAt: stored.lastCollectedAt,
+        lastLogPath: stored.lastLogPath,
+        lastError: stored.lastError,
       };
     }
   }
@@ -1550,6 +1584,18 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         `${healthLabel}${staleTag}     ${collectedAgo}`,
         healthTone,
       );
+      if (
+        (health === "needs_reauth" || health === "error") &&
+        stored?.connectionHealthReason
+      ) {
+        const msg = formatHealthMessage(stored.connectionHealthReason);
+        const ago = stored.connectionHealthChangedAt
+          ? ` (${formatRelativeTime(stored.connectionHealthChangedAt)})`
+          : "";
+        if (msg) {
+          emit.detail(`  \u21b3 ${msg}${ago} Run \`vana connect ${sourceId}\``);
+        }
+      }
       if (health === "needs_reauth" && !needsReauthSource) {
         needsReauthSource = sourceId;
       }
@@ -2658,14 +2704,16 @@ async function runServerData(
 
   // If PS is available, try to list remote scopes via client
   let remoteScopes: Array<{ scope: string; count: number }> = [];
+  let remoteScopeFallbackReason: string | undefined;
   if (target.state === "available" && target.url) {
     try {
       const { createPersonalServerClient: createClient } =
         await import("../personal-server/client.js");
       const client = createClient({ url: target.url });
       remoteScopes = await client.listScopes(scope);
-    } catch {
-      // Auth required or PS unavailable — fall back to local
+    } catch (err) {
+      remoteScopeFallbackReason =
+        err instanceof Error ? err.message : "unknown error";
     }
   }
 
@@ -2687,6 +2735,7 @@ async function runServerData(
         count: scopeList.length,
         scopes: scopeList,
         source: remoteScopes.length > 0 ? "remote" : "local",
+        ...(remoteScopeFallbackReason ? { remoteScopeFallbackReason } : {}),
       })}\n`,
     );
     return 0;
@@ -3030,6 +3079,10 @@ export async function gatherSourceStatuses(
         connectorVersion: stored.connectorVersion,
         exportFrequency: stored.exportFrequency,
         lastCollectedAt: stored.lastCollectedAt,
+        connectionHealth: stored.connectionHealth,
+        connectionHealthChangedAt: stored.connectionHealthChangedAt,
+        connectionHealthReason: stored.connectionHealthReason,
+        connectionHealthRetryable: stored.connectionHealthRetryable,
         installed,
         sessionPresent: stored.sessionPresent ?? false,
         lastRunAt: stored.lastRunAt ?? null,
@@ -3209,6 +3262,15 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
       kind: "row",
       label: "State",
       value: "Saved locally",
+      tone: "muted",
+    });
+  }
+
+  if (source.connectionHealthReason && source.connectionHealth !== "healthy") {
+    details.push({
+      kind: "row",
+      label: "Cause",
+      value: source.connectionHealthReason,
       tone: "muted",
     });
   }
@@ -3460,6 +3522,29 @@ function buildLogsNextSteps(
       : []),
     "Check overall status with `vana status`.",
   ];
+}
+
+/** Derive a human-readable message from a stored `connectionHealthReason`. */
+export function formatHealthMessage(reason: string | undefined): string | null {
+  if (!reason) return null;
+  const colonIndex = reason.indexOf(": ");
+  const prefix = colonIndex > 0 ? reason.slice(0, colonIndex) : reason;
+  const detail = colonIndex > 0 ? reason.slice(colonIndex + 2) : "";
+
+  switch (prefix) {
+    case "needs-input":
+      return `Requires interactive login${detail ? `: ${detail}` : ""}.`;
+    case "legacy-auth":
+      return `Needed a browser window${detail ? `: ${detail}` : ""}. Reconnect interactively.`;
+    case "runtime-error":
+      return `Collection failed${detail ? ` — ${detail}` : ""}.`;
+    case "error-result":
+      return `Connector returned an error${detail ? `: ${detail}` : ""}.`;
+    case "collection-complete":
+      return null; // No message needed for healthy state
+    default:
+      return reason; // Graceful fallback for unknown prefixes
+  }
 }
 
 /** Extract a `vana ...` command from a next-step sentence wrapped in backticks. */
@@ -4333,6 +4418,7 @@ async function getExistingScheduleInterval(): Promise<number | null> {
 }
 
 async function maybeAutoSchedule(
+  emit: Emitter,
   options: GlobalOptions,
 ): Promise<void> {
   // Skip if --no-input (detached/agent context shouldn't create schedules)
@@ -4344,6 +4430,7 @@ async function maybeAutoSchedule(
   if (existing !== null) return; // Schedule already exists
 
   await runScheduleAdd("daily", { json: false, quiet: true });
+  emit.detail("Auto-scheduled daily collection.");
 }
 
 function generateLaunchdPlist(
