@@ -279,7 +279,7 @@ export class GCPProvider implements ServerProvider {
     ownerAddress: string;
   }) {
     // Use the DB-unique serverId for the VM name (avoids collisions from truncated userIds)
-    const vmName = `ps-${params.serverId.replace(/[^a-z0-9-]/g, "-")}`;
+    const vmName = `ps-${params.serverId.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 40)}`;
 
     // Create Cloudflare Tunnel + DNS before the VM so we have the token
     const tunnel = await createTunnel(params.userId);
