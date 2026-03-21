@@ -626,7 +626,10 @@ Examples:
   // The concurrent check may have populated the cache during this run.
   if (shouldNotify) {
     try {
-      await updateCheckPromise;
+      await Promise.race([
+        updateCheckPromise,
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
       const cache = await readUpdateCheck();
       if (cache && isNewerVersion(cliVersion, cache.latestVersion)) {
         const { upgrade } = getLifecycleCommands(
@@ -3535,7 +3538,8 @@ export function formatHealthMessage(reason: string | undefined): string | null {
   if (!reason) return null;
   const colonIndex = reason.indexOf(": ");
   const prefix = colonIndex > 0 ? reason.slice(0, colonIndex) : reason;
-  const detail = colonIndex > 0 ? reason.slice(colonIndex + 2) : "";
+  const detail =
+    colonIndex > 0 ? reason.slice(colonIndex + 2).replace(/\.$/, "") : "";
 
   switch (prefix) {
     case "needs-input":

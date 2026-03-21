@@ -3458,6 +3458,12 @@ describe("runCli", () => {
     expect(formatHealthMessage("error-result: Session expired")).toBe(
       "Connector returned an error: Session expired.",
     );
+    // Trailing period in detail is stripped to avoid double-period
+    expect(
+      formatHealthMessage("legacy-auth: Disabled in --no-input mode."),
+    ).toBe(
+      "Needed a browser window: Disabled in --no-input mode. Reconnect interactively.",
+    );
     // Unknown prefix falls back gracefully
     expect(formatHealthMessage("something-new: details")).toBe(
       "something-new: details",
