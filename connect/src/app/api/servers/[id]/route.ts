@@ -42,8 +42,25 @@ export async function GET(
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  // GET returns stored state only — no live checks or DB mutations.
-  // State is synced by a background cron job (POST /api/servers/sync).
+  // Live-check only while provisioning (to detect transition to running).
+  // Once running, return stored state — no unnecessary GCP API calls.
+  if (server.state === "provisioning" && server.provider_id) {
+    try {
+      const provider = getServerProvider();
+      const liveStatus = await provider.status(server.provider_id);
+
+      if (liveStatus.state !== server.state) {
+        await updateServer(id, { state: liveStatus.state });
+        return apiSuccess({
+          ...toApiServer(server),
+          state: liveStatus.state,
+        });
+      }
+    } catch (err) {
+      console.error("Live status check failed:", err);
+    }
+  }
+
   return apiSuccess(toApiServer(server));
 }
 
