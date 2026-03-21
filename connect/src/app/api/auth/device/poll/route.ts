@@ -71,9 +71,11 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({
       status: "authorized",
+      address: session.wallet_address,
       session_token: session.token,
       personal_server_url: personalServerUrl,
       ps_access_token: psAccessToken,
+      expires_at: session.expires_at,
     });
   }
 

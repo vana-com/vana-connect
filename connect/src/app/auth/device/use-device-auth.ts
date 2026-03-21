@@ -1,7 +1,12 @@
 "use client";
 
-import { usePrivy, useSignMessage, useWallets } from "@privy-io/react-auth";
-import { useCallback, useState } from "react";
+import {
+  useCreateWallet,
+  usePrivy,
+  useSignMessage,
+  useWallets,
+} from "@privy-io/react-auth";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const MASTER_KEY_MESSAGE = "vana-master-key-v1";
 
@@ -16,8 +21,10 @@ export function useDeviceAuth() {
   const { ready, authenticated, login } = usePrivy();
   const { signMessage } = useSignMessage();
   const { wallets, ready: walletsReady } = useWallets();
+  const { createWallet } = useCreateWallet();
   const [status, setStatus] = useState<DeviceAuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const walletBootstrapRef = useRef(false);
 
   const isReady = ready && walletsReady;
   const isLoggedIn = ready && authenticated;
@@ -26,10 +33,28 @@ export function useDeviceAuth() {
     (w) => w.walletClientType === "privy" || w.walletClientType === "privy-v2",
   );
 
+  // Bootstrap embedded wallet for first-time users (same as connect flow)
+  useEffect(() => {
+    if (
+      !isLoggedIn ||
+      !walletsReady ||
+      embeddedWallet ||
+      walletBootstrapRef.current
+    )
+      return;
+    walletBootstrapRef.current = true;
+    createWallet().catch(() => {
+      // Wallet may already exist — ignore
+    });
+  }, [isLoggedIn, walletsReady, embeddedWallet, createWallet]);
+
   const approve = useCallback(
     async (userCode: string) => {
       if (!embeddedWallet) {
-        setError("No wallet found. Please log in first.");
+        setError(
+          "No wallet found. Creating one — please try again in a moment.",
+        );
+        createWallet().catch(() => {});
         return;
       }
 
@@ -37,7 +62,7 @@ export function useDeviceAuth() {
       setError(null);
 
       try {
-        const signature = await signMessage(
+        const { signature } = await signMessage(
           { message: MASTER_KEY_MESSAGE },
           { address: embeddedWallet.address as `0x${string}` },
         );

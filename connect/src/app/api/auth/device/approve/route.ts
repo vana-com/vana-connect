@@ -40,8 +40,11 @@ export async function POST(request: NextRequest) {
     return apiError("authentication_error", "Invalid signature", 401);
   }
 
-  // Normalize the user code (uppercase, ensure dash)
-  const normalizedCode = user_code.toUpperCase().replace(/\s+/g, "");
+  // Normalize: uppercase, strip whitespace, insert dash if missing (ABCD1234 → ABCD-1234)
+  let normalizedCode = user_code.toUpperCase().replace(/[\s-]+/g, "");
+  if (normalizedCode.length === 8 && !normalizedCode.includes("-")) {
+    normalizedCode = `${normalizedCode.slice(0, 4)}-${normalizedCode.slice(4)}`;
+  }
 
   // Find the pending device code
   const deviceCodeRecord = await findDeviceCodeByUserCode(normalizedCode);

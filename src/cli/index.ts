@@ -5273,16 +5273,17 @@ async function runLogin(
         emit.info(`    ${url}`);
         emit.blank();
         emit.info(`  Waiting for authorization...`);
-        // Try to open browser
+        // Try to open browser — use spawn with args array to prevent shell injection
+        // (a malicious self-hosted PS could return a URL with shell metacharacters)
         try {
-          const { exec } = require("node:child_process");
-          const cmd =
+          const { spawn } = require("node:child_process");
+          const opener =
             process.platform === "darwin"
-              ? `open "${url}"`
+              ? "open"
               : process.platform === "win32"
-                ? `start "${url}"`
-                : `xdg-open "${url}"`;
-          exec(cmd);
+                ? "start"
+                : "xdg-open";
+          spawn(opener, [url], { detached: true, stdio: "ignore" }).unref();
         } catch {
           // Browser open failed — user will open manually
         }

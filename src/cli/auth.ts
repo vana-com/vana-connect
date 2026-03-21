@@ -6,7 +6,7 @@
  * env var overrides for CI/automation.
  */
 
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -234,16 +234,18 @@ export async function pollDeviceCode(
  * Best-effort — failures are silently ignored.
  */
 export function openBrowser(url: string): void {
+  // Use spawnSync with args array to prevent shell injection.
+  // A malicious server could return a URL with shell metacharacters.
   const platform = process.platform;
 
   try {
-    if (platform === "darwin") {
-      execSync(`open ${JSON.stringify(url)}`, { stdio: "ignore" });
-    } else if (platform === "win32") {
-      execSync(`start "" ${JSON.stringify(url)}`, { stdio: "ignore" });
-    } else {
-      execSync(`xdg-open ${JSON.stringify(url)}`, { stdio: "ignore" });
-    }
+    const opener =
+      platform === "darwin"
+        ? "open"
+        : platform === "win32"
+          ? "start"
+          : "xdg-open";
+    spawnSync(opener, [url], { stdio: "ignore" });
   } catch {
     // Best-effort — user can open manually
   }
@@ -258,7 +260,7 @@ export function openBrowser(url: string): void {
 export async function runDeviceCodeFlow(callbacks: {
   onCode: (code: string, verificationUri: string) => void;
   onWaiting: () => void;
-  onAuthorized: (creds: VanaCredentials) => void;
+  onAuthorized: (creds: VanaCredentials) => void | Promise<void>;
   onExpired: () => void;
   onError: (error: Error) => void;
 }): Promise<VanaCredentials | null> {
@@ -303,7 +305,7 @@ export async function runDeviceCodeFlow(callbacks: {
                 : null,
           };
 
-          callbacks.onAuthorized(creds);
+          await callbacks.onAuthorized(creds);
           return creds;
         }
 
