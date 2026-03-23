@@ -107,26 +107,23 @@ export function createPersonalServerClient(config: {
         return [];
       }
 
-      try {
-        const params = prefix
-          ? `?scopePrefix=${encodeURIComponent(prefix)}`
-          : "";
-        const response = await fetch(`${baseUrl}/v1/data${params}`, {
-          method: "GET",
-          headers: authHeaders(),
-        });
+      const params = prefix ? `?scopePrefix=${encodeURIComponent(prefix)}` : "";
+      const response = await fetch(`${baseUrl}/v1/data${params}`, {
+        method: "GET",
+        headers: authHeaders(),
+      });
 
-        if (!response.ok) {
-          return [];
-        }
-
-        const body = (await response.json()) as {
-          scopes?: Array<{ scope: string; count: number }>;
-        };
-        return body.scopes ?? [];
-      } catch {
-        return [];
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        throw new Error(
+          `Scope listing failed: HTTP ${response.status}: ${errorText}`,
+        );
       }
+
+      const body = (await response.json()) as {
+        scopes?: Array<{ scope: string; count: number }>;
+      };
+      return body.scopes ?? [];
     },
   };
 }

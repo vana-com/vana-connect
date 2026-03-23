@@ -3097,6 +3097,45 @@ describe("runCli", () => {
     ]);
   });
 
+  it("server data command reports an empty remote personal server without falling back to local scopes", async () => {
+    const listScopes = vi.fn().mockResolvedValue([]);
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "https://ps.example.com",
+      source: "auth",
+      health: { status: "ok", version: "1.0.0", uptime: 10, owner: "0xabc" },
+    });
+    mockResolvePersonalServerAuthConfig.mockReturnValue({
+      type: "bearerToken",
+      token: "ps-token",
+    });
+    mockCreatePersonalServerClient.mockReturnValue({ listScopes });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          dataState: "ingested_personal_server",
+          ingestScopes: [
+            { scope: "github.profile", status: "stored" },
+            { scope: "github.repositories", status: "stored" },
+          ],
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "data"]);
+
+    expect(exitCode).toBe(0);
+    expect(listScopes).toHaveBeenCalledWith(undefined);
+    expect(stdout).toContain("No data on your Personal Server.");
+    expect(stdout).not.toContain("github.profile");
+    expect(stdout).not.toContain(
+      "Showing locally-known scopes. Connect your Personal Server for live data.",
+    );
+  });
+
   it("shows partial sync badge in doctor for sources with mixed scope results", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },

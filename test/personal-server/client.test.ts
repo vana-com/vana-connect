@@ -143,5 +143,22 @@ describe("createPersonalServerClient", () => {
       expect(scopes).toEqual([]);
       expect(mockFetch).not.toHaveBeenCalled();
     });
+
+    it("throws when the remote personal server query fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "Service Unavailable",
+      });
+
+      const client = createPersonalServerClient({
+        url: SERVER_URL,
+        auth: { type: "bearerToken", token: "test-token" },
+      });
+
+      await expect(client.listScopes()).rejects.toThrow(
+        "Scope listing failed: HTTP 503: Service Unavailable",
+      );
+    });
   });
 });

@@ -2846,16 +2846,21 @@ async function runServerData(
 
   // If PS is available, try to list remote scopes via client
   let remoteScopes: Array<{ scope: string; count: number }> = [];
+  let didQueryRemoteScopes = false;
   let remoteScopeFallbackReason: string | undefined;
   if (target.state === "available" && target.url) {
+    const auth = resolvePersonalServerAuthConfig(target.url);
     try {
-      const { createPersonalServerClient: createClient } =
-        await import("../personal-server/client.js");
-      const client = createClient({
-        url: target.url,
-        auth: resolvePersonalServerAuthConfig(target.url),
-      });
-      remoteScopes = await client.listScopes(scope);
+      if (auth?.type === "bearerToken") {
+        const { createPersonalServerClient: createClient } =
+          await import("../personal-server/client.js");
+        const client = createClient({
+          url: target.url,
+          auth,
+        });
+        didQueryRemoteScopes = true;
+        remoteScopes = await client.listScopes(scope);
+      }
     } catch (err) {
       remoteScopeFallbackReason =
         err instanceof Error ? err.message : "unknown error";
@@ -2863,23 +2868,22 @@ async function runServerData(
   }
 
   // Use remote scopes if available, otherwise fall back to local
-  const scopeList =
-    remoteScopes.length > 0
-      ? remoteScopes.map((s) => ({
-          scope: s.scope,
-          detail: `${s.count} version${s.count !== 1 ? "s" : ""}`,
-        }))
-      : localScopes
-          .filter((s) => s.status === "stored")
-          .filter((s) => !scope || s.scope.startsWith(scope))
-          .map((s) => ({ scope: s.scope, detail: "1 version" }));
+  const scopeList = didQueryRemoteScopes
+    ? remoteScopes.map((s) => ({
+        scope: s.scope,
+        detail: `${s.count} version${s.count !== 1 ? "s" : ""}`,
+      }))
+    : localScopes
+        .filter((s) => s.status === "stored")
+        .filter((s) => !scope || s.scope.startsWith(scope))
+        .map((s) => ({ scope: s.scope, detail: "1 version" }));
 
   if (options.json) {
     process.stdout.write(
       `${JSON.stringify({
         count: scopeList.length,
         scopes: scopeList,
-        source: remoteScopes.length > 0 ? "remote" : "local",
+        source: didQueryRemoteScopes ? "remote" : "local",
         ...(remoteScopeFallbackReason ? { remoteScopeFallbackReason } : {}),
       })}\n`,
     );
@@ -2887,7 +2891,11 @@ async function runServerData(
   }
 
   if (scopeList.length === 0) {
-    emit.info("No scopes found.");
+    emit.info(
+      didQueryRemoteScopes
+        ? "No data on your Personal Server."
+        : "No scopes found.",
+    );
     if (target.state !== "available") {
       emit.detail(
         "Personal Server is not available. Showing locally-known scopes only.",
@@ -2900,7 +2908,7 @@ async function runServerData(
     emit.keyValue(entry.scope, entry.detail, "muted");
   }
 
-  if (remoteScopes.length === 0 && localScopes.length > 0) {
+  if (!didQueryRemoteScopes && localScopes.length > 0) {
     emit.blank();
     emit.detail(
       "Showing locally-known scopes. Connect your Personal Server for live data.",
