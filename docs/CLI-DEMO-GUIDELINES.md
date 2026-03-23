@@ -81,14 +81,14 @@ Use `<img>` tags with explicit width for consistent sizing:
 ```html
 <!-- Standard (height <= 1000px) -->
 <img
-  src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/sources.gif"
+  src="https://github.com/vana-com/vana-connect/releases/latest/download/sources.gif"
   width="600"
   alt="vana sources"
 />
 
 <!-- Tall output (height > 1000px) -->
 <img
-  src="https://github.com/vana-com/vana-connect/releases/download/canary-feat-connect-cli-v1/doctor.gif"
+  src="https://github.com/vana-com/vana-connect/releases/latest/download/doctor.gif"
   width="800"
   alt="vana doctor"
 />
