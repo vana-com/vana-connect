@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { PageHeader } from "@/components/elements/page-header";
@@ -12,54 +12,174 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDeviceAuth } from "./use-device-auth";
 
+const PENDING_DEVICE_CODE_KEY = "vana_pending_device_code";
+const PENDING_APPROVAL_KEY = "vana_pending_device_approval";
+
+function normalizeDeviceCode(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8);
+}
+
+function formatDeviceCode(raw: string): string {
+  const normalized = normalizeDeviceCode(raw);
+  if (normalized.length <= 4) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 4)}-${normalized.slice(4)}`;
+}
+
+function readPendingCode(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.sessionStorage.getItem(PENDING_DEVICE_CODE_KEY) ?? "";
+}
+
+function writePendingCode(code: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (code) {
+    window.sessionStorage.setItem(PENDING_DEVICE_CODE_KEY, code);
+  } else {
+    window.sessionStorage.removeItem(PENDING_DEVICE_CODE_KEY);
+  }
+}
+
+function readPendingApproval(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.sessionStorage.getItem(PENDING_APPROVAL_KEY) === "1";
+}
+
+function writePendingApproval(pending: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (pending) {
+    window.sessionStorage.setItem(PENDING_APPROVAL_KEY, "1");
+  } else {
+    window.sessionStorage.removeItem(PENDING_APPROVAL_KEY);
+  }
+}
+
 function DeviceAuthContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("code") ?? "";
-  const [userCode, setUserCode] = useState(initialCode);
+  const initialPendingCode = useMemo(() => {
+    const providedCode = normalizeDeviceCode(initialCode);
+    if (providedCode) {
+      return providedCode;
+    }
+    return normalizeDeviceCode(readPendingCode());
+  }, [initialCode]);
+  const [userCode, setUserCode] = useState(() =>
+    formatDeviceCode(initialPendingCode),
+  );
   const { isReady, isLoggedIn, status, error, approve, login } =
     useDeviceAuth();
 
-  // Auto-approve if code was provided in URL and user is already logged in
-  const [autoApproved, setAutoApproved] = useState(false);
+  const normalizedUserCode = useMemo(
+    () => normalizeDeviceCode(userCode),
+    [userCode],
+  );
+  const [lastSubmittedCode, setLastSubmittedCode] = useState<string | null>(
+    null,
+  );
+
   useEffect(() => {
-    if (
-      initialCode &&
-      isReady &&
-      isLoggedIn &&
-      status === "idle" &&
-      !autoApproved
-    ) {
-      setAutoApproved(true);
-      approve(initialCode);
+    writePendingCode(normalizedUserCode);
+  }, [normalizedUserCode]);
+
+  useEffect(() => {
+    if (status === "approved") {
+      writePendingApproval(false);
+      writePendingCode("");
     }
-  }, [initialCode, isReady, isLoggedIn, status, autoApproved, approve]);
+    if (status === "error") {
+      setLastSubmittedCode(null);
+    }
+  }, [status]);
+
+  const submitApproval = useCallback(
+    (code: string) => {
+      const normalized = normalizeDeviceCode(code);
+      if (!normalized) {
+        return;
+      }
+      if (lastSubmittedCode === normalized) {
+        return;
+      }
+
+      setLastSubmittedCode(normalized);
+      writePendingCode(normalized);
+      approve(formatDeviceCode(normalized));
+    },
+    [approve, lastSubmittedCode],
+  );
+
+  useEffect(() => {
+    if (!isReady || !isLoggedIn || status !== "idle") {
+      return;
+    }
+
+    const pendingApproval = readPendingApproval();
+    if (pendingApproval && normalizedUserCode.length === 8) {
+      writePendingApproval(false);
+      submitApproval(normalizedUserCode);
+      return;
+    }
+
+    if (initialCode && normalizedUserCode.length === 8) {
+      submitApproval(normalizedUserCode);
+    }
+  }, [
+    initialCode,
+    isLoggedIn,
+    isReady,
+    normalizedUserCode,
+    status,
+    submitApproval,
+  ]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (!userCode.trim()) return;
+      if (!normalizedUserCode) return;
+
+      writePendingCode(normalizedUserCode);
 
       if (!isLoggedIn) {
+        writePendingApproval(true);
         login();
         return;
       }
 
-      approve(userCode.trim());
+      submitApproval(normalizedUserCode);
     },
-    [userCode, isLoggedIn, approve, login],
+    [normalizedUserCode, isLoggedIn, login, submitApproval],
   );
 
-  const formatCodeInput = useCallback(
+  const handleCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (value.length > 8) value = value.slice(0, 8);
-      if (value.length > 4) {
-        value = `${value.slice(0, 4)}-${value.slice(4)}`;
+      const nextCode = formatDeviceCode(e.target.value);
+      if (normalizeDeviceCode(nextCode) !== lastSubmittedCode) {
+        setLastSubmittedCode(null);
       }
-      setUserCode(value);
+      setUserCode(nextCode);
     },
-    [],
+    [lastSubmittedCode],
   );
+
+  useEffect(() => {
+    if (!isLoggedIn || status !== "idle" || normalizedUserCode.length !== 8) {
+      return;
+    }
+    submitApproval(normalizedUserCode);
+  }, [isLoggedIn, normalizedUserCode, status, submitApproval]);
 
   if (!isReady) {
     return (
@@ -114,7 +234,7 @@ function DeviceAuthContent() {
               type="text"
               placeholder="XXXX-XXXX"
               value={userCode}
-              onChange={formatCodeInput}
+              onChange={handleCodeChange}
               autoComplete="off"
               autoFocus
               className="text-center text-lg tracking-widest font-mono"
@@ -133,7 +253,7 @@ function DeviceAuthContent() {
               size="lg"
               fullWidth
               disabled={
-                !userCode.trim() ||
+                !normalizedUserCode ||
                 status === "signing" ||
                 status === "approving"
               }
@@ -154,11 +274,11 @@ function DeviceAuthContent() {
             </Button>
           </form>
 
-          {!isLoggedIn && (
-            <Text as="p" color="mutedForeground" intent="small">
-              You need to sign in to your Vana account to authorize this device.
-            </Text>
-          )}
+          <Text as="p" color="mutedForeground" intent="small">
+            {isLoggedIn
+              ? "Next you’ll confirm a free signature to approve this device."
+              : "You’ll sign in first, then confirm a free signature to approve this device."}
+          </Text>
         </div>
       </PagePanel>
     </PageShell>

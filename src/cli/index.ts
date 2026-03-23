@@ -189,6 +189,7 @@ export async function runCli(argv = process.argv): Promise<number> {
   const shouldNotify =
     !parsedOptions.json &&
     process.stdout.isTTY &&
+    installMethod !== "development" &&
     !process.env.VANA_NO_UPDATE_NOTIFIER &&
     !process.env.CI &&
     !process.env.AGENT &&
@@ -1606,11 +1607,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   // Auth state
   const authCreds = loadCredentials();
   if (authCreds && !isExpired(authCreds)) {
-    emit.keyValue(
-      "Account",
-      formatAddress(authCreds.account.address),
-      "success",
-    );
+    emit.keyValue("Account", authCreds.account.address, "success");
     emit.keyValue(
       "Auth",
       `Authenticated (expires in ${formatExpiresIn(authCreds.account.expires_at)})`,
@@ -2992,7 +2989,7 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
           if (sr.status === "stored") {
             emit.info(`  ${renderer.theme.success("\u2713")} ${sr.scope}`);
           } else {
-            const errDetail = sr.error ?? "failed";
+            const errDetail = sr.error ? humanizeIssue(sr.error) : "Failed";
             emit.info(
               `  ${renderer.theme.error("\u2717")} ${sr.scope} ${renderer.theme.muted(`\u2014 ${errDetail}`)}`,
             );
@@ -5624,12 +5621,17 @@ async function runLogin(
   if (authTarget === "self-hosted" && psUrl) {
     const renderer =
       !options.json && !options.quiet ? createLoginRenderer() : null;
+    const humanRenderer = createHumanRenderer();
     renderer?.title(psUrl);
 
     try {
       const result = await runSelfHostedLoginFlow(psUrl, (url: string) => {
-        renderer?.note("Open this URL in your browser:");
-        renderer?.note(url);
+        if (!options.json && !options.quiet) {
+          process.stderr.write(
+            `  ${humanRenderer.theme.muted("Open this URL in your browser:")}\n`,
+          );
+          process.stderr.write(`  ${humanRenderer.theme.muted(url)}\n`);
+        }
         renderer?.scopeActive("Waiting for authorization");
         // Try to open browser — use spawn with args array to prevent shell injection
         // (a malicious self-hosted PS could return a URL with shell metacharacters)
@@ -5768,13 +5770,24 @@ async function runLogin(
 
   // Interactive mode
   const renderer = createLoginRenderer();
+  const humanRenderer = createHumanRenderer();
+  const writeStaticLoginNotes = (lines: string[]) => {
+    if (options.json || options.quiet) {
+      return;
+    }
+    for (const line of lines) {
+      process.stderr.write(`  ${humanRenderer.theme.muted(line)}\n`);
+    }
+  };
   renderer.title("Vana");
 
   const creds = await runDeviceCodeFlow({
     onCode: (code, uri) => {
-      renderer.note("Open this URL in your browser:");
-      renderer.note(uri);
-      renderer.note(`Enter this code: ${code}`);
+      writeStaticLoginNotes([
+        "Open this URL in your browser:",
+        uri,
+        `Enter this code: ${code}`,
+      ]);
     },
     onWaiting: () => {
       renderer.scopeActive("Waiting for authorization");

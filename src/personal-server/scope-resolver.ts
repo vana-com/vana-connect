@@ -28,6 +28,17 @@ function ensureObject(data: unknown): Record<string, unknown> {
   return { value: data };
 }
 
+function normalizeScopeSegment(segment: string): string {
+  return segment
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toLowerCase();
+}
+
+function normalizeScope(scope: string): string {
+  return scope.split(".").filter(Boolean).map(normalizeScopeSegment).join(".");
+}
+
 /**
  * Resolve connector output keys to personal server scopes.
  *
@@ -56,7 +67,7 @@ export function resolveScopes(
   );
   if (dottedKeys.length > 0) {
     return dottedKeys.map((key) => ({
-      scope: key,
+      scope: normalizeScope(key),
       data: ensureObject(result[key]),
     }));
   }
@@ -69,7 +80,10 @@ export function resolveScopes(
       const dotIndex = scope.indexOf(".");
       const key = dotIndex >= 0 ? scope.slice(dotIndex + 1) : scope;
       if (key in result) {
-        mappings.push({ scope, data: ensureObject(result[key]) });
+        mappings.push({
+          scope: normalizeScope(scope),
+          data: ensureObject(result[key]),
+        });
       }
     }
     return mappings;
@@ -79,7 +93,7 @@ export function resolveScopes(
   return keys
     .filter((key) => !EXCLUDED_KEYS.has(key))
     .map((key) => ({
-      scope: `${source}.${key}`,
+      scope: normalizeScope(`${source}.${key}`),
       data: ensureObject(result[key]),
     }));
 }
