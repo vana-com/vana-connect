@@ -210,6 +210,10 @@ export interface DeviceCodePollPending {
   status: "pending";
 }
 
+export interface DeviceCodePollSlowDown {
+  status: "slow_down";
+}
+
 export interface DeviceCodePollExpired {
   status: "expired";
 }
@@ -217,6 +221,7 @@ export interface DeviceCodePollExpired {
 export type DeviceCodePollResponse =
   | DeviceCodePollAuthorized
   | DeviceCodePollPending
+  | DeviceCodePollSlowDown
   | DeviceCodePollExpired;
 
 function resolveCredentialExpiry(params: {
@@ -370,6 +375,10 @@ export async function runDeviceCodeFlow(callbacks: {
         if (result.status === "expired") {
           callbacks.onExpired();
           return null;
+        }
+
+        if (result.status === "slow_down") {
+          continue;
         }
 
         // status === "pending" — continue polling
