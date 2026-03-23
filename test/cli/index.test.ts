@@ -855,15 +855,72 @@ describe("runCli", () => {
         Personal Server: not connected
         Account:       Not logged in
         Auth:          Run \`vana login\` to authenticate
-        Sources:       1 connected, 1 needs attention
+        Sources:       1 healthy, 1 needs attention
         Pending sync:  1 dataset(s)
 
+      Needs attention (1)
           Shop:        manual step
-          ↳ Manual auth step required. Run \`vana connect shop\`
+          ↳ Manual auth step required. Run \`vana connect shop\`.
+
+      Healthy (1)
+          GitHub:      local
 
         Next: \`vana connect shop\`
       "
     `);
+  });
+
+  it("hides raw sync payloads in human status output", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "chatgpt", name: "ChatGPT", authMode: "interactive" },
+      { id: "github", name: "GitHub", authMode: "interactive" },
+      { id: "youtube", name: "YouTube", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        chatgpt: {
+          lastRunOutcome: "needs_input",
+          lastError: "ChatGPT needs login",
+        },
+        github: {
+          lastRunOutcome: "connected_and_ingested",
+          dataState: "ingested_personal_server",
+          lastCollectedAt: "2026-03-23T16:00:00.000Z",
+        },
+        youtube: {
+          lastRunOutcome: "connected_local_only",
+          dataState: "ingest_failed",
+          lastCollectedAt: "2026-03-23T16:05:00.000Z",
+          ingestScopes: [
+            {
+              scope: "youtube.subscriptions",
+              status: "failed",
+              error:
+                'HTTP 401: {"error":{"code":401,"errorCode":"MISSING_AUTH","message":"Missing authentication"}}',
+            },
+            {
+              scope: "youtube.playlists",
+              status: "failed",
+              error:
+                'HTTP 401: {"error":{"code":401,"errorCode":"MISSING_AUTH","message":"Missing authentication"}}',
+            },
+          ],
+        },
+      },
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Needs attention (2)");
+    expect(stdout).toContain("Healthy (1)");
+    expect(stdout).toContain(
+      "Authentication required for 2 scopes. Run `vana connect youtube`.",
+    );
+    expect(stdout).not.toContain('HTTP 401: {"error"');
+    expect(stdout).toContain("Next: `vana connect youtube`");
   });
 
   it("guides first run from status when the runtime is already installed", async () => {
@@ -1896,9 +1953,9 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "status"]);
 
     expect(exitCode).toBe(0);
-    // Compact status no longer lists individual sources; verify it shows summary counts
-    expect(stdout).toContain("1 connected");
+    expect(stdout).toContain("1 healthy");
     expect(stdout).toContain("2 need attention");
+    expect(stdout).toContain("Next: `vana connect github`");
   });
 
   it("suggests reviewing collected data when multiple sources are already connected", async () => {

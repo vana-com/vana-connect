@@ -40,7 +40,7 @@ import {
   gatherSourceStatuses,
   listInstalledConnectorFiles,
   hasCollectedData,
-  rankSourceStatus,
+  isSourceAttention,
   compareSourceStatusOrder,
   readResultSummary,
   summarizeResultData,
@@ -210,9 +210,7 @@ export async function queryStatus(): Promise<StatusQueryResult> {
     pendingSyncCount,
     summary: {
       sourceCount: sources.length,
-      needsAttentionCount: sources.filter(
-        (source) => rankSourceStatus(source) <= 4,
-      ).length,
+      needsAttentionCount: sources.filter(isSourceAttention).length,
       connectedCount: sources.filter(
         (source) =>
           source.dataState === "ingested_personal_server" ||
@@ -490,8 +488,8 @@ export async function queryDoctor(): Promise<DoctorQueryResult> {
     .filter((source) => Boolean(source.lastRunAt))
     .sort(compareSourceStatusOrder)
     .slice(0, 3);
-  const attentionSources = recentSources.filter(
-    (source) => rankSourceStatus(source) <= 4,
+  const attentionSources = recentSources.filter((source) =>
+    isSourceAttention(source),
   );
   const connectedCount = sources.filter(
     (source) =>
@@ -500,9 +498,7 @@ export async function queryDoctor(): Promise<DoctorQueryResult> {
       source.dataState === "ingested_personal_server" ||
       source.dataState === "ingest_failed",
   ).length;
-  const attentionCount = sources.filter(
-    (source) => rankSourceStatus(source) <= 4,
-  ).length;
+  const attentionCount = sources.filter(isSourceAttention).length;
 
   const directories = [
     {
