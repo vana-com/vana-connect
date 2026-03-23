@@ -2,7 +2,7 @@
 set -eu
 
 REPO="${VANA_RELEASE_REPO:-vana-com/vana-connect}"
-BRANCH="${VANA_INSTALLER_BRANCH:-feat/connect-cli-v1}"
+BRANCH="${VANA_INSTALLER_BRANCH:-main}"
 VERSION="${VANA_VERSION:-}"
 SOURCE="${VANA_CONNECT_SOURCE:-github}"
 
