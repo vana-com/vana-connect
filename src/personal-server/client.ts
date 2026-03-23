@@ -12,6 +12,29 @@ export interface ScopeSummary {
   count: number;
 }
 
+function parseScopeSummary(raw: unknown): ScopeSummary | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+  const scope = typeof record.scope === "string" ? record.scope : null;
+  const count =
+    typeof record.count === "number"
+      ? record.count
+      : typeof record.versionCount === "number"
+        ? record.versionCount
+        : typeof record.version_count === "number"
+          ? record.version_count
+          : null;
+
+  if (!scope || count === null) {
+    return null;
+  }
+
+  return { scope, count };
+}
+
 export interface PersonalServerClient {
   health(): Promise<PersonalServerHealth>;
   ingestScope(scope: string, data: unknown): Promise<IngestScopeResult>;
@@ -120,10 +143,10 @@ export function createPersonalServerClient(config: {
         );
       }
 
-      const body = (await response.json()) as {
-        scopes?: Array<{ scope: string; count: number }>;
-      };
-      return body.scopes ?? [];
+      const body = (await response.json()) as { scopes?: unknown[] };
+      return (body.scopes ?? [])
+        .map(parseScopeSummary)
+        .filter((scope): scope is ScopeSummary => scope !== null);
     },
   };
 }

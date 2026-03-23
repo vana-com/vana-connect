@@ -125,6 +125,29 @@ describe("createPersonalServerClient", () => {
       expect(opts.headers.Authorization).toBe("Bearer test-token");
     });
 
+    it("normalizes versionCount responses from the personal server", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          scopes: [
+            { scope: "github.profile", versionCount: 3 },
+            { scope: "github.repos", versionCount: 12 },
+          ],
+        }),
+      });
+
+      const client = createPersonalServerClient({
+        url: SERVER_URL,
+        auth: { type: "bearerToken", token: "test-token" },
+      });
+      const scopes = await client.listScopes("github");
+
+      expect(scopes).toEqual([
+        { scope: "github.profile", count: 3 },
+        { scope: "github.repos", count: 12 },
+      ]);
+    });
+
     it("returns empty array when no auth configured", async () => {
       const client = createPersonalServerClient({ url: SERVER_URL });
       const scopes = await client.listScopes();
