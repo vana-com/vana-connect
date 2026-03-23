@@ -51,6 +51,7 @@ import {
   updateCliConfig,
   updateSourceState,
 } from "../core/index.js";
+import type { StoredSourceState } from "../core/state-store.js";
 import type {
   CliChannel,
   CliEvent,
@@ -69,6 +70,10 @@ import {
   detectPersonalServerTarget,
   ingestResult,
   resolvePersonalServerAuthConfig,
+} from "../personal-server/index.js";
+import type {
+  IngestResultOptions,
+  PersonalServerTarget,
 } from "../personal-server/index.js";
 import {
   findDataConnectorsDir,
@@ -1166,6 +1171,11 @@ async function runConnect(
         const ingestFailedEvent = ingestEvents.find(
           (ingestEvent) => ingestEvent.type === "ingest-failed",
         );
+        const ingestSkippedUnavailable = ingestEvents.some(
+          (ingestEvent) =>
+            ingestEvent.type === "ingest-skipped" &&
+            ingestEvent.reason === "personal_server_unavailable",
+        );
         if (ingestCompleted) {
           finalStatus = CliOutcomeStatus.CONNECTED_AND_INGESTED;
           finalDataState = "ingested_personal_server";
@@ -1177,6 +1187,9 @@ async function runConnect(
           finalDataState = "ingest_failed";
           ingestFailureMessage =
             ingestFailedEvent.message ?? "Personal Server sync failed.";
+        } else if (ingestSkippedUnavailable) {
+          finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
+          finalDataState = "ingest_unavailable";
         } else {
           finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
           finalDataState = "collected_local";
@@ -1259,6 +1272,8 @@ async function runConnect(
       }
     } else if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       successSummary = `Collected your ${displayName} data and synced it to your Personal Server.`;
+    } else if (finalDataState === "ingest_unavailable") {
+      successSummary = `Collected your ${displayName} data. Personal Server sync is pending.`;
     } else {
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
@@ -1273,6 +1288,9 @@ async function runConnect(
     // Partial sync guidance
     if (failedCount > 0 && storedCount > 0) {
       renderer?.detail(`Retry: vana server sync`);
+    } else if (finalDataState === "ingest_unavailable") {
+      renderer?.detail(`Pending sync will retry during scheduled collection.`);
+      renderer?.detail(`Retry now: vana server sync`);
     }
 
     // Journey-aware next step
@@ -1550,6 +1568,7 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       runtime: status.runtime,
       personalServer: status.personalServer,
       personalServerUrl: status.personalServerUrl,
+      pendingSyncCount: status.pendingSyncCount ?? 0,
       auth: jsonAuthCreds
         ? {
             authenticated: !isExpired(jsonAuthCreds),
@@ -1619,14 +1638,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
         ? "success"
         : "muted",
   );
+  if ((status.pendingSyncCount ?? 0) > 0) {
+    emit.keyValue(
+      "Pending sync",
+      `${status.pendingSyncCount} dataset(s)`,
+      "warning",
+    );
+  }
 
   // Show per-source health when sources are connected
   const connectedSources = Object.entries(state.sources).filter(
     ([, stored]) =>
       stored?.connectorInstalled &&
-      (stored.dataState === "collected_local" ||
-        stored.dataState === "ingested_personal_server" ||
-        stored.dataState === "ingest_failed" ||
+      (hasCollectedData(stored.dataState as SourceStatus["dataState"]) ||
         stored.connectionHealth),
   );
   if (connectedSources.length > 0) {
@@ -1644,6 +1668,9 @@ async function runStatus(options: GlobalOptions): Promise<number> {
       let healthTone: RenderTone;
       if (dataState === "ingest_failed") {
         healthLabel = "sync failed";
+        healthTone = "warning";
+      } else if (dataState === "ingest_unavailable") {
+        healthLabel = "pending sync";
         healthTone = "warning";
       } else {
         healthTone = sourceOverdue ? "warning" : toneForHealth(health);
@@ -2659,6 +2686,202 @@ async function runCollect(
   return runConnect(source, options);
 }
 
+type SyncRetryMode = "automatic" | "manual";
+
+interface SyncPendingResult {
+  syncedCount: number;
+  sourceResults: Array<{
+    source: string;
+    scopeResults?: Array<{ scope: string; status: string; error?: string }>;
+  }>;
+}
+
+function isPendingSyncDataState(
+  dataState: SourceStatus["dataState"] | null | undefined,
+): boolean {
+  return dataState === "collected_local" || dataState === "ingest_unavailable";
+}
+
+function shouldRetryPendingSource(
+  stored: StoredSourceState | undefined,
+  mode: SyncRetryMode,
+): boolean {
+  if (!stored?.lastResultPath) {
+    return false;
+  }
+
+  if (isPendingSyncDataState(stored.dataState as SourceStatus["dataState"])) {
+    return true;
+  }
+
+  if (mode === "manual") {
+    return (
+      stored.dataState === "ingest_failed" ||
+      stored.ingestScopes?.some((scope) => scope.status === "failed") === true
+    );
+  }
+
+  return false;
+}
+
+function buildRetryOptions(
+  stored: StoredSourceState | undefined,
+  mode: SyncRetryMode,
+): IngestResultOptions | undefined {
+  if (!stored) {
+    return undefined;
+  }
+
+  if (mode !== "manual") {
+    return undefined;
+  }
+
+  const failedScopes =
+    stored.ingestScopes
+      ?.filter((scope) => scope.status === "failed")
+      .map((scope) => scope.scope) ?? [];
+
+  return failedScopes.length > 0 ? { scopes: failedScopes } : undefined;
+}
+
+function mergeIngestScopes(
+  previous: StoredSourceState["ingestScopes"],
+  current: Array<{ scope: string; status: string; error?: string }> | undefined,
+): StoredSourceState["ingestScopes"] | undefined {
+  if (!previous && !current) {
+    return undefined;
+  }
+
+  const merged = new Map<
+    string,
+    {
+      scope: string;
+      status: "stored" | "failed";
+      syncedAt?: string;
+      error?: string;
+    }
+  >();
+
+  for (const scope of previous ?? []) {
+    merged.set(scope.scope, { ...scope });
+  }
+
+  const now = new Date().toISOString();
+  for (const scope of current ?? []) {
+    merged.set(scope.scope, {
+      scope: scope.scope,
+      status: scope.status === "stored" ? "stored" : "failed",
+      syncedAt:
+        scope.status === "stored" ? now : merged.get(scope.scope)?.syncedAt,
+      error: scope.status === "failed" ? scope.error : undefined,
+    });
+  }
+
+  return Array.from(merged.values()).sort((left, right) =>
+    left.scope.localeCompare(right.scope),
+  );
+}
+
+function deriveSyncedDataState(
+  scopes: StoredSourceState["ingestScopes"],
+  fallback: SourceStatus["dataState"] | null | undefined,
+): SourceStatus["dataState"] {
+  if (!scopes || scopes.length === 0) {
+    return fallback ?? "ingest_unavailable";
+  }
+
+  const storedCount = scopes.filter(
+    (scope) => scope.status === "stored",
+  ).length;
+  const failedCount = scopes.filter(
+    (scope) => scope.status === "failed",
+  ).length;
+
+  if (storedCount === 0 && failedCount > 0) {
+    return "ingest_failed";
+  }
+
+  return "ingested_personal_server";
+}
+
+function summarizeSyncError(
+  scopes: StoredSourceState["ingestScopes"],
+): string | null {
+  const failedScopes =
+    scopes?.filter((scope) => scope.status === "failed") ?? [];
+  if (failedScopes.length === 0) {
+    return null;
+  }
+
+  return failedScopes
+    .map((scope) => `${scope.scope}: ${scope.error ?? "sync failed"}`)
+    .join("; ");
+}
+
+async function syncPendingSources(
+  target: PersonalServerTarget,
+  mode: SyncRetryMode,
+): Promise<SyncPendingResult> {
+  const state = await readCliState();
+  const pendingSources = Object.entries(state.sources).filter(([, stored]) =>
+    shouldRetryPendingSource(stored, mode),
+  );
+
+  if (pendingSources.length === 0) {
+    return { syncedCount: 0, sourceResults: [] };
+  }
+
+  let syncedCount = 0;
+  const sourceResults: SyncPendingResult["sourceResults"] = [];
+
+  for (const [source, stored] of pendingSources) {
+    if (!stored?.lastResultPath) {
+      continue;
+    }
+
+    const ingestOptions = buildRetryOptions(stored, mode);
+    const ingestEvents = await ingestResult(
+      source,
+      stored.lastResultPath,
+      target,
+      ingestOptions,
+    );
+
+    const resultEvent = ingestEvents.find(
+      (event) =>
+        event.type === "ingest-complete" ||
+        event.type === "ingest-partial" ||
+        event.type === "ingest-failed",
+    );
+    const mergedScopes = mergeIngestScopes(
+      stored.ingestScopes,
+      resultEvent?.scopeResults,
+    );
+    const ingestCompleted = ingestEvents.some(
+      (event) => event.type === "ingest-complete",
+    );
+    const ingestPartial = ingestEvents.some(
+      (event) => event.type === "ingest-partial",
+    );
+
+    if (ingestCompleted || ingestPartial) {
+      syncedCount++;
+      await updateSourceState(source, {
+        dataState: deriveSyncedDataState(
+          mergedScopes,
+          stored.dataState as SourceStatus["dataState"] | null | undefined,
+        ),
+        ingestScopes: mergedScopes,
+        lastError: summarizeSyncError(mergedScopes),
+      });
+    }
+
+    sourceResults.push({ source, scopeResults: resultEvent?.scopeResults });
+  }
+
+  return { syncedCount, sourceResults };
+}
+
 async function runCollectAll(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const state = await readCliState();
@@ -2670,17 +2893,6 @@ async function runCollectAll(options: GlobalOptions): Promise<number> {
     )
     .map(([id]) => id);
 
-  if (dueSources.length === 0) {
-    if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({ message: "No sources are due for collection.", count: 0 })}\n`,
-      );
-    } else {
-      emit.info("No sources are due for collection.");
-    }
-    return 0;
-  }
-
   let exitCode = 0;
   for (const source of dueSources) {
     const result = await runConnect(source, options);
@@ -2688,6 +2900,36 @@ async function runCollectAll(options: GlobalOptions): Promise<number> {
       exitCode = result;
     }
   }
+
+  let syncedPendingCount = 0;
+  const target = await detectPersonalServerTarget();
+  if (target.state === "available") {
+    syncedPendingCount = (await syncPendingSources(target, "automatic"))
+      .syncedCount;
+  }
+
+  if (dueSources.length === 0) {
+    if (syncedPendingCount > 0) {
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ message: `Synced ${syncedPendingCount} pending dataset(s).`, count: 0, syncedPendingCount })}\n`,
+        );
+      } else {
+        emit.info(`Synced ${syncedPendingCount} pending dataset(s).`);
+      }
+      return 0;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ message: "No sources are due for collection.", count: 0, syncedPendingCount: 0 })}\n`,
+      );
+    } else {
+      emit.info("No sources are due for collection.");
+    }
+    return 0;
+  }
+
   return exitCode;
 }
 
@@ -2712,17 +2954,9 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
-  const state = await readCliState();
-  // Find sources that are local-only OR have failed ingest scopes
-  const pendingSources = Object.entries(state.sources).filter(
-    ([, stored]) =>
-      stored?.lastResultPath &&
-      (stored.dataState === "collected_local" ||
-        stored.dataState === "ingest_failed" ||
-        stored?.ingestScopes?.some((s) => s.status === "failed")),
-  );
+  const syncResult = await syncPendingSources(target, "manual");
 
-  if (pendingSources.length === 0) {
+  if (syncResult.sourceResults.length === 0) {
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ message: "No pending datasets to sync.", syncedCount: 0 })}\n`,
@@ -2733,67 +2967,14 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
-  let syncedCount = 0;
-  const allScopeResults: Array<{
-    source: string;
-    scopeResults?: Array<{ scope: string; status: string; error?: string }>;
-  }> = [];
-
-  for (const [source, stored] of pendingSources) {
-    if (!stored?.lastResultPath) {
-      continue;
-    }
-    const ingestEvents = await ingestResult(
-      source,
-      stored.lastResultPath,
-      target,
-    );
-
-    const resultEvent = ingestEvents.find(
-      (e) =>
-        e.type === "ingest-complete" ||
-        e.type === "ingest-partial" ||
-        e.type === "ingest-failed",
-    );
-    const scopeResults = resultEvent?.scopeResults;
-
-    const ingestCompleted = ingestEvents.some(
-      (e) => e.type === "ingest-complete",
-    );
-    const ingestPartial = ingestEvents.some((e) => e.type === "ingest-partial");
-
-    if (ingestCompleted || ingestPartial) {
-      syncedCount++;
-      const dataState =
-        ingestCompleted || ingestPartial
-          ? "ingested_personal_server"
-          : stored.dataState;
-      await updateSourceState(source, {
-        dataState,
-        ingestScopes: scopeResults?.map((r) => ({
-          scope: r.scope,
-          status: r.status,
-          syncedAt:
-            r.status === "stored" ? new Date().toISOString() : undefined,
-          error: r.error,
-        })),
-      });
-    }
-
-    allScopeResults.push({ source, scopeResults });
-    for (const event of ingestEvents) {
-      emit.event(event);
-    }
-  }
-
   if (options.json) {
     process.stdout.write(
-      `${JSON.stringify({ message: `Synced ${syncedCount} dataset(s).`, syncedCount })}\n`,
+      `${JSON.stringify({ message: `Synced ${syncResult.syncedCount} dataset(s).`, syncedCount: syncResult.syncedCount })}\n`,
     );
   } else {
     // Show per-scope results with scope manifest style
     const renderer = createHumanRenderer();
-    for (const entry of allScopeResults) {
+    for (const entry of syncResult.sourceResults) {
       if (entry.scopeResults && entry.scopeResults.length > 0) {
         emit.info(`${entry.source}:`);
         for (const sr of entry.scopeResults) {
@@ -2809,12 +2990,12 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       }
     }
     emit.blank();
-    const allStored = allScopeResults.every(
+    const allStored = syncResult.sourceResults.every(
       (entry) =>
         !entry.scopeResults ||
         entry.scopeResults.every((sr) => sr.status === "stored"),
     );
-    emit.success(`Synced ${syncedCount} dataset(s).`);
+    emit.success(`Synced ${syncResult.syncedCount} dataset(s).`);
     emit.blank();
     if (allStored) {
       emit.next("vana data list");
@@ -3403,6 +3584,13 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
       value: "Synced to Personal Server",
       tone: "success",
     });
+  } else if (source.dataState === "ingest_unavailable") {
+    details.push({
+      kind: "row",
+      label: "State",
+      value: "Pending sync to Personal Server",
+      tone: "warning",
+    });
   } else if (source.dataState === "ingest_failed") {
     details.push({
       kind: "row",
@@ -3987,6 +4175,10 @@ export function getSourceStatusPresentation(source: SourceStatus): {
     return { label: "synced", tone: "success" };
   }
 
+  if (source.dataState === "ingest_unavailable") {
+    return { label: "pending sync", tone: "warning" };
+  }
+
   if (source.dataState === "collected_local") {
     return { label: "local", tone: "muted" };
   }
@@ -4313,6 +4505,7 @@ export function hasCollectedData(
 ): boolean {
   return (
     dataState === "collected_local" ||
+    dataState === "ingest_unavailable" ||
     dataState === "ingested_personal_server" ||
     dataState === "ingest_failed"
   );
@@ -4336,6 +4529,9 @@ function formatLogOutcomeLabel(
   }
   if (dataState === "ingested_personal_server") {
     return "synced";
+  }
+  if (dataState === "ingest_unavailable") {
+    return "pending sync";
   }
   if (dataState === "ingest_failed") {
     return "sync failed";
@@ -4369,7 +4565,8 @@ function toneForLogOutcome(
     lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE ||
     lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH ||
     lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT ||
-    dataState === "ingest_failed"
+    dataState === "ingest_failed" ||
+    dataState === "ingest_unavailable"
   ) {
     return "warning";
   }

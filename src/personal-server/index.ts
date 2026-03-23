@@ -36,6 +36,10 @@ export type PersonalServerAuthConfig =
   | { type: "none" }
   | undefined;
 
+export interface IngestResultOptions {
+  scopes?: string[];
+}
+
 async function detectTargetAt(
   url: string,
   source: PersonalServerTarget["source"],
@@ -97,6 +101,7 @@ export async function ingestResult(
   source: string,
   resultPath: string,
   target: PersonalServerTarget,
+  options?: IngestResultOptions,
 ): Promise<CliEvent[]> {
   if (target.state !== "available" || !target.url) {
     return [
@@ -114,7 +119,10 @@ export async function ingestResult(
     source,
     getConnectorCacheDir(),
   );
-  const scopeMappings = resolveScopes(source, result, metadata);
+  const selectedScopes = options?.scopes ? new Set(options.scopes) : null;
+  const scopeMappings = resolveScopes(source, result, metadata).filter(
+    (mapping) => !selectedScopes || selectedScopes.has(mapping.scope),
+  );
 
   if (scopeMappings.length === 0) {
     return [

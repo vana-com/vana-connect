@@ -178,7 +178,9 @@ export async function queryStatus(): Promise<StatusQueryResult> {
   const sources = await gatherSourceStatuses(state.sources, sourceMetadata);
 
   const pendingSyncCount = sources.filter(
-    (source) => source.dataState === "collected_local",
+    (source) =>
+      source.dataState === "collected_local" ||
+      source.dataState === "ingest_unavailable",
   ).length;
 
   // Count stored scopes across all sources
@@ -214,12 +216,15 @@ export async function queryStatus(): Promise<StatusQueryResult> {
       connectedCount: sources.filter(
         (source) =>
           source.dataState === "ingested_personal_server" ||
+          source.dataState === "ingest_unavailable" ||
           source.dataState === "collected_local" ||
           source.dataState === "ingest_failed",
       ).length,
       installedCount: sources.filter((source) => source.installed).length,
       localCount: sources.filter(
-        (source) => source.dataState === "collected_local",
+        (source) =>
+          source.dataState === "collected_local" ||
+          source.dataState === "ingest_unavailable",
       ).length,
       syncedCount: sources.filter(
         (source) => source.dataState === "ingested_personal_server",
@@ -302,6 +307,7 @@ export async function querySources(): Promise<SourcesQueryResult> {
   ).length;
   const connectedCount = enrichedSources.filter(
     (source) =>
+      source.dataState === "ingest_unavailable" ||
       source.dataState === "collected_local" ||
       source.dataState === "ingested_personal_server" ||
       source.dataState === "ingest_failed",
@@ -310,12 +316,14 @@ export async function querySources(): Promise<SourcesQueryResult> {
     enrichedSources.find(
       (source) =>
         source.authMode !== "legacy" &&
+        source.dataState !== "ingest_unavailable" &&
         source.dataState !== "collected_local" &&
         source.dataState !== "ingested_personal_server" &&
         source.dataState !== "ingest_failed",
     ) ??
     enrichedSources.find(
       (source) =>
+        source.dataState !== "ingest_unavailable" &&
         source.dataState !== "collected_local" &&
         source.dataState !== "ingested_personal_server" &&
         source.dataState !== "ingest_failed",
@@ -487,6 +495,7 @@ export async function queryDoctor(): Promise<DoctorQueryResult> {
   );
   const connectedCount = sources.filter(
     (source) =>
+      source.dataState === "ingest_unavailable" ||
       source.dataState === "collected_local" ||
       source.dataState === "ingested_personal_server" ||
       source.dataState === "ingest_failed",

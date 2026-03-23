@@ -856,6 +856,7 @@ describe("runCli", () => {
         Account:       Not logged in
         Auth:          Run \`vana login\` to authenticate
         Sources:       1 connected, 1 needs attention
+        Pending sync:  1 dataset(s)
 
           Shop:        manual step
           ↳ Manual auth step required. Run \`vana connect shop\`
@@ -2247,7 +2248,7 @@ describe("runCli", () => {
     expect(exitCode).toBe(0);
     expect(stderr).toContain("Connected GitHub.");
     expect(stderr).toContain(
-      "Collected your GitHub data and saved it locally.",
+      "Collected your GitHub data. Personal Server sync is pending.",
     );
     expect(stderr).toContain("Next:");
     expect(stderr).toContain("vana data show github");
@@ -2730,6 +2731,67 @@ describe("runCli", () => {
     expect(parsed.syncedCount).toBe(0);
   });
 
+  it("collect --all flushes pending sync work even when no sources are due", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          connectorInstalled: true,
+          exportFrequency: "1d",
+          lastCollectedAt: new Date().toISOString(),
+          lastResultPath: "/tmp/results/github.json",
+          dataState: "ingest_unavailable",
+        },
+      },
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-complete",
+        source: "github",
+        scopeResults: [{ scope: "github.profile", status: "stored" }],
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "collect",
+      "--all",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(mockIngestResult).toHaveBeenCalledWith(
+      "github",
+      "/tmp/results/github.json",
+      expect.objectContaining({
+        state: "available",
+        url: "http://localhost:8080",
+      }),
+      undefined,
+    );
+
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.syncedPendingCount).toBe(1);
+    expect(mockUpdateSourceState).toHaveBeenCalledWith(
+      "github",
+      expect.objectContaining({
+        dataState: "ingested_personal_server",
+        ingestScopes: expect.arrayContaining([
+          expect.objectContaining({
+            scope: "github.profile",
+            status: "stored",
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("doctor shows freshness with relative time", async () => {
     const recentDate = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     mockListAvailableSources.mockResolvedValue([
@@ -2928,6 +2990,55 @@ describe("runCli", () => {
     expect(stderr).toContain("vana server sync");
   });
 
+  it("marks collected data as pending sync when the personal server is unavailable", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    fetchConnectorResult = {
+      connectorPath: "/tmp/connectors/github/github-playwright.js",
+      logPath: "/tmp/logs/fetch.log",
+    };
+    runConnectorEvents = [
+      {
+        type: "collection-complete",
+        source: "github",
+        resultPath: "/tmp/.vana/github-result.json",
+        logPath: "/tmp/logs/run.log",
+      },
+    ];
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "unavailable",
+      url: null,
+      source: null,
+      health: null,
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-skipped",
+        source: "github",
+        reason: "personal_server_unavailable",
+      },
+    ]);
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        profile: { username: "tnunamak" },
+      }),
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "connect", "github"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockUpdateSourceState).toHaveBeenLastCalledWith(
+      "github",
+      expect.objectContaining({
+        dataState: "ingest_unavailable",
+        lastResultPath: "/tmp/.vana/github-result.json",
+      }),
+    );
+    expect(stderr).toContain("Personal Server sync is pending.");
+  });
+
   it("includes personalServerInfo in status JSON", async () => {
     mockListAvailableSources.mockResolvedValue([
       { id: "github", name: "GitHub", authMode: "interactive" },
@@ -2998,10 +3109,7 @@ describe("runCli", () => {
       {
         type: "ingest-complete",
         source: "github",
-        scopeResults: [
-          { scope: "github.profile", status: "stored" },
-          { scope: "github.starred", status: "stored" },
-        ],
+        scopeResults: [{ scope: "github.starred", status: "stored" }],
       },
     ]);
 
@@ -3009,6 +3117,15 @@ describe("runCli", () => {
     const exitCode = await runCli(["node", "vana", "server", "sync", "--json"]);
 
     expect(exitCode).toBe(0);
+    expect(mockIngestResult).toHaveBeenCalledWith(
+      "github",
+      "/tmp/results/github.json",
+      expect.objectContaining({
+        state: "available",
+        url: "http://localhost:8080",
+      }),
+      { scopes: ["github.starred"] },
+    );
     const lines = stdout.trim().split("\n");
     const lastLine = JSON.parse(lines[lines.length - 1]);
     expect(lastLine.syncedCount).toBe(1);
@@ -3017,6 +3134,10 @@ describe("runCli", () => {
       expect.objectContaining({
         dataState: "ingested_personal_server",
         ingestScopes: expect.arrayContaining([
+          expect.objectContaining({
+            scope: "github.profile",
+            status: "stored",
+          }),
           expect.objectContaining({
             scope: "github.starred",
             status: "stored",
