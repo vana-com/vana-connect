@@ -23,7 +23,7 @@ on your machine, and the CLI saves it locally as JSON.
 macOS (Homebrew):
 
 ```bash
-brew install vana-com/vana/vana
+brew install vana-com/tap/vana
 ```
 
 macOS and Linux:
