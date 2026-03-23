@@ -37,7 +37,7 @@ brew install vana-com/tap/vana
 macOS and Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
 ```
 
 Only if the installed CLI path is unavailable or blocked, fall back to:

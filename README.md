@@ -9,7 +9,7 @@ The `vana` CLI collects your personal data from any platform. See the **[CLI REA
 Install on macOS with Homebrew:
 
 ```bash
-brew tap vana-com/vana
+brew tap vana-com/tap
 brew install vana
 vana status
 ```
@@ -17,7 +17,7 @@ vana status
 Or use the hosted prerelease installer on macOS/Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/install/install.sh | sh -s -- --version canary-feat-connect-cli-v1
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
 ```
 
 Branch prerelease:
