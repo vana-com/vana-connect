@@ -104,4 +104,24 @@ describe("resolveScopes", () => {
       { scope: "github.profile", data: { login: "alice" } },
     ]);
   });
+
+  it("normalizes camelCase dotted scopes to canonical snake_case", () => {
+    const result = {
+      "youtube.playlistItems": [{ id: "pl-1" }],
+      "youtube.watchLater": [{ id: "vid-1" }],
+    };
+
+    const mappings = resolveScopes("youtube", result, null);
+
+    expect(mappings).toEqual([
+      {
+        scope: "youtube.playlist_items",
+        data: { items: [{ id: "pl-1" }] },
+      },
+      {
+        scope: "youtube.watch_later",
+        data: { items: [{ id: "vid-1" }] },
+      },
+    ]);
+  });
 });

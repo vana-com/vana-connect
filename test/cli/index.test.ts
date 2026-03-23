@@ -34,6 +34,7 @@ const mockSelect = vi.fn();
 const mockSearchSelect = vi.fn();
 const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
+const mockReadFileSync = vi.fn();
 const mockExistsSync = vi.fn();
 
 class ExitPromptError extends Error {
@@ -191,6 +192,7 @@ vi.mock("../../src/cli/auth.js", async () => {
 vi.mock("node:fs", () => ({
   default: {
     existsSync: mockExistsSync,
+    readFileSync: mockReadFileSync,
   },
 }));
 
@@ -241,6 +243,7 @@ describe("runCli", () => {
     mockPassword.mockReset();
     mockReaddir.mockReset();
     mockReadFile.mockReset();
+    mockReadFileSync.mockReset();
     mockExistsSync.mockReset();
 
     runtimeState = "installed";
@@ -269,6 +272,9 @@ describe("runCli", () => {
     mockPassword.mockResolvedValue("testpass");
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error("missing");
+    });
     mockExistsSync.mockReturnValue(false);
     mockRunDeviceCodeFlow.mockReset();
     mockRunSelfHostedLoginFlow.mockReset();
@@ -921,6 +927,47 @@ describe("runCli", () => {
     );
     expect(stdout).not.toContain('HTTP 401: {"error"');
     expect(stdout).toContain("Next: `vana connect youtube`");
+  });
+
+  it("shows the full authenticated account address in human status output", async () => {
+    mockListAvailableSources.mockResolvedValue([
+      { id: "github", name: "GitHub", authMode: "interactive" },
+    ]);
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        github: {
+          lastRunOutcome: "connected_and_ingested",
+          dataState: "ingested_personal_server",
+          lastCollectedAt: "2026-03-23T16:00:00.000Z",
+        },
+      },
+    });
+    mockReadFileSync.mockImplementation((filePath: string) => {
+      if (String(filePath).endsWith("/auth.json")) {
+        return JSON.stringify({
+          account: {
+            address: "0x2ab394e4be7c43ac360d226a31e1c90bc01aafa1",
+            session_token: "vana_account_session",
+            expires_at: "2026-04-22T19:25:14.420Z",
+          },
+          personal_server: {
+            url: "https://0x2ab394e4be7c43ac360d226a31e1c90bc01aafa1.myvana.app",
+            session_token: "vana_ps_session",
+            expires_at: "2026-04-22T19:25:14.420Z",
+          },
+        });
+      }
+      throw new Error("missing");
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain(
+      "Account:       0x2ab394e4be7c43ac360d226a31e1c90bc01aafa1",
+    );
   });
 
   it("guides first run from status when the runtime is already installed", async () => {
@@ -3913,5 +3960,52 @@ describe("runCli", () => {
     expect(stdout).toContain("schema not registered");
     expect(stdout).toContain("Next:");
     expect(stdout).toContain("vana server sync");
+  });
+
+  it("server sync humanizes transport and scope validation errors", async () => {
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "http://localhost:8080",
+    });
+    mockReadCliState.mockResolvedValue({
+      version: 1,
+      sources: {
+        youtube: {
+          connectorInstalled: true,
+          lastResultPath: "/tmp/results/youtube.json",
+          dataState: "collected_local",
+        },
+      },
+    });
+    mockIngestResult.mockResolvedValue([
+      {
+        type: "ingest-partial",
+        source: "youtube",
+        scopeResults: [
+          {
+            scope: "youtube.playlist_items",
+            status: "failed",
+            error:
+              'HTTP 400: {"error":"INVALID_SCOPE","message":"Scope must be {source}.{category}[.{subcategory}] with lowercase alphanumeric segments (may start with a letter or digit)"}',
+          },
+          {
+            scope: "youtube.watch_later",
+            status: "failed",
+            error:
+              'HTTP 401: {"error":{"code":401,"errorCode":"MISSING_AUTH","message":"Missing authentication"}}',
+          },
+        ],
+      },
+    ]);
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "sync"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("youtube.playlist_items");
+    expect(stdout).toContain("Unsupported scope");
+    expect(stdout).toContain("Authentication required");
+    expect(stdout).not.toContain('HTTP 400: {"error":"INVALID_SCOPE"');
+    expect(stdout).not.toContain('HTTP 401: {"error":{"code":401');
   });
 });
