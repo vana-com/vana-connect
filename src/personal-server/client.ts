@@ -28,12 +28,12 @@ export interface PersonalServerClient {
  */
 export function createPersonalServerClient(config: {
   url: string;
-  auth?: { type: "devToken"; token: string } | { type: "none" };
+  auth?: { type: "bearerToken"; token: string } | { type: "none" };
 }): PersonalServerClient {
   const baseUrl = config.url.replace(/\/+$/, "");
 
   function authHeaders(): Record<string, string> {
-    if (config.auth?.type === "devToken") {
+    if (config.auth?.type === "bearerToken") {
       return { Authorization: `Bearer ${config.auth.token}` };
     }
     return {};

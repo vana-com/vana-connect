@@ -22,6 +22,8 @@ const { version: PKG_VERSION } = require("../../package.json") as {
 const mockListAvailableSources = vi.fn();
 const mockDetectPersonalServerTarget = vi.fn();
 const mockIngestResult = vi.fn();
+const mockResolvePersonalServerAuthConfig = vi.fn();
+const mockCreatePersonalServerClient = vi.fn();
 const mockReadCliState = vi.fn();
 const mockUpdateSourceState = vi.fn();
 const mockConfirm = vi.fn();
@@ -151,6 +153,11 @@ vi.mock("../../src/skills/index.js", () => ({
 vi.mock("../../src/personal-server/index.js", () => ({
   detectPersonalServerTarget: mockDetectPersonalServerTarget,
   ingestResult: mockIngestResult,
+  resolvePersonalServerAuthConfig: mockResolvePersonalServerAuthConfig,
+}));
+
+vi.mock("../../src/personal-server/client.js", () => ({
+  createPersonalServerClient: mockCreatePersonalServerClient,
 }));
 
 vi.mock("../../src/core/index.js", async () => {
@@ -208,6 +215,8 @@ describe("runCli", () => {
     mockDetectPersonalServerTarget.mockReset();
     mockIngestResult.mockReset();
     mockReadCliState.mockReset();
+    mockResolvePersonalServerAuthConfig.mockReset();
+    mockCreatePersonalServerClient.mockReset();
     mockUpdateSourceState.mockReset();
     mockConfirm.mockReset();
     mockSelect.mockReset();
@@ -232,6 +241,10 @@ describe("runCli", () => {
     mockIngestResult.mockResolvedValue([
       { type: "ingest-skipped", reason: "personal_server_unavailable" },
     ]);
+    mockResolvePersonalServerAuthConfig.mockReturnValue(undefined);
+    mockCreatePersonalServerClient.mockReturnValue({
+      listScopes: vi.fn().mockResolvedValue([]),
+    });
     mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
     mockConfirm.mockResolvedValue(true);
     mockSelect.mockResolvedValue("github");
@@ -2914,6 +2927,46 @@ describe("runCli", () => {
         expect.objectContaining({ scope: "github.starred" }),
       ]),
     );
+  });
+
+  it("server data command prefers remote scopes when personal server auth is available", async () => {
+    const listScopes = vi.fn().mockResolvedValue([
+      { scope: "github.profile", count: 2 },
+      { scope: "github.repositories", count: 8 },
+    ]);
+    mockDetectPersonalServerTarget.mockResolvedValue({
+      state: "available",
+      url: "https://ps.example.com",
+      source: "auth",
+      health: { status: "ok", version: "1.0.0", uptime: 10, owner: "0xabc" },
+    });
+    mockResolvePersonalServerAuthConfig.mockReturnValue({
+      type: "bearerToken",
+      token: "ps-token",
+    });
+    mockCreatePersonalServerClient.mockReturnValue({ listScopes });
+    mockReadCliState.mockResolvedValue({ version: 1, sources: {} });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "server", "data", "--json"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockResolvePersonalServerAuthConfig).toHaveBeenCalledWith(
+      "https://ps.example.com",
+    );
+    expect(mockCreatePersonalServerClient).toHaveBeenCalledWith({
+      url: "https://ps.example.com",
+      auth: { type: "bearerToken", token: "ps-token" },
+    });
+    expect(listScopes).toHaveBeenCalledWith(undefined);
+
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.source).toBe("remote");
+    expect(parsed.count).toBe(2);
+    expect(parsed.scopes).toEqual([
+      { scope: "github.profile", detail: "2 versions" },
+      { scope: "github.repositories", detail: "8 versions" },
+    ]);
   });
 
   it("shows partial sync badge in doctor for sources with mixed scope results", async () => {

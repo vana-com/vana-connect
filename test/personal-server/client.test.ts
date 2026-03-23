@@ -63,7 +63,7 @@ describe("createPersonalServerClient", () => {
 
       const client = createPersonalServerClient({
         url: SERVER_URL,
-        auth: { type: "devToken", token: "test-token" },
+        auth: { type: "bearerToken", token: "test-token" },
       });
       const result = await client.ingestScope("github.profile", {
         login: "alice",
@@ -111,7 +111,7 @@ describe("createPersonalServerClient", () => {
 
       const client = createPersonalServerClient({
         url: SERVER_URL,
-        auth: { type: "devToken", token: "test-token" },
+        auth: { type: "bearerToken", token: "test-token" },
       });
       const scopes = await client.listScopes("github");
 

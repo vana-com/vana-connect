@@ -67,6 +67,7 @@ import {
 import {
   detectPersonalServerTarget,
   ingestResult,
+  resolvePersonalServerAuthConfig,
 } from "../personal-server/index.js";
 import {
   findDataConnectorsDir,
@@ -2849,7 +2850,10 @@ async function runServerData(
     try {
       const { createPersonalServerClient: createClient } =
         await import("../personal-server/client.js");
-      const client = createClient({ url: target.url });
+      const client = createClient({
+        url: target.url,
+        auth: resolvePersonalServerAuthConfig(target.url),
+      });
       remoteScopes = await client.listScopes(scope);
     } catch (err) {
       remoteScopeFallbackReason =
@@ -5289,20 +5293,16 @@ async function runLogin(
         }
       });
 
-      saveCredentials({
+      await saveCredentials({
         account: {
-          address: result.server,
+          address: result.address,
           session_token: "",
-          expires_at: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
+          expires_at: result.expires_at,
         },
         personal_server: {
           url: psUrl,
           access_token: result.access_token,
-          expires_at: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
+          expires_at: result.expires_at,
         },
       });
 

@@ -31,6 +31,11 @@ export interface PersonalServerTarget {
   health: PersonalServerHealth | null;
 }
 
+export type PersonalServerAuthConfig =
+  | { type: "bearerToken"; token: string }
+  | { type: "none" }
+  | undefined;
+
 export async function detectPersonalServerTarget(): Promise<PersonalServerTarget> {
   // 1. Persisted config (highest priority)
   const config = await readCliConfig();
@@ -113,21 +118,9 @@ export async function ingestResult(
     ];
   }
 
-  // Use Bearer auth for remote (non-localhost) servers
-  const isRemote =
-    !target.url.includes("localhost") && !target.url.includes("127.0.0.1");
-  const psToken = process.env.VANA_PS_TOKEN;
-  const creds = isRemote ? loadCredentials() : null;
-  const authConfig: Parameters<typeof createPersonalServerClient>[0]["auth"] =
-    psToken
-      ? { type: "devToken", token: psToken }
-      : isRemote && creds?.personal_server?.access_token
-        ? { type: "devToken", token: creds.personal_server.access_token }
-        : undefined;
-
   const client = createPersonalServerClient({
     url: target.url,
-    auth: authConfig,
+    auth: resolvePersonalServerAuthConfig(target.url),
   });
   const events: CliEvent[] = [
     { type: "ingest-started", source, target: target.url },
@@ -167,6 +160,28 @@ export async function ingestResult(
   }
 
   return events;
+}
+
+export function resolvePersonalServerAuthConfig(
+  serverUrl: string,
+): PersonalServerAuthConfig {
+  const isRemote =
+    !serverUrl.includes("localhost") && !serverUrl.includes("127.0.0.1");
+  if (!isRemote) {
+    return undefined;
+  }
+
+  const psToken = process.env.VANA_PS_TOKEN;
+  if (psToken) {
+    return { type: "bearerToken", token: psToken };
+  }
+
+  const creds = loadCredentials();
+  if (creds?.personal_server?.access_token) {
+    return { type: "bearerToken", token: creds.personal_server.access_token };
+  }
+
+  return undefined;
 }
 
 async function fetchHealth(

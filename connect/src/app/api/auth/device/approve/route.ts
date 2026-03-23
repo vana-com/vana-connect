@@ -8,6 +8,7 @@ import {
   findDeviceCodeByUserCode,
   findServerByUserId,
 } from "@/lib/db/neon";
+import { provisionPersonalServerSessionToken } from "@/lib/auth/personal-server-session";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -69,13 +70,38 @@ export async function POST(request: NextRequest) {
   const sessionToken = `vana_sess_${crypto.randomBytes(32).toString("hex")}`;
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
-  // Look up user's personal server for ps_access_token
+  // Look up the user's personal server. The stored access_token is the
+  // control-plane credential used by account.vana.org to provision a fresh
+  // CLI session token into the running Personal Server.
   const userId = walletAddress.toLowerCase();
   const server = await findServerByUserId(userId);
+  let psAccessToken: string | null = null;
 
-  // Use the server's existing access_token if available
-  const psAccessToken = (server as Record<string, unknown> | null)
-    ?.access_token as string | null;
+  if (server?.url) {
+    if (!server.access_token) {
+      return apiError(
+        "internal_error",
+        "Personal Server control-plane token missing",
+        500,
+      );
+    }
+
+    try {
+      psAccessToken = await provisionPersonalServerSessionToken({
+        serverUrl: server.url,
+        controlPlaneToken: server.access_token,
+        expiresAt: sessionExpiresAt,
+      });
+    } catch (error) {
+      return apiError(
+        "internal_error",
+        error instanceof Error
+          ? error.message
+          : "Failed to provision Personal Server session token",
+        500,
+      );
+    }
+  }
 
   // Create the session
   await createSession(sessionToken, userId, psAccessToken, sessionExpiresAt);

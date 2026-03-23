@@ -5,6 +5,7 @@ export type PersonalServer = {
   user_id: string;
   provider: string;
   provider_id: string | null;
+  access_token: string | null;
   vm_ip: string | null;
   url: string | null;
   state: string;

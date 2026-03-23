@@ -165,6 +165,7 @@ export interface DeviceCodePollAuthorized {
   ps_access_token?: string;
   address: string;
   expires_in?: number;
+  expires_at?: string;
 }
 
 export interface DeviceCodePollPending {
@@ -179,6 +180,21 @@ export type DeviceCodePollResponse =
   | DeviceCodePollAuthorized
   | DeviceCodePollPending
   | DeviceCodePollExpired;
+
+function resolveCredentialExpiry(params: {
+  expiresAt?: string;
+  expiresIn?: number;
+}): string {
+  if (params.expiresAt) {
+    const parsed = new Date(params.expiresAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  const expiresIn = params.expiresIn ?? 30 * 24 * 60 * 60;
+  return new Date(Date.now() + expiresIn * 1000).toISOString();
+}
 
 function getAccountUrl(): string {
   return (
@@ -284,10 +300,10 @@ export async function runDeviceCodeFlow(callbacks: {
         const result = await pollDeviceCode(deviceCode.device_code);
 
         if (result.status === "authorized") {
-          const expiresIn = result.expires_in ?? 30 * 24 * 60 * 60; // default 30 days
-          const expiresAt = new Date(
-            Date.now() + expiresIn * 1000,
-          ).toISOString();
+          const expiresAt = resolveCredentialExpiry({
+            expiresAt: result.expires_at,
+            expiresIn: result.expires_in,
+          });
 
           const creds: VanaCredentials = {
             account: {
@@ -362,13 +378,39 @@ interface LoginV2InitResponse {
 interface LoginV2PollSuccess {
   status: "authorized";
   server: string;
+  address: string;
   access_token: string;
+  expires_at: string;
+}
+
+interface LoginV2PollPending {
+  status: "pending";
+}
+
+interface LoginV2PollExpired {
+  status: "expired";
+}
+
+type LoginV2PollResponse =
+  | LoginV2PollSuccess
+  | LoginV2PollPending
+  | LoginV2PollExpired;
+
+const SELF_HOSTED_POLL_INTERVAL_MS = 5_000;
+
+function resolveLoginV2PollUrl(serverUrl: string, endpoint: string): string {
+  return new URL(endpoint, `${serverUrl.replace(/\/$/, "")}/`).toString();
 }
 
 export async function runSelfHostedLoginFlow(
   serverUrl: string,
   onLoginUrl: (url: string) => void,
-): Promise<{ server: string; access_token: string }> {
+): Promise<{
+  server: string;
+  address: string;
+  access_token: string;
+  expires_at: string;
+}> {
   const base = serverUrl.replace(/\/$/, "");
 
   // 1. Initiate login flow
@@ -385,19 +427,42 @@ export async function runSelfHostedLoginFlow(
 
   // 3. Poll for completion (5 min timeout)
   const deadline = Date.now() + 5 * 60 * 1000;
+  const pollUrl = resolveLoginV2PollUrl(base, init.poll.endpoint);
+
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, SELF_HOSTED_POLL_INTERVAL_MS));
 
     const pollRes = await fetch(
-      `${init.poll.endpoint}?token=${encodeURIComponent(init.poll.token)}`,
+      `${pollUrl}?token=${encodeURIComponent(init.poll.token)}`,
     );
 
     if (pollRes.status === 200) {
       const result = (await pollRes.json()) as LoginV2PollSuccess;
-      return { server: result.server, access_token: result.access_token };
+      return {
+        server: result.server,
+        address: result.address,
+        access_token: result.access_token,
+        expires_at: result.expires_at,
+      };
     }
 
-    if (pollRes.status !== 404 && pollRes.status !== 202) {
+    if (pollRes.status === 404 || pollRes.status === 202) {
+      const result = (await pollRes
+        .json()
+        .catch(() => null)) as LoginV2PollResponse | null;
+
+      if (result?.status === "expired") {
+        throw new Error("Authorization expired. Please try again.");
+      }
+
+      continue;
+    }
+
+    if (pollRes.status === 429) {
+      continue;
+    }
+
+    if (!pollRes.ok) {
       throw new Error(`Poll failed: ${pollRes.status}`);
     }
   }
