@@ -6,6 +6,7 @@ import { resolveScopes } from "./scope-resolver.js";
 import { createPersonalServerClient } from "./client.js";
 import { readCachedConnectorMetadata } from "../connectors/registry.js";
 import { getConnectorCacheDir } from "../core/paths.js";
+import { loadCredentials } from "../cli/auth.js";
 
 export { createPersonalServerClient } from "./client.js";
 export type {
@@ -26,33 +27,62 @@ export interface PersonalServerHealth {
 export interface PersonalServerTarget {
   state: PersonalServerState;
   url: string | null;
-  source: "config" | "env" | "scan" | null;
+  source: "config" | "auth" | "env" | "scan" | null;
   health: PersonalServerHealth | null;
+}
+
+export type PersonalServerAuthConfig =
+  | { type: "bearerToken"; token: string }
+  | { type: "none" }
+  | undefined;
+
+export interface IngestResultOptions {
+  scopes?: string[];
+}
+
+async function detectTargetAt(
+  url: string,
+  source: PersonalServerTarget["source"],
+): Promise<PersonalServerTarget | null> {
+  const health = await fetchHealth(url);
+  if (!health) {
+    return null;
+  }
+
+  return {
+    state: "available",
+    url,
+    source,
+    health,
+  };
 }
 
 export async function detectPersonalServerTarget(): Promise<PersonalServerTarget> {
   // 1. Persisted config (highest priority)
   const config = await readCliConfig();
   if (config.personalServerUrl) {
-    const health = await fetchHealth(config.personalServerUrl);
-    return {
-      state: health ? "available" : "unavailable",
-      url: config.personalServerUrl,
-      source: "config",
-      health,
-    };
+    const target = await detectTargetAt(config.personalServerUrl, "config");
+    if (target) {
+      return target;
+    }
   }
 
-  // 2. Environment variable
+  // 2. Auth credentials (from `vana login`)
+  const authCreds = loadCredentials();
+  if (authCreds?.personal_server?.url) {
+    const target = await detectTargetAt(authCreds.personal_server.url, "auth");
+    if (target) {
+      return target;
+    }
+  }
+
+  // 3. Environment variable
   const explicitUrl = process.env.VANA_PERSONAL_SERVER_URL;
   if (explicitUrl) {
-    const health = await fetchHealth(explicitUrl);
-    return {
-      state: health ? "available" : "unavailable",
-      url: explicitUrl,
-      source: "env",
-      health,
-    };
+    const target = await detectTargetAt(explicitUrl, "env");
+    if (target) {
+      return target;
+    }
   }
 
   // 3. Localhost port scan
@@ -71,6 +101,7 @@ export async function ingestResult(
   source: string,
   resultPath: string,
   target: PersonalServerTarget,
+  options?: IngestResultOptions,
 ): Promise<CliEvent[]> {
   if (target.state !== "available" || !target.url) {
     return [
@@ -88,7 +119,10 @@ export async function ingestResult(
     source,
     getConnectorCacheDir(),
   );
-  const scopeMappings = resolveScopes(source, result, metadata);
+  const selectedScopes = options?.scopes ? new Set(options.scopes) : null;
+  const scopeMappings = resolveScopes(source, result, metadata).filter(
+    (mapping) => !selectedScopes || selectedScopes.has(mapping.scope),
+  );
 
   if (scopeMappings.length === 0) {
     return [
@@ -100,7 +134,10 @@ export async function ingestResult(
     ];
   }
 
-  const client = createPersonalServerClient({ url: target.url });
+  const client = createPersonalServerClient({
+    url: target.url,
+    auth: resolvePersonalServerAuthConfig(target.url),
+  });
   const events: CliEvent[] = [
     { type: "ingest-started", source, target: target.url },
   ];
@@ -139,6 +176,29 @@ export async function ingestResult(
   }
 
   return events;
+}
+
+export function resolvePersonalServerAuthConfig(
+  serverUrl: string,
+): PersonalServerAuthConfig {
+  const psToken = process.env.VANA_PS_TOKEN;
+  if (psToken) {
+    return { type: "bearerToken", token: psToken };
+  }
+
+  const creds = loadCredentials();
+  if (
+    creds?.personal_server?.session_token &&
+    urlsMatch(creds.personal_server.url, serverUrl)
+  ) {
+    return { type: "bearerToken", token: creds.personal_server.session_token };
+  }
+
+  return undefined;
+}
+
+function urlsMatch(left: string, right: string): boolean {
+  return left.replace(/\/+$/, "") === right.replace(/\/+$/, "");
 }
 
 async function fetchHealth(

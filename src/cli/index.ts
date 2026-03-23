@@ -33,6 +33,7 @@ const vanaPromptTheme = {
 import {
   createConnectRenderer,
   createHumanRenderer,
+  createLoginRenderer,
   formatDisplayPath,
   formatRelativeTime,
 } from "./render/index.js";
@@ -50,6 +51,7 @@ import {
   updateCliConfig,
   updateSourceState,
 } from "../core/index.js";
+import type { StoredSourceState } from "../core/state-store.js";
 import type {
   CliChannel,
   CliEvent,
@@ -67,6 +69,11 @@ import {
 import {
   detectPersonalServerTarget,
   ingestResult,
+  resolvePersonalServerAuthConfig,
+} from "../personal-server/index.js";
+import type {
+  IngestResultOptions,
+  PersonalServerTarget,
 } from "../personal-server/index.js";
 import {
   findDataConnectorsDir,
@@ -89,6 +96,18 @@ import {
   readUpdateCheck,
   isNewerVersion,
 } from "./update-check.js";
+import {
+  loadCredentials,
+  saveCredentials,
+  clearCredentials,
+  isExpired,
+  formatAddress,
+  formatExpiresIn,
+  getAuthTarget,
+  resolvePersonalServerUrl,
+  runDeviceCodeFlow,
+  runSelfHostedLoginFlow,
+} from "./auth.js";
 
 interface GlobalOptions {
   json?: boolean;
@@ -192,6 +211,7 @@ export async function runCli(argv = process.argv): Promise<number> {
       "after",
       `
 Quick start:
+  vana login             Log in to your Vana account
   vana connect           Connect a source and collect data
   vana sources           Browse available sources
   vana status            Check system health
@@ -508,6 +528,21 @@ Examples:
     .option("--json", "Output machine-readable JSON")
     .action(async (scope?: string) => {
       process.exitCode = await runServerData(scope, parsedOptions);
+    });
+
+  program
+    .command("login")
+    .description("Log in to your Vana account or a self-hosted Personal Server")
+    .option("-s, --server <url>", "Self-hosted Personal Server URL")
+    .action(async (loginOptions: { server?: string }) => {
+      process.exitCode = await runLogin(parsedOptions, loginOptions.server);
+    });
+
+  program
+    .command("logout")
+    .description("Log out and remove saved credentials")
+    .action(async () => {
+      process.exitCode = await runLogout(parsedOptions);
     });
 
   program
@@ -1136,6 +1171,11 @@ async function runConnect(
         const ingestFailedEvent = ingestEvents.find(
           (ingestEvent) => ingestEvent.type === "ingest-failed",
         );
+        const ingestSkippedUnavailable = ingestEvents.some(
+          (ingestEvent) =>
+            ingestEvent.type === "ingest-skipped" &&
+            ingestEvent.reason === "personal_server_unavailable",
+        );
         if (ingestCompleted) {
           finalStatus = CliOutcomeStatus.CONNECTED_AND_INGESTED;
           finalDataState = "ingested_personal_server";
@@ -1147,6 +1187,9 @@ async function runConnect(
           finalDataState = "ingest_failed";
           ingestFailureMessage =
             ingestFailedEvent.message ?? "Personal Server sync failed.";
+        } else if (ingestSkippedUnavailable) {
+          finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
+          finalDataState = "ingest_unavailable";
         } else {
           finalStatus = CliOutcomeStatus.CONNECTED_LOCAL_ONLY;
           finalDataState = "collected_local";
@@ -1229,6 +1272,8 @@ async function runConnect(
       }
     } else if (finalStatus === CliOutcomeStatus.CONNECTED_AND_INGESTED) {
       successSummary = `Collected your ${displayName} data and synced it to your Personal Server.`;
+    } else if (finalDataState === "ingest_unavailable") {
+      successSummary = `Collected your ${displayName} data. Personal Server sync is pending.`;
     } else {
       successSummary = `Collected your ${displayName} data and saved it locally.`;
     }
@@ -1243,6 +1288,9 @@ async function runConnect(
     // Partial sync guidance
     if (failedCount > 0 && storedCount > 0) {
       renderer?.detail(`Retry: vana server sync`);
+    } else if (finalDataState === "ingest_unavailable") {
+      renderer?.detail(`Pending sync will retry during scheduled collection.`);
+      renderer?.detail(`Retry now: vana server sync`);
     }
 
     // Journey-aware next step
@@ -1515,10 +1563,19 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   }
 
   if (options.json) {
+    const jsonAuthCreds = loadCredentials();
     const compactJson = {
       runtime: status.runtime,
       personalServer: status.personalServer,
       personalServerUrl: status.personalServerUrl,
+      pendingSyncCount: status.pendingSyncCount ?? 0,
+      auth: jsonAuthCreds
+        ? {
+            authenticated: !isExpired(jsonAuthCreds),
+            address: jsonAuthCreds.account.address,
+            expires_at: jsonAuthCreds.account.expires_at,
+          }
+        : { authenticated: false },
       sources: {
         connected: status.summary?.connectedCount ?? 0,
         needsAttention: status.summary?.needsAttentionCount ?? 0,
@@ -1545,148 +1602,74 @@ async function runStatus(options: GlobalOptions): Promise<number> {
   } else {
     emit.keyValue("Personal Server", "not connected", "warning");
   }
-  const connectedCount = status.summary?.connectedCount ?? 0;
-  const attentionCount = status.summary?.needsAttentionCount ?? 0;
+
+  // Auth state
+  const authCreds = loadCredentials();
+  if (authCreds && !isExpired(authCreds)) {
+    emit.keyValue(
+      "Account",
+      formatAddress(authCreds.account.address),
+      "success",
+    );
+    emit.keyValue(
+      "Auth",
+      `Authenticated (expires in ${formatExpiresIn(authCreds.account.expires_at)})`,
+      "success",
+    );
+  } else {
+    emit.keyValue("Account", "Not logged in", "muted");
+    emit.keyValue("Auth", "Run `vana login` to authenticate", "muted");
+  }
+
+  const trackedSources = status.sources.filter(shouldDisplaySourceInStatus);
+  const attentionSources = trackedSources
+    .filter(isSourceAttention)
+    .sort(compareAttentionPriority);
+  const healthySources = trackedSources
+    .filter((source) => !isSourceAttention(source))
+    .sort(compareSourceStatusOrder);
   const sourceParts = [
-    connectedCount > 0 ? `${connectedCount} connected` : "none connected",
-    ...(connectedCount > 0 && attentionCount > 0
-      ? [`${attentionCount} need${attentionCount === 1 ? "s" : ""} attention`]
+    healthySources.length > 0
+      ? `${healthySources.length} healthy`
+      : trackedSources.length > 0
+        ? "none healthy"
+        : "none connected",
+    ...(attentionSources.length > 0
+      ? [
+          `${attentionSources.length} need${attentionSources.length === 1 ? "s" : ""} attention`,
+        ]
       : []),
   ];
   emit.keyValue(
     "Sources",
     sourceParts.join(", "),
-    attentionCount > 0 && connectedCount > 0
+    attentionSources.length > 0 && healthySources.length > 0
       ? "warning"
-      : connectedCount > 0
+      : healthySources.length > 0
         ? "success"
         : "muted",
   );
+  if ((status.pendingSyncCount ?? 0) > 0) {
+    emit.keyValue(
+      "Pending sync",
+      `${status.pendingSyncCount} dataset(s)`,
+      "warning",
+    );
+  }
 
-  // Show per-source health when sources are connected
-  const connectedSources = Object.entries(state.sources).filter(
-    ([, stored]) =>
-      stored?.connectorInstalled &&
-      (stored.dataState === "collected_local" ||
-        stored.dataState === "ingested_personal_server" ||
-        stored.dataState === "ingest_failed" ||
-        stored.connectionHealth),
-  );
-  if (connectedSources.length > 0) {
+  if (attentionSources.length > 0) {
     emit.blank();
-    let needsReauthSource: string | null = null;
-    for (const [sourceId, stored] of connectedSources) {
-      const health = stored?.connectionHealth ?? "healthy";
-      const displayName = displaySource(sourceId, sourceLabels);
-      const sourceStatus = status.sources.find((s) => s.source === sourceId);
-      const sourceOverdue = sourceStatus?.isOverdue ?? false;
-      const dataState = stored?.dataState;
-
-      // Show worst of connectionHealth and dataState
-      let healthLabel: string;
-      let healthTone: RenderTone;
-      if (dataState === "ingest_failed") {
-        healthLabel = "sync failed";
-        healthTone = "warning";
-      } else {
-        healthTone = sourceOverdue ? "warning" : toneForHealth(health);
-        healthLabel = health === "needs_reauth" ? "needs login" : health;
-      }
-
-      const staleTag = sourceOverdue
-        ? ` ${emit.badge("stale", "warning")}`
-        : "";
-      const collectedAgo = stored?.lastCollectedAt
-        ? `collected ${formatRelativeTime(stored.lastCollectedAt)}`
-        : "";
-      emit.keyValue(
-        `  ${displayName}`,
-        `${healthLabel}${staleTag}     ${collectedAgo}`,
-        healthTone,
-      );
-      if (dataState === "ingest_failed") {
-        const errMsg = stored?.lastError ?? "sync failed";
-        emit.detail(`  \u21b3 ${errMsg}. Run \`vana connect ${sourceId}\``);
-      } else if (
-        (health === "needs_reauth" || health === "error") &&
-        stored?.connectionHealthReason
-      ) {
-        const msg = formatHealthMessage(stored.connectionHealthReason);
-        const ago = stored.connectionHealthChangedAt
-          ? ` (${formatRelativeTime(stored.connectionHealthChangedAt)})`
-          : "";
-        if (msg) {
-          emit.detail(`  \u21b3 ${msg}${ago} Run \`vana connect ${sourceId}\``);
-        }
-      }
-      if (health === "needs_reauth" && !needsReauthSource) {
-        needsReauthSource = sourceId;
-      }
-    }
-    if (needsReauthSource) {
-      emit.blank();
-      emit.next(`vana connect ${needsReauthSource}`);
-      return 0;
+    emit.section(formatCountLabel("Needs attention", attentionSources.length));
+    for (const source of attentionSources) {
+      emitHumanStatusSource(emit, source, sourceLabels);
     }
   }
 
-  // Show attention-needing sources that weren't already displayed above
-  const displayedSourceIds = new Set(connectedSources.map(([id]) => id));
-  const hiddenAttentionSources = status.sources.filter(
-    (s) => rankSourceStatus(s) <= 4 && !displayedSourceIds.has(s.source),
-  );
-  if (hiddenAttentionSources.length > 0) {
-    if (connectedSources.length === 0) {
-      emit.blank();
-    }
-    for (const source of hiddenAttentionSources) {
-      const displayName = displaySource(source.source, sourceLabels);
-      const presentation = getSourceStatusPresentation(source);
-      const collectedAgo = source.lastCollectedAt
-        ? `collected ${formatRelativeTime(source.lastCollectedAt)}`
-        : "";
-      emit.keyValue(
-        `  ${displayName}`,
-        `${presentation.label}${collectedAgo ? `     ${collectedAgo}` : ""}`,
-        presentation.tone,
-      );
-      // Show actionable detail line
-      if (
-        source.lastRunOutcome === CliOutcomeStatus.INGEST_FAILED &&
-        source.ingestScopes
-      ) {
-        const failedScopes = source.ingestScopes.filter(
-          (s) => s.status === "failed",
-        );
-        for (const scope of failedScopes) {
-          const errMsg = scope.error ?? "sync failed";
-          emit.detail(
-            `  \u21b3 ${source.source}.${scope.scope}: ${errMsg}. Run \`vana connect ${source.source}\``,
-          );
-        }
-        if (failedScopes.length === 0) {
-          emit.detail(
-            `  \u21b3 Sync failed. Run \`vana connect ${source.source}\``,
-          );
-        }
-      } else if (
-        source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE
-      ) {
-        emit.detail(`  \u21b3 No connector available. Run \`vana sources\``);
-      } else if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
-        const reason = source.lastError ?? "runtime error";
-        emit.detail(
-          `  \u21b3 ${reason}. Run \`vana connect ${source.source}\``,
-        );
-      } else if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
-        emit.detail(
-          `  \u21b3 Requires interactive login. Run \`vana connect ${source.source}\``,
-        );
-      } else if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
-        emit.detail(
-          `  \u21b3 Manual auth step required. Run \`vana connect ${source.source}\``,
-        );
-      }
+  if (healthySources.length > 0) {
+    emit.blank();
+    emit.section(formatCountLabel("Healthy", healthySources.length));
+    for (const source of healthySources) {
+      emitHumanStatusSource(emit, source, sourceLabels);
     }
   }
 
@@ -1700,6 +1683,118 @@ async function runStatus(options: GlobalOptions): Promise<number> {
     }
   }
   return 0;
+}
+
+function shouldDisplaySourceInStatus(source: SourceStatus): boolean {
+  return (
+    source.installed ||
+    Boolean(source.lastRunOutcome) ||
+    source.dataState !== "none" ||
+    Boolean(source.connectionHealth)
+  );
+}
+
+function emitHumanStatusSource(
+  emit: ReturnType<typeof createEmitter>,
+  source: SourceStatus,
+  sourceLabels: SourceLabelMap,
+): void {
+  const displayName = displaySource(source.source, sourceLabels);
+  const presentation = getHumanStatusPresentation(source);
+  const staleTag = source.isOverdue ? ` ${emit.badge("stale", "warning")}` : "";
+  const collectedAgo = source.lastCollectedAt
+    ? `collected ${formatRelativeTime(source.lastCollectedAt)}`
+    : "";
+
+  emit.keyValue(
+    `  ${displayName}`,
+    `${presentation.label}${staleTag}${collectedAgo ? `     ${collectedAgo}` : ""}`,
+    presentation.tone,
+  );
+
+  const detail = formatHumanStatusDetail(source);
+  if (detail) {
+    emit.detail(`  \u21b3 ${detail}`);
+  }
+}
+
+function getHumanStatusPresentation(source: SourceStatus): {
+  label: string;
+  tone: RenderTone;
+} {
+  if (source.dataState === "ingest_failed") {
+    return { label: "sync failed", tone: "warning" };
+  }
+  if (source.dataState === "ingest_unavailable") {
+    return { label: "pending sync", tone: "warning" };
+  }
+  if (source.connectionHealth === "needs_reauth") {
+    return { label: "needs login", tone: "warning" };
+  }
+  if (source.connectionHealth === "error") {
+    return { label: "error", tone: "error" };
+  }
+
+  const presentation = getSourceStatusPresentation(source);
+  if (presentation.label === "needs input") {
+    return { label: "needs login", tone: presentation.tone };
+  }
+
+  return presentation;
+}
+
+function formatHumanStatusDetail(source: SourceStatus): string | null {
+  if (source.dataState === "ingest_failed") {
+    return formatSyncFailureSummary(source);
+  }
+  if (source.dataState === "ingest_unavailable") {
+    return "Personal Server unavailable. Pending sync will retry during scheduled collection. Run `vana server sync`.";
+  }
+  if (
+    source.connectionHealth === "needs_reauth" ||
+    source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT
+  ) {
+    return `Authentication required. Run \`vana connect ${source.source}\`.`;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+    return `Manual auth step required. Run \`vana connect ${source.source}\`.`;
+  }
+  if (source.connectionHealth === "error") {
+    const message = formatHealthMessage(source.connectionHealthReason);
+    return `${message ?? "Collection failed."} Run \`vana connect ${source.source}\`.`;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+    return `${humanizeIssue(source.lastError ?? "Collection failed")}. Run \`vana connect ${source.source}\`.`;
+  }
+  if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+    return "No connector available. Run `vana sources`.";
+  }
+  return null;
+}
+
+function formatSyncFailureSummary(source: SourceStatus): string {
+  const failedScopes =
+    source.ingestScopes?.filter((scope) => scope.status === "failed") ?? [];
+  if (failedScopes.length === 0) {
+    return `Personal Server sync failed. Run \`vana connect ${source.source}\`.`;
+  }
+
+  const groupedFailures = new Map<string, number>();
+  for (const failedScope of failedScopes) {
+    const summary = humanizeIssue(failedScope.error ?? "Sync failed");
+    groupedFailures.set(summary, (groupedFailures.get(summary) ?? 0) + 1);
+  }
+
+  const entries = Array.from(groupedFailures.entries());
+  if (entries.length === 1) {
+    const [summary, count] = entries[0];
+    return `${summary}${count > 1 ? ` for ${count} scopes` : ""}. Run \`vana connect ${source.source}\`.`;
+  }
+
+  const summaryParts = entries.map(([summary, count]) =>
+    count > 1 ? `${summary} (${count})` : summary,
+  );
+  return `${failedScopes.length} scopes failed to sync: ${summaryParts.join("; ")}. Run \`vana connect ${source.source}\`.`;
 }
 
 async function runDoctor(options: GlobalOptions): Promise<number> {
@@ -1871,9 +1966,11 @@ async function runServerStatus(options: GlobalOptions): Promise<number> {
         ? "(auto-detected)"
         : target.source === "config"
           ? "(saved)"
-          : target.source === "env"
-            ? "(from VANA_PERSONAL_SERVER_URL)"
-            : `(${target.source ?? "unknown"})`;
+          : target.source === "auth"
+            ? "(from vana login)"
+            : target.source === "env"
+              ? "(from VANA_PERSONAL_SERVER_URL)"
+              : `(${target.source ?? "unknown"})`;
     emit.keyValue("URL", `${target.url} ${urlSuffix}`, "muted");
   }
 
@@ -2600,6 +2697,202 @@ async function runCollect(
   return runConnect(source, options);
 }
 
+type SyncRetryMode = "automatic" | "manual";
+
+interface SyncPendingResult {
+  syncedCount: number;
+  sourceResults: Array<{
+    source: string;
+    scopeResults?: Array<{ scope: string; status: string; error?: string }>;
+  }>;
+}
+
+function isPendingSyncDataState(
+  dataState: SourceStatus["dataState"] | null | undefined,
+): boolean {
+  return dataState === "collected_local" || dataState === "ingest_unavailable";
+}
+
+function shouldRetryPendingSource(
+  stored: StoredSourceState | undefined,
+  mode: SyncRetryMode,
+): boolean {
+  if (!stored?.lastResultPath) {
+    return false;
+  }
+
+  if (isPendingSyncDataState(stored.dataState as SourceStatus["dataState"])) {
+    return true;
+  }
+
+  if (mode === "manual") {
+    return (
+      stored.dataState === "ingest_failed" ||
+      stored.ingestScopes?.some((scope) => scope.status === "failed") === true
+    );
+  }
+
+  return false;
+}
+
+function buildRetryOptions(
+  stored: StoredSourceState | undefined,
+  mode: SyncRetryMode,
+): IngestResultOptions | undefined {
+  if (!stored) {
+    return undefined;
+  }
+
+  if (mode !== "manual") {
+    return undefined;
+  }
+
+  const failedScopes =
+    stored.ingestScopes
+      ?.filter((scope) => scope.status === "failed")
+      .map((scope) => scope.scope) ?? [];
+
+  return failedScopes.length > 0 ? { scopes: failedScopes } : undefined;
+}
+
+function mergeIngestScopes(
+  previous: StoredSourceState["ingestScopes"],
+  current: Array<{ scope: string; status: string; error?: string }> | undefined,
+): StoredSourceState["ingestScopes"] | undefined {
+  if (!previous && !current) {
+    return undefined;
+  }
+
+  const merged = new Map<
+    string,
+    {
+      scope: string;
+      status: "stored" | "failed";
+      syncedAt?: string;
+      error?: string;
+    }
+  >();
+
+  for (const scope of previous ?? []) {
+    merged.set(scope.scope, { ...scope });
+  }
+
+  const now = new Date().toISOString();
+  for (const scope of current ?? []) {
+    merged.set(scope.scope, {
+      scope: scope.scope,
+      status: scope.status === "stored" ? "stored" : "failed",
+      syncedAt:
+        scope.status === "stored" ? now : merged.get(scope.scope)?.syncedAt,
+      error: scope.status === "failed" ? scope.error : undefined,
+    });
+  }
+
+  return Array.from(merged.values()).sort((left, right) =>
+    left.scope.localeCompare(right.scope),
+  );
+}
+
+function deriveSyncedDataState(
+  scopes: StoredSourceState["ingestScopes"],
+  fallback: SourceStatus["dataState"] | null | undefined,
+): SourceStatus["dataState"] {
+  if (!scopes || scopes.length === 0) {
+    return fallback ?? "ingest_unavailable";
+  }
+
+  const storedCount = scopes.filter(
+    (scope) => scope.status === "stored",
+  ).length;
+  const failedCount = scopes.filter(
+    (scope) => scope.status === "failed",
+  ).length;
+
+  if (storedCount === 0 && failedCount > 0) {
+    return "ingest_failed";
+  }
+
+  return "ingested_personal_server";
+}
+
+function summarizeSyncError(
+  scopes: StoredSourceState["ingestScopes"],
+): string | null {
+  const failedScopes =
+    scopes?.filter((scope) => scope.status === "failed") ?? [];
+  if (failedScopes.length === 0) {
+    return null;
+  }
+
+  return failedScopes
+    .map((scope) => `${scope.scope}: ${scope.error ?? "sync failed"}`)
+    .join("; ");
+}
+
+async function syncPendingSources(
+  target: PersonalServerTarget,
+  mode: SyncRetryMode,
+): Promise<SyncPendingResult> {
+  const state = await readCliState();
+  const pendingSources = Object.entries(state.sources).filter(([, stored]) =>
+    shouldRetryPendingSource(stored, mode),
+  );
+
+  if (pendingSources.length === 0) {
+    return { syncedCount: 0, sourceResults: [] };
+  }
+
+  let syncedCount = 0;
+  const sourceResults: SyncPendingResult["sourceResults"] = [];
+
+  for (const [source, stored] of pendingSources) {
+    if (!stored?.lastResultPath) {
+      continue;
+    }
+
+    const ingestOptions = buildRetryOptions(stored, mode);
+    const ingestEvents = await ingestResult(
+      source,
+      stored.lastResultPath,
+      target,
+      ingestOptions,
+    );
+
+    const resultEvent = ingestEvents.find(
+      (event) =>
+        event.type === "ingest-complete" ||
+        event.type === "ingest-partial" ||
+        event.type === "ingest-failed",
+    );
+    const mergedScopes = mergeIngestScopes(
+      stored.ingestScopes,
+      resultEvent?.scopeResults,
+    );
+    const ingestCompleted = ingestEvents.some(
+      (event) => event.type === "ingest-complete",
+    );
+    const ingestPartial = ingestEvents.some(
+      (event) => event.type === "ingest-partial",
+    );
+
+    if (ingestCompleted || ingestPartial) {
+      syncedCount++;
+      await updateSourceState(source, {
+        dataState: deriveSyncedDataState(
+          mergedScopes,
+          stored.dataState as SourceStatus["dataState"] | null | undefined,
+        ),
+        ingestScopes: mergedScopes,
+        lastError: summarizeSyncError(mergedScopes),
+      });
+    }
+
+    sourceResults.push({ source, scopeResults: resultEvent?.scopeResults });
+  }
+
+  return { syncedCount, sourceResults };
+}
+
 async function runCollectAll(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const state = await readCliState();
@@ -2611,17 +2904,6 @@ async function runCollectAll(options: GlobalOptions): Promise<number> {
     )
     .map(([id]) => id);
 
-  if (dueSources.length === 0) {
-    if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({ message: "No sources are due for collection.", count: 0 })}\n`,
-      );
-    } else {
-      emit.info("No sources are due for collection.");
-    }
-    return 0;
-  }
-
   let exitCode = 0;
   for (const source of dueSources) {
     const result = await runConnect(source, options);
@@ -2629,6 +2911,36 @@ async function runCollectAll(options: GlobalOptions): Promise<number> {
       exitCode = result;
     }
   }
+
+  let syncedPendingCount = 0;
+  const target = await detectPersonalServerTarget();
+  if (target.state === "available") {
+    syncedPendingCount = (await syncPendingSources(target, "automatic"))
+      .syncedCount;
+  }
+
+  if (dueSources.length === 0) {
+    if (syncedPendingCount > 0) {
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ message: `Synced ${syncedPendingCount} pending dataset(s).`, count: 0, syncedPendingCount })}\n`,
+        );
+      } else {
+        emit.info(`Synced ${syncedPendingCount} pending dataset(s).`);
+      }
+      return 0;
+    }
+
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ message: "No sources are due for collection.", count: 0, syncedPendingCount: 0 })}\n`,
+      );
+    } else {
+      emit.info("No sources are due for collection.");
+    }
+    return 0;
+  }
+
   return exitCode;
 }
 
@@ -2653,17 +2965,9 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
     return 1;
   }
 
-  const state = await readCliState();
-  // Find sources that are local-only OR have failed ingest scopes
-  const pendingSources = Object.entries(state.sources).filter(
-    ([, stored]) =>
-      stored?.lastResultPath &&
-      (stored.dataState === "collected_local" ||
-        stored.dataState === "ingest_failed" ||
-        stored?.ingestScopes?.some((s) => s.status === "failed")),
-  );
+  const syncResult = await syncPendingSources(target, "manual");
 
-  if (pendingSources.length === 0) {
+  if (syncResult.sourceResults.length === 0) {
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ message: "No pending datasets to sync.", syncedCount: 0 })}\n`,
@@ -2674,67 +2978,14 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
     return 0;
   }
 
-  let syncedCount = 0;
-  const allScopeResults: Array<{
-    source: string;
-    scopeResults?: Array<{ scope: string; status: string; error?: string }>;
-  }> = [];
-
-  for (const [source, stored] of pendingSources) {
-    if (!stored?.lastResultPath) {
-      continue;
-    }
-    const ingestEvents = await ingestResult(
-      source,
-      stored.lastResultPath,
-      target,
-    );
-
-    const resultEvent = ingestEvents.find(
-      (e) =>
-        e.type === "ingest-complete" ||
-        e.type === "ingest-partial" ||
-        e.type === "ingest-failed",
-    );
-    const scopeResults = resultEvent?.scopeResults;
-
-    const ingestCompleted = ingestEvents.some(
-      (e) => e.type === "ingest-complete",
-    );
-    const ingestPartial = ingestEvents.some((e) => e.type === "ingest-partial");
-
-    if (ingestCompleted || ingestPartial) {
-      syncedCount++;
-      const dataState =
-        ingestCompleted || ingestPartial
-          ? "ingested_personal_server"
-          : stored.dataState;
-      await updateSourceState(source, {
-        dataState,
-        ingestScopes: scopeResults?.map((r) => ({
-          scope: r.scope,
-          status: r.status,
-          syncedAt:
-            r.status === "stored" ? new Date().toISOString() : undefined,
-          error: r.error,
-        })),
-      });
-    }
-
-    allScopeResults.push({ source, scopeResults });
-    for (const event of ingestEvents) {
-      emit.event(event);
-    }
-  }
-
   if (options.json) {
     process.stdout.write(
-      `${JSON.stringify({ message: `Synced ${syncedCount} dataset(s).`, syncedCount })}\n`,
+      `${JSON.stringify({ message: `Synced ${syncResult.syncedCount} dataset(s).`, syncedCount: syncResult.syncedCount })}\n`,
     );
   } else {
     // Show per-scope results with scope manifest style
     const renderer = createHumanRenderer();
-    for (const entry of allScopeResults) {
+    for (const entry of syncResult.sourceResults) {
       if (entry.scopeResults && entry.scopeResults.length > 0) {
         emit.info(`${entry.source}:`);
         for (const sr of entry.scopeResults) {
@@ -2750,12 +3001,12 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       }
     }
     emit.blank();
-    const allStored = allScopeResults.every(
+    const allStored = syncResult.sourceResults.every(
       (entry) =>
         !entry.scopeResults ||
         entry.scopeResults.every((sr) => sr.status === "stored"),
     );
-    emit.success(`Synced ${syncedCount} dataset(s).`);
+    emit.success(`Synced ${syncResult.syncedCount} dataset(s).`);
     emit.blank();
     if (allStored) {
       emit.next("vana data list");
@@ -2787,13 +3038,21 @@ async function runServerData(
 
   // If PS is available, try to list remote scopes via client
   let remoteScopes: Array<{ scope: string; count: number }> = [];
+  let didQueryRemoteScopes = false;
   let remoteScopeFallbackReason: string | undefined;
   if (target.state === "available" && target.url) {
+    const auth = resolvePersonalServerAuthConfig(target.url);
     try {
-      const { createPersonalServerClient: createClient } =
-        await import("../personal-server/client.js");
-      const client = createClient({ url: target.url });
-      remoteScopes = await client.listScopes(scope);
+      if (auth?.type === "bearerToken") {
+        const { createPersonalServerClient: createClient } =
+          await import("../personal-server/client.js");
+        const client = createClient({
+          url: target.url,
+          auth,
+        });
+        didQueryRemoteScopes = true;
+        remoteScopes = await client.listScopes(scope);
+      }
     } catch (err) {
       remoteScopeFallbackReason =
         err instanceof Error ? err.message : "unknown error";
@@ -2801,23 +3060,22 @@ async function runServerData(
   }
 
   // Use remote scopes if available, otherwise fall back to local
-  const scopeList =
-    remoteScopes.length > 0
-      ? remoteScopes.map((s) => ({
-          scope: s.scope,
-          detail: `${s.count} version${s.count !== 1 ? "s" : ""}`,
-        }))
-      : localScopes
-          .filter((s) => s.status === "stored")
-          .filter((s) => !scope || s.scope.startsWith(scope))
-          .map((s) => ({ scope: s.scope, detail: "1 version" }));
+  const scopeList = didQueryRemoteScopes
+    ? remoteScopes.map((s) => ({
+        scope: s.scope,
+        detail: `${s.count} version${s.count !== 1 ? "s" : ""}`,
+      }))
+    : localScopes
+        .filter((s) => s.status === "stored")
+        .filter((s) => !scope || s.scope.startsWith(scope))
+        .map((s) => ({ scope: s.scope, detail: "1 version" }));
 
   if (options.json) {
     process.stdout.write(
       `${JSON.stringify({
         count: scopeList.length,
         scopes: scopeList,
-        source: remoteScopes.length > 0 ? "remote" : "local",
+        source: didQueryRemoteScopes ? "remote" : "local",
         ...(remoteScopeFallbackReason ? { remoteScopeFallbackReason } : {}),
       })}\n`,
     );
@@ -2825,7 +3083,11 @@ async function runServerData(
   }
 
   if (scopeList.length === 0) {
-    emit.info("No scopes found.");
+    emit.info(
+      didQueryRemoteScopes
+        ? "No data on your Personal Server."
+        : "No scopes found.",
+    );
     if (target.state !== "available") {
       emit.detail(
         "Personal Server is not available. Showing locally-known scopes only.",
@@ -2838,7 +3100,7 @@ async function runServerData(
     emit.keyValue(entry.scope, entry.detail, "muted");
   }
 
-  if (remoteScopes.length === 0 && localScopes.length > 0) {
+  if (!didQueryRemoteScopes && localScopes.length > 0) {
     emit.blank();
     emit.detail(
       "Showing locally-known scopes. Connect your Personal Server for live data.",
@@ -3075,6 +3337,79 @@ export function humanizeIssue(message: string): string {
   if (/checksum|mismatch/i.test(message)) {
     return "Connector is out of date. Will auto-update on next connect.";
   }
+  const transportSummary = summarizeTransportError(message);
+  if (transportSummary) {
+    return transportSummary;
+  }
+  return message;
+}
+
+function summarizeTransportError(message: string): string | null {
+  const httpMatch = message.match(/^HTTP\s+\d+:\s*(.+)$/s);
+  if (!httpMatch) {
+    return null;
+  }
+
+  const payload = httpMatch[1].trim();
+  const parsed = parseTransportErrorPayload(payload);
+  if (parsed) {
+    return parsed.message;
+  }
+
+  const messageMatch = payload.match(/"message"\s*:\s*"([^"]+)"/);
+  if (messageMatch) {
+    return messageMatch[1];
+  }
+
+  return "Request failed";
+}
+
+function parseTransportErrorPayload(
+  payload: string,
+): { code?: string; message: string } | null {
+  try {
+    const parsed = JSON.parse(payload) as Record<string, unknown>;
+    const rawError =
+      typeof parsed.error === "string"
+        ? parsed.error
+        : parsed.error && typeof parsed.error === "object"
+          ? ((parsed.error as Record<string, unknown>).errorCode ??
+            (parsed.error as Record<string, unknown>).code)
+          : undefined;
+    const rawMessage =
+      typeof parsed.message === "string"
+        ? parsed.message
+        : parsed.error && typeof parsed.error === "object"
+          ? (parsed.error as Record<string, unknown>).message
+          : undefined;
+
+    const code =
+      typeof rawError === "string" || typeof rawError === "number"
+        ? String(rawError)
+        : undefined;
+    const message =
+      typeof rawMessage === "string" ? rawMessage : "Request failed";
+
+    return { code, message: summarizeTransportCode(code, message) };
+  } catch {
+    return null;
+  }
+}
+
+function summarizeTransportCode(
+  code: string | undefined,
+  message: string,
+): string {
+  if (code === "MISSING_AUTH" || /missing authentication/i.test(message)) {
+    return "Authentication required";
+  }
+  if (code === "NO_SCHEMA" || /no schema registered/i.test(message)) {
+    return "No schema registered";
+  }
+  if (code === "INVALID_SCOPE" || /scope must be/i.test(message)) {
+    return "Unsupported scope";
+  }
+
   return message;
 }
 
@@ -3131,11 +3466,13 @@ export async function gatherSourceStatuses(
       const dataState: SourceStatus["dataState"] =
         stored.dataState === "ingested_personal_server"
           ? "ingested_personal_server"
-          : stored.dataState === "ingest_failed"
-            ? "ingest_failed"
-            : stored.dataState === "collected_local"
-              ? "collected_local"
-              : "none";
+          : stored.dataState === "ingest_unavailable"
+            ? "ingest_unavailable"
+            : stored.dataState === "ingest_failed"
+              ? "ingest_failed"
+              : stored.dataState === "collected_local"
+                ? "collected_local"
+                : "none";
       const ingestScopes = stored.ingestScopes;
       const syncedScopeCount =
         ingestScopes?.filter((s) => s.status === "stored").length ?? 0;
@@ -3333,6 +3670,13 @@ function formatSourceStatusDetails(source: SourceStatus): SourceStatusDetail[] {
       value: "Synced to Personal Server",
       tone: "success",
     });
+  } else if (source.dataState === "ingest_unavailable") {
+    details.push({
+      kind: "row",
+      label: "State",
+      value: "Pending sync to Personal Server",
+      tone: "warning",
+    });
   } else if (source.dataState === "ingest_failed") {
     details.push({
       kind: "row",
@@ -3400,16 +3744,19 @@ export function buildStatusNextSteps(
   availableSources: Array<{ id: string; name: string; authMode?: string }> = [],
 ): string[] {
   const nextSteps: string[] = [];
-  const highestPriority = [...sources].sort(compareSourceStatusOrder)[0];
+  const attentionSources = [...sources]
+    .filter(isSourceAttention)
+    .sort(compareAttentionPriority);
+  const highestPriority =
+    attentionSources[0] ?? [...sources].sort(compareSourceStatusOrder)[0];
   const connectedSources = sources.filter(
     (source) =>
       source.dataState === "collected_local" ||
       source.dataState === "ingested_personal_server" ||
-      source.dataState === "ingest_failed",
+      source.dataState === "ingest_failed" ||
+      source.dataState === "ingest_unavailable",
   );
-  const needsAttention = sources.some(
-    (source) => rankSourceStatus(source) <= 4,
-  );
+  const needsAttention = attentionSources.length > 0;
   const highestPriorityLabel = highestPriority
     ? displaySource(highestPriority.source, sourceLabels)
     : null;
@@ -3432,9 +3779,32 @@ export function buildStatusNextSteps(
     } else if (runtime === "unhealthy") {
       nextSteps.push("Inspect install health with `vana doctor`.");
     }
-  } else if (highestPriority.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+  } else if (highestPriority.dataState === "ingest_failed") {
     nextSteps.push(
-      `Continue ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
+      `Reconnect ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
+    );
+  } else if (highestPriority.dataState === "ingest_unavailable") {
+    nextSteps.push(
+      "Retry pending Personal Server sync with `vana server sync`.",
+    );
+  } else if (
+    highestPriority.connectionHealth === "needs_reauth" ||
+    highestPriority.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT
+  ) {
+    nextSteps.push(
+      `Reconnect ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
+    );
+    if (highestPriority.lastLogPath) {
+      nextSteps.push(
+        `Inspect the latest run log with \`vana logs ${highestPriority.source}\`.`,
+      );
+    }
+  } else if (
+    highestPriority.connectionHealth === "error" ||
+    highestPriority.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR
+  ) {
+    nextSteps.push(
+      `Retry ${highestPriorityLabel} with \`vana connect ${highestPriority.source}\`.`,
     );
     if (highestPriority.lastLogPath) {
       nextSteps.push(
@@ -3461,8 +3831,7 @@ export function buildStatusNextSteps(
     }
   } else if (
     highestPriority.dataState === "collected_local" ||
-    highestPriority.dataState === "ingested_personal_server" ||
-    highestPriority.dataState === "ingest_failed"
+    highestPriority.dataState === "ingested_personal_server"
   ) {
     if (connectedSources.length > 1) {
       nextSteps.push("Review your collected data with `vana data list`.");
@@ -3917,6 +4286,10 @@ export function getSourceStatusPresentation(source: SourceStatus): {
     return { label: "synced", tone: "success" };
   }
 
+  if (source.dataState === "ingest_unavailable") {
+    return { label: "pending sync", tone: "warning" };
+  }
+
   if (source.dataState === "collected_local") {
     return { label: "local", tone: "muted" };
   }
@@ -4040,6 +4413,60 @@ export function compareSourceStatusOrder(
       },
     )
   );
+}
+
+export function isSourceAttention(source: SourceStatus): boolean {
+  if (
+    source.dataState === "ingest_failed" ||
+    source.dataState === "ingest_unavailable"
+  ) {
+    return true;
+  }
+
+  if (
+    source.connectionHealth === "needs_reauth" ||
+    source.connectionHealth === "error" ||
+    source.connectionHealth === "stale"
+  ) {
+    return true;
+  }
+
+  return rankSourceStatus(source) <= 4;
+}
+
+function compareAttentionPriority(
+  left: SourceStatus,
+  right: SourceStatus,
+): number {
+  const rank = (source: SourceStatus): number => {
+    if (source.dataState === "ingest_failed") {
+      return 0;
+    }
+    if (source.dataState === "ingest_unavailable") {
+      return 1;
+    }
+    if (source.connectionHealth === "needs_reauth") {
+      return 2;
+    }
+    if (source.connectionHealth === "error") {
+      return 3;
+    }
+    if (source.lastRunOutcome === CliOutcomeStatus.RUNTIME_ERROR) {
+      return 4;
+    }
+    if (source.lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT) {
+      return 5;
+    }
+    if (source.lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH) {
+      return 6;
+    }
+    if (source.lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE) {
+      return 7;
+    }
+    return 8;
+  };
+
+  return rank(left) - rank(right) || compareSourceStatusOrder(left, right);
 }
 
 export function rankSourceStatus(source: SourceStatus): number {
@@ -4243,6 +4670,7 @@ export function hasCollectedData(
 ): boolean {
   return (
     dataState === "collected_local" ||
+    dataState === "ingest_unavailable" ||
     dataState === "ingested_personal_server" ||
     dataState === "ingest_failed"
   );
@@ -4266,6 +4694,9 @@ function formatLogOutcomeLabel(
   }
   if (dataState === "ingested_personal_server") {
     return "synced";
+  }
+  if (dataState === "ingest_unavailable") {
+    return "pending sync";
   }
   if (dataState === "ingest_failed") {
     return "sync failed";
@@ -4299,7 +4730,8 @@ function toneForLogOutcome(
     lastRunOutcome === CliOutcomeStatus.CONNECTOR_UNAVAILABLE ||
     lastRunOutcome === CliOutcomeStatus.LEGACY_AUTH ||
     lastRunOutcome === CliOutcomeStatus.NEEDS_INPUT ||
-    dataState === "ingest_failed"
+    dataState === "ingest_failed" ||
+    dataState === "ingest_unavailable"
   ) {
     return "warning";
   }
@@ -4310,21 +4742,6 @@ function toneForLogOutcome(
     return "muted";
   }
   return "muted";
-}
-
-function toneForHealth(health: string): RenderTone {
-  switch (health) {
-    case "healthy":
-      return "accent";
-    case "needs_reauth":
-      return "warning";
-    case "error":
-      return "error";
-    case "stale":
-      return "muted";
-    default:
-      return "muted";
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -5191,4 +5608,235 @@ async function runSkillShow(
     }
     return 1;
   }
+}
+
+// ── Login / Logout ─────────────────────────────────────────────────────
+
+async function runLogin(
+  options: GlobalOptions,
+  serverUrl?: string,
+): Promise<number> {
+  // Determine auth target: cloud (account.vana.org) or self-hosted (PS directly)
+  const psUrl = serverUrl ?? resolvePersonalServerUrl() ?? null;
+  const authTarget = getAuthTarget(psUrl);
+
+  // If self-hosted, use /auth/device flow against the PS
+  if (authTarget === "self-hosted" && psUrl) {
+    const renderer =
+      !options.json && !options.quiet ? createLoginRenderer() : null;
+    renderer?.title(psUrl);
+
+    try {
+      const result = await runSelfHostedLoginFlow(psUrl, (url: string) => {
+        renderer?.note("Open this URL in your browser:");
+        renderer?.note(url);
+        renderer?.scopeActive("Waiting for authorization");
+        // Try to open browser — use spawn with args array to prevent shell injection
+        // (a malicious self-hosted PS could return a URL with shell metacharacters)
+        try {
+          const { spawn } = require("node:child_process");
+          const opener =
+            process.platform === "darwin"
+              ? "open"
+              : process.platform === "win32"
+                ? "start"
+                : "xdg-open";
+          spawn(opener, [url], { detached: true, stdio: "ignore" }).unref();
+        } catch {
+          // Browser open failed — user will open manually
+        }
+      });
+
+      await saveCredentials({
+        account: {
+          address: result.address,
+          session_token: "",
+          expires_at: result.expires_at,
+        },
+        personal_server: {
+          url: psUrl,
+          session_token: result.session_token,
+          expires_at: result.expires_at,
+        },
+      });
+      await updateCliConfig({ personalServerUrl: psUrl });
+
+      renderer?.success(`Logged in to ${psUrl}`);
+      renderer?.detail("Credentials saved to ~/.vana/auth.json");
+      return 0;
+    } catch (err) {
+      renderer?.fail("Login failed");
+      renderer?.detail(err instanceof Error ? err.message : String(err));
+      renderer?.next(`vana login --server ${psUrl}`);
+      return 1;
+    } finally {
+      renderer?.cleanup();
+    }
+  }
+
+  // Cloud flow (account.vana.org)
+  // Check env var shortcut
+  const envToken = process.env.VANA_SESSION_TOKEN;
+  if (envToken) {
+    const creds = loadCredentials();
+    if (creds) {
+      if (options.json) {
+        process.stdout.write(
+          `${JSON.stringify({ status: "authenticated", source: "env", address: creds.account.address })}\n`,
+        );
+      } else {
+        const emit = createEmitter(options);
+        emit.success(`Already authenticated via VANA_SESSION_TOKEN env var`);
+      }
+      return 0;
+    }
+  }
+
+  // Check if already logged in
+  const existing = loadCredentials();
+  if (existing && !isExpired(existing)) {
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "authenticated",
+          address: existing.account.address,
+          personal_server: existing.personal_server?.url ?? null,
+          expires_at: existing.account.expires_at,
+        })}\n`,
+      );
+    } else {
+      const emit = createEmitter(options);
+      emit.success(
+        `Already logged in as ${formatAddress(existing.account.address)}`,
+      );
+      if (existing.personal_server) {
+        emit.keyValue(
+          "Personal Server",
+          existing.personal_server.url,
+          "success",
+        );
+      }
+      emit.info(
+        `  Auth expires in ${formatExpiresIn(existing.account.expires_at)}`,
+      );
+      emit.blank();
+      emit.info("  Run `vana logout` first to re-authenticate.");
+    }
+    return 0;
+  }
+
+  if (options.json) {
+    // JSON mode: run flow and output result
+    const creds = await runDeviceCodeFlow({
+      onCode: (code, uri) => {
+        process.stderr.write(
+          JSON.stringify({ event: "device_code", code, uri }) + "\n",
+        );
+      },
+      onWaiting: () => {},
+      onAuthorized: () => {},
+      onExpired: () => {
+        process.stdout.write(
+          JSON.stringify({ status: "expired", error: "Device code expired" }) +
+            "\n",
+        );
+      },
+      onError: (err) => {
+        process.stdout.write(
+          JSON.stringify({ status: "error", error: err.message }) + "\n",
+        );
+      },
+    });
+
+    if (creds) {
+      await saveCredentials(creds);
+      if (creds.personal_server?.url) {
+        await updateCliConfig({ personalServerUrl: creds.personal_server.url });
+      }
+      process.stdout.write(
+        `${JSON.stringify({
+          status: "authenticated",
+          address: creds.account.address,
+          personal_server: creds.personal_server?.url ?? null,
+          expires_at: creds.account.expires_at,
+        })}\n`,
+      );
+      return 0;
+    }
+    return 1;
+  }
+
+  // Interactive mode
+  const renderer = createLoginRenderer();
+  renderer.title("Vana");
+
+  const creds = await runDeviceCodeFlow({
+    onCode: (code, uri) => {
+      renderer.note("Open this URL in your browser:");
+      renderer.note(uri);
+      renderer.note(`Enter this code: ${code}`);
+    },
+    onWaiting: () => {
+      renderer.scopeActive("Waiting for authorization");
+    },
+    onAuthorized: async (authedCreds) => {
+      await saveCredentials(authedCreds);
+      if (authedCreds.personal_server?.url) {
+        await updateCliConfig({
+          personalServerUrl: authedCreds.personal_server.url,
+        });
+      }
+      renderer.success(
+        `Logged in as ${formatAddress(authedCreds.account.address)}`,
+      );
+      if (authedCreds.personal_server) {
+        renderer.detail(`Personal Server: ${authedCreds.personal_server.url}`);
+      }
+      renderer.detail("Credentials saved to ~/.vana/auth.json");
+    },
+    onExpired: () => {
+      renderer.fail("Authorization expired");
+      renderer.next("vana login");
+    },
+    onError: (err) => {
+      renderer.fail("Login failed");
+      renderer.detail(err.message);
+      renderer.next("vana login");
+    },
+  });
+
+  renderer.cleanup();
+
+  return creds ? 0 : 1;
+}
+
+async function runLogout(options: GlobalOptions): Promise<number> {
+  // Revoke the token server-side before clearing local credentials
+  const creds = loadCredentials();
+  if (creds?.personal_server?.url && creds.personal_server.session_token) {
+    try {
+      await fetch(
+        `${creds.personal_server.url.replace(/\/$/, "")}/auth/device/token`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${creds.personal_server.session_token}`,
+          },
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+    } catch {
+      // Best-effort — server may be down, but we still clear local creds
+    }
+  }
+
+  await clearCredentials();
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ status: "logged_out" })}\n`);
+  } else {
+    const emit = createEmitter(options);
+    emit.success("Logged out. Credentials removed.");
+  }
+  return 0;
 }

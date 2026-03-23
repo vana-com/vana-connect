@@ -5,6 +5,7 @@ export type ProvisionParams = {
   userId: string;
   masterKeySignature: string;
   ownerAddress: string;
+  psAccessToken?: string;
 };
 
 export type ProvisionResult = {

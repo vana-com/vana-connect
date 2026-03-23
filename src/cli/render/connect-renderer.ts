@@ -1,8 +1,5 @@
 import { detectRenderCapabilities } from "./capabilities.js";
-
-// Vana accent blue
-const ACCENT = [65, 65, 252] as const;
-const ERROR = [231, 0, 11] as const;
+import { createFlowTheme } from "./flow-theme.js";
 
 interface ScopeLine {
   name: string;
@@ -12,6 +9,7 @@ interface ScopeLine {
 
 export interface ConnectRenderer {
   title(source: string): void;
+  note(message: string): void;
   scopeActive(scope: string): void;
   scopeDone(scope: string, detail?: string): void;
   scopeFailed(scope: string, error: string): void;
@@ -27,28 +25,16 @@ export interface ConnectRenderer {
   resumeAfterPrompt(): void;
 }
 
-export function createConnectRenderer(): ConnectRenderer {
+export function createFlowRenderer(options?: {
+  formatTitle?: (label: string) => string;
+}): ConnectRenderer {
   const capabilities = detectRenderCapabilities();
   const canAnimate = capabilities.interactive;
-  const useColor = capabilities.color;
-
-  // Smooth double-beat with dark pause between cycles
-  // dark -> · -> ✧ -> ✦ (first beat) -> ✧ -> · -> ✧ -> ✦ (second beat, holds) -> ✧ -> · -> dark
-  const SPINNER_FRAMES = [
-    { char: " ", duration: 180, dim: true },
-    { char: "\u00B7", duration: 150, dim: true },
-    { char: "\u2727", duration: 120, dim: false },
-    { char: "\u2726", duration: 200, dim: false },
-    { char: "\u2727", duration: 100, dim: false },
-    { char: "\u00B7", duration: 80, dim: true },
-    { char: "\u2727", duration: 120, dim: false },
-    { char: "\u2726", duration: 500, dim: false },
-    { char: "\u2727", duration: 120, dim: false },
-    { char: "\u00B7", duration: 150, dim: true },
-    { char: " ", duration: 120, dim: true },
-  ];
+  const theme = createFlowTheme(capabilities);
+  const formatTitle = options?.formatTitle ?? ((label: string) => label);
 
   let titleText = "";
+  const noteLines: string[] = [];
   const scopes: ScopeLine[] = [];
   let successMessage = "";
   const detailLines: string[] = [];
@@ -59,36 +45,27 @@ export function createConnectRenderer(): ConnectRenderer {
   let isComplete = false;
   let isFailure = false;
 
-  function rgb(r: number, g: number, b: number, text: string): string {
-    if (!useColor) return text;
-    return `\x1b[38;2;${r};${g};${b}m${text}\x1b[39m`;
-  }
-
-  function dim(text: string): string {
-    return useColor ? `\x1b[2m${text}\x1b[22m` : text;
-  }
-
-  function bold(text: string): string {
-    return useColor ? `\x1b[1m${text}\x1b[22m` : text;
-  }
-
   function renderSpinnerChar(): string {
-    const frame = SPINNER_FRAMES[spinnerFrameIndex];
+    const frame = theme.spinnerFrames[spinnerFrameIndex];
     const char = frame.dim
-      ? dim(rgb(...ACCENT, frame.char))
-      : rgb(...ACCENT, frame.char);
+      ? theme.dim(theme.active(frame.char))
+      : theme.active(frame.char);
     return char;
   }
 
   function renderLine(scope: ScopeLine): string {
     if (scope.state === "done") {
-      const check = rgb(...ACCENT, "\u2713");
-      const detail = scope.detail ? ` ${dim(`\u2014 ${scope.detail}`)}` : "";
+      const check = theme.complete("\u2713");
+      const detail = scope.detail
+        ? ` ${theme.dim(`\u2014 ${scope.detail}`)}`
+        : "";
       return `  ${check} ${scope.name}${detail}`;
     }
     if (scope.state === "failed") {
-      const x = rgb(...ERROR, "\u2717");
-      const detail = scope.detail ? ` ${dim(`\u2014 ${scope.detail}`)}` : "";
+      const x = theme.error("\u2717");
+      const detail = scope.detail
+        ? ` ${theme.dim(`\u2014 ${scope.detail}`)}`
+        : "";
       return `  ${x} ${scope.name}${detail}`;
     }
     // active
@@ -100,8 +77,15 @@ export function createConnectRenderer(): ConnectRenderer {
     const lines: string[] = [];
 
     // Title
-    lines.push(`  ${bold(titleText)}`);
+    lines.push(`  ${theme.heading(titleText)}`);
     lines.push("");
+
+    if (!isComplete && noteLines.length > 0) {
+      for (const line of noteLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    }
 
     // Scope lines
     for (const scope of scopes) {
@@ -112,11 +96,11 @@ export function createConnectRenderer(): ConnectRenderer {
     if (isComplete && successMessage) {
       lines.push("");
       const prefix = isFailure
-        ? rgb(...ERROR, "\u2717")
-        : rgb(...ACCENT, "\u2713");
-      lines.push(`  ${prefix} ${bold(successMessage)}`);
+        ? theme.error("\u2717")
+        : theme.success("\u2713");
+      lines.push(`  ${prefix} ${theme.heading(successMessage)}`);
       for (const line of detailLines) {
-        lines.push(`  ${dim(line)}`);
+        lines.push(`  ${theme.dim(line)}`);
       }
     }
 
@@ -144,10 +128,11 @@ export function createConnectRenderer(): ConnectRenderer {
     if (!canAnimate || spinnerInterval) return;
     spinnerInterval = setInterval(() => {
       spinnerElapsed += 30;
-      const frame = SPINNER_FRAMES[spinnerFrameIndex];
+      const frame = theme.spinnerFrames[spinnerFrameIndex];
       if (spinnerElapsed >= frame.duration) {
         spinnerElapsed = 0;
-        spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
+        spinnerFrameIndex =
+          (spinnerFrameIndex + 1) % theme.spinnerFrames.length;
       }
       paint();
     }, 30);
@@ -162,10 +147,18 @@ export function createConnectRenderer(): ConnectRenderer {
 
   return {
     title(source: string): void {
-      titleText = `Connect ${source}`;
+      titleText = formatTitle(source);
       if (!canAnimate) {
-        process.stderr.write(`  ${bold(titleText)}\n\n`);
+        process.stderr.write(`  ${theme.heading(titleText)}\n\n`);
       }
+    },
+
+    note(message: string): void {
+      noteLines.push(message);
+      if (!canAnimate) {
+        process.stderr.write(`  ${message}\n`);
+      }
+      paint();
     },
 
     scopeActive(scope: string): void {
@@ -180,8 +173,10 @@ export function createConnectRenderer(): ConnectRenderer {
         if (s.state === "active") {
           s.state = "done";
           if (!canAnimate) {
-            const check = rgb(...ACCENT, "\u2713");
-            const detailStr = s.detail ? ` ${dim(`\u2014 ${s.detail}`)}` : "";
+            const check = theme.complete("\u2713");
+            const detailStr = s.detail
+              ? ` ${theme.dim(`\u2014 ${s.detail}`)}`
+              : "";
             process.stderr.write(`  ${check} ${s.name}${detailStr}\n`);
           }
         }
@@ -211,8 +206,8 @@ export function createConnectRenderer(): ConnectRenderer {
       spinnerElapsed = 0;
 
       if (!canAnimate) {
-        const check = rgb(...ACCENT, "\u2713");
-        const detailStr = detail ? ` ${dim(`\u2014 ${detail}`)}` : "";
+        const check = theme.complete("\u2713");
+        const detailStr = detail ? ` ${theme.dim(`\u2014 ${detail}`)}` : "";
         process.stderr.write(`  ${check} ${scope}${detailStr}\n`);
       }
       paint();
@@ -229,8 +224,8 @@ export function createConnectRenderer(): ConnectRenderer {
         scopes.push({ name: scope, state: "failed", detail: error });
       }
       if (!canAnimate) {
-        const x = rgb(...ERROR, "\u2717");
-        const detailStr = error ? ` ${dim(`\u2014 ${error}`)}` : "";
+        const x = theme.error("\u2717");
+        const detailStr = error ? ` ${theme.dim(`\u2014 ${error}`)}` : "";
         process.stderr.write(`  ${x} ${scope}${detailStr}\n`);
       }
       paint();
@@ -247,8 +242,8 @@ export function createConnectRenderer(): ConnectRenderer {
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
-        const check = rgb(...ACCENT, "\u2713");
-        process.stderr.write(`\n  ${check} ${bold(message)}\n`);
+        const check = theme.success("\u2713");
+        process.stderr.write(`\n  ${check} ${theme.heading(message)}\n`);
       }
       paint();
     },
@@ -256,7 +251,7 @@ export function createConnectRenderer(): ConnectRenderer {
     detail(message: string): void {
       detailLines.push(message);
       if (!canAnimate) {
-        process.stderr.write(`  ${dim(message)}\n`);
+        process.stderr.write(`  ${theme.dim(message)}\n`);
       }
       paint();
     },
@@ -264,7 +259,9 @@ export function createConnectRenderer(): ConnectRenderer {
     next(command: string): void {
       detailLines.push(`Next: ${command}`);
       if (!canAnimate) {
-        process.stderr.write(`  ${dim("Next:")} ${bold(command)}\n`);
+        process.stderr.write(
+          `  ${theme.dim("Next:")} ${theme.heading(command)}\n`,
+        );
       }
       paint();
     },
@@ -281,7 +278,7 @@ export function createConnectRenderer(): ConnectRenderer {
       isComplete = true;
       successMessage = message;
       if (!canAnimate) {
-        const x = rgb(...ERROR, "\u2717");
+        const x = theme.error("\u2717");
         process.stderr.write(`\n  ${x} ${message}\n`);
       }
       paint();
@@ -308,4 +305,16 @@ export function createConnectRenderer(): ConnectRenderer {
       startSpinner();
     },
   };
+}
+
+export function createConnectRenderer(): ConnectRenderer {
+  return createFlowRenderer({
+    formatTitle: (source) => `Connect ${source}`,
+  });
+}
+
+export function createLoginRenderer(): ConnectRenderer {
+  return createFlowRenderer({
+    formatTitle: (target) => `Log in to ${target}`,
+  });
 }

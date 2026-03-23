@@ -63,7 +63,7 @@ describe("createPersonalServerClient", () => {
 
       const client = createPersonalServerClient({
         url: SERVER_URL,
-        auth: { type: "devToken", token: "test-token" },
+        auth: { type: "bearerToken", token: "test-token" },
       });
       const result = await client.ingestScope("github.profile", {
         login: "alice",
@@ -111,7 +111,7 @@ describe("createPersonalServerClient", () => {
 
       const client = createPersonalServerClient({
         url: SERVER_URL,
-        auth: { type: "devToken", token: "test-token" },
+        auth: { type: "bearerToken", token: "test-token" },
       });
       const scopes = await client.listScopes("github");
 
@@ -123,6 +123,29 @@ describe("createPersonalServerClient", () => {
       const [url, opts] = mockFetch.mock.calls[0];
       expect(url).toBe(`${SERVER_URL}/v1/data?scopePrefix=github`);
       expect(opts.headers.Authorization).toBe("Bearer test-token");
+    });
+
+    it("normalizes versionCount responses from the personal server", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          scopes: [
+            { scope: "github.profile", versionCount: 3 },
+            { scope: "github.repos", versionCount: 12 },
+          ],
+        }),
+      });
+
+      const client = createPersonalServerClient({
+        url: SERVER_URL,
+        auth: { type: "bearerToken", token: "test-token" },
+      });
+      const scopes = await client.listScopes("github");
+
+      expect(scopes).toEqual([
+        { scope: "github.profile", count: 3 },
+        { scope: "github.repos", count: 12 },
+      ]);
     });
 
     it("returns empty array when no auth configured", async () => {
@@ -142,6 +165,23 @@ describe("createPersonalServerClient", () => {
 
       expect(scopes).toEqual([]);
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("throws when the remote personal server query fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => "Service Unavailable",
+      });
+
+      const client = createPersonalServerClient({
+        url: SERVER_URL,
+        auth: { type: "bearerToken", token: "test-token" },
+      });
+
+      await expect(client.listScopes()).rejects.toThrow(
+        "Scope listing failed: HTTP 503: Service Unavailable",
+      );
     });
   });
 });

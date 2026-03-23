@@ -5,6 +5,7 @@ export type PersonalServer = {
   user_id: string;
   provider: string;
   provider_id: string | null;
+  control_plane_token: string | null;
   vm_ip: string | null;
   url: string | null;
   state: string;
@@ -14,6 +15,10 @@ export type PersonalServer = {
   dns_record_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type PersonalServerRow = Omit<PersonalServer, "control_plane_token"> & {
+  access_token: string | null;
 };
 
 function getSQL() {
@@ -31,7 +36,7 @@ export async function findServerByUserId(
   const rows = await sql`
     SELECT * FROM personal_servers WHERE user_id = ${userId} LIMIT 1
   `;
-  return (rows[0] as PersonalServer) ?? null;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
 export async function findServerById(
@@ -41,7 +46,7 @@ export async function findServerById(
   const rows = await sql`
     SELECT * FROM personal_servers WHERE id = ${id} LIMIT 1
   `;
-  return (rows[0] as PersonalServer) ?? null;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
 export async function insertServerIfNotExists(
@@ -54,7 +59,7 @@ export async function insertServerIfNotExists(
     ON CONFLICT (user_id) DO NOTHING
     RETURNING *
   `;
-  return (rows[0] as PersonalServer) ?? null;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
 export async function findAllActiveServers(): Promise<PersonalServer[]> {
@@ -62,7 +67,7 @@ export async function findAllActiveServers(): Promise<PersonalServer[]> {
   const rows = await sql`
     SELECT * FROM personal_servers WHERE state IN ('provisioning', 'running')
   `;
-  return rows as PersonalServer[];
+  return rows.map((row) => mapPersonalServerRow(row as PersonalServerRow));
 }
 
 const UPDATABLE_COLUMNS = new Set([
@@ -111,10 +116,142 @@ export async function updateServer(
   const query = `UPDATE personal_servers SET ${setClauses}, updated_at = now() WHERE id = $${updates.length + 1} RETURNING *`;
 
   const rows = await sql.query(query, [...values, id]);
-  return (rows[0] as PersonalServer) ?? null;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
 export async function deleteServer(id: string): Promise<void> {
   const sql = getSQL();
   await sql`DELETE FROM personal_servers WHERE id = ${id}`;
+}
+
+// ---------------------------------------------------------------------------
+// Device code auth
+// ---------------------------------------------------------------------------
+
+export type DeviceCode = {
+  device_code: string;
+  user_code: string;
+  status: "pending" | "authorized" | "expired";
+  wallet_address: string | null;
+  session_token: string | null;
+  last_polled_at: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export type Session = {
+  token: string;
+  wallet_address: string;
+  personal_server_session_token: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+type SessionRow = Omit<Session, "personal_server_session_token"> & {
+  ps_access_token: string | null;
+};
+
+function mapPersonalServerRow(row: PersonalServerRow): PersonalServer {
+  return {
+    ...row,
+    control_plane_token: row.access_token,
+  };
+}
+
+function mapSessionRow(row: SessionRow): Session {
+  return {
+    ...row,
+    personal_server_session_token: row.ps_access_token,
+  };
+}
+
+export async function createDeviceCode(
+  deviceCode: string,
+  userCode: string,
+  expiresAt: Date,
+): Promise<DeviceCode> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO device_codes (device_code, user_code, expires_at)
+    VALUES (${deviceCode}, ${userCode}, ${expiresAt.toISOString()})
+    RETURNING *
+  `;
+  return rows[0] as DeviceCode;
+}
+
+export async function findDeviceCode(
+  deviceCode: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM device_codes WHERE device_code = ${deviceCode} LIMIT 1
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function findDeviceCodeByUserCode(
+  userCode: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM device_codes WHERE user_code = ${userCode} AND status = 'pending' LIMIT 1
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function updateDeviceCodeLastPolled(
+  deviceCode: string,
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE device_codes SET last_polled_at = now() WHERE device_code = ${deviceCode}
+  `;
+}
+
+export async function approveDeviceCode(
+  userCode: string,
+  walletAddress: string,
+  sessionToken: string,
+): Promise<DeviceCode | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE device_codes
+    SET status = 'authorized', wallet_address = ${walletAddress}, session_token = ${sessionToken}
+    WHERE user_code = ${userCode} AND status = 'pending'
+    RETURNING *
+  `;
+  return (rows[0] as DeviceCode) ?? null;
+}
+
+export async function createSession(
+  token: string,
+  walletAddress: string,
+  personalServerSessionToken: string | null,
+  expiresAt: Date,
+): Promise<Session> {
+  const sql = getSQL();
+  const rows = await sql`
+    INSERT INTO sessions (token, wallet_address, ps_access_token, expires_at)
+    VALUES (${token}, ${walletAddress}, ${personalServerSessionToken}, ${expiresAt.toISOString()})
+    RETURNING *
+  `;
+  return mapSessionRow(rows[0] as SessionRow);
+}
+
+export async function findSession(token: string): Promise<Session | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    SELECT * FROM sessions WHERE token = ${token} LIMIT 1
+  `;
+  return rows[0] ? mapSessionRow(rows[0] as SessionRow) : null;
+}
+
+export async function updateServerControlPlaneToken(
+  id: string,
+  controlPlaneToken: string,
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE personal_servers SET access_token = ${controlPlaneToken}, updated_at = now() WHERE id = ${id}
+  `;
 }

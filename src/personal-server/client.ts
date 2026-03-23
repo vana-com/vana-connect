@@ -12,6 +12,29 @@ export interface ScopeSummary {
   count: number;
 }
 
+function parseScopeSummary(raw: unknown): ScopeSummary | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+  const scope = typeof record.scope === "string" ? record.scope : null;
+  const count =
+    typeof record.count === "number"
+      ? record.count
+      : typeof record.versionCount === "number"
+        ? record.versionCount
+        : typeof record.version_count === "number"
+          ? record.version_count
+          : null;
+
+  if (!scope || count === null) {
+    return null;
+  }
+
+  return { scope, count };
+}
+
 export interface PersonalServerClient {
   health(): Promise<PersonalServerHealth>;
   ingestScope(scope: string, data: unknown): Promise<IngestScopeResult>;
@@ -28,12 +51,12 @@ export interface PersonalServerClient {
  */
 export function createPersonalServerClient(config: {
   url: string;
-  auth?: { type: "devToken"; token: string } | { type: "none" };
+  auth?: { type: "bearerToken"; token: string } | { type: "none" };
 }): PersonalServerClient {
   const baseUrl = config.url.replace(/\/+$/, "");
 
   function authHeaders(): Record<string, string> {
-    if (config.auth?.type === "devToken") {
+    if (config.auth?.type === "bearerToken") {
       return { Authorization: `Bearer ${config.auth.token}` };
     }
     return {};
@@ -107,26 +130,23 @@ export function createPersonalServerClient(config: {
         return [];
       }
 
-      try {
-        const params = prefix
-          ? `?scopePrefix=${encodeURIComponent(prefix)}`
-          : "";
-        const response = await fetch(`${baseUrl}/v1/data${params}`, {
-          method: "GET",
-          headers: authHeaders(),
-        });
+      const params = prefix ? `?scopePrefix=${encodeURIComponent(prefix)}` : "";
+      const response = await fetch(`${baseUrl}/v1/data${params}`, {
+        method: "GET",
+        headers: authHeaders(),
+      });
 
-        if (!response.ok) {
-          return [];
-        }
-
-        const body = (await response.json()) as {
-          scopes?: Array<{ scope: string; count: number }>;
-        };
-        return body.scopes ?? [];
-      } catch {
-        return [];
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        throw new Error(
+          `Scope listing failed: HTTP ${response.status}: ${errorText}`,
+        );
       }
+
+      const body = (await response.json()) as { scopes?: unknown[] };
+      return (body.scopes ?? [])
+        .map(parseScopeSummary)
+        .filter((scope): scope is ScopeSummary => scope !== null);
     },
   };
 }
