@@ -47,6 +47,7 @@ let fetchConnectorResult = {
 };
 let runConnectorEvents: Array<Record<string, unknown>> = [];
 const mockRunSelfHostedLoginFlow = vi.fn();
+const mockRunDeviceCodeFlow = vi.fn();
 const mockSaveCredentials = vi.fn();
 
 vi.mock("../../src/runtime/index.js", () => ({
@@ -181,6 +182,7 @@ vi.mock("../../src/cli/auth.js", async () => {
   const actual = await vi.importActual<object>("../../src/cli/auth.js");
   return {
     ...actual,
+    runDeviceCodeFlow: mockRunDeviceCodeFlow,
     runSelfHostedLoginFlow: mockRunSelfHostedLoginFlow,
     saveCredentials: mockSaveCredentials,
   };
@@ -268,6 +270,7 @@ describe("runCli", () => {
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
+    mockRunDeviceCodeFlow.mockReset();
     mockRunSelfHostedLoginFlow.mockReset();
     mockSaveCredentials.mockReset();
     mockSaveCredentials.mockResolvedValue(undefined);
@@ -410,6 +413,79 @@ describe("runCli", () => {
     expect(mockUpdateCliConfig).toHaveBeenCalledWith({
       personalServerUrl: "http://localhost:8080",
     });
+  });
+
+  it("renders self-hosted login as a flow transcript", async () => {
+    mockRunSelfHostedLoginFlow.mockImplementation(
+      async (_serverUrl: string, onLoginUrl: (url: string) => void) => {
+        onLoginUrl("http://localhost:8080/auth/device/approve?session=abc");
+        return {
+          server: "http://localhost:8080",
+          address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          session_token: "vana_ps_test_token",
+          expires_at: "2026-04-22T19:25:14.420Z",
+        };
+      },
+    );
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "login",
+      "--server",
+      "http://localhost:8080",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain("Log in to http://localhost:8080");
+    expect(stderr).toContain("Open this URL in your browser:");
+    expect(stderr).toContain(
+      "http://localhost:8080/auth/device/approve?session=abc",
+    );
+    expect(stderr).toContain("Logged in to http://localhost:8080");
+    expect(stderr).toContain("Credentials saved to ~/.vana/auth.json");
+    expect(stderr).not.toContain("!");
+    expect(stderr).not.toContain("Logging in to http://localhost:8080...");
+  });
+
+  it("renders cloud login as a flow transcript", async () => {
+    mockRunDeviceCodeFlow.mockImplementation(async (callbacks) => {
+      callbacks.onCode(
+        "ABCD-EFGH",
+        "https://account.vana.org/auth/device/approve",
+      );
+      callbacks.onWaiting();
+      const creds = {
+        account: {
+          address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          session_token: "vana_account_session",
+          expires_at: "2026-04-22T19:25:14.420Z",
+        },
+        personal_server: {
+          url: "https://0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266.myvana.app",
+          session_token: "vana_ps_session",
+          expires_at: "2026-04-22T19:25:14.420Z",
+        },
+      };
+      await callbacks.onAuthorized(creds);
+      return creds;
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "login"]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain("Log in to Vana");
+    expect(stderr).toContain("Open this URL in your browser:");
+    expect(stderr).toContain("https://account.vana.org/auth/device/approve");
+    expect(stderr).toContain("Enter this code:");
+    expect(stderr).toContain("ABCD-EFGH");
+    expect(stderr).toContain("Logged in as 0xf39F...266");
+    expect(stderr).toContain("Personal Server:");
+    expect(stderr).toContain("Credentials saved to ~/.vana/auth.json");
+    expect(stderr).not.toContain("!");
+    expect(stderr).not.toContain("Logging in to Vana...");
   });
 
   it("prints the CLI version with --version", async () => {

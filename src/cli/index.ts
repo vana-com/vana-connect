@@ -33,6 +33,7 @@ const vanaPromptTheme = {
 import {
   createConnectRenderer,
   createHumanRenderer,
+  createLoginRenderer,
   formatDisplayPath,
   formatRelativeTime,
 } from "./render/index.js";
@@ -5266,17 +5267,15 @@ async function runLogin(
 
   // If self-hosted, use /auth/device flow against the PS
   if (authTarget === "self-hosted" && psUrl) {
-    const emit = createEmitter(options);
-    emit.blank();
-    emit.info(`  Logging in to ${psUrl}...`);
-    emit.blank();
+    const renderer =
+      !options.json && !options.quiet ? createLoginRenderer() : null;
+    renderer?.title(psUrl);
 
     try {
       const result = await runSelfHostedLoginFlow(psUrl, (url: string) => {
-        emit.info(`  ! Open this URL in your browser:`);
-        emit.info(`    ${url}`);
-        emit.blank();
-        emit.info(`  Waiting for authorization...`);
+        renderer?.note("Open this URL in your browser:");
+        renderer?.note(url);
+        renderer?.scopeActive("Waiting for authorization");
         // Try to open browser — use spawn with args array to prevent shell injection
         // (a malicious self-hosted PS could return a URL with shell metacharacters)
         try {
@@ -5307,14 +5306,16 @@ async function runLogin(
       });
       await updateCliConfig({ personalServerUrl: psUrl });
 
-      emit.success(`Logged in to ${psUrl}`);
-      emit.success(`Credentials saved to ~/.vana/auth.json`);
+      renderer?.success(`Logged in to ${psUrl}`);
+      renderer?.detail("Credentials saved to ~/.vana/auth.json");
       return 0;
     } catch (err) {
-      emit.info(
-        `  ✗ Login failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      renderer?.fail("Login failed");
+      renderer?.detail(err instanceof Error ? err.message : String(err));
+      renderer?.next(`vana login --server ${psUrl}`);
       return 1;
+    } finally {
+      renderer?.cleanup();
     }
   }
 
@@ -5411,21 +5412,17 @@ async function runLogin(
   }
 
   // Interactive mode
-  const emit = createEmitter(options);
-  emit.blank();
-  emit.info("  Logging in to Vana...");
-  emit.blank();
+  const renderer = createLoginRenderer();
+  renderer.title("Vana");
 
   const creds = await runDeviceCodeFlow({
     onCode: (code, uri) => {
-      emit.info(`  ! Open this URL in your browser:`);
-      emit.info(`    ${uri}`);
-      emit.blank();
-      emit.info(`  ! Enter this code: ${BOLD}${code}${RESET}`);
-      emit.blank();
+      renderer.note("Open this URL in your browser:");
+      renderer.note(uri);
+      renderer.note(`Enter this code: ${BOLD}${code}${RESET}`);
     },
     onWaiting: () => {
-      emit.info("  Waiting for authorization...");
+      renderer.scopeActive("Waiting for authorization");
     },
     onAuthorized: async (authedCreds) => {
       await saveCredentials(authedCreds);
@@ -5434,28 +5431,26 @@ async function runLogin(
           personalServerUrl: authedCreds.personal_server.url,
         });
       }
-      emit.success(
+      renderer.success(
         `Logged in as ${formatAddress(authedCreds.account.address)}`,
       );
       if (authedCreds.personal_server) {
-        emit.blank();
-        emit.keyValue(
-          "Personal Server",
-          authedCreds.personal_server.url,
-          "success",
-        );
+        renderer.detail(`Personal Server: ${authedCreds.personal_server.url}`);
       }
-      emit.success(`Credentials saved to ~/.vana/auth.json`);
+      renderer.detail("Credentials saved to ~/.vana/auth.json");
     },
     onExpired: () => {
-      emit.info(
-        `  Device code expired. Run ${emit.code("vana login")} to try again.`,
-      );
+      renderer.fail("Authorization expired");
+      renderer.next("vana login");
     },
     onError: (err) => {
-      emit.info(`  Error: ${err.message}`);
+      renderer.fail("Login failed");
+      renderer.detail(err.message);
+      renderer.next("vana login");
     },
   });
+
+  renderer.cleanup();
 
   return creds ? 0 : 1;
 }

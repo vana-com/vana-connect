@@ -9,6 +9,7 @@ interface ScopeLine {
 
 export interface ConnectRenderer {
   title(source: string): void;
+  note(message: string): void;
   scopeActive(scope: string): void;
   scopeDone(scope: string, detail?: string): void;
   scopeFailed(scope: string, error: string): void;
@@ -24,12 +25,16 @@ export interface ConnectRenderer {
   resumeAfterPrompt(): void;
 }
 
-export function createConnectRenderer(): ConnectRenderer {
+export function createFlowRenderer(options?: {
+  formatTitle?: (label: string) => string;
+}): ConnectRenderer {
   const capabilities = detectRenderCapabilities();
   const canAnimate = capabilities.interactive;
   const theme = createFlowTheme(capabilities);
+  const formatTitle = options?.formatTitle ?? ((label: string) => label);
 
   let titleText = "";
+  const noteLines: string[] = [];
   const scopes: ScopeLine[] = [];
   let successMessage = "";
   const detailLines: string[] = [];
@@ -74,6 +79,13 @@ export function createConnectRenderer(): ConnectRenderer {
     // Title
     lines.push(`  ${theme.heading(titleText)}`);
     lines.push("");
+
+    if (!isComplete && noteLines.length > 0) {
+      for (const line of noteLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    }
 
     // Scope lines
     for (const scope of scopes) {
@@ -135,10 +147,18 @@ export function createConnectRenderer(): ConnectRenderer {
 
   return {
     title(source: string): void {
-      titleText = `Connect ${source}`;
+      titleText = formatTitle(source);
       if (!canAnimate) {
         process.stderr.write(`  ${theme.heading(titleText)}\n\n`);
       }
+    },
+
+    note(message: string): void {
+      noteLines.push(message);
+      if (!canAnimate) {
+        process.stderr.write(`  ${message}\n`);
+      }
+      paint();
     },
 
     scopeActive(scope: string): void {
@@ -285,4 +305,16 @@ export function createConnectRenderer(): ConnectRenderer {
       startSpinner();
     },
   };
+}
+
+export function createConnectRenderer(): ConnectRenderer {
+  return createFlowRenderer({
+    formatTitle: (source) => `Connect ${source}`,
+  });
+}
+
+export function createLoginRenderer(): ConnectRenderer {
+  return createFlowRenderer({
+    formatTitle: (target) => `Log in to ${target}`,
+  });
 }
