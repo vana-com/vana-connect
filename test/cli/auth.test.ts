@@ -12,10 +12,26 @@ vi.mock("node:child_process", () => ({
 }));
 
 import {
+  getAuthTarget,
   loadCredentials,
   runDeviceCodeFlow,
   runSelfHostedLoginFlow,
 } from "../../src/cli/auth.js";
+
+describe("getAuthTarget", () => {
+  it("treats localhost personal servers as self-hosted", () => {
+    expect(getAuthTarget("http://localhost:8080")).toBe("self-hosted");
+    expect(getAuthTarget("http://127.0.0.1:8080")).toBe("self-hosted");
+  });
+
+  it("treats arbitrary external personal server URLs as self-hosted", () => {
+    expect(getAuthTarget("https://ps.alice.com")).toBe("self-hosted");
+  });
+
+  it("treats myvana hosted URLs as cloud", () => {
+    expect(getAuthTarget("https://0xabc.myvana.app")).toBe("cloud");
+  });
+});
 
 describe("runSelfHostedLoginFlow", () => {
   const fetchMock = vi.fn<typeof fetch>();
@@ -31,12 +47,12 @@ describe("runSelfHostedLoginFlow", () => {
     vi.useRealTimers();
   });
 
-  it("resolves relative poll endpoints against the personal server origin", async () => {
+  it("resolves relative approval and poll endpoints against the personal server origin", async () => {
     fetchMock
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            login: "https://ps.example/auth/device/approve?session=abc",
+            login: "/auth/device/approve?session=abc",
             poll: {
               endpoint: "/auth/device/poll",
               token: "token-123",
@@ -81,6 +97,49 @@ describe("runSelfHostedLoginFlow", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "https://ps.example/auth/device/poll?token=token-123",
+    );
+  });
+
+  it("preserves absolute approval URLs returned by the personal server", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            login: "https://ps.example/auth/device/approve?session=abc",
+            poll: {
+              endpoint: "/auth/device/poll",
+              token: "token-123",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authorized",
+            server: "https://ps.example",
+            address: "0xabc123",
+            access_token: "vana_ps_token",
+            expires_at: "2026-04-22T00:00:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const onLoginUrl = vi.fn();
+    const promise = runSelfHostedLoginFlow("https://ps.example", onLoginUrl);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(promise).resolves.toEqual({
+      server: "https://ps.example",
+      address: "0xabc123",
+      session_token: "vana_ps_token",
+      expires_at: "2026-04-22T00:00:00.000Z",
+    });
+    expect(onLoginUrl).toHaveBeenCalledWith(
+      "https://ps.example/auth/device/approve?session=abc",
     );
   });
 

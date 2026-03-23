@@ -405,11 +405,6 @@ export type AuthTarget = "cloud" | "self-hosted";
 export function getAuthTarget(psUrl: string | null): AuthTarget {
   if (!psUrl) return "cloud";
   if (psUrl.includes(".myvana.app")) return "cloud";
-  if (
-    psUrl.startsWith("http://localhost") ||
-    psUrl.startsWith("http://127.0.0.1")
-  )
-    return "cloud";
   return "self-hosted";
 }
 
@@ -449,7 +444,7 @@ type LoginV2PollResponse =
 
 const SELF_HOSTED_POLL_INTERVAL_MS = 5_000;
 
-function resolveLoginV2PollUrl(serverUrl: string, endpoint: string): string {
+function resolveLoginV2Url(serverUrl: string, endpoint: string): string {
   return new URL(endpoint, `${serverUrl.replace(/\/$/, "")}/`).toString();
 }
 
@@ -474,11 +469,11 @@ export async function runSelfHostedLoginFlow(
   const init = (await initRes.json()) as LoginV2InitResponse;
 
   // 2. Open browser
-  onLoginUrl(init.login);
+  onLoginUrl(resolveLoginV2Url(base, init.login));
 
   // 3. Poll for completion (5 min timeout)
   const deadline = Date.now() + 5 * 60 * 1000;
-  const pollUrl = resolveLoginV2PollUrl(base, init.poll.endpoint);
+  const pollUrl = resolveLoginV2Url(base, init.poll.endpoint);
 
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, SELF_HOSTED_POLL_INTERVAL_MS));

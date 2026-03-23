@@ -5,6 +5,8 @@ The CLI treats Personal Server auth as a normal owner-session flow, not as the o
 ## Local and Remote Behavior
 
 - Self-hosted CLI login uses the Personal Server `/auth/device` flow to obtain an owner session token.
+- Self-hosted browser approval stays on the Personal Server URL the CLI targeted for login.
+- Remote self-hosted approval uses the owner wallet directly against the Personal Server approval page.
 - Cloud CLI login gets a fresh 30-day Personal Server session token from account.vana.org.
 - account.vana.org provisions that session token into the running cloud Personal Server using the long-lived control-plane `PS_ACCESS_TOKEN`.
 - Remote Personal Server requests resolve bearer auth from `VANA_PS_TOKEN` first, then from saved CLI credentials.
