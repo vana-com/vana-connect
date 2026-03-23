@@ -36,41 +36,49 @@ export type PersonalServerAuthConfig =
   | { type: "none" }
   | undefined;
 
+async function detectTargetAt(
+  url: string,
+  source: PersonalServerTarget["source"],
+): Promise<PersonalServerTarget | null> {
+  const health = await fetchHealth(url);
+  if (!health) {
+    return null;
+  }
+
+  return {
+    state: "available",
+    url,
+    source,
+    health,
+  };
+}
+
 export async function detectPersonalServerTarget(): Promise<PersonalServerTarget> {
   // 1. Persisted config (highest priority)
   const config = await readCliConfig();
   if (config.personalServerUrl) {
-    const health = await fetchHealth(config.personalServerUrl);
-    return {
-      state: health ? "available" : "unavailable",
-      url: config.personalServerUrl,
-      source: "config",
-      health,
-    };
+    const target = await detectTargetAt(config.personalServerUrl, "config");
+    if (target) {
+      return target;
+    }
   }
 
   // 2. Auth credentials (from `vana login`)
   const authCreds = loadCredentials();
   if (authCreds?.personal_server?.url) {
-    const health = await fetchHealth(authCreds.personal_server.url);
-    return {
-      state: health ? "available" : "unavailable",
-      url: authCreds.personal_server.url,
-      source: "auth",
-      health,
-    };
+    const target = await detectTargetAt(authCreds.personal_server.url, "auth");
+    if (target) {
+      return target;
+    }
   }
 
   // 3. Environment variable
   const explicitUrl = process.env.VANA_PERSONAL_SERVER_URL;
   if (explicitUrl) {
-    const health = await fetchHealth(explicitUrl);
-    return {
-      state: health ? "available" : "unavailable",
-      url: explicitUrl,
-      source: "env",
-      health,
-    };
+    const target = await detectTargetAt(explicitUrl, "env");
+    if (target) {
+      return target;
+    }
   }
 
   // 3. Localhost port scan

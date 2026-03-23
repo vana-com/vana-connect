@@ -5305,6 +5305,7 @@ async function runLogin(
           expires_at: result.expires_at,
         },
       });
+      await updateCliConfig({ personalServerUrl: psUrl });
 
       emit.success(`Logged in to ${psUrl}`);
       emit.success(`Credentials saved to ~/.vana/auth.json`);
@@ -5393,6 +5394,9 @@ async function runLogin(
 
     if (creds) {
       await saveCredentials(creds);
+      if (creds.personal_server?.url) {
+        await updateCliConfig({ personalServerUrl: creds.personal_server.url });
+      }
       process.stdout.write(
         `${JSON.stringify({
           status: "authenticated",
@@ -5425,6 +5429,11 @@ async function runLogin(
     },
     onAuthorized: async (authedCreds) => {
       await saveCredentials(authedCreds);
+      if (authedCreds.personal_server?.url) {
+        await updateCliConfig({
+          personalServerUrl: authedCreds.personal_server.url,
+        });
+      }
       emit.success(
         `Logged in as ${formatAddress(authedCreds.account.address)}`,
       );

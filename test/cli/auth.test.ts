@@ -72,7 +72,7 @@ describe("runSelfHostedLoginFlow", () => {
           JSON.stringify({
             status: "authorized",
             server: "https://ps.example",
-            address: "0xabc123",
+            address: "0x1234567890abcdef1234567890abcdef12345678",
             access_token: "vana_ps_token",
             expires_at: "2026-04-22T00:00:00.000Z",
           }),
@@ -87,7 +87,7 @@ describe("runSelfHostedLoginFlow", () => {
 
     await expect(promise).resolves.toEqual({
       server: "https://ps.example",
-      address: "0xabc123",
+      address: "0x1234567890abcdef1234567890abcdef12345678",
       session_token: "vana_ps_token",
       expires_at: "2026-04-22T00:00:00.000Z",
     });
@@ -119,7 +119,7 @@ describe("runSelfHostedLoginFlow", () => {
           JSON.stringify({
             status: "authorized",
             server: "https://ps.example",
-            address: "0xabc123",
+            address: "0x1234567890abcdef1234567890abcdef12345678",
             access_token: "vana_ps_token",
             expires_at: "2026-04-22T00:00:00.000Z",
           }),
@@ -134,7 +134,7 @@ describe("runSelfHostedLoginFlow", () => {
 
     await expect(promise).resolves.toEqual({
       server: "https://ps.example",
-      address: "0xabc123",
+      address: "0x1234567890abcdef1234567890abcdef12345678",
       session_token: "vana_ps_token",
       expires_at: "2026-04-22T00:00:00.000Z",
     });
@@ -167,6 +167,44 @@ describe("runSelfHostedLoginFlow", () => {
     const expectation = expect(
       runSelfHostedLoginFlow("https://ps.example", vi.fn()),
     ).rejects.toThrow("Authorization expired. Please try again.");
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expectation;
+  });
+
+  it("rejects self-hosted logins when the personal server does not report an owner wallet", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            login: "/auth/device/approve?session=abc",
+            poll: {
+              endpoint: "/auth/device/poll",
+              token: "token-123",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authorized",
+            server: "http://localhost:8080",
+            address: "http://localhost:8080",
+            access_token: "vana_ps_token",
+            expires_at: "2026-04-22T00:00:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const expectation = expect(
+      runSelfHostedLoginFlow("http://localhost:8080", vi.fn()),
+    ).rejects.toThrow(
+      "Personal Server did not report a valid owner wallet address. Ensure VANA_MASTER_KEY_SIGNATURE is configured.",
+    );
 
     await vi.advanceTimersByTimeAsync(5_000);
 

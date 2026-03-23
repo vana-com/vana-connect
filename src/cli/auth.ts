@@ -168,6 +168,10 @@ export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-3)}`;
 }
 
+function isWalletAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
 /**
  * Return human-readable time until expiry: "29 days", "3 hours", etc.
  */
@@ -484,6 +488,11 @@ export async function runSelfHostedLoginFlow(
 
     if (pollRes.status === 200) {
       const result = (await pollRes.json()) as LoginV2PollSuccess;
+      if (!isWalletAddress(result.address)) {
+        throw new Error(
+          "Personal Server did not report a valid owner wallet address. Ensure VANA_MASTER_KEY_SIGNATURE is configured.",
+        );
+      }
       return {
         server: result.server,
         address: result.address,

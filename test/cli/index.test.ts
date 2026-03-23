@@ -25,6 +25,7 @@ const mockIngestResult = vi.fn();
 const mockResolvePersonalServerAuthConfig = vi.fn();
 const mockCreatePersonalServerClient = vi.fn();
 const mockReadCliState = vi.fn();
+const mockUpdateCliConfig = vi.fn();
 const mockUpdateSourceState = vi.fn();
 const mockConfirm = vi.fn();
 const mockInput = vi.fn();
@@ -45,6 +46,8 @@ let fetchConnectorResult = {
   logPath: "/tmp/logs/fetch.log",
 };
 let runConnectorEvents: Array<Record<string, unknown>> = [];
+const mockRunSelfHostedLoginFlow = vi.fn();
+const mockSaveCredentials = vi.fn();
 
 vi.mock("../../src/runtime/index.js", () => ({
   findDataConnectorsDir: vi.fn(() => "/tmp/data-connectors"),
@@ -166,11 +169,20 @@ vi.mock("../../src/core/index.js", async () => {
     ...actual,
     readCliState: mockReadCliState,
     readCliConfig: vi.fn().mockResolvedValue({}),
-    updateCliConfig: vi.fn().mockResolvedValue(undefined),
+    updateCliConfig: mockUpdateCliConfig,
     updateSourceState: mockUpdateSourceState,
     getBrowserProfilesDir: vi.fn(() => "/tmp/browser-profiles"),
     getSourceResultPath: vi.fn((s: string) => `/tmp/.vana/results/${s}.json`),
     rotateResult: vi.fn(),
+  };
+});
+
+vi.mock("../../src/cli/auth.js", async () => {
+  const actual = await vi.importActual<object>("../../src/cli/auth.js");
+  return {
+    ...actual,
+    runSelfHostedLoginFlow: mockRunSelfHostedLoginFlow,
+    saveCredentials: mockSaveCredentials,
   };
 });
 
@@ -218,6 +230,8 @@ describe("runCli", () => {
     mockResolvePersonalServerAuthConfig.mockReset();
     mockCreatePersonalServerClient.mockReset();
     mockUpdateSourceState.mockReset();
+    mockUpdateCliConfig.mockReset();
+    mockUpdateCliConfig.mockResolvedValue(undefined);
     mockConfirm.mockReset();
     mockSelect.mockReset();
     mockSearchSelect.mockReset();
@@ -254,6 +268,9 @@ describe("runCli", () => {
     mockReaddir.mockRejectedValue(new Error("missing"));
     mockReadFile.mockRejectedValue(new Error("missing"));
     mockExistsSync.mockReturnValue(false);
+    mockRunSelfHostedLoginFlow.mockReset();
+    mockSaveCredentials.mockReset();
+    mockSaveCredentials.mockResolvedValue(undefined);
     process.exitCode = 0;
   });
 
@@ -357,6 +374,41 @@ describe("runCli", () => {
         needsAttention: 0,
       },
       next: expect.stringContaining("vana data show steam"),
+    });
+  });
+
+  it("self-hosted login saves credentials and refreshes the active personal server URL", async () => {
+    mockRunSelfHostedLoginFlow.mockResolvedValue({
+      server: "http://localhost:8080",
+      address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      session_token: "vana_ps_test_token",
+      expires_at: "2026-04-22T19:25:14.420Z",
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "login",
+      "--server",
+      "http://localhost:8080",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(mockSaveCredentials).toHaveBeenCalledWith({
+      account: {
+        address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        session_token: "",
+        expires_at: "2026-04-22T19:25:14.420Z",
+      },
+      personal_server: {
+        url: "http://localhost:8080",
+        session_token: "vana_ps_test_token",
+        expires_at: "2026-04-22T19:25:14.420Z",
+      },
+    });
+    expect(mockUpdateCliConfig).toHaveBeenCalledWith({
+      personalServerUrl: "http://localhost:8080",
     });
   });
 
