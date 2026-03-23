@@ -5419,7 +5419,7 @@ async function runLogin(
     onCode: (code, uri) => {
       renderer.note("Open this URL in your browser:");
       renderer.note(uri);
-      renderer.note(`Enter this code: ${BOLD}${code}${RESET}`);
+      renderer.note(`Enter this code: ${code}`);
     },
     onWaiting: () => {
       renderer.scopeActive("Waiting for authorization");
