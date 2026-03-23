@@ -143,6 +143,53 @@ describe("runSelfHostedLoginFlow", () => {
     );
   });
 
+  it("preserves a dedicated loopback approval URL returned by the personal server", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            login: "http://127.0.0.1:34127/auth/device/approve?session=abc",
+            poll: {
+              endpoint: "/auth/device/poll",
+              token: "token-123",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authorized",
+            server: "http://localhost:8080",
+            address: "0x1234567890abcdef1234567890abcdef12345678",
+            access_token: "vana_ps_token",
+            expires_at: "2026-04-22T00:00:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const onLoginUrl = vi.fn();
+    const promise = runSelfHostedLoginFlow("http://localhost:8080", onLoginUrl);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(promise).resolves.toEqual({
+      server: "http://localhost:8080",
+      address: "0x1234567890abcdef1234567890abcdef12345678",
+      session_token: "vana_ps_token",
+      expires_at: "2026-04-22T00:00:00.000Z",
+    });
+    expect(onLoginUrl).toHaveBeenCalledWith(
+      "http://127.0.0.1:34127/auth/device/approve?session=abc",
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8080/auth/device/poll?token=token-123",
+    );
+  });
+
   it("fails fast when the personal server reports an expired login session", async () => {
     fetchMock
       .mockResolvedValueOnce(
