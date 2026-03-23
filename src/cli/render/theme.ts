@@ -22,6 +22,31 @@ export interface RenderTheme {
 }
 
 export function createTheme(capabilities: RenderCapabilities): RenderTheme {
+  return createPaletteTheme(capabilities, {
+    richSuccess: VANA_ACCENT,
+    standardSuccess: "blue",
+    standardInfo: "blue",
+  });
+}
+
+export function createClassicTheme(
+  capabilities: RenderCapabilities,
+): RenderTheme {
+  return createPaletteTheme(capabilities, {
+    richSuccess: VANA_SUCCESS,
+    standardSuccess: "green",
+    standardInfo: "cyan",
+  });
+}
+
+function createPaletteTheme(
+  capabilities: RenderCapabilities,
+  options: {
+    richSuccess: readonly [number, number, number];
+    standardSuccess: "blue" | "green";
+    standardInfo: "blue" | "cyan";
+  },
+): RenderTheme {
   const colors = createColors(capabilities.color);
   const formatCode = (text: string) => `\`${text}\``;
   const richMuted = (text: string) => rgb(...VANA_MUTED, text);
@@ -32,7 +57,7 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
       label: (text) => richMuted(colors.bold(text)),
       muted: (text) => richMuted(text),
       dim: (text) => colors.dim(text),
-      success: (text) => rgb(...VANA_SUCCESS, text),
+      success: (text) => rgb(...options.richSuccess, text),
       warning: (text) => rgb(...VANA_WARNING, text),
       error: (text) => rgb(...VANA_DESTRUCTIVE, text),
       info: (text) => rgb(...VANA_ACCENT, text),
@@ -40,16 +65,21 @@ export function createTheme(capabilities: RenderCapabilities): RenderTheme {
     };
   }
 
+  const standardSuccess =
+    options.standardSuccess === "green" ? colors.green : colors.blue;
+  const standardInfo =
+    options.standardInfo === "cyan" ? colors.cyan : colors.blue;
+
   return {
     accent: (text) => colors.blue(text),
     heading: (text) => colors.bold(text),
     label: (text) => colors.bold(colors.gray(text)),
     muted: (text) => colors.gray(text),
     dim: (text) => colors.dim(text),
-    success: (text) => colors.green(text),
+    success: (text) => standardSuccess(text),
     warning: (text) => colors.yellow(text),
     error: (text) => colors.red(text),
-    info: (text) => colors.cyan(text),
+    info: (text) => standardInfo(text),
     code: (text) => colors.bold(formatCode(text)),
   };
 }

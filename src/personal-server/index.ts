@@ -173,23 +173,24 @@ export async function ingestResult(
 export function resolvePersonalServerAuthConfig(
   serverUrl: string,
 ): PersonalServerAuthConfig {
-  const isRemote =
-    !serverUrl.includes("localhost") && !serverUrl.includes("127.0.0.1");
-  if (!isRemote) {
-    return undefined;
-  }
-
   const psToken = process.env.VANA_PS_TOKEN;
   if (psToken) {
     return { type: "bearerToken", token: psToken };
   }
 
   const creds = loadCredentials();
-  if (creds?.personal_server?.session_token) {
+  if (
+    creds?.personal_server?.session_token &&
+    urlsMatch(creds.personal_server.url, serverUrl)
+  ) {
     return { type: "bearerToken", token: creds.personal_server.session_token };
   }
 
   return undefined;
+}
+
+function urlsMatch(left: string, right: string): boolean {
+  return left.replace(/\/+$/, "") === right.replace(/\/+$/, "");
 }
 
 async function fetchHealth(
