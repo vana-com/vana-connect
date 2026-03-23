@@ -70,15 +70,15 @@ export async function POST(request: NextRequest) {
   const sessionToken = `vana_sess_${crypto.randomBytes(32).toString("hex")}`;
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
-  // Look up the user's personal server. The stored access_token is the
+  // Look up the user's personal server. The stored control-plane token is the
   // control-plane credential used by account.vana.org to provision a fresh
   // CLI session token into the running Personal Server.
   const userId = walletAddress.toLowerCase();
   const server = await findServerByUserId(userId);
-  let psAccessToken: string | null = null;
+  let personalServerSessionToken: string | null = null;
 
   if (server?.url) {
-    if (!server.access_token) {
+    if (!server.control_plane_token) {
       return apiError(
         "internal_error",
         "Personal Server control-plane token missing",
@@ -87,9 +87,9 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      psAccessToken = await provisionPersonalServerSessionToken({
+      personalServerSessionToken = await provisionPersonalServerSessionToken({
         serverUrl: server.url,
-        controlPlaneToken: server.access_token,
+        controlPlaneToken: server.control_plane_token,
         expiresAt: sessionExpiresAt,
       });
     } catch (error) {
@@ -104,7 +104,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Create the session
-  await createSession(sessionToken, userId, psAccessToken, sessionExpiresAt);
+  await createSession(
+    sessionToken,
+    userId,
+    personalServerSessionToken,
+    sessionExpiresAt,
+  );
 
   // Mark the device code as authorized
   const approved = await approveDeviceCode(

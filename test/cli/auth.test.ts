@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const mocks = vi.hoisted(() => ({
   spawnSync: vi.fn(),
@@ -9,6 +12,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import {
+  loadCredentials,
   runDeviceCodeFlow,
   runSelfHostedLoginFlow,
 } from "../../src/cli/auth.js";
@@ -68,7 +72,7 @@ describe("runSelfHostedLoginFlow", () => {
     await expect(promise).resolves.toEqual({
       server: "https://ps.example",
       address: "0xabc123",
-      access_token: "vana_ps_token",
+      session_token: "vana_ps_token",
       expires_at: "2026-04-22T00:00:00.000Z",
     });
     expect(onLoginUrl).toHaveBeenCalledWith(
@@ -147,7 +151,7 @@ describe("runDeviceCodeFlow", () => {
             address: "0xabc123",
             session_token: "vana_sess_123",
             personal_server_url: "https://ps.example",
-            ps_access_token: "vana_ps_token",
+            personal_server_session_token: "vana_ps_token",
             expires_at: "2026-04-22T00:00:00.000Z",
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -178,7 +182,7 @@ describe("runDeviceCodeFlow", () => {
       },
       personal_server: {
         url: "https://ps.example",
-        access_token: "vana_ps_token",
+        session_token: "vana_ps_token",
         expires_at: "2026-04-22T00:00:00.000Z",
       },
     });
@@ -191,5 +195,105 @@ describe("runDeviceCodeFlow", () => {
     );
     expect(onExpired).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("accepts legacy ps_access_token responses from account login polling", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            device_code: "device-123",
+            user_code: "ABCD-EFGH",
+            verification_uri: "https://account.vana.org/auth/device",
+            expires_in: 300,
+            interval: 5,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "authorized",
+            address: "0xabc123",
+            session_token: "vana_sess_123",
+            personal_server_url: "https://ps.example",
+            ps_access_token: "vana_ps_token",
+            expires_at: "2026-04-22T00:00:00.000Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const promise = runDeviceCodeFlow({
+      onCode: vi.fn(),
+      onWaiting: vi.fn(),
+      onAuthorized: vi.fn(),
+      onExpired: vi.fn(),
+      onError: vi.fn(),
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await expect(promise).resolves.toMatchObject({
+      personal_server: {
+        url: "https://ps.example",
+        session_token: "vana_ps_token",
+      },
+    });
+  });
+});
+
+describe("loadCredentials", () => {
+  const originalHome = process.env.HOME;
+  let tempHome: string;
+
+  beforeEach(async () => {
+    tempHome = await mkdtemp(join(tmpdir(), "vana-auth-"));
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(async () => {
+    process.env.HOME = originalHome;
+    await rm(tempHome, { recursive: true, force: true });
+  });
+
+  it("reads legacy personal_server.access_token files as session_token", async () => {
+    const authDir = join(tempHome, ".vana");
+    await mkdir(authDir, { recursive: true });
+    await writeFile(
+      join(authDir, "auth.json"),
+      JSON.stringify(
+        {
+          account: {
+            address: "0xabc123",
+            session_token: "vana_sess_123",
+            expires_at: "2099-01-01T00:00:00.000Z",
+          },
+          personal_server: {
+            url: "https://ps.example",
+            access_token: "vana_ps_token",
+            expires_at: "2099-01-01T00:00:00.000Z",
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const creds = loadCredentials();
+
+    expect(creds).toEqual({
+      account: {
+        address: "0xabc123",
+        session_token: "vana_sess_123",
+        expires_at: "2099-01-01T00:00:00.000Z",
+      },
+      personal_server: {
+        url: "https://ps.example",
+        session_token: "vana_ps_token",
+        expires_at: "2099-01-01T00:00:00.000Z",
+      },
+    });
   });
 });

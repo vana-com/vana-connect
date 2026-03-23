@@ -5301,7 +5301,7 @@ async function runLogin(
         },
         personal_server: {
           url: psUrl,
-          access_token: result.access_token,
+          session_token: result.session_token,
           expires_at: result.expires_at,
         },
       });
@@ -5454,14 +5454,14 @@ async function runLogin(
 async function runLogout(options: GlobalOptions): Promise<number> {
   // Revoke the token server-side before clearing local credentials
   const creds = loadCredentials();
-  if (creds?.personal_server?.url && creds.personal_server.access_token) {
+  if (creds?.personal_server?.url && creds.personal_server.session_token) {
     try {
       await fetch(
         `${creds.personal_server.url.replace(/\/$/, "")}/auth/device/token`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${creds.personal_server.access_token}`,
+            Authorization: `Bearer ${creds.personal_server.session_token}`,
           },
           signal: AbortSignal.timeout(5000),
         },

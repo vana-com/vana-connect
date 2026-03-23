@@ -7,7 +7,7 @@ import {
   findServerByUserId,
   insertServerIfNotExists,
   updateServer,
-  updateServerAccessToken,
+  updateServerControlPlaneToken,
 } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
@@ -99,15 +99,15 @@ export async function POST(request: NextRequest) {
   const provider = getServerProvider();
 
   try {
-    // Generate a PS access token for CLI auth
-    const psAccessToken = `vana_ps_${crypto.randomBytes(32).toString("hex")}`;
+    // Generate the per-server control-plane token used for hosted management.
+    const controlPlaneToken = `vana_ps_${crypto.randomBytes(32).toString("hex")}`;
 
     const result = await provider.provision({
       serverId,
       userId,
       masterKeySignature,
       ownerAddress: walletAddress,
-      psAccessToken,
+      psAccessToken: controlPlaneToken,
     });
 
     row =
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
         dns_record_id: result.dnsRecordId ?? null,
       })) ?? row;
 
-    // Store the access token (separate call since it's not in the updateServer allowlist)
-    await updateServerAccessToken(serverId, psAccessToken);
+    // Store the control-plane token separately since it's not in the updateServer allowlist.
+    await updateServerControlPlaneToken(serverId, controlPlaneToken);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Provisioning error:", msg);

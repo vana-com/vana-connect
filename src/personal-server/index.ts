@@ -177,8 +177,8 @@ export function resolvePersonalServerAuthConfig(
   }
 
   const creds = loadCredentials();
-  if (creds?.personal_server?.access_token) {
-    return { type: "bearerToken", token: creds.personal_server.access_token };
+  if (creds?.personal_server?.session_token) {
+    return { type: "bearerToken", token: creds.personal_server.session_token };
   }
 
   return undefined;

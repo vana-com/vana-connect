@@ -20,7 +20,17 @@ export interface VanaCredentials {
   };
   personal_server: {
     url: string;
-    access_token: string;
+    session_token: string;
+    expires_at: string;
+  } | null;
+}
+
+interface LegacyVanaCredentials {
+  account: VanaCredentials["account"];
+  personal_server: {
+    url: string;
+    access_token?: string;
+    session_token?: string;
     expires_at: string;
   } | null;
 }
@@ -29,6 +39,28 @@ const AUTH_FILE = "auth.json";
 
 function getAuthFilePath(): string {
   return path.join(os.homedir(), ".vana", AUTH_FILE);
+}
+
+function normalizeCredentials(
+  creds: LegacyVanaCredentials,
+): VanaCredentials | null {
+  if (!creds.account || typeof creds.account.session_token !== "string") {
+    return null;
+  }
+
+  const personalServer = creds.personal_server;
+
+  return {
+    account: creds.account,
+    personal_server: personalServer
+      ? {
+          url: personalServer.url,
+          session_token:
+            personalServer.session_token ?? personalServer.access_token ?? "",
+          expires_at: personalServer.expires_at,
+        }
+      : null,
+  };
 }
 
 /**
@@ -62,7 +94,7 @@ export function loadCredentials(): VanaCredentials | null {
         envPsToken && envPsUrl
           ? {
               url: envPsUrl,
-              access_token: envPsToken,
+              session_token: envPsToken,
               expires_at: farFuture,
             }
           : null,
@@ -73,7 +105,12 @@ export function loadCredentials(): VanaCredentials | null {
   const filePath = getAuthFilePath();
   try {
     const raw = fs.readFileSync(filePath, "utf8");
-    const creds = JSON.parse(raw) as VanaCredentials;
+    const creds = normalizeCredentials(
+      JSON.parse(raw) as LegacyVanaCredentials,
+    );
+    if (!creds) {
+      return null;
+    }
     if (isExpired(creds)) {
       return null;
     }
@@ -162,6 +199,7 @@ export interface DeviceCodePollAuthorized {
   status: "authorized";
   session_token: string;
   personal_server_url?: string;
+  personal_server_session_token?: string;
   ps_access_token?: string;
   address: string;
   expires_in?: number;
@@ -312,10 +350,14 @@ export async function runDeviceCodeFlow(callbacks: {
               expires_at: expiresAt,
             },
             personal_server:
-              result.personal_server_url && result.ps_access_token
+              result.personal_server_url &&
+              (result.personal_server_session_token ?? result.ps_access_token)
                 ? {
                     url: result.personal_server_url,
-                    access_token: result.ps_access_token,
+                    session_token:
+                      result.personal_server_session_token ??
+                      result.ps_access_token ??
+                      "",
                     expires_at: expiresAt,
                   }
                 : null,
@@ -408,7 +450,7 @@ export async function runSelfHostedLoginFlow(
 ): Promise<{
   server: string;
   address: string;
-  access_token: string;
+  session_token: string;
   expires_at: string;
 }> {
   const base = serverUrl.replace(/\/$/, "");
@@ -441,7 +483,7 @@ export async function runSelfHostedLoginFlow(
       return {
         server: result.server,
         address: result.address,
-        access_token: result.access_token,
+        session_token: result.access_token,
         expires_at: result.expires_at,
       };
     }

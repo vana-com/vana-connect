@@ -59,13 +59,13 @@ export async function GET(request: NextRequest) {
     // Look up personal server URL
     const walletAddress = record.wallet_address?.toLowerCase();
     let personalServerUrl: string | null = null;
-    let psAccessToken: string | null = null;
+    let personalServerSessionToken: string | null = null;
 
     if (walletAddress) {
       const server = await findServerByUserId(walletAddress);
       if (server) {
         personalServerUrl = server.url;
-        psAccessToken = session.ps_access_token;
+        personalServerSessionToken = session.personal_server_session_token;
       }
     }
 
@@ -74,7 +74,9 @@ export async function GET(request: NextRequest) {
       address: session.wallet_address,
       session_token: session.token,
       personal_server_url: personalServerUrl,
-      ps_access_token: psAccessToken,
+      personal_server_session_token: personalServerSessionToken,
+      // Legacy alias for older CLI builds.
+      ps_access_token: personalServerSessionToken,
       expires_at: session.expires_at,
     });
   }
