@@ -33,27 +33,26 @@ export function useDeviceAuth() {
     (w) => w.walletClientType === "privy" || w.walletClientType === "privy-v2",
   );
 
-  // Bootstrap embedded wallet for first-time users (same as connect flow)
   useEffect(() => {
     if (
       !isLoggedIn ||
       !walletsReady ||
       embeddedWallet ||
       walletBootstrapRef.current
-    )
+    ) {
       return;
+    }
+
     walletBootstrapRef.current = true;
     createWallet().catch(() => {
-      // Wallet may already exist — ignore
+      // Wallet may already exist — ignore.
     });
   }, [isLoggedIn, walletsReady, embeddedWallet, createWallet]);
 
   const approve = useCallback(
     async (userCode: string) => {
       if (!embeddedWallet) {
-        setError(
-          "No wallet found. Creating one — please try again in a moment.",
-        );
+        setError("Preparing your wallet. Please try again in a moment.");
         createWallet().catch(() => {});
         return;
       }
@@ -64,7 +63,10 @@ export function useDeviceAuth() {
       try {
         const { signature } = await signMessage(
           { message: MASTER_KEY_MESSAGE },
-          { address: embeddedWallet.address as `0x${string}` },
+          {
+            address: embeddedWallet.address as `0x${string}`,
+            uiOptions: { showWalletUIs: false },
+          },
         );
 
         setStatus("approving");
@@ -92,7 +94,7 @@ export function useDeviceAuth() {
         setStatus("error");
       }
     },
-    [embeddedWallet, signMessage],
+    [createWallet, embeddedWallet, signMessage],
   );
 
   return {

@@ -36,6 +36,7 @@ export function useServer() {
   const signatureRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialFetchDone = useRef(false);
+  const provisioningServerIdRef = useRef<string | null>(null);
 
   const embeddedWalletAddress = (() => {
     for (const wallet of wallets) {
@@ -74,22 +75,28 @@ export function useServer() {
   const fetchServer = useCallback(async () => {
     try {
       const sig = await getSignature();
-      const res = await fetch(`/api/servers`, {
+      const serverId = provisioningServerIdRef.current;
+      const endpoint = serverId ? `/api/servers/${serverId}` : "/api/servers";
+      const res = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${sig}` },
       });
       if (!res.ok) {
         throw new Error(`Failed to fetch server: ${res.status}`);
       }
       const json = await res.json();
-      const data: ApiServer[] = json.data ?? [];
-      if (data.length > 0) {
-        const s = data[0];
+      const records: ApiServer[] =
+        json.data ?? (json.object === "server" ? [json] : []);
+      if (records.length > 0) {
+        const s = records[0];
         setServer(s);
         const state = s.state as ServerStatus;
+        provisioningServerIdRef.current =
+          state === "provisioning" ? s.id : null;
         setStatus(state === "provisioning" ? "provisioning" : state);
         setError(null);
         return s;
       }
+      provisioningServerIdRef.current = null;
       setServer(null);
       setStatus("idle");
       setError(null);
@@ -123,6 +130,7 @@ export function useServer() {
       }
       const s: ApiServer = await res.json();
       setServer(s);
+      provisioningServerIdRef.current = s.id;
       setStatus("provisioning");
       setError(null);
     } catch (err) {
@@ -147,6 +155,7 @@ export function useServer() {
         );
       }
       setServer(null);
+      provisioningServerIdRef.current = null;
       setStatus("idle");
       stopPolling();
     } catch (err) {
