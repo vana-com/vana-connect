@@ -356,7 +356,13 @@ export function startInProcessConnectorRun({
       const connectorFunction = buildConnectorFunction(connectorCode);
       const result = await connectorFunction.call(null, pageApi);
 
-      if (!runState.hasResult && result != null) {
+      const isSkipResult =
+        result &&
+        typeof result === "object" &&
+        "status" in result &&
+        (result as { status: unknown }).status === "skipped";
+
+      if (!runState.hasResult && result != null && !isSkipResult) {
         const exportData =
           result &&
           typeof result === "object" &&
@@ -497,6 +503,51 @@ function createPageApi({
     );
   }
 
+  async function collectInput(
+    payload: PendingInputRequest,
+  ): Promise<Record<string, string>> {
+    const fields = Object.keys(payload.schema?.properties ?? {});
+    const message = payload.message ?? "Additional input is required.";
+    const inputRequest: RuntimeInputRequest = {
+      message,
+      schema: payload.schema,
+      fields,
+      responseInputPath,
+    };
+
+    if (!request.onNeedInput) {
+      await writePendingInput({
+        pendingInputPath,
+        responseInputPath,
+        message,
+        schema: inputRequest.schema,
+      });
+      pushEvent({
+        type: "needs-input",
+        source: request.source,
+        message,
+        fields: inputRequest.fields,
+        schema: inputRequest.schema,
+        pendingInputPath,
+        responseInputPath,
+        logPath,
+      });
+      const response = await pollForInputResponse(responseInputPath, 1_800_000);
+      await fsp.rm(pendingInputPath, { force: true });
+      return response;
+    }
+
+    const input = await request.onNeedInput(inputRequest);
+    await ensureParentDir(responseInputPath);
+    await fsp.writeFile(
+      responseInputPath,
+      `${JSON.stringify(input)}\n`,
+      "utf8",
+    );
+    await fsp.rm(pendingInputPath, { force: true });
+    return input;
+  }
+
   return {
     goto: async (
       url: string,
@@ -530,73 +581,27 @@ function createPageApi({
     },
 
     requestInput: async (payload: PendingInputRequest) => {
-      const fields = Object.keys(payload.schema?.properties ?? {});
-      const inputRequest: RuntimeInputRequest = {
-        message: payload.message ?? "Additional input is required.",
-        schema: payload.schema,
-        fields,
-        responseInputPath,
-      };
-
       if (request.noInput) {
-        // --no-input mode: fail immediately
+        const fields = Object.keys(payload.schema?.properties ?? {});
         await writePendingInput({
           pendingInputPath,
           responseInputPath,
-          message: inputRequest.message ?? "Additional input is required.",
-          schema: inputRequest.schema,
+          message: payload.message ?? "Additional input is required.",
+          schema: payload.schema,
         });
         pushEvent({
           type: "needs-input",
           source: request.source,
-          message: inputRequest.message ?? "Additional input is required.",
-          fields: inputRequest.fields,
-          schema: inputRequest.schema,
+          message: payload.message ?? "Additional input is required.",
+          fields,
+          schema: payload.schema,
           pendingInputPath,
           responseInputPath,
           logPath,
         });
         throw new NeedsInputError();
       }
-
-      if (!request.onNeedInput) {
-        // IPC mode: write question file, emit event, poll for answer.
-        // An external agent reads the pending file, collects input from
-        // the user, and writes the response file.
-        await writePendingInput({
-          pendingInputPath,
-          responseInputPath,
-          message: inputRequest.message ?? "Additional input is required.",
-          schema: inputRequest.schema,
-        });
-        pushEvent({
-          type: "needs-input",
-          source: request.source,
-          message: inputRequest.message ?? "Additional input is required.",
-          fields: inputRequest.fields,
-          schema: inputRequest.schema,
-          pendingInputPath,
-          responseInputPath,
-          logPath,
-        });
-
-        const response = await pollForInputResponse(
-          responseInputPath,
-          1_800_000,
-        ); // 30 min timeout
-        await fsp.rm(pendingInputPath, { force: true });
-        return response;
-      }
-
-      const input = await request.onNeedInput(inputRequest);
-      await ensureParentDir(responseInputPath);
-      await fsp.writeFile(
-        responseInputPath,
-        `${JSON.stringify(input)}\n`,
-        "utf8",
-      );
-      await fsp.rm(pendingInputPath, { force: true });
-      return input;
+      return collectInput(payload);
     },
 
     requestData: async (payload: PendingInputRequest) => {
@@ -604,49 +609,8 @@ function createPageApi({
         writeLog("[page] requestData skipped (no-input mode)");
         return { status: "skipped" as const, reason: "no-input" as const };
       }
-
-      const fields = Object.keys(payload.schema?.properties ?? {});
-      const inputRequest: RuntimeInputRequest = {
-        message: payload.message ?? "Additional input is required.",
-        schema: payload.schema,
-        fields,
-        responseInputPath,
-      };
-
-      if (!request.onNeedInput) {
-        await writePendingInput({
-          pendingInputPath,
-          responseInputPath,
-          message: inputRequest.message ?? "Additional input is required.",
-          schema: inputRequest.schema,
-        });
-        pushEvent({
-          type: "needs-input",
-          source: request.source,
-          message: inputRequest.message ?? "Additional input is required.",
-          fields: inputRequest.fields,
-          schema: inputRequest.schema,
-          pendingInputPath,
-          responseInputPath,
-          logPath,
-        });
-        const response = await pollForInputResponse(
-          responseInputPath,
-          1_800_000,
-        );
-        await fsp.rm(pendingInputPath, { force: true });
-        return { status: "success" as const, data: response };
-      }
-
-      const input = await request.onNeedInput(inputRequest);
-      await ensureParentDir(responseInputPath);
-      await fsp.writeFile(
-        responseInputPath,
-        `${JSON.stringify(input)}\n`,
-        "utf8",
-      );
-      await fsp.rm(pendingInputPath, { force: true });
-      return { status: "success" as const, data: input };
+      const data = await collectInput(payload);
+      return { status: "success" as const, data };
     },
 
     requestManualAction: async (
@@ -683,7 +647,7 @@ function createPageApi({
         url: url ?? runState.page?.url(),
       });
 
-      writeLog(`[page] requestManualAction: ${message}`);
+      writeLog(`[prompt] ${message}`);
       while (true) {
         await new Promise((resolve) => setTimeout(resolve, interval));
         if (
@@ -698,7 +662,7 @@ function createPageApi({
         try {
           const result = await checkFn();
           if (result) {
-            writeLog("[page] Manual action completed");
+            writeLog("[prompt] User action completed");
             break;
           }
         } catch {
