@@ -360,7 +360,9 @@ export function startInProcessConnectorRun({
         result &&
         typeof result === "object" &&
         "status" in result &&
-        (result as { status: unknown }).status === "skipped";
+        (result as { status: unknown }).status === "skipped" &&
+        "reason" in result &&
+        (result as { reason: unknown }).reason === "no-input";
 
       if (!runState.hasResult && result != null && !isSkipResult) {
         const exportData =
