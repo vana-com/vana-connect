@@ -8,9 +8,9 @@ import {
 } from "./paths.js";
 
 const SKILLS_REGISTRY_URL =
-  "https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/skills/registry.json";
+  "https://raw.githubusercontent.com/vana-com/vana-connect/main/skills/registry.json";
 const SKILLS_BASE_URL =
-  "https://raw.githubusercontent.com/vana-com/vana-connect/feat/connect-cli-v1/skills";
+  "https://raw.githubusercontent.com/vana-com/vana-connect/main/skills";
 
 export interface SkillRegistryEntry {
   id: string;
