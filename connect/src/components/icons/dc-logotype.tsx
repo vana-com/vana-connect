@@ -1,8 +1,5 @@
 import { useId } from "react";
-import {
-  Svg as SvgComponent,
-  type SvgIconProps,
-} from "@/components/elements/svg";
+import { Svg as SvgComponent, type SvgIconProps } from "@/components/icons/svg";
 
 export const DcLogotype = (props: SvgIconProps) => {
   const logoGradientId = useId().replace(/:/g, "");
