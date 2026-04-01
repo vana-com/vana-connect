@@ -82,4 +82,21 @@ describe("state-store", () => {
       },
     });
   });
+
+  it("merges telemetry config into the shared state file", async () => {
+    const { updateCliConfig, readCliConfig } =
+      await import("../../src/core/state-store.js");
+
+    await updateCliConfig({ personalServerUrl: "http://localhost:8080" });
+    await updateCliConfig({
+      telemetryEnabled: false,
+      telemetryInstallId: "inst_test",
+    });
+
+    await expect(readCliConfig()).resolves.toEqual({
+      personalServerUrl: "http://localhost:8080",
+      telemetryEnabled: false,
+      telemetryInstallId: "inst_test",
+    });
+  });
 });

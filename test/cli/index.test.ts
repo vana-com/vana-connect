@@ -36,6 +36,13 @@ const mockReaddir = vi.fn();
 const mockReadFile = vi.fn();
 const mockReadFileSync = vi.fn();
 const mockExistsSync = vi.fn();
+const mockCreateCliTelemetrySession = vi.fn();
+const mockFlushTelemetryOutbox = vi.fn();
+const mockGetTelemetryStatus = vi.fn();
+const mockSetTelemetryEnabled = vi.fn();
+const mockSetActiveTelemetrySession = vi.fn();
+const mockGetActiveTelemetrySession = vi.fn();
+const mockTrackActiveTelemetryEvent = vi.fn();
 
 class ExitPromptError extends Error {
   name = "ExitPromptError";
@@ -179,6 +186,16 @@ vi.mock("../../src/core/index.js", async () => {
   };
 });
 
+vi.mock("../../src/cli/telemetry.js", () => ({
+  createCliTelemetrySession: mockCreateCliTelemetrySession,
+  flushTelemetryOutbox: mockFlushTelemetryOutbox,
+  getTelemetryStatus: mockGetTelemetryStatus,
+  setTelemetryEnabled: mockSetTelemetryEnabled,
+  setActiveTelemetrySession: mockSetActiveTelemetrySession,
+  getActiveTelemetrySession: mockGetActiveTelemetrySession,
+  trackActiveTelemetryEvent: mockTrackActiveTelemetryEvent,
+}));
+
 vi.mock("../../src/cli/auth.js", async () => {
   const actual = await vi.importActual<object>("../../src/cli/auth.js");
   return {
@@ -245,6 +262,13 @@ describe("runCli", () => {
     mockReadFile.mockReset();
     mockReadFileSync.mockReset();
     mockExistsSync.mockReset();
+    mockCreateCliTelemetrySession.mockReset();
+    mockFlushTelemetryOutbox.mockReset();
+    mockGetTelemetryStatus.mockReset();
+    mockSetTelemetryEnabled.mockReset();
+    mockSetActiveTelemetrySession.mockReset();
+    mockGetActiveTelemetrySession.mockReset();
+    mockTrackActiveTelemetryEvent.mockReset();
 
     runtimeState = "installed";
     fetchConnectorResult = {
@@ -276,6 +300,25 @@ describe("runCli", () => {
       throw new Error("missing");
     });
     mockExistsSync.mockReturnValue(false);
+    const mockTelemetrySession = {
+      trackCliEvent: vi.fn(),
+      trackCustomEvent: vi.fn(),
+      markCommandResult: vi.fn(),
+      persist: vi.fn().mockResolvedValue(undefined),
+      flush: vi.fn().mockResolvedValue(undefined),
+    };
+    mockCreateCliTelemetrySession.mockResolvedValue(mockTelemetrySession);
+    mockFlushTelemetryOutbox.mockResolvedValue(undefined);
+    mockGetTelemetryStatus.mockResolvedValue({
+      enabled: true,
+      mode: "normal",
+      reason: "default",
+      installId: "inst_test",
+      endpoint: "https://telemetry.opendatalabs.com/v1/cli/events",
+      queuedBatches: 0,
+    });
+    mockSetTelemetryEnabled.mockResolvedValue(undefined);
+    mockGetActiveTelemetrySession.mockReturnValue(null);
     mockRunDeviceCodeFlow.mockReset();
     mockRunSelfHostedLoginFlow.mockReset();
     mockSaveCredentials.mockReset();
@@ -492,6 +535,59 @@ describe("runCli", () => {
     expect(stderr).toContain("Credentials saved to ~/.vana/auth.json");
     expect(stderr).not.toContain("!");
     expect(stderr).not.toContain("Logging in to Vana...");
+  });
+
+  it("prints telemetry status in json mode", async () => {
+    mockGetTelemetryStatus.mockResolvedValue({
+      enabled: false,
+      mode: "disabled",
+      reason: "config_disabled",
+      installId: "inst_disabled",
+      endpoint: "https://telemetry.opendatalabs.com/v1/cli/events",
+      queuedBatches: 3,
+    });
+
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli([
+      "node",
+      "vana",
+      "telemetry",
+      "status",
+      "--json",
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      enabled: false,
+      mode: "disabled",
+      reason: "config_disabled",
+      installId: "inst_disabled",
+      endpoint: "https://telemetry.opendatalabs.com/v1/cli/events",
+      queuedBatches: 3,
+    });
+    expect(mockGetTelemetryStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables telemetry locally without uploading an event", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "telemetry", "disable"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockSetTelemetryEnabled).toHaveBeenCalledWith(false);
+    expect(mockCreateCliTelemetrySession).not.toHaveBeenCalledWith(
+      expect.objectContaining({ command: "telemetry" }),
+    );
+  });
+
+  it("wraps ordinary commands in a telemetry session", async () => {
+    const { runCli } = await import("../../src/cli/index.js");
+    const exitCode = await runCli(["node", "vana", "status", "--json"]);
+
+    expect(exitCode).toBe(0);
+    expect(mockCreateCliTelemetrySession).toHaveBeenCalledWith(
+      expect.objectContaining({ command: "status" }),
+    );
+    expect(mockFlushTelemetryOutbox).toHaveBeenCalled();
   });
 
   it("prints the CLI version with --version", async () => {

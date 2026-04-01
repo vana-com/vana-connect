@@ -108,6 +108,14 @@ import {
   runDeviceCodeFlow,
   runSelfHostedLoginFlow,
 } from "./auth.js";
+import {
+  createCliTelemetrySession,
+  flushTelemetryOutbox,
+  getTelemetryStatus,
+  setActiveTelemetrySession,
+  setTelemetryEnabled,
+  trackActiveTelemetryEvent,
+} from "./telemetry.js";
 
 interface GlobalOptions {
   json?: boolean;
@@ -184,6 +192,12 @@ export async function runCli(argv = process.argv): Promise<number> {
   const parsedOptions = extractGlobalOptions(normalizedArgv);
   const cliVersion = getCliVersion();
   const installMethod = getCliInstallMethod();
+  const telemetryBaseContext = {
+    cliVersion,
+    channel: getCliChannel(cliVersion),
+    installMethod,
+    options: parsedOptions,
+  } as const;
 
   // Non-blocking update check — compute suppression flags early
   const shouldNotify =
@@ -247,22 +261,26 @@ More:
     .description("Print CLI version")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      if (parsedOptions.json) {
-        process.stdout.write(
-          `${JSON.stringify({
-            cliVersion,
-            channel: getCliChannel(cliVersion),
-            installMethod: getCliInstallMethod(),
-          })}\n`,
-        );
-        process.exitCode = 0;
-        return;
-      }
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "version" },
+        async () => {
+          if (parsedOptions.json) {
+            process.stdout.write(
+              `${JSON.stringify({
+                cliVersion,
+                channel: getCliChannel(cliVersion),
+                installMethod: getCliInstallMethod(),
+              })}\n`,
+            );
+            return 0;
+          }
 
-      process.stdout.write(
-        `${cliVersion} (${getCliChannel(cliVersion)}, ${formatInstallMethodLabel(getCliInstallMethod()).toLowerCase()})\n`,
+          process.stdout.write(
+            `${cliVersion} (${getCliChannel(cliVersion)}, ${formatInstallMethodLabel(getCliInstallMethod()).toLowerCase()})\n`,
+          );
+          return 0;
+        },
       );
-      process.exitCode = 0;
     });
 
   const connectCommand = program
@@ -275,13 +293,17 @@ More:
     .option("--quiet", "Reduce non-essential output")
     .option("--detach", "Run in the background")
     .action(async (source?: string) => {
-      if (parsedOptions.detach && source) {
-        process.exitCode = await runDetached("connect", source, parsedOptions);
-        return;
-      }
-      process.exitCode = source
-        ? await runConnect(source, parsedOptions)
-        : await runConnectEntry(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "connect", source },
+        async () => {
+          if (parsedOptions.detach && source) {
+            return runDetached("connect", source, parsedOptions);
+          }
+          return source
+            ? runConnect(source, parsedOptions)
+            : runConnectEntry(parsedOptions);
+        },
+      );
     });
   connectCommand.addHelpText(
     "after",
@@ -299,9 +321,13 @@ Examples:
     .description("List supported sources, or show detail for one source")
     .option("--json", "Output machine-readable JSON")
     .action(async (source?: string) => {
-      process.exitCode = source
-        ? await runSourceDetail(source, parsedOptions)
-        : await runList(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "sources", source },
+        async () =>
+          source
+            ? runSourceDetail(source, parsedOptions)
+            : runList(parsedOptions),
+      );
     });
   sourcesCommand.addHelpText(
     "after",
@@ -324,13 +350,17 @@ Examples:
     .option("--detach", "Run in the background")
     .option("--all", "Collect from all connected sources")
     .action(async (source?: string) => {
-      if (parsedOptions.detach && source) {
-        process.exitCode = await runDetached("collect", source, parsedOptions);
-        return;
-      }
-      process.exitCode = source
-        ? await runCollect(source, parsedOptions)
-        : await runCollectAll(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "collect", source },
+        async () => {
+          if (parsedOptions.detach && source) {
+            return runDetached("collect", source, parsedOptions);
+          }
+          return source
+            ? runCollect(source, parsedOptions)
+            : runCollectAll(parsedOptions);
+        },
+      );
     });
   collectCommand.addHelpText(
     "after",
@@ -347,7 +377,10 @@ Examples:
     .description("Show runtime and Personal Server status")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runStatus(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "status" },
+        async () => runStatus(parsedOptions),
+      );
     });
   statusCommand.addHelpText(
     "after",
@@ -363,7 +396,10 @@ Examples:
     .description("Inspect local CLI, runtime, and install health")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runDoctor(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "doctor" },
+        async () => runDoctor(parsedOptions),
+      );
     });
   doctorCommand.addHelpText(
     "after",
@@ -380,7 +416,10 @@ Examples:
     .option("--json", "Output machine-readable JSON")
     .option("--yes", "Approve safe setup prompts automatically")
     .action(async () => {
-      process.exitCode = await runSetup(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "setup" },
+        async () => runSetup(parsedOptions),
+      );
     });
   setupCommand.addHelpText(
     "after",
@@ -413,7 +452,10 @@ Examples:
     .description("List locally available collected datasets")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runDataList(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "data", subcommand: "list" },
+        async () => runDataList(parsedOptions),
+      );
     });
   dataListCommand.addHelpText(
     "after",
@@ -429,7 +471,15 @@ Examples:
     .description("Show a collected dataset")
     .option("--json", "Output machine-readable JSON")
     .action(async (source: string) => {
-      process.exitCode = await runDataShow(source, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        {
+          ...telemetryBaseContext,
+          command: "data",
+          subcommand: "show",
+          source,
+        },
+        async () => runDataShow(source, parsedOptions),
+      );
     });
   dataShowCommand.addHelpText(
     "after",
@@ -445,7 +495,15 @@ Examples:
     .description("Print the local path for a collected dataset")
     .option("--json", "Output machine-readable JSON")
     .action(async (source: string) => {
-      process.exitCode = await runDataPath(source, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        {
+          ...telemetryBaseContext,
+          command: "data",
+          subcommand: "path",
+          source,
+        },
+        async () => runDataPath(source, parsedOptions),
+      );
     });
   dataPathCommand.addHelpText(
     "after",
@@ -461,7 +519,10 @@ Examples:
     .description("Inspect stored connector run logs")
     .option("--json", "Output machine-readable JSON")
     .action(async (source?: string) => {
-      process.exitCode = await runLogs(source, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "logs", source },
+        async () => runLogs(source, parsedOptions),
+      );
     });
   logsCommand.addHelpText(
     "after",
@@ -488,7 +549,10 @@ Examples:
 `,
   );
   server.action(async () => {
-    process.exitCode = await runServerStatus(parsedOptions);
+    process.exitCode = await runCommandWithTelemetry(
+      { ...telemetryBaseContext, command: "server", subcommand: "status" },
+      async () => runServerStatus(parsedOptions),
+    );
   });
 
   server
@@ -496,7 +560,10 @@ Examples:
     .description("Show Personal Server status")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runServerStatus(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "server", subcommand: "status" },
+        async () => runServerStatus(parsedOptions),
+      );
     });
 
   server
@@ -504,7 +571,10 @@ Examples:
     .description("Save a Personal Server URL")
     .option("--json", "Output machine-readable JSON")
     .action(async (url: string) => {
-      process.exitCode = await runServerSetUrl(url, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "server", subcommand: "set-url" },
+        async () => runServerSetUrl(url, parsedOptions),
+      );
     });
 
   server
@@ -512,7 +582,10 @@ Examples:
     .description("Remove the saved Personal Server URL")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runServerClearUrl(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "server", subcommand: "clear-url" },
+        async () => runServerClearUrl(parsedOptions),
+      );
     });
 
   server
@@ -520,7 +593,10 @@ Examples:
     .description("Sync all local-only datasets to your Personal Server")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runServerSync(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "server", subcommand: "sync" },
+        async () => runServerSync(parsedOptions),
+      );
     });
 
   server
@@ -528,7 +604,10 @@ Examples:
     .description("List scopes stored in your Personal Server")
     .option("--json", "Output machine-readable JSON")
     .action(async (scope?: string) => {
-      process.exitCode = await runServerData(scope, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "server", subcommand: "data" },
+        async () => runServerData(scope, parsedOptions),
+      );
     });
 
   program
@@ -536,22 +615,62 @@ Examples:
     .description("Log in to your Vana account or a self-hosted Personal Server")
     .option("-s, --server <url>", "Self-hosted Personal Server URL")
     .action(async (loginOptions: { server?: string }) => {
-      process.exitCode = await runLogin(parsedOptions, loginOptions.server);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "login" },
+        async () => runLogin(parsedOptions, loginOptions.server),
+      );
     });
 
   program
     .command("logout")
     .description("Log out and remove saved credentials")
     .action(async () => {
-      process.exitCode = await runLogout(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "logout" },
+        async () => runLogout(parsedOptions),
+      );
+    });
+
+  const telemetry = program
+    .command("telemetry")
+    .description("Inspect and manage CLI telemetry");
+  telemetry.action(async () => {
+    process.exitCode = await runTelemetryStatus(parsedOptions);
+  });
+
+  telemetry
+    .command("status")
+    .description("Show telemetry state")
+    .option("--json", "Output machine-readable JSON")
+    .action(async () => {
+      process.exitCode = await runTelemetryStatus(parsedOptions);
+    });
+
+  telemetry
+    .command("enable")
+    .description("Enable telemetry")
+    .action(async () => {
+      process.exitCode = await runTelemetryEnable(parsedOptions);
+    });
+
+  telemetry
+    .command("disable")
+    .description("Disable telemetry")
+    .action(async () => {
+      process.exitCode = await runTelemetryDisable(parsedOptions);
     });
 
   program
     .command("mcp")
     .description("Start MCP server for agent integration")
     .action(async () => {
-      const { startMcpServer } = await import("./mcp-server.js");
-      await startMcpServer();
+      process.exitCode = await runLongRunningCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "mcp" },
+        async () => {
+          const { startMcpServer } = await import("./mcp-server.js");
+          await startMcpServer();
+        },
+      );
     });
 
   const skill = program
@@ -568,7 +687,10 @@ Examples:
 `,
   );
   skill.action(async () => {
-    process.exitCode = await runSkillsGuidedPicker(parsedOptions);
+    process.exitCode = await runCommandWithTelemetry(
+      { ...telemetryBaseContext, command: "skills" },
+      async () => runSkillsGuidedPicker(parsedOptions),
+    );
   });
 
   skill
@@ -576,21 +698,30 @@ Examples:
     .description("List available agent skills")
     .option("--json", "Output as JSON")
     .action(async () => {
-      process.exitCode = await runSkillList(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "skills", subcommand: "list" },
+        async () => runSkillList(parsedOptions),
+      );
     });
 
   skill
     .command("install <name>")
     .description("Install a skill for your agent")
     .action(async (name: string) => {
-      process.exitCode = await runSkillInstall(name, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "skills", subcommand: "install" },
+        async () => runSkillInstall(name, parsedOptions),
+      );
     });
 
   skill
     .command("show <name>")
     .description("Show skill details")
     .action(async (name: string) => {
-      process.exitCode = await runSkillShow(name, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "skills", subcommand: "show" },
+        async () => runSkillShow(name, parsedOptions),
+      );
     });
 
   // --- Schedule commands ---
@@ -621,7 +752,10 @@ Examples:
       "24h",
     )
     .action(async (opts: { every: string }) => {
-      process.exitCode = await runScheduleAdd(opts.every, parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "schedule", subcommand: "add" },
+        async () => runScheduleAdd(opts.every, parsedOptions),
+      );
     });
 
   schedule
@@ -629,14 +763,20 @@ Examples:
     .description("Show scheduled tasks")
     .option("--json", "Output machine-readable JSON")
     .action(async () => {
-      process.exitCode = await runScheduleList(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "schedule", subcommand: "list" },
+        async () => runScheduleList(parsedOptions),
+      );
     });
 
   schedule
     .command("remove")
     .description("Remove the scheduled collection")
     .action(async () => {
-      process.exitCode = await runScheduleRemove(parsedOptions);
+      process.exitCode = await runCommandWithTelemetry(
+        { ...telemetryBaseContext, command: "schedule", subcommand: "remove" },
+        async () => runScheduleRemove(parsedOptions),
+      );
     });
 
   try {
@@ -682,6 +822,176 @@ Examples:
   }
 
   return Number(process.exitCode ?? 0);
+}
+
+function classifyCommandFailure(error: unknown): string {
+  if (error instanceof Error) {
+    const value = error.message.toLowerCase();
+    if (value.includes("auth")) return "auth_failed";
+    if (value.includes("setup")) return "setup_required";
+    if (value.includes("runtime")) return "runtime_error";
+    if (value.includes("connector")) return "connector_unavailable";
+    if (value.includes("ingest")) return "ingest_failed";
+  }
+  return "unknown";
+}
+
+async function runCommandWithTelemetry(
+  context: {
+    command: string;
+    subcommand?: string;
+    source?: string;
+    cliVersion: string;
+    channel: CliChannel;
+    installMethod: CliInstallMethod;
+    options: GlobalOptions;
+    localOnly?: boolean;
+  },
+  action: () => Promise<number>,
+): Promise<number> {
+  const session = await createCliTelemetrySession({
+    ...context,
+    options: {
+      json: Boolean(context.options.json),
+      noInput: Boolean(context.options.noInput),
+      quiet: Boolean(context.options.quiet),
+      detach: Boolean(context.options.detach),
+      ipc: Boolean(context.options.ipc),
+    },
+    localOnly: context.localOnly,
+  });
+
+  setActiveTelemetrySession(session);
+  await flushTelemetryOutbox();
+
+  try {
+    const exitCode = await action();
+    session.markCommandResult({ exitCode });
+    return exitCode;
+  } catch (error) {
+    session.markCommandResult({
+      exitCode: 1,
+      errorClass: classifyCommandFailure(error),
+    });
+    throw error;
+  } finally {
+    await session.persist();
+    await session.flush();
+    setActiveTelemetrySession(null);
+  }
+}
+
+async function runLongRunningCommandWithTelemetry(
+  context: {
+    command: string;
+    subcommand?: string;
+    source?: string;
+    cliVersion: string;
+    channel: CliChannel;
+    installMethod: CliInstallMethod;
+    options: GlobalOptions;
+  },
+  action: () => Promise<void>,
+): Promise<number> {
+  const session = await createCliTelemetrySession({
+    ...context,
+    options: {
+      json: Boolean(context.options.json),
+      noInput: Boolean(context.options.noInput),
+      quiet: Boolean(context.options.quiet),
+      detach: Boolean(context.options.detach),
+      ipc: Boolean(context.options.ipc),
+    },
+  });
+
+  setActiveTelemetrySession(session);
+  await flushTelemetryOutbox();
+  session.trackCustomEvent("mcp_started");
+  session.markCommandResult({ exitCode: 0, outcome: "started" });
+  await session.persist();
+  await session.flush();
+
+  try {
+    await action();
+    return 0;
+  } finally {
+    setActiveTelemetrySession(null);
+  }
+}
+
+async function runTelemetryStatus(options: GlobalOptions): Promise<number> {
+  const status = await getTelemetryStatus();
+  const endpointHost = (() => {
+    try {
+      return new URL(status.endpoint).host;
+    } catch {
+      return status.endpoint;
+    }
+  })();
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(status)}\n`);
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  emit.title("Telemetry");
+  emit.blank();
+  emit.keyValue("Enabled", status.enabled ? "yes" : "no");
+  emit.keyValue("Mode", status.mode);
+  emit.keyValue("Reason", status.reason.replaceAll("_", " "));
+  emit.keyValue("Endpoint", endpointHost);
+  emit.keyValue("Queued", String(status.queuedBatches));
+  emit.detail(
+    "Collected data stays local. Remote telemetry only includes small operational events.",
+  );
+  if (status.enabled) {
+    emit.detail(`Disable with: ${emit.code("vana telemetry disable")}`);
+  } else {
+    emit.detail(`Enable with: ${emit.code("vana telemetry enable")}`);
+  }
+  if (process.env.VANA_TELEMETRY_DEBUG === "1") {
+    emit.detail(
+      `Debug mode is active via ${emit.code("VANA_TELEMETRY_DEBUG=1")}. Events print to stderr and are not uploaded.`,
+    );
+  }
+  if (process.env.VANA_TELEMETRY_DISABLED === "1") {
+    emit.detail(
+      `Telemetry is currently overridden by ${emit.code("VANA_TELEMETRY_DISABLED=1")}.`,
+    );
+  }
+  return 0;
+}
+
+async function runTelemetryEnable(options: GlobalOptions): Promise<number> {
+  await setTelemetryEnabled(true);
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ enabled: true })}\n`);
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  emit.success("Telemetry enabled.");
+  if (process.env.VANA_TELEMETRY_DISABLED === "1") {
+    emit.detail(
+      `The current shell still disables uploads via ${emit.code("VANA_TELEMETRY_DISABLED=1")}.`,
+    );
+  }
+  return 0;
+}
+
+async function runTelemetryDisable(options: GlobalOptions): Promise<number> {
+  await setTelemetryEnabled(false);
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ enabled: false })}\n`);
+    return 0;
+  }
+
+  const emit = createEmitter(options);
+  emit.success("Telemetry disabled.");
+  return 0;
 }
 
 async function runConnect(
@@ -749,7 +1059,17 @@ async function runConnect(
         process.stderr.write("\n");
       }
 
-      const installResult = await runtime.ensureInstalled(Boolean(options.yes));
+      trackActiveTelemetryEvent("runtime_install_started", { source });
+      let installResult: Awaited<ReturnType<typeof runtime.ensureInstalled>>;
+      try {
+        installResult = await runtime.ensureInstalled(Boolean(options.yes));
+      } catch (error) {
+        trackActiveTelemetryEvent("runtime_install_failed", {
+          source,
+          errorClass: classifyCommandFailure(error),
+        });
+        throw error;
+      }
       setupLogPath = installResult.logPath;
       emit.event({
         type: "setup-complete",
@@ -855,6 +1175,13 @@ async function runConnect(
       }
     }
     if (fetched.updated && fetched.previousVersion) {
+      trackActiveTelemetryEvent("connector_update_applied", {
+        source,
+        metadata: {
+          previousVersion: fetched.previousVersion,
+          connectorVersion: fetched.version,
+        } as Record<string, string>,
+      });
       renderer?.detail(
         `Updated connector (${fetched.previousVersion} → ${fetched.version}).`,
       );
@@ -2944,8 +3271,12 @@ async function runCollectAll(options: GlobalOptions): Promise<number> {
 async function runServerSync(options: GlobalOptions): Promise<number> {
   const emit = createEmitter(options);
   const target = await detectPersonalServerTarget();
+  trackActiveTelemetryEvent("server_sync_started");
 
   if (target.state !== "available") {
+    trackActiveTelemetryEvent("server_sync_failed", {
+      errorClass: "personal_server_unavailable",
+    });
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({
@@ -2963,8 +3294,29 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
   }
 
   const syncResult = await syncPendingSources(target, "manual");
+  const storedScopeCount = syncResult.sourceResults.reduce(
+    (total, entry) =>
+      total +
+      (entry.scopeResults?.filter(
+        (scopeResult) => scopeResult.status === "stored",
+      ).length ?? 0),
+    0,
+  );
+  const failedScopeCount = syncResult.sourceResults.reduce(
+    (total, entry) =>
+      total +
+      (entry.scopeResults?.filter(
+        (scopeResult) => scopeResult.status === "failed",
+      ).length ?? 0),
+    0,
+  );
 
   if (syncResult.sourceResults.length === 0) {
+    trackActiveTelemetryEvent("server_sync_completed", {
+      storedScopeCount: 0,
+      failedScopeCount: 0,
+      metadata: { syncedSources: 0 },
+    });
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ message: "No pending datasets to sync.", syncedCount: 0 })}\n`,
@@ -3011,6 +3363,11 @@ async function runServerSync(options: GlobalOptions): Promise<number> {
       emit.next("vana server sync");
     }
   }
+  trackActiveTelemetryEvent("server_sync_completed", {
+    storedScopeCount,
+    failedScopeCount,
+    metadata: { syncedSources: syncResult.syncedCount },
+  });
   return 0;
 }
 
@@ -4794,6 +5151,7 @@ async function runDetached(
     stdio: ["ignore", logFd, logFd],
     env: { ...process.env, VANA_DETACHED: "1" },
   });
+  trackActiveTelemetryEvent("detached_run_spawned", { source });
   child.unref();
   fs.closeSync(logFd);
 
@@ -5024,6 +5382,10 @@ async function runScheduleAdd(
       return 1;
     }
 
+    trackActiveTelemetryEvent("schedule_added", {
+      metadata: { interval: intervalLabel, mechanism: "launchd" },
+    });
+
     if (options.json) {
       process.stdout.write(
         `${JSON.stringify({ ok: true, interval: intervalLabel, mechanism: "launchd", plistPath: LAUNCHD_PLIST_PATH })}\n`,
@@ -5069,6 +5431,10 @@ async function runScheduleAdd(
       emit.detail(entry);
       return 1;
     }
+
+    trackActiveTelemetryEvent("schedule_added", {
+      metadata: { interval: intervalLabel, mechanism: "cron" },
+    });
 
     if (options.json) {
       process.stdout.write(
@@ -5127,6 +5493,10 @@ async function runScheduleAdd(
       );
       return 1;
     }
+
+    trackActiveTelemetryEvent("schedule_added", {
+      metadata: { interval: intervalLabel, mechanism: "schtasks" },
+    });
 
     if (options.json) {
       process.stdout.write(
@@ -5275,6 +5645,9 @@ async function runScheduleRemove(options: GlobalOptions): Promise<number> {
         // Already unloaded
       }
       await fsp.unlink(LAUNCHD_PLIST_PATH);
+      trackActiveTelemetryEvent("schedule_removed", {
+        metadata: { mechanism: "launchd" },
+      });
 
       if (options.json) {
         process.stdout.write(
@@ -5304,6 +5677,9 @@ async function runScheduleRemove(options: GlobalOptions): Promise<number> {
           input: `${filtered.trimEnd()}\n`,
           encoding: "utf8",
         });
+        trackActiveTelemetryEvent("schedule_removed", {
+          metadata: { mechanism: "cron" },
+        });
 
         if (options.json) {
           process.stdout.write(
@@ -5324,6 +5700,9 @@ async function runScheduleRemove(options: GlobalOptions): Promise<number> {
     try {
       execSync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F`, {
         stdio: "ignore",
+      });
+      trackActiveTelemetryEvent("schedule_removed", {
+        metadata: { mechanism: "schtasks" },
       });
 
       if (options.json) {
@@ -5517,6 +5896,9 @@ async function runSkillInstall(
 
   try {
     const { installedPath } = await installSkill(name);
+    trackActiveTelemetryEvent("skill_installed", {
+      metadata: { skillName: name },
+    });
 
     if (options.json) {
       process.stdout.write(

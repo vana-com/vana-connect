@@ -11,7 +11,7 @@ on your machine, and the CLI saves it locally as JSON.
 
 ### Highlights
 
-- **Fully local**: credentials and collected data never leave your machine
+- **Local-first**: credentials stay on your machine; collected data stays local unless you sync it to your Personal Server
 - **Any platform**: connects through a browser session, not a restricted API
 - **Inspectable**: collected data is JSON you can summarize, query, or pipe
 - **Agent-ready**: `--json` and `--no-input` flags for scripts and AI agents
@@ -92,6 +92,7 @@ on disk. Inspect, move, or delete them whenever you want.
 | `vana data list`              | Show all collected datasets                   |
 | `vana data show <source>`     | Summarize a collected dataset                 |
 | `vana status`                 | Connection health and system overview         |
+| `vana telemetry status`       | Inspect or disable operational telemetry      |
 | `vana collect [source]`       | Re-collect data from a connected source       |
 | `vana schedule add`           | Schedule daily collection (launchd/cron)      |
 | `vana skills`                 | Browse and install agent skills interactively |
@@ -148,13 +149,12 @@ building apps that request user data, see the
 **Credentials**: You log in through a browser on your machine. Vana never
 sees your password, token, or session cookie.
 
-**Collected data**: Saved to `~/.vana/` as local files. Nothing is
-uploaded.
+**Collected data**: Saved to `~/.vana/` as local files. The CLI only uploads your collected data when you explicitly sync it to your Personal Server.
 
 **Browser sessions**: Cached in `~/.vana/browser-profiles/` for faster
 reconnects. Delete them any time.
 
-**Telemetry**: None.
+**Telemetry**: The CLI sends small anonymous operational telemetry by default to improve connector reliability. It does not send passwords, tokens, command arguments, file paths, Personal Server URLs, or collected dataset contents. Run `vana telemetry status`, `vana telemetry disable`, or set `VANA_TELEMETRY_DISABLED=1`. Use `VANA_TELEMETRY_DEBUG=1` to print the exact payload locally instead of uploading it.
 
 ## Troubleshooting
 
@@ -188,6 +188,7 @@ rm -rf ~/.vana
 
 - [Building connectors](docs/building-connectors.md)
 - [Exit code reference](docs/CLI-EXIT-CODE-MATRIX.md)
+- [CLI telemetry](docs/CLI-TELEMETRY.md)
 - [Architecture](docs/architecture.md)
 
 ## Community
