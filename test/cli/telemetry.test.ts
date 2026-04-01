@@ -95,6 +95,44 @@ describe("cli telemetry", () => {
     ).rejects.toThrow();
   });
 
+  it("prefers outcome-derived error classes over unknown command failures", async () => {
+    const { createCliTelemetrySession } =
+      await import("../../src/cli/telemetry.js");
+
+    const session = await createCliTelemetrySession({
+      command: "connect",
+      source: "github",
+      cliVersion: "0.11.6",
+      channel: "stable",
+      installMethod: "development",
+      options: {
+        json: false,
+        noInput: false,
+        quiet: false,
+        detach: false,
+        ipc: false,
+      },
+    });
+
+    session.trackCliEvent({
+      type: "outcome",
+      status: "needs_input",
+    } as never);
+    session.markCommandResult({ exitCode: 1, errorClass: "unknown" });
+    await session.persist();
+
+    const outboxDir = path.join(state.tempRoot, "telemetry", "outbox");
+    const [filename] = await fs.readdir(outboxDir);
+    const payload = JSON.parse(
+      await fs.readFile(path.join(outboxDir, filename), "utf8"),
+    ) as { events: Array<{ eventName: string; errorClass: string | null }> };
+
+    expect(payload.events.at(-1)).toMatchObject({
+      eventName: "command_failed",
+      errorClass: "needs_input",
+    });
+  });
+
   it("flushes queued batches and removes accepted files", async () => {
     const { createCliTelemetrySession, flushTelemetryOutbox } =
       await import("../../src/cli/telemetry.js");
