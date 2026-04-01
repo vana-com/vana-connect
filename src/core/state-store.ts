@@ -42,6 +42,8 @@ export interface StoredSourceState {
 export interface CliConfig {
   personalServerUrl?: string;
   skillsPromptCompleted?: boolean;
+  telemetryEnabled?: boolean;
+  telemetryInstallId?: string;
 }
 
 export interface CliStateFile {

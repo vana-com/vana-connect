@@ -94,6 +94,14 @@ export function getLogsDir(): string {
   return path.join(getVanaHome(), "logs");
 }
 
+export function getTelemetryDir(): string {
+  return path.join(getVanaHome(), "telemetry");
+}
+
+export function getTelemetryOutboxDir(): string {
+  return path.join(getTelemetryDir(), "outbox");
+}
+
 export function getTimestampedLogPath(prefix: string): string {
   const safePrefix = prefix.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
   return path.join(

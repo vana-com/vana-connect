@@ -19,6 +19,8 @@ export {
   rotateResult,
   getLogsDir,
   getSessionsDir,
+  getTelemetryDir,
+  getTelemetryOutboxDir,
   getTimestampedLogPath,
 } from "./paths.js";
 export {
