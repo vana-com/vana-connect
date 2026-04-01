@@ -111,6 +111,7 @@ import {
 import {
   createCliTelemetrySession,
   flushTelemetryOutbox,
+  getActiveTelemetrySession,
   getTelemetryStatus,
   setActiveTelemetrySession,
   setTelemetryEnabled,
@@ -1197,6 +1198,10 @@ async function runConnect(
       source: resolution.source,
       connectorPath: resolution.connectorPath,
       logPath: fetched.logPath,
+    });
+    trackActiveTelemetryEvent("connector_version_detected", {
+      source: resolution.source,
+      connectorVersion: fetched.version,
     });
 
     // --- Phase 3: Pre-connection validation (silent) ---
@@ -3581,6 +3586,7 @@ function createEmitter(options: GlobalOptions): Emitter {
 
   return {
     event(event: CliEvent | CliOutcome) {
+      getActiveTelemetrySession()?.trackCliEvent(event);
       if (options.json) {
         process.stdout.write(`${JSON.stringify(event)}\n`);
       }

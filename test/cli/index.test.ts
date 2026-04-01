@@ -43,6 +43,22 @@ const mockSetTelemetryEnabled = vi.fn();
 const mockSetActiveTelemetrySession = vi.fn();
 const mockGetActiveTelemetrySession = vi.fn();
 const mockTrackActiveTelemetryEvent = vi.fn();
+const telemetrySessionState = {
+  session: null as null | {
+    trackCliEvent: ReturnType<typeof vi.fn>;
+    trackCustomEvent: ReturnType<typeof vi.fn>;
+    markCommandResult: ReturnType<typeof vi.fn>;
+    persist: ReturnType<typeof vi.fn>;
+    flush: ReturnType<typeof vi.fn>;
+  },
+  createdSession: null as null | {
+    trackCliEvent: ReturnType<typeof vi.fn>;
+    trackCustomEvent: ReturnType<typeof vi.fn>;
+    markCommandResult: ReturnType<typeof vi.fn>;
+    persist: ReturnType<typeof vi.fn>;
+    flush: ReturnType<typeof vi.fn>;
+  },
+};
 
 class ExitPromptError extends Error {
   name = "ExitPromptError";
@@ -269,6 +285,8 @@ describe("runCli", () => {
     mockSetActiveTelemetrySession.mockReset();
     mockGetActiveTelemetrySession.mockReset();
     mockTrackActiveTelemetryEvent.mockReset();
+    telemetrySessionState.session = null;
+    telemetrySessionState.createdSession = null;
 
     runtimeState = "installed";
     fetchConnectorResult = {
@@ -307,6 +325,8 @@ describe("runCli", () => {
       persist: vi.fn().mockResolvedValue(undefined),
       flush: vi.fn().mockResolvedValue(undefined),
     };
+    telemetrySessionState.session = mockTelemetrySession;
+    telemetrySessionState.createdSession = mockTelemetrySession;
     mockCreateCliTelemetrySession.mockResolvedValue(mockTelemetrySession);
     mockFlushTelemetryOutbox.mockResolvedValue(undefined);
     mockGetTelemetryStatus.mockResolvedValue({
@@ -318,7 +338,12 @@ describe("runCli", () => {
       queuedBatches: 0,
     });
     mockSetTelemetryEnabled.mockResolvedValue(undefined);
-    mockGetActiveTelemetrySession.mockReturnValue(null);
+    mockSetActiveTelemetrySession.mockImplementation((session) => {
+      telemetrySessionState.session = session;
+    });
+    mockGetActiveTelemetrySession.mockImplementation(
+      () => telemetrySessionState.session,
+    );
     mockRunDeviceCodeFlow.mockReset();
     mockRunSelfHostedLoginFlow.mockReset();
     mockSaveCredentials.mockReset();
@@ -2452,6 +2477,23 @@ describe("runCli", () => {
     );
     expect(stderr).toContain("Next:");
     expect(stderr).toContain("vana data show github");
+    expect(
+      telemetrySessionState.createdSession?.trackCliEvent,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "collection-complete",
+        source: "github",
+      }),
+    );
+    expect(
+      telemetrySessionState.createdSession?.trackCliEvent,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "outcome",
+        status: "connected_local_only",
+        source: "github",
+      }),
+    );
   });
 
   it("handles cancelled terminal input cleanly during connect", async () => {
