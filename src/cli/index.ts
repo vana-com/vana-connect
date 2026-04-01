@@ -828,8 +828,26 @@ Examples:
 function classifyCommandFailure(error: unknown): string {
   if (error instanceof Error) {
     const value = error.message.toLowerCase();
+    if (
+      value.includes("needs_input") ||
+      value.includes("needs input") ||
+      value.includes("input required") ||
+      value.includes("manual step")
+    )
+      return "needs_input";
+    if (value.includes("prompt_cancelled") || value.includes("cancelled"))
+      return "prompt_cancelled";
+    if (
+      value.includes("personal_server_unavailable") ||
+      value.includes("personal server unavailable")
+    )
+      return "personal_server_unavailable";
+    if (value.includes("auth expired")) return "auth_expired";
     if (value.includes("auth")) return "auth_failed";
     if (value.includes("setup")) return "setup_required";
+    if (value.includes("timeout") || value.includes("timed out"))
+      return "timeout";
+    if (value.includes("network")) return "network_error";
     if (value.includes("runtime")) return "runtime_error";
     if (value.includes("connector")) return "connector_unavailable";
     if (value.includes("ingest")) return "ingest_failed";

@@ -171,16 +171,77 @@ function classifyError(reason?: string | null) {
   if (value.includes("setup_declined")) return "setup_declined";
   if (value.includes("setup_required")) return "setup_required";
   if (value.includes("source_required")) return "source_required";
-  if (value.includes("prompt_cancelled")) return "prompt_cancelled";
+  if (value.includes("prompt_cancelled") || value.includes("cancelled"))
+    return "prompt_cancelled";
+  if (
+    value.includes("needs_input") ||
+    value.includes("needs input") ||
+    value.includes("input required") ||
+    value.includes("manual step")
+  )
+    return "needs_input";
+  if (value.includes("auth expired")) return "auth_expired";
   if (value.includes("auth")) return "auth_failed";
-  if (value.includes("needs input")) return "needs_input";
   if (value.includes("legacy")) return "legacy_auth";
-  if (value.includes("personal_server_unavailable"))
+  if (
+    value.includes("personal_server_unavailable") ||
+    value.includes("personal server unavailable")
+  )
     return "personal_server_unavailable";
+  if (value.includes("timeout") || value.includes("timed out"))
+    return "timeout";
+  if (value.includes("network")) return "network_error";
   if (value.includes("ingest")) return "ingest_failed";
   if (value.includes("connector")) return "connector_unavailable";
   if (value.includes("runtime")) return "runtime_error";
   return "unknown";
+}
+
+function classifyOutcomeStatus(outcome?: string | null) {
+  switch (outcome) {
+    case "needs_input":
+      return "needs_input";
+    case "auth_failed":
+      return "auth_failed";
+    case "legacy_auth":
+      return "legacy_auth";
+    case "personal_server_unavailable":
+      return "personal_server_unavailable";
+    case "ingest_failed":
+      return "ingest_failed";
+    case "connector_unavailable":
+      return "connector_unavailable";
+    case "runtime_error":
+      return "runtime_error";
+    case "setup_required":
+      return "setup_required";
+    case "setup_declined":
+      return "setup_declined";
+    case "source_required":
+      return "source_required";
+    case "prompt_cancelled":
+      return "prompt_cancelled";
+    case "invalid_connector":
+      return "invalid_connector";
+    case "unexpected_internal_error":
+      return "unexpected_internal_error";
+    default:
+      return null;
+  }
+}
+
+function resolveErrorClass(...candidates: Array<string | null | undefined>) {
+  const preferred = candidates.find((candidate): candidate is string =>
+    Boolean(candidate && candidate !== "unknown"),
+  );
+  if (preferred) {
+    return preferred;
+  }
+
+  return (
+    candidates.find((candidate): candidate is string => Boolean(candidate)) ??
+    null
+  );
 }
 
 function mapCliEventToTelemetry(event: CliEvent | CliOutcome): {
@@ -575,7 +636,11 @@ export async function createCliTelemetrySession(
       if (!mapped) {
         if (event.type === "outcome") {
           latestOutcome = event.status ?? null;
-          latestErrorClass = classifyError(event.reason) ?? latestErrorClass;
+          latestErrorClass = resolveErrorClass(
+            classifyError(event.reason),
+            classifyOutcomeStatus(event.status),
+            latestErrorClass,
+          );
         }
         return;
       }
@@ -589,7 +654,11 @@ export async function createCliTelemetrySession(
     },
     markCommandResult(result) {
       latestOutcome = result.outcome ?? latestOutcome;
-      latestErrorClass = result.errorClass ?? latestErrorClass;
+      latestErrorClass = resolveErrorClass(
+        result.errorClass,
+        latestErrorClass,
+        classifyOutcomeStatus(latestOutcome),
+      );
       const durationMs = Date.now() - startedAt;
       if (result.exitCode === 0) {
         push("command_completed", {
