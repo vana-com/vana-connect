@@ -8,7 +8,7 @@ export type DownloadAsset = {
   comingSoon?: boolean;
 };
 
-const DOWNLOAD_VERSION = "0.7.48";
+const DOWNLOAD_VERSION = "0.7.49";
 const DATA_CONNECT_GITHUB_RELEASES_URL =
   "https://github.com/vana-com/data-connect/releases";
 
