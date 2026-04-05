@@ -6,8 +6,11 @@ import { getConnectorCacheDir } from "../core/paths.js";
 
 const REGISTRY_URL =
   "https://raw.githubusercontent.com/vana-com/data-connectors/main/registry.json";
+// Connector script files live under `connectors/` in the data-connectors
+// repo. The registry.json `baseUrl` field also points here; we mirror it
+// as a constant so offline/local paths resolve correctly too.
 const BASE_URL =
-  "https://raw.githubusercontent.com/vana-com/data-connectors/main";
+  "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors";
 
 export interface ConnectorRegistryEntry {
   id?: string;
