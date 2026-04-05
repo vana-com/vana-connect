@@ -16,7 +16,11 @@
 
 // ── Producers ───────────────────────────────────────────────────────────────
 
-export const TELEMETRY_PRODUCERS = ["cli", "data_connect", "personal_server"] as const;
+export const TELEMETRY_PRODUCERS = [
+  "cli",
+  "data_connect",
+  "personal_server",
+] as const;
 export type TelemetryProducer = (typeof TELEMETRY_PRODUCERS)[number];
 
 // ── Error classes ───────────────────────────────────────────────────────────
@@ -210,6 +214,7 @@ export interface TelemetryBatch {
 
 // ── Endpoint ────────────────────────────────────────────────────────────────
 
-export const TELEMETRY_ENDPOINT = "https://telemetry.opendatalabs.com/v1/telemetry/events";
+export const TELEMETRY_ENDPOINT =
+  "https://telemetry.opendatalabs.com/v1/telemetry/events";
 export const TELEMETRY_EVENT_VERSION = 1;
 export const TELEMETRY_PRODUCER_NAME: TelemetryProducer = "cli";

@@ -178,12 +178,15 @@ function classifyCanonicalError(value?: string | null): TelemetryErrorClass {
 }
 
 // Map a CLI interaction indicator to a canonical InteractionKind.
-function mapInteractionKind(value?: string | null): TelemetryInteractionKind | undefined {
+function mapInteractionKind(
+  value?: string | null,
+): TelemetryInteractionKind | undefined {
   const normalized = (value ?? "").toLowerCase();
   if (!normalized) return undefined;
   if (normalized.includes("otp")) return "otp";
   if (normalized.includes("captcha")) return "captcha";
-  if (normalized.includes("login") || normalized.includes("credential")) return "login";
+  if (normalized.includes("login") || normalized.includes("credential"))
+    return "login";
   return "manual_action";
 }
 
@@ -331,7 +334,9 @@ function createEventFactory(
         },
         time: {
           occurredAt: nowIso(),
-          ...(args.durationMs !== undefined ? { durationMs: args.durationMs } : {}),
+          ...(args.durationMs !== undefined
+            ? { durationMs: args.durationMs }
+            : {}),
         },
         attribution: {
           producer: TELEMETRY_PRODUCER_NAME,
@@ -339,7 +344,9 @@ function createEventFactory(
         },
         context: {
           ...baseContext,
-          ...(args.connectorVersion ? { connectorVersion: args.connectorVersion } : {}),
+          ...(args.connectorVersion
+            ? { connectorVersion: args.connectorVersion }
+            : {}),
           ...(args.authMode ? { authMode: args.authMode } : {}),
         },
         correlation: args.correlation,
@@ -522,7 +529,9 @@ export async function createCliTelemetrySession(
     );
   };
 
-  const emitCollectionEvent = (kind: TelemetryKind & { lifecycle: "collection" }) => {
+  const emitCollectionEvent = (
+    kind: TelemetryKind & { lifecycle: "collection" },
+  ) => {
     ensureCollectionStarted();
     if (!collectionRunId || !collectionSource) return;
     push(
@@ -563,8 +572,10 @@ export async function createCliTelemetrySession(
   const countScopeResults = (
     scopeResults?: Array<{ status: "stored" | "failed"; scope: string }>,
   ) => {
-    const stored = scopeResults?.filter((s) => s.status === "stored").length ?? 0;
-    const failed = scopeResults?.filter((s) => s.status === "failed").length ?? 0;
+    const stored =
+      scopeResults?.filter((s) => s.status === "stored").length ?? 0;
+    const failed =
+      scopeResults?.filter((s) => s.status === "failed").length ?? 0;
     return { stored, failed };
   };
 
@@ -591,7 +602,11 @@ export async function createCliTelemetrySession(
             lifecycle: "collection",
             phase: "needs_input",
             ...(mapInteractionKind(event.fields?.join(",") ?? null)
-              ? { interactionKind: mapInteractionKind(event.fields?.join(",") ?? null)! }
+              ? {
+                  interactionKind: mapInteractionKind(
+                    event.fields?.join(",") ?? null,
+                  )!,
+                }
               : {}),
           });
           break;
@@ -668,7 +683,8 @@ export async function createCliTelemetrySession(
             lifecycle: "sync",
             phase: "skipped",
             reason:
-              classifyCanonicalError(event.reason) === "personal_server_unavailable"
+              classifyCanonicalError(event.reason) ===
+              "personal_server_unavailable"
                 ? "server_unavailable"
                 : "not_requested",
           });
@@ -802,6 +818,9 @@ export async function createCliTelemetrySession(
 /** @deprecated trackCustomEvent on the session is a no-op in the canonical
  *  model. This top-level helper is also a no-op — kept only to satisfy
  *  existing call sites. */
-export function trackActiveTelemetryEvent(_eventName?: string, _patch?: unknown) {
+export function trackActiveTelemetryEvent(
+  _eventName?: string,
+  _patch?: unknown,
+) {
   /* intentionally blank */
 }
