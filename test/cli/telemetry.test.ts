@@ -63,7 +63,7 @@ describe("cli telemetry", () => {
     );
   });
 
-  it("persists debug envelopes to stderr instead of the network", async () => {
+  it("writes canonical envelopes to stderr in debug mode", async () => {
     process.env.VANA_TELEMETRY_DEBUG = "1";
     const { createCliTelemetrySession } =
       await import("../../src/cli/telemetry.js");
@@ -82,20 +82,26 @@ describe("cli telemetry", () => {
       },
     });
 
-    session.trackCustomEvent("status_rendered", {
-      metadata: { sourceCount: 2 },
-    });
     session.markCommandResult({ exitCode: 0, outcome: "ok" });
     await session.persist();
 
-    expect(stderr).toContain('"client":{"name":"vana-cli","version":"0.11.6"}');
-    expect(stderr).toContain('"eventName":"status_rendered"');
+    expect(stderr).toContain('"batchId"');
+    expect(stderr).toContain('"sentAt"');
+    // Host started + host terminal = 2 events in the envelope.
+    expect(stderr).toContain('"lifecycle":"host"');
+    expect(stderr).toContain('"phase":"started"');
+    expect(stderr).toContain('"phase":"terminal"');
+    expect(stderr).toContain('"outcome":"success"');
+    expect(stderr).toContain('"producer":"cli"');
+    expect(stderr).toContain('"producerVersion":"0.11.6"');
+
+    // Debug mode bypasses the outbox entirely.
     await expect(
       fs.readdir(path.join(state.tempRoot, "telemetry", "outbox")),
     ).rejects.toThrow();
   });
 
-  it("prefers outcome-derived error classes over unknown command failures", async () => {
+  it("classifies host failure errorClass from outcome-derived signals", async () => {
     const { createCliTelemetrySession } =
       await import("../../src/cli/telemetry.js");
 
@@ -114,26 +120,50 @@ describe("cli telemetry", () => {
       },
     });
 
+    // Tell the session the underlying cause was an auth failure.
     session.trackCliEvent({
       type: "outcome",
-      status: "needs_input",
+      status: "auth_failed",
     } as never);
-    session.markCommandResult({ exitCode: 1, errorClass: "unknown" });
+    // No errorClass on the command result — session should fall back to the
+    // outcome-derived signal captured above.
+    session.markCommandResult({ exitCode: 1 });
     await session.persist();
 
     const outboxDir = path.join(state.tempRoot, "telemetry", "outbox");
     const [filename] = await fs.readdir(outboxDir);
-    const payload = JSON.parse(
+    const envelope = JSON.parse(
       await fs.readFile(path.join(outboxDir, filename), "utf8"),
-    ) as { events: Array<{ eventName: string; errorClass: string | null }> };
+    ) as {
+      batchId: string;
+      sentAt: string;
+      events: Array<{
+        correlation: { scope: string };
+        kind: {
+          lifecycle: string;
+          phase: string;
+          outcome?: string;
+          errorClass?: string;
+        };
+      }>;
+    };
 
-    expect(payload.events.at(-1)).toMatchObject({
-      eventName: "command_failed",
-      errorClass: "needs_input",
-    });
+    expect(envelope.batchId).toMatch(/^batch_/);
+    expect(envelope.sentAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const hostTerminal = envelope.events.find(
+      (e) =>
+        e.correlation.scope === "host" &&
+        e.kind.lifecycle === "host" &&
+        e.kind.phase === "terminal",
+    );
+    expect(hostTerminal).toBeDefined();
+    expect(hostTerminal!.kind.outcome).toBe("failure");
+    // Preferred the outcome-derived 'auth_failed' signal over the raw 'unknown'.
+    expect(hostTerminal!.kind.errorClass).toBe("auth_failed");
   });
 
-  it("flushes queued batches and removes accepted files", async () => {
+  it("flushes queued batches to the canonical telemetry endpoint", async () => {
     const { createCliTelemetrySession, flushTelemetryOutbox } =
       await import("../../src/cli/telemetry.js");
     const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
@@ -154,7 +184,6 @@ describe("cli telemetry", () => {
       },
     });
 
-    session.trackCustomEvent("connector_resolved");
     session.markCommandResult({ exitCode: 0, outcome: "connected_local_only" });
     await session.persist();
 
@@ -165,7 +194,7 @@ describe("cli telemetry", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://telemetry.opendatalabs.com/v1/cli/events",
+      "https://telemetry.opendatalabs.com/v1/telemetry/events",
       expect.objectContaining({ method: "POST" }),
     );
     expect(await fs.readdir(outboxDir)).toEqual([]);
