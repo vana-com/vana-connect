@@ -355,9 +355,6 @@ export function startInProcessConnectorRun({
       }
       const connectorFunction = buildConnectorFunction(connectorCode);
       const result = await connectorFunction.call(null, pageApi);
-      if (runState.legacyAuthTriggered) {
-        return;
-      }
 
       if (!runState.hasResult && result != null) {
         const exportData =
@@ -808,7 +805,7 @@ function createPageApi({
         logPath,
       );
       if (runState.page) {
-        await runState.page.goto("https://chatgpt.com/", {
+        await runState.page.goto("about:blank", {
           waitUntil: "domcontentloaded",
         });
       }
