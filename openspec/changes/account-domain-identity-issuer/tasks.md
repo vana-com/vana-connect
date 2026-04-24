@@ -7,7 +7,8 @@
 - [ ] 1.5 Confirm the Oko proof format that `account.vana.org` will verify before implementing an Oko verifier.
 - [ ] 1.6 Decide whether `/connect` and CLI device auth stay fully unchanged in Stage 1 or also receive Vana JWTs as an additive field.
 - [ ] 1.7 Add a short implementation note that separates identity issuer scope from protocol delegation / smart-contract permission scope.
-- [ ] 1.8 Record OIDC-compatible "Log in with Vana" as a stretch goal and identify the first client that would justify implementing it.
+- [ ] 1.8 Identify the first DP RPC writer or builder-facing consumer audience that must verify Vana-issued credentials.
+- [ ] 1.9 Record OIDC-compatible "Log in with Vana" as an optimistic non-blocking goal and identify the first client that would justify implementing it.
 
 ## 2. Data Model
 
@@ -66,6 +67,7 @@
 - [ ] 7.2 Add a contract test proving downstream verification accepts a valid Vana token for the expected audience.
 - [ ] 7.3 Add contract tests proving downstream verification rejects a valid Vana token for the wrong audience.
 - [ ] 7.4 Document that downstream services must not call Privy, Oko, Para, Supabase, email, or phone providers to validate Vana identity.
+- [ ] 7.5 Add a fixture showing a DP RPC writer can attribute one user-scoped event to the wallet-rooted Vana subject without depending on DP RPC storage topology.
 
 ## 8. Oko and Mobile Follow-up
 
@@ -75,13 +77,13 @@
 - [ ] 8.4 Define whether mobile auth requires an explicit user-visible approval moment, a no-prompt Vana-owned flow, or both by product configuration.
 - [ ] 8.5 Create a follow-up implementation change for the Oko verifier once tasks 1.5, 8.1, and 8.2 are complete.
 
-## 9. OIDC-Compatible Log in with Vana Stretch Goal
+## 9. OIDC-Compatible Log in with Vana Optimistic Goal
 
 - [ ] 9.1 Define the minimum OIDC client target, such as Auth.js / NextAuth in an internal Next.js app, before implementing OIDC endpoints.
 - [ ] 9.2 Define required OIDC endpoints and behavior: discovery, authorization code with PKCE, token endpoint compatibility, userinfo, client registration/configuration, redirect URI allowlisting, logout/session semantics, and standard error handling.
 - [ ] 9.3 Define how OIDC consent differs from Vana data-grant consent so login does not imply protocol permission or data access.
 - [ ] 9.4 Add compatibility tests against the selected first OIDC client library before treating "Log in with Vana" as supported.
-- [ ] 9.5 Keep OIDC implementation in a follow-up OpenSpec change unless a Stage 1 decision explicitly promotes it into the first issuer slice.
+- [ ] 9.5 Include OIDC implementation in the first issuer slice only if it does not block the core issuer and DP RPC attribution checkpoint; otherwise split it into a follow-up OpenSpec change.
 
 ## 10. Validation and Rollout
 

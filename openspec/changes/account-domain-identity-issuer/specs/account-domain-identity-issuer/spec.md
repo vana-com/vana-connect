@@ -191,6 +191,20 @@ The issuer SHALL issue tokens only for configured downstream audiences.
 - **WHEN** a downstream verifier validates a token
 - **THEN** it SHALL require the expected audience rather than accepting any Vana-issued token
 
+### Requirement: Downstream writers can attribute user-scoped events
+
+The issuer SHALL provide enough verified identity context for downstream services to attribute user-scoped events to the wallet-rooted Vana subject.
+
+#### Scenario: DP RPC writer attributes an event
+
+- **WHEN** a DP RPC writer receives a valid Vana-issued credential for its expected audience
+- **THEN** it SHALL be able to derive the wallet-rooted subject, issuer, audience, expiration, and key id needed to attribute the event without inspecting Oko, Privy, Para, Supabase, email, or phone identifiers
+
+#### Scenario: Storage topology is not required for token verification
+
+- **WHEN** a downstream service verifies a Vana-issued credential
+- **THEN** verification SHALL NOT depend on where DP RPC physically stores the attributed event
+
 ### Requirement: Signing-key management has an explicit production boundary
 
 The issuer SHALL define signing-key loading and rotation behavior before production rollout.

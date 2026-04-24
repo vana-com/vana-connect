@@ -15,7 +15,7 @@ The account app already owns the web login and handoff surfaces:
 
 What is missing is a Vana-owned identity issuer. Mobile, DataConnect, Context Gateway, and builder-facing APIs should not need to verify Privy, Oko, Para, Supabase, email, phone, or app-specific sessions. They should verify a Vana-issued credential whose canonical subject is the wallet address.
 
-This design starts that issuer as a minimal JWT/JWKS account-domain service. It is intentionally not a full OIDC provider yet. OIDC-compatible "Log in with Vana" is a desirable stretch goal once the issuer semantics are proven, because it would make Vana identity easier to consume from internal web apps and future builder-facing integrations using standard OAuth/OIDC libraries.
+This design starts that issuer as a minimal JWT/JWKS account-domain service. It is intentionally not a full OIDC provider yet. OIDC-compatible "Log in with Vana" should be included optimistically if it can ride the first issuer implementation without blocking the core identity and DP RPC integration checkpoint.
 
 ## Goals / Non-Goals
 
@@ -36,7 +36,7 @@ This design starts that issuer as a minimal JWT/JWKS account-domain service. It 
 - Do not replace DataConnect handoff or CLI auth in the first issuer slice.
 - Do not auto-merge accounts by email, phone, provider id, or provider user id.
 - Do not implement protocol grant/delegation semantics here; the issuer authenticates a wallet-rooted product session.
-- Do not implement a full OIDC provider in the first issuer slice.
+- Do not let full OIDC provider work block the core issuer and DP RPC attribution checkpoint.
 
 ## Decisions
 
@@ -54,7 +54,7 @@ Next.js implementation files can live under `connect/src/app/v1/auth/**/route.ts
 
 Alternative considered: place the public API under `/api/auth/*` to match existing internal routes. `/api/auth/device` can remain where it is, but `/v1/auth/*` is a cleaner external contract for mobile and downstream services.
 
-### D2. Minimal JWT issuer first, OIDC-compatible "Log in with Vana" as stretch goal
+### D2. Minimal JWT issuer first, OIDC-compatible "Log in with Vana" as optimistic goal
 
 Issue RS256 JWT access tokens with:
 
@@ -67,11 +67,19 @@ Issue RS256 JWT access tokens with:
 
 Publish public keys through JWKS. Do not add OIDC discovery, authorization-code flow, userinfo, dynamic client registration, or standard OAuth client management in the first slice.
 
-Ideal later shape: `account.vana.org` can become an OIDC-compatible "Log in with Vana" provider after the core issuer is working. That would let internal Next.js apps, builder apps, and partner surfaces use standard OAuth/OIDC client libraries while still receiving Vana-issued, wallet-rooted identity. The user-facing brand should be Vana; Oko, Privy, Para, or another wallet provider remain upstream proof mechanisms.
+Optimistic shape: `account.vana.org` can become an OIDC-compatible "Log in with Vana" provider once the core issuer semantics are working. That would let internal Next.js apps, builder apps, and partner surfaces use standard OAuth/OIDC client libraries while still receiving Vana-issued, wallet-rooted identity. Oko, Privy, Para, or another wallet provider remain upstream proof mechanisms.
 
-Alternative considered: full OIDC now. That may become useful, but it would add authorization-code flow, PKCE, client registration, redirect URI management, userinfo, logout/session semantics, consent screens, and compatibility testing before the mobile/product identity contract is proven.
+Alternative considered: make full OIDC mandatory before the first integration checkpoint. That may become useful, but it would add authorization-code flow, PKCE, client registration, redirect URI management, userinfo, logout/session semantics, consent screens, and compatibility testing before the mobile/product identity contract and first DP RPC user-scoped write are proven.
 
-### D3. Wallet address is canonical; provider identity is evidence
+### D3. Issuer supports DP RPC attribution but not DP RPC storage
+
+The first integration checkpoint requires at least one user-scoped event written through DP RPC as the wallet-rooted user. The issuer's responsibility is to provide a verifiable identity credential and subject model that a DP RPC writer can use for attribution.
+
+The issuer is not responsible for deciding where DP RPC stores records. It only needs to make the wallet-rooted subject, issuer, audience, expiration, key id, and verification behavior clear enough for DP RPC writers and builder-facing consumers to verify the user context.
+
+Alternative considered: couple the issuer design to hosted storage topology. That would make auth implementation depend on a storage decision that is not required for the first checkpoint.
+
+### D4. Wallet address is canonical; provider identity is evidence
 
 Provider verifiers return an `AuthProofResult`:
 
@@ -91,7 +99,7 @@ Only `walletAddress` becomes canonical identity. Provider ids and contact fields
 
 Alternative considered: use Privy/Oko user id as `sub`. That would make provider migration and mobile/DataConnect/CG identity continuity harder.
 
-### D4. Provider verifier adapter boundary
+### D5. Provider verifier adapter boundary
 
 Create a verifier interface under `connect/src/lib/auth/provider-verifiers/`:
 
@@ -116,7 +124,7 @@ Initial adapters:
 
 Alternative considered: implement Oko directly first. Current evidence does not yet identify the exact Oko proof/account-session contract, so direct implementation would be speculative.
 
-### D5. Challenge is one-time and short-lived
+### D6. Challenge is one-time and short-lived
 
 `POST /v1/auth/challenge` creates a short-lived challenge with:
 
@@ -131,7 +139,7 @@ Alternative considered: implement Oko directly first. Current evidence does not 
 
 Alternative considered: token exchange without challenge. Simpler, but it weakens replay protection and makes wallet-signature fallback harder to standardize.
 
-### D6. Token exchange supports provider proof and explicit wallet proof
+### D7. Token exchange supports provider proof and explicit wallet proof
 
 `POST /v1/auth/token` accepts:
 
@@ -142,7 +150,7 @@ Routine mobile session refresh must use account-domain refresh semantics, not re
 
 Alternative considered: require wallet signature for every token exchange. That conflicts with the desired non-crypto-native mobile UX and the Oko silent-signing boundary.
 
-### D7. Access tokens are JWTs; refresh tokens are opaque and stored hashed
+### D8. Access tokens are JWTs; refresh tokens are opaque and stored hashed
 
 The token response returns:
 
@@ -155,7 +163,7 @@ Refresh sessions are revocable. `POST /v1/auth/refresh` rotates refresh tokens. 
 
 Alternative considered: long-lived JWT only. That is simpler but makes revocation and provider/session invalidation harder.
 
-### D8. Add issuer-specific persistence instead of overloading device-code tables
+### D9. Add issuer-specific persistence instead of overloading device-code tables
 
 Keep existing `device_codes` and `sessions` tables for CLI/device auth. Add issuer-specific tables, likely:
 
@@ -168,7 +176,7 @@ This avoids mixing opaque CLI tokens with mobile/backend Vana identity tokens.
 
 Alternative considered: extend the existing `sessions` table. It is currently shaped around device-code CLI auth and Personal Server session token provisioning, so overloading it would make migration and tests less clear.
 
-### D9. Signing keys need explicit storage and rotation
+### D10. Signing keys need explicit storage and rotation
 
 Use `jose` as a direct dependency for JWT/JWK work. The first implementation can load active RS256 private key material from environment or a managed secret, but it must publish `kid`-versioned public keys through JWKS and keep retired public keys available until all issued tokens expire.
 
@@ -180,7 +188,7 @@ The production storage choice remains open:
 
 Alternative considered: HS256 shared-secret JWTs. That would force downstream services to share a signing secret and is the wrong direction for provider-agnostic verification.
 
-### D10. Existing account flows migrate incrementally
+### D11. Existing account flows migrate incrementally
 
 The first issuer implementation should not break:
 
@@ -203,7 +211,7 @@ Alternative considered: replace all account auth flows atomically. That increase
 - Existing `/api/sign` uses a Privy signer path that bypasses user JWTs. Mitigation: keep it transitional and allowlisted; do not expand it as part of issuer work.
 - Challenge binding may vary by provider. Mitigation: document verifier-specific assurance and require provider token issuer/audience/expiration checks even when challenge binding is unavailable.
 - Forked/self-hosted Oko may allow no-prompt signing. Mitigation: keep no-prompt wallet-authority behavior outside this issuer unless backed by a separate delegated/session authority contract.
-- OIDC can expand the project scope before the core identity boundary is proven. Mitigation: keep "Log in with Vana" as a documented stretch goal and make the first issuer OIDC-compatible in token semantics without implementing the full provider surface.
+- OIDC can expand the project scope before the core identity boundary is proven. Mitigation: include "Log in with Vana" optimistically, but keep it separable from the core issuer and DP RPC attribution checkpoint.
 
 ## Migration Plan
 
@@ -213,9 +221,10 @@ Alternative considered: replace all account auth flows atomically. That increase
 4. Implement `POST /v1/auth/token` with mock and Privy provider verifiers plus explicit wallet-signature fallback.
 5. Implement refresh/logout with refresh-token rotation and revocation.
 6. Add provider-independence tests, audience/issuer rejection tests, and no-email-auto-merge tests.
-7. Wire a narrow account-app integration path only after endpoint contracts are passing.
-8. Add the Oko verifier when Oko proof format and self-hosted/forked deployment boundaries are confirmed.
-9. Add a follow-up OpenSpec change for OIDC-compatible "Log in with Vana" when an internal app, builder app, or partner integration needs standard OAuth/OIDC consumption.
+7. Add a downstream verification fixture for the first DP RPC writer or builder-facing consumer audience.
+8. Wire a narrow account-app integration path only after endpoint contracts are passing.
+9. Add the Oko verifier when Oko proof format and self-hosted/forked deployment boundaries are confirmed.
+10. Include OIDC-compatible "Log in with Vana" in the first issuer implementation if it can be completed without blocking the core checkpoint; otherwise split it into a follow-up OpenSpec change.
 
 Rollback for the first slice is straightforward if existing routes are preserved: disable the new `/v1/auth/*` endpoints or stop issuing tokens. Existing `/connect`, `/auth/device`, and `/api/sign` flows continue to function.
 
@@ -228,4 +237,5 @@ Rollback for the first slice is straightforward if existing routes are preserved
 - Should refresh tokens be returned in JSON for native mobile only, set as httpOnly cookies for web, or both depending on client type?
 - Does the first implementation need a Vana JWT in the existing `/connect` DataConnect handoff, or only for the new mobile auth path?
 - Should `/api/sign` remain Privy-specific until replaced by delegated/session authority, or should it start requiring a Vana JWT immediately?
+- Which concrete DP RPC writer or builder-facing consumer should be the first verifier of Vana-issued credentials?
 - Which concrete client should justify OIDC-compatible "Log in with Vana" first: an internal Vana web app, DataConnect, Context Gateway / builder apps, or an external partner?
