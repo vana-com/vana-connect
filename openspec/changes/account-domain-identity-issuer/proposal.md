@@ -9,6 +9,7 @@ The protocol-powered mobile baseline needs this account-domain boundary before a
 - Add an account-domain identity issuer contract to the `connect` Next.js app.
 - Define challenge and token-exchange APIs that resolve a user to a wallet address and issue Vana-controlled credentials.
 - Define a JWKS endpoint and token verification contract for downstream services.
+- Document OIDC-compatible "Log in with Vana" as an ideal stretch goal for internal apps and future builder-facing integrations, not as a Stage 1 blocker.
 - Introduce provider verifier adapters so the first implementation can support the current Privy account surface and a future Oko-backed mobile flow without changing downstream identity semantics.
 - Define persistence requirements for auth challenges, refresh/session records, provider-wallet links, and signing-key metadata.
 - Preserve the current DataConnect handoff and CLI device-code flows while giving them a path to consume the same wallet-rooted credential model later.
@@ -33,4 +34,4 @@ None.
 - `connect/src/app/_components/app-providers.tsx`, `connect/src/app/(public)/login/**`, and `connect/src/app/(handoff)/connect/**`: eventual integration with Vana session issuance while preserving current Privy login behavior.
 - `src/core/constants.ts`, `src/cli/auth.ts`, `src/server/connect.ts`, and downstream clients may later consume or verify Vana JWTs, but SDK/CLI changes are not part of the first issuer implementation unless explicitly scoped.
 - New direct dependency is likely needed for JWT/JWK work, preferably `jose`, rather than relying on transitive Privy dependencies.
-- External dependency decisions: Oko provider proof format, production signing-key storage/rotation, allowed audiences, and whether Stage 1 is JWT-only or OIDC-compatible.
+- External dependency decisions: Oko provider proof format, production signing-key storage/rotation, allowed audiences, and when OIDC-compatible "Log in with Vana" becomes worth implementing.
