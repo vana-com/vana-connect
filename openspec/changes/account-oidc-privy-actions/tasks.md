@@ -59,7 +59,7 @@
 - [x] 6.2 Resolve embedded wallet address from current Privy session and create linked wallet records (`pickEmbeddedEvmWallet` requires Privy-issued `wallet_client_type` / `wallet_client`; OIDC login route forwards evidence to `resolveVanaUserByPrivyEvidence`).
 - [x] 6.3 Document the transitional nature of Privy-native login if used (file-level docstring on `login-session-adapter.ts` and adapter export comment).
 - [x] 6.4 Define target Privy custom JWT auth integration path. Boundary types, validators, and a `PrivyCustomAuthClient` interface live in `connect/src/lib/auth/privy-custom-auth.ts`; tests in `connect/src/lib/auth/privy-custom-auth.test.ts` prove that Privy native subjects, emails, and wallet addresses cannot be used as the OIDC `sub`, that the result binding is verified, and that Privy-native sessions are not silently coerced into custom-auth identity without a confirmed migration. No SDK calls or routes are wired yet; the transitional Privy-native login adapter is unchanged.
-- [ ] 6.5 Add tests that downstream OIDC tokens contain Vana account subject, not Privy subject.
+- [x] 6.5 Add tests that downstream OIDC tokens contain Vana account subject, not Privy subject (`connect/src/lib/auth/oidc-routes.test.ts` rejects provider subjects before Hydra login/consent accept, and `connect/src/lib/auth/hydra-admin.test.ts` asserts Vana user ids in Hydra subject/session claims).
 
 ## 7. Account-Hosted Action Requests
 

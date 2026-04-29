@@ -132,6 +132,26 @@ describe("handleOidcLogin", () => {
       location: "https://hydra.example.com/oauth2/auth?ok=login",
     });
   });
+
+  it("rejects a resolved provider subject before accepting the login request", async () => {
+    const hydra = fakeHydra();
+    const result = await handleOidcLogin(
+      buildInput({
+        hydra,
+        resolveVanaUser: vi.fn().mockResolvedValue({
+          user: { id: "did:privy:user-1" },
+          created: false,
+        }),
+      }),
+    );
+
+    expect(result).toEqual({
+      kind: "error",
+      status: 400,
+      message: "Resolved OIDC subject must be an opaque vana_user_id",
+    });
+    expect(hydra.acceptLoginRequest).not.toHaveBeenCalled();
+  });
 });
 
 describe("handleOidcConsent", () => {
@@ -250,6 +270,26 @@ describe("handleOidcConsent", () => {
         grantAccessTokenAudience: [],
       },
     );
+  });
+
+  it("rejects a provider subject on consent before accepting requested grants", async () => {
+    const hydra = fakeHydra({
+      getConsentRequest: vi.fn().mockResolvedValue({
+        client: { client_id: MEMORY_APP_CLIENT_ID },
+        subject: "did:privy:user-1",
+        requested_scope: ["openid"],
+        requested_access_token_audience: [],
+      }),
+    });
+
+    const result = await handleOidcConsent(buildInput({ hydra }));
+
+    expect(result).toEqual({
+      kind: "error",
+      status: 400,
+      message: "Hydra consent subject must be an opaque vana_user_id",
+    });
+    expect(hydra.acceptConsentRequest).not.toHaveBeenCalled();
   });
 
   it("uses an injected client registry override", async () => {

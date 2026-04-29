@@ -25,6 +25,7 @@ import {
   evaluateConsentPolicy,
   type OauthClientRegistry,
 } from "./oauth-client-policy";
+import { isVanaUserId } from "./vana-account";
 
 export const OIDC_LOGIN_PATH = "/auth/oidc/login";
 export const OIDC_CONSENT_PATH = "/auth/oidc/consent";
@@ -117,6 +118,13 @@ export async function handleOidcLogin(
   }
 
   const { user } = await input.resolveVanaUser(evidence);
+  if (!isVanaUserId(user.id)) {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Resolved OIDC subject must be an opaque vana_user_id",
+    };
+  }
 
   const accepted = await input.hydra.acceptLoginRequest(challenge, {
     subject: user.id,
@@ -148,6 +156,14 @@ export async function handleOidcConsent(
   }
 
   const consentRequest = await input.hydra.getConsentRequest(challenge);
+  if (!isVanaUserId(consentRequest.subject)) {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Hydra consent subject must be an opaque vana_user_id",
+    };
+  }
+
   const registry = input.clientRegistry ?? createDefaultOauthClientRegistry();
 
   const decision = evaluateConsentPolicy({
