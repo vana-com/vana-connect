@@ -103,4 +103,4 @@
 - [ ] 10.5 Run the standard OIDC relying-party fixture from a clean user and record the exact command/output in the PR.
 - [x] 10.6 Run regression tests for `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign`.
 - [x] 10.7 Verify no redirect URL contains raw action result data or user data (`connect/src/lib/auth/account-action.test.ts` verifies the action redirect parameter set).
-- [ ] 10.8 Verify the PR description lists remaining production gaps: issuer decision, first real-data source, first non-mock result implementation, live DP RPC integration, and production Memory App integration.
+- [x] 10.8 Verify the PR description lists remaining production gaps: issuer decision, first real-data source, first non-mock result implementation, live DP RPC integration, and production Memory App integration.
