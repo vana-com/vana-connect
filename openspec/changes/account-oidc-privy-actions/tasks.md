@@ -63,19 +63,19 @@
 
 ## 7. Account-Hosted Action Requests
 
-- [ ] 7.1 Add `account_action_requests` migration.
-- [ ] 7.2 Add `account_action_results` migration.
-- [ ] 7.3 Add `account_consent_events` migration.
+- [x] 7.1 Add `account_action_requests` migration (`connect/migrations/005_add_account_action_tables.sql`).
+- [x] 7.2 Add `account_action_results` migration (`connect/migrations/005_add_account_action_tables.sql`).
+- [x] 7.3 Add `account_consent_events` migration (`connect/migrations/005_add_account_action_tables.sql`).
 - [ ] 7.4 Implement action request creation for registered clients.
-- [ ] 7.5 Persist explicit action execution mode: first `mock`, later `embedded_wallet_account_hosted`, `byo_wallet_client_signed`, or future `delegated_runtime`.
+- [x] 7.5 Persist explicit action execution mode: first `mock`, later `embedded_wallet_account_hosted`, `byo_wallet_client_signed`, or future `delegated_runtime` (schema fields plus pure model helpers in `connect/src/lib/auth/account-action.ts`; route/DB persistence remains pending).
 - [ ] 7.6 Implement action page that requires login and displays client/action details.
 - [ ] 7.7 Implement approve/deny handling.
 - [ ] 7.8 Implement redirect back with `action_code` and `state`.
 - [ ] 7.9 Implement action-code exchange with client binding and expiration.
-- [ ] 7.10 Add tests proving no raw user data is sent through redirect parameters.
-- [ ] 7.11 Add tests proving BYO-wallet action requests require client/user wallet signing rather than backend silent signing.
-- [ ] 7.12 Add tests proving account-local consent/action events include the minimum DP RPC-compatible fields.
-- [ ] 7.13 Add tests proving first non-mock result mode must be encrypted bundle plus short-lived reference unless explicitly overridden by config/design.
+- [x] 7.10 Add tests proving no raw user data is sent through redirect parameters (`connect/src/lib/auth/account-action.test.ts`).
+- [x] 7.11 Add tests proving BYO-wallet action requests require client/user wallet signing rather than backend silent signing (`connect/src/lib/auth/account-action.test.ts`).
+- [x] 7.12 Add tests proving account-local consent/action events include the minimum DP RPC-compatible fields (`connect/src/lib/auth/account-action.test.ts`).
+- [x] 7.13 Add tests proving first non-mock result mode must be encrypted bundle plus short-lived reference unless explicitly overridden by config/design (`connect/src/lib/auth/account-action.test.ts`).
 
 ## 8. Memory App Spike
 
@@ -96,11 +96,11 @@
 
 ## 10. Validation
 
-- [ ] 10.1 Run `openspec validate account-oidc-privy-actions --type change --strict --json`.
-- [ ] 10.2 Run `cd connect && pnpm test` after implementation tasks.
-- [ ] 10.3 Run `cd connect && pnpm lint` after implementation tasks.
-- [ ] 10.4 Run `cd connect && pnpm build` before review.
+- [x] 10.1 Run `openspec validate account-oidc-privy-actions --type change --strict --json`.
+- [x] 10.2 Run `cd connect && pnpm test` after implementation tasks.
+- [x] 10.3 Run `cd connect && pnpm lint` after implementation tasks.
+- [x] 10.4 Run `cd connect && pnpm build` before review (`NEXT_PUBLIC_PRIVY_APP_ID` and `NEXT_PUBLIC_PRIVY_CLIENT_ID` supplied with valid-looking local values).
 - [ ] 10.5 Run the standard OIDC relying-party fixture from a clean user and record the exact command/output in the PR.
 - [x] 10.6 Run regression tests for `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign`.
-- [ ] 10.7 Verify no redirect URL contains raw action result data or user data.
+- [x] 10.7 Verify no redirect URL contains raw action result data or user data (`connect/src/lib/auth/account-action.test.ts` verifies the action redirect parameter set).
 - [ ] 10.8 Verify the PR description lists remaining production gaps: issuer decision, first real-data source, first non-mock result implementation, live DP RPC integration, and production Memory App integration.

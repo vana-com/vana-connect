@@ -1,7 +1,7 @@
 import { saveRegisteredAdminApp } from "./admin-apps-storage";
+import type { RegisterBuilderErrorCode } from "./register-builder";
 import { registerBuilder } from "./register-builder";
 import { resolveRegisteredAppName } from "./resolve-registered-app-name";
-import type { RegisterBuilderErrorCode } from "./register-builder";
 
 type RegisterAdminAppFailure = {
   ok: false;
