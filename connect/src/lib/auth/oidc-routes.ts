@@ -10,6 +10,7 @@
  */
 
 import type {
+  AcceptHydraConsentRequest,
   AcceptHydraLoginRequest,
   HydraConsentRequest,
   HydraLoginRequest,
@@ -19,6 +20,11 @@ import type {
   LoginEvidence,
   LoginSessionAdapter,
 } from "./login-session-adapter";
+import {
+  createDefaultOauthClientRegistry,
+  evaluateConsentPolicy,
+  type OauthClientRegistry,
+} from "./oauth-client-policy";
 
 export const OIDC_LOGIN_PATH = "/auth/oidc/login";
 export const OIDC_CONSENT_PATH = "/auth/oidc/consent";
@@ -31,10 +37,9 @@ export type HydraAdminClientForOidc = {
     input: AcceptHydraLoginRequest,
   ): Promise<HydraRedirectResponse>;
   getConsentRequest(challenge: string): Promise<HydraConsentRequest>;
-  acceptConsentRequestWithRequestedGrant(
+  acceptConsentRequest(
     challenge: string,
-    consentRequest: HydraConsentRequest,
-    options?: { remember?: boolean; rememberForSeconds?: number },
+    input: AcceptHydraConsentRequest,
   ): Promise<HydraRedirectResponse>;
 };
 
@@ -123,6 +128,11 @@ export async function handleOidcLogin(
 export type HandleOidcConsentInput = {
   consentChallenge: string | null;
   hydra: HydraAdminClientForOidc;
+  /**
+   * Optional client registry override. Defaults to the static first-slice
+   * registry built by {@link createDefaultOauthClientRegistry}.
+   */
+  clientRegistry?: OauthClientRegistry;
 };
 
 export async function handleOidcConsent(
@@ -138,11 +148,24 @@ export async function handleOidcConsent(
   }
 
   const consentRequest = await input.hydra.getConsentRequest(challenge);
+  const registry = input.clientRegistry ?? createDefaultOauthClientRegistry();
 
-  const accepted = await input.hydra.acceptConsentRequestWithRequestedGrant(
-    challenge,
-    consentRequest,
-  );
+  const decision = evaluateConsentPolicy({
+    registry,
+    clientId: consentRequest.client?.client_id,
+    requestedScope: consentRequest.requested_scope,
+    requestedAudience: consentRequest.requested_access_token_audience,
+  });
+
+  if (decision.kind === "deny") {
+    return { kind: "error", status: 400, message: decision.message };
+  }
+
+  const accepted = await input.hydra.acceptConsentRequest(challenge, {
+    grantScope: decision.grantScope,
+    grantAccessTokenAudience: decision.grantAudience,
+    subject: consentRequest.subject,
+  });
 
   return { kind: "redirect", status: 303, location: accepted.redirect_to };
 }

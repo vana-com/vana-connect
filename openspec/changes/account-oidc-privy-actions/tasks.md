@@ -47,11 +47,11 @@
 
 ## 5. OAuth Client Model
 
-- [ ] 5.1 Add `oauth_clients` migration or static dev client config for the first slice.
-- [ ] 5.2 Register the dev Memory App fixture as the first client.
-- [ ] 5.3 Add redirect URI and origin allowlist checks.
-- [ ] 5.4 Add client display metadata for consent/action screens.
-- [ ] 5.5 Add future field for linked protocol principal without requiring it in the first slice.
+- [x] 5.1 Add `oauth_clients` migration or static dev client config for the first slice (`connect/src/lib/auth/oauth-client-policy.ts`: static `OauthClientRecord` registry via `createDefaultOauthClientRegistry`).
+- [x] 5.2 Register the dev Memory App fixture as the first client (`DEV_MEMORY_APP_CLIENT` with `client_id = "memory-app-dev"`).
+- [ ] 5.3 Add redirect URI and origin allowlist checks (record fields `redirectUris` and `allowedOrigins` are modeled in `OauthClientRecord`; enforcement remains pending at the authorize/Hydra client-config boundary).
+- [x] 5.4 Add client display metadata for consent/action screens (`displayName` field on `OauthClientRecord`).
+- [x] 5.5 Add future field for linked protocol principal without requiring it in the first slice (`protocolPrincipal?: { kind, id }` on `OauthClientRecord`).
 
 ## 6. Privy Provider Boundary
 
