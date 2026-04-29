@@ -67,11 +67,11 @@
 - [x] 7.2 Add `account_action_results` migration (`connect/migrations/005_add_account_action_tables.sql`).
 - [x] 7.3 Add `account_consent_events` migration (`connect/migrations/005_add_account_action_tables.sql`).
 - [ ] 7.4 Implement action request creation for registered clients.
-- [x] 7.5 Persist explicit action execution mode: first `mock`, later `embedded_wallet_account_hosted`, `byo_wallet_client_signed`, or future `delegated_runtime` (schema fields plus pure model helpers in `connect/src/lib/auth/account-action.ts`; route/DB persistence remains pending).
+- [x] 7.5 Persist explicit action execution mode: first `mock`, later `embedded_wallet_account_hosted`, `byo_wallet_client_signed`, or future `delegated_runtime` (schema fields plus pure model helpers in `connect/src/lib/auth/account-action.ts`; DB persistence in `connect/src/lib/db/account-actions.ts`; route endpoints remain pending).
 - [ ] 7.6 Implement action page that requires login and displays client/action details.
-- [ ] 7.7 Implement approve/deny handling.
+- [x] 7.7 Implement approve/deny handling. DB-backed persistence: `persistActionRequestDecision` in `connect/src/lib/db/account-actions.ts` performs a `pending`-gated `UPDATE ... RETURNING` so a second decision cannot overwrite the first. App Router approve/deny endpoints are not wired in this slice.
 - [ ] 7.8 Implement redirect back with `action_code` and `state`.
-- [ ] 7.9 Implement action-code exchange with client binding and expiration.
+- [x] 7.9 Implement action-code exchange with client binding and expiration. `consumeActionCode` in `connect/src/lib/db/account-actions.ts` performs hash-match, client-binding, expiry, and not-yet-consumed checks inside a single `UPDATE ... RETURNING`; concurrent and replayed exchanges produce exactly one success. DB-backed tests in `connect/src/lib/db/account-actions.test.ts` (skipped without `DATABASE_URL`) prove single-success-under-concurrency, wrong-client rejection, expiry rejection, and that no raw action code is stored. App Router exchange endpoint is not wired in this slice.
 - [x] 7.10 Add tests proving no raw user data is sent through redirect parameters (`connect/src/lib/auth/account-action.test.ts`).
 - [x] 7.11 Add tests proving BYO-wallet action requests require client/user wallet signing rather than backend silent signing (`connect/src/lib/auth/account-action.test.ts`).
 - [x] 7.12 Add tests proving account-local consent/action events include the minimum DP RPC-compatible fields (`connect/src/lib/auth/account-action.test.ts`).
