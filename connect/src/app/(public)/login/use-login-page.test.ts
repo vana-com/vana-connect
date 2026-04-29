@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   initOAuth: vi.fn(),
   sendCode: vi.fn(),
   loginWithCode: vi.fn(),
+  identityToken: "test-identity-token" as string | null,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +25,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@privy-io/react-auth", () => ({
   usePrivy: () => mocks.privyState,
+  useIdentityToken: () => ({ identityToken: mocks.identityToken }),
   useLoginWithEmail: () => ({
     sendCode: mocks.sendCode,
     loginWithCode: mocks.loginWithCode,
@@ -51,6 +53,11 @@ describe("useLoginPage oauth loading behavior", () => {
     mocks.initOAuth.mockReset();
     mocks.sendCode.mockReset();
     mocks.loginWithCode.mockReset();
+    mocks.identityToken = "test-identity-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
+    );
     localStorage.clear();
     sessionStorage.clear();
   });
@@ -252,7 +259,47 @@ describe("useLoginPage oauth loading behavior", () => {
       expect(calls).toContain("/auth/oidc/login?login_challenge=abc");
     });
 
+    expect(fetch).toHaveBeenCalledWith("/api/auth/session", {
+      method: "POST",
+      headers: { authorization: "Bearer test-identity-token" },
+    });
     expect(sessionStorage.getItem("vana_oidc_return_to")).toBeNull();
+    restore();
+  });
+
+  it("establishes account session before redirecting a direct authenticated login", async () => {
+    const { calls, restore } = stubWindowLocationReplace();
+    mocks.privyState.authenticated = true;
+
+    renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(calls).toContain("/admin");
+    });
+
+    expect(fetch).toHaveBeenCalledWith("/api/auth/session", {
+      method: "POST",
+      headers: { authorization: "Bearer test-identity-token" },
+    });
+    restore();
+  });
+
+  it("waits for a Privy identity token before continuing an OIDC return_to", async () => {
+    const { calls, restore } = stubWindowLocationReplace();
+    mocks.searchParams = new URLSearchParams({
+      return_to: "/auth/oidc/login?login_challenge=abc",
+    });
+    mocks.privyState.authenticated = true;
+    mocks.identityToken = null;
+
+    const { result } = renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(result.current.view).toBe("completing");
+    });
+
+    expect(calls).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
     restore();
   });
 

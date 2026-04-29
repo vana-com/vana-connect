@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolvePrivyPublicEnv } from "./privy-env";
 
 const VALID_APP_ID = "clu1234567890abcdef123456";
+const VALID_LONG_APP_ID = "clu1234567890abcdef12345678";
 const VALID_CLIENT_ID = "client-abcdef1234567890";
 
 describe("resolvePrivyPublicEnv", () => {
@@ -13,6 +14,18 @@ describe("resolvePrivyPublicEnv", () => {
     expect(result).toEqual({
       status: "ok",
       appId: VALID_APP_ID,
+      clientId: VALID_CLIENT_ID,
+    });
+  });
+
+  it("accepts longer Privy app ids used by deployed Vana environments", () => {
+    const result = resolvePrivyPublicEnv({
+      NEXT_PUBLIC_PRIVY_APP_ID: VALID_LONG_APP_ID,
+      NEXT_PUBLIC_PRIVY_CLIENT_ID: VALID_CLIENT_ID,
+    });
+    expect(result).toEqual({
+      status: "ok",
+      appId: VALID_LONG_APP_ID,
       clientId: VALID_CLIENT_ID,
     });
   });
@@ -76,7 +89,7 @@ describe("resolvePrivyPublicEnv", () => {
     expect(result.status).toBe("missing");
   });
 
-  it("rejects app ids that do not match Privy's exact length check", () => {
+  it("rejects app ids below the known minimum length", () => {
     const result = resolvePrivyPublicEnv({
       NEXT_PUBLIC_PRIVY_APP_ID: "clu1234567890abcdef",
       NEXT_PUBLIC_PRIVY_CLIENT_ID: VALID_CLIENT_ID,

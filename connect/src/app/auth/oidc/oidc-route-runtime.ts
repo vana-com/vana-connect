@@ -102,9 +102,11 @@ async function loadAccountClaims(vanaUserId: string) {
   };
 }
 
-function toNextResponse(result: OidcRouteResult): Response {
+function toNextResponse(result: OidcRouteResult, requestUrl: string): Response {
   if (result.kind === "redirect") {
-    return NextResponse.redirect(result.location, { status: result.status });
+    return NextResponse.redirect(new URL(result.location, requestUrl), {
+      status: result.status,
+    });
   }
   return new NextResponse(result.message, { status: result.status });
 }
@@ -119,7 +121,7 @@ export async function runOidcLogin(request: Request): Promise<Response> {
     resolveVanaUser,
     request,
   });
-  return toNextResponse(result);
+  return toNextResponse(result, request.url);
 }
 
 export async function runOidcConsent(request: Request): Promise<Response> {
@@ -130,5 +132,5 @@ export async function runOidcConsent(request: Request): Promise<Response> {
     hydra,
     loadAccountClaims,
   });
-  return toNextResponse(result);
+  return toNextResponse(result, request.url);
 }

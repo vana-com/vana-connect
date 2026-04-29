@@ -1,8 +1,8 @@
 // @vitest-environment node
 
-import { neon } from "@neondatabase/serverless";
 import { afterEach, describe, expect, it } from "vitest";
 import { resolveVanaUserByPrivyEvidence } from "./account";
+import { getSql } from "./sql";
 
 /**
  * DB-backed concurrency tests for resolveVanaUserByPrivyEvidence.
@@ -45,9 +45,16 @@ function trackAll(userIds: Iterable<string>): void {
 
 type CountRow = { n: number | string };
 
+function getTestSQL() {
+  return getSql() as unknown as (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Array<Record<string, unknown>>>;
+}
+
 async function countUsersById(id: string): Promise<number> {
   if (!databaseUrl) return 0;
-  const sql = neon(databaseUrl);
+  const sql = getTestSQL();
   const rows = (await sql`
     SELECT count(*)::int AS n FROM vana_users WHERE id = ${id}
   `) as CountRow[];
@@ -59,7 +66,7 @@ async function countProviderLinks(
   providerSubject: string,
 ): Promise<number> {
   if (!databaseUrl) return 0;
-  const sql = neon(databaseUrl);
+  const sql = getTestSQL();
   const rows = (await sql`
     SELECT count(*)::int AS n
     FROM vana_provider_links
@@ -74,7 +81,7 @@ async function findProviderLinkUser(
   providerSubject: string,
 ): Promise<string | null> {
   if (!databaseUrl) return null;
-  const sql = neon(databaseUrl);
+  const sql = getTestSQL();
   const rows = (await sql`
     SELECT vana_user_id FROM vana_provider_links
     WHERE provider = ${provider}
@@ -89,7 +96,7 @@ async function countWallets(
   address: string,
 ): Promise<number> {
   if (!databaseUrl) return 0;
-  const sql = neon(databaseUrl);
+  const sql = getTestSQL();
   const rows = (await sql`
     SELECT count(*)::int AS n
     FROM vana_linked_wallets
@@ -104,7 +111,7 @@ async function findWalletUser(
   address: string,
 ): Promise<string | null> {
   if (!databaseUrl) return null;
-  const sql = neon(databaseUrl);
+  const sql = getTestSQL();
   const rows = (await sql`
     SELECT vana_user_id FROM vana_linked_wallets
     WHERE chain_type = ${chainType}
@@ -117,7 +124,7 @@ async function findWalletUser(
 dbDescribe("resolveVanaUserByPrivyEvidence (DB-backed)", () => {
   afterEach(async () => {
     if (!databaseUrl || createdUserIds.size === 0) return;
-    const sql = neon(databaseUrl);
+    const sql = getTestSQL();
     const ids = Array.from(createdUserIds);
     createdUserIds.clear();
     try {

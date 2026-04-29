@@ -13,6 +13,12 @@
  * only as audit metadata; it is never used as a merge key.
  */
 
+import {
+  ACCOUNT_LOGIN_SESSION_COOKIE,
+  resolveAccountLoginSessionSecret,
+  verifyAccountLoginSessionToken,
+} from "./account-login-session";
+
 export type LoginEvidence = {
   /** Verified provider subject. Today: Privy `sub` (DID). */
   privySubject: string;
@@ -163,6 +169,11 @@ export type CreatePrivyLoginSessionAdapterInput = {
    * environment if Privy issues a different cookie.
    */
   cookieName?: string;
+  /**
+   * Vana-owned, HTTP-only session cookie minted after Privy has verified the
+   * browser session. This is the path normal OIDC browser redirects use.
+   */
+  accountSessionCookieName?: string;
 };
 
 /**
@@ -174,8 +185,21 @@ export function createPrivyLoginSessionAdapter(
   input: CreatePrivyLoginSessionAdapterInput,
 ): LoginSessionAdapter {
   const cookieName = input.cookieName ?? "privy-id-token";
+  const accountSessionCookieName =
+    input.accountSessionCookieName ?? ACCOUNT_LOGIN_SESSION_COOKIE;
   return {
     async resolveLoginEvidence(request) {
+      const accountSessionToken = readCookie(request, accountSessionCookieName);
+      const accountSessionSecret = accountSessionToken
+        ? resolveAccountLoginSessionSecret()
+        : null;
+      if (accountSessionToken && accountSessionSecret) {
+        const evidence = verifyAccountLoginSessionToken(accountSessionToken, {
+          secret: accountSessionSecret,
+        });
+        if (evidence) return evidence;
+      }
+
       const token = readPrivyIdentityToken(request, cookieName);
       if (!token) return null;
 

@@ -1,11 +1,13 @@
-import { neon } from "@neondatabase/serverless";
 import {
   type ActionRequestRow,
   type ActionResultRow,
+  CONSENT_EVENT_SCHEMA_VERSION,
   type ConsentEventRow,
+  canonicalRequestHash,
   generateConsentEventId,
   hashActionCode,
 } from "../auth/account-action";
+import { getSql } from "./sql";
 
 /**
  * Persistence helpers for account-hosted action requests, results, and
@@ -27,16 +29,22 @@ import {
  */
 
 function getSQL() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL environment variable is not set");
-  }
-  return neon(url);
+  return getSql();
 }
+
+type DbRows = Array<Record<string, unknown>>;
+const REVOKABLE_ACTION_STATUSES = ["approved", "consumed"] as const;
 
 function jsonOrNull(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   return JSON.stringify(value);
+}
+
+function parseJsonField<T>(value: unknown): T {
+  if (typeof value === "string") {
+    return JSON.parse(value) as T;
+  }
+  return value as T;
 }
 
 function rowToActionRequest(row: Record<string, unknown>): ActionRequestRow {
@@ -47,12 +55,18 @@ function rowToActionRequest(row: Record<string, unknown>): ActionRequestRow {
     action_type: row.action_type as string,
     execution_mode: row.execution_mode as ActionRequestRow["execution_mode"],
     result_mode: row.result_mode as ActionRequestRow["result_mode"],
-    requested_data: row.requested_data as ActionRequestRow["requested_data"],
+    requested_data: parseJsonField<ActionRequestRow["requested_data"]>(
+      row.requested_data,
+    ),
     redirect_uri: row.redirect_uri as string,
     state_hash: (row.state_hash as string | null) ?? null,
     status: row.status as ActionRequestRow["status"],
     display_metadata:
-      (row.display_metadata as ActionRequestRow["display_metadata"]) ?? null,
+      row.display_metadata === null || row.display_metadata === undefined
+        ? null
+        : parseJsonField<ActionRequestRow["display_metadata"]>(
+            row.display_metadata,
+          ),
     created_at: toIsoString(row.created_at),
     expires_at: toIsoString(row.expires_at),
     decided_at: row.decided_at ? toIsoString(row.decided_at) : null,
@@ -67,7 +81,9 @@ function rowToActionResult(row: Record<string, unknown>): ActionResultRow {
     action_code_hash: row.action_code_hash as string,
     result_mode: row.result_mode as ActionResultRow["result_mode"],
     result_payload:
-      (row.result_payload as ActionResultRow["result_payload"]) ?? null,
+      row.result_payload === null || row.result_payload === undefined
+        ? null
+        : parseJsonField<ActionResultRow["result_payload"]>(row.result_payload),
     result_reference: (row.result_reference as string | null) ?? null,
     created_at: toIsoString(row.created_at),
     expires_at: toIsoString(row.expires_at),
@@ -88,19 +104,28 @@ function rowToConsentEvent(row: Record<string, unknown>): ConsentEventRow {
     client_id: row.client_id as string,
     application_id: (row.application_id as string | null) ?? null,
     protocol_principal:
-      (row.protocol_principal as Record<string, unknown> | null) ?? null,
+      row.protocol_principal === null || row.protocol_principal === undefined
+        ? null
+        : parseJsonField<Record<string, unknown>>(row.protocol_principal),
     action_request_id: (row.action_request_id as string | null) ?? null,
     action_type: row.action_type as string,
-    requested_data: row.requested_data as ConsentEventRow["requested_data"],
+    requested_data: parseJsonField<ConsentEventRow["requested_data"]>(
+      row.requested_data,
+    ),
     decision: (row.decision as ConsentEventRow["decision"]) ?? null,
     execution_mode: row.execution_mode as ConsentEventRow["execution_mode"],
     result_mode: row.result_mode as ConsentEventRow["result_mode"],
     authorization_reference:
-      (row.authorization_reference as Record<string, unknown> | null) ?? null,
+      row.authorization_reference === null ||
+      row.authorization_reference === undefined
+        ? null
+        : parseJsonField<Record<string, unknown>>(row.authorization_reference),
     idempotency_key: row.idempotency_key as string,
     request_hash: row.request_hash as string,
     audit_metadata:
-      (row.audit_metadata as Record<string, unknown> | null) ?? null,
+      row.audit_metadata === null || row.audit_metadata === undefined
+        ? null
+        : parseJsonField<Record<string, unknown>>(row.audit_metadata),
   };
 }
 
@@ -118,7 +143,7 @@ export async function insertActionRequest(
   row: ActionRequestRow,
 ): Promise<ActionRequestRow> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO account_action_requests (
       id, client_id, vana_user_id, action_type, execution_mode, result_mode,
       requested_data, redirect_uri, state_hash, status, display_metadata,
@@ -132,7 +157,7 @@ export async function insertActionRequest(
       ${row.created_at}, ${row.expires_at}, ${row.decided_at}
     )
     RETURNING *
-  `;
+  `) as DbRows;
   return rowToActionRequest(rows[0] as Record<string, unknown>);
 }
 
@@ -140,11 +165,187 @@ export async function findActionRequestById(
   id: string,
 ): Promise<ActionRequestRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM account_action_requests WHERE id = ${id} LIMIT 1
-  `;
+  `) as DbRows;
   if (rows.length === 0) return null;
   return rowToActionRequest(rows[0] as Record<string, unknown>);
+}
+
+export type RevokeActionRequestOutcome =
+  | { status: "revoked"; request: ActionRequestRow; event: ConsentEventRow }
+  | { status: "not_found" }
+  | { status: "not_active"; request: ActionRequestRow };
+
+function buildRevocationReference(now: string) {
+  return {
+    mode: "mock_rpc_revoke",
+    revoked_at: now,
+    reason: "user_requested",
+  };
+}
+
+function buildRevocationRequestHash(request: ActionRequestRow): string {
+  return canonicalRequestHash({
+    clientId: request.client_id,
+    actionType: request.action_type,
+    executionMode: request.execution_mode,
+    resultMode: request.result_mode,
+    requestedData: request.requested_data,
+    redirectUri: request.redirect_uri,
+  });
+}
+
+function buildRevocationEventId(actionRequestId: string): string {
+  return `vana_evt_revoke_${actionRequestId}`;
+}
+
+export async function revokeActionRequest(input: {
+  id: string;
+  vanaUserId: string;
+  now?: Date;
+}): Promise<RevokeActionRequestOutcome> {
+  const sql = getSQL();
+  const now = (input.now ?? new Date()).toISOString();
+  const updatedRows = (await sql`
+    UPDATE account_action_requests
+    SET status = 'revoked'
+    WHERE id = ${input.id}
+      AND vana_user_id = ${input.vanaUserId}
+      AND status = ANY(${[...REVOKABLE_ACTION_STATUSES]})
+    RETURNING *
+  `) as DbRows;
+
+  if (updatedRows[0]) {
+    const request = rowToActionRequest(updatedRows[0]);
+    const eventRows = (await sql`
+      INSERT INTO account_consent_events (
+        id, schema_version, event_type, occurred_at, issuer,
+        vana_user_id, subject_wallet_address, client_id, application_id,
+        protocol_principal, action_request_id, action_type, requested_data,
+        decision, execution_mode, result_mode, authorization_reference,
+        idempotency_key, request_hash, audit_metadata
+      ) VALUES (
+        ${buildRevocationEventId(request.id)}, ${CONSENT_EVENT_SCHEMA_VERSION},
+        'action.revoked', ${now}, 'account.vana.org',
+        ${request.vana_user_id}, NULL, ${request.client_id}, NULL,
+        NULL::jsonb, ${request.id}, ${request.action_type},
+        ${JSON.stringify(request.requested_data)}::jsonb, NULL,
+        ${request.execution_mode}, ${request.result_mode},
+        ${JSON.stringify(buildRevocationReference(now))}::jsonb,
+        ${`${request.id}:revoked`}, ${buildRevocationRequestHash(request)},
+        ${JSON.stringify({ source: "account_access_ui" })}::jsonb
+      )
+      ON CONFLICT (event_type, idempotency_key) DO NOTHING
+      RETURNING *
+    `) as DbRows;
+
+    return {
+      status: "revoked",
+      request,
+      event: eventRows[0]
+        ? rowToConsentEvent(eventRows[0])
+        : await findRevocationEvent(request.id),
+    };
+  }
+
+  const targetRows = (await sql`
+    SELECT *
+    FROM account_action_requests
+    WHERE id = ${input.id}
+      AND vana_user_id = ${input.vanaUserId}
+    LIMIT 1
+  `) as DbRows;
+  if (!targetRows[0]) return { status: "not_found" };
+  return {
+    status: "not_active",
+    request: rowToActionRequest(targetRows[0]),
+  };
+}
+
+export async function revokeActionRequestsForClient(input: {
+  clientId: string;
+  vanaUserId: string;
+  now?: Date;
+}): Promise<{
+  revokedCount: number;
+  events: ConsentEventRow[];
+  appFound: boolean;
+}> {
+  const sql = getSQL();
+  const now = (input.now ?? new Date()).toISOString();
+  const foundRows = (await sql`
+    SELECT 1
+    FROM account_action_requests
+    WHERE client_id = ${input.clientId}
+      AND vana_user_id = ${input.vanaUserId}
+    LIMIT 1
+  `) as DbRows;
+
+  const updatedRows = (await sql`
+    UPDATE account_action_requests
+    SET status = 'revoked'
+    WHERE client_id = ${input.clientId}
+      AND vana_user_id = ${input.vanaUserId}
+      AND status = ANY(${[...REVOKABLE_ACTION_STATUSES]})
+    RETURNING *
+  `) as DbRows;
+
+  const events: ConsentEventRow[] = [];
+  for (const row of updatedRows) {
+    const request = rowToActionRequest(row);
+    const eventRows = (await sql`
+      INSERT INTO account_consent_events (
+        id, schema_version, event_type, occurred_at, issuer,
+        vana_user_id, subject_wallet_address, client_id, application_id,
+        protocol_principal, action_request_id, action_type, requested_data,
+        decision, execution_mode, result_mode, authorization_reference,
+        idempotency_key, request_hash, audit_metadata
+      ) VALUES (
+        ${buildRevocationEventId(request.id)}, ${CONSENT_EVENT_SCHEMA_VERSION},
+        'action.revoked', ${now}, 'account.vana.org',
+        ${request.vana_user_id}, NULL, ${request.client_id}, NULL,
+        NULL::jsonb, ${request.id}, ${request.action_type},
+        ${JSON.stringify(request.requested_data)}::jsonb, NULL,
+        ${request.execution_mode}, ${request.result_mode},
+        ${JSON.stringify(buildRevocationReference(now))}::jsonb,
+        ${`${request.id}:revoked`}, ${buildRevocationRequestHash(request)},
+        ${JSON.stringify({ source: "account_access_ui" })}::jsonb
+      )
+      ON CONFLICT (event_type, idempotency_key) DO NOTHING
+      RETURNING *
+    `) as DbRows;
+    events.push(
+      eventRows[0]
+        ? rowToConsentEvent(eventRows[0])
+        : await findRevocationEvent(request.id),
+    );
+  }
+
+  return {
+    revokedCount: updatedRows.length,
+    events,
+    appFound: foundRows.length > 0,
+  };
+}
+
+async function findRevocationEvent(
+  actionRequestId: string,
+): Promise<ConsentEventRow> {
+  const sql = getSQL();
+  const rows = (await sql`
+    SELECT *
+    FROM account_consent_events
+    WHERE event_type = 'action.revoked'
+      AND idempotency_key = ${`${actionRequestId}:revoked`}
+    LIMIT 1
+  `) as DbRows;
+  if (!rows[0]) {
+    throw new Error(
+      "account-actions: revoked request missing revocation event",
+    );
+  }
+  return rowToConsentEvent(rows[0]);
 }
 
 /**
@@ -159,7 +360,7 @@ export async function persistActionRequestDecision(input: {
   decidedAt: string;
 }): Promise<ActionRequestRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     UPDATE account_action_requests
     SET
       status = ${input.decision},
@@ -169,7 +370,7 @@ export async function persistActionRequestDecision(input: {
       AND status = 'pending'
       AND expires_at > now()
     RETURNING *
-  `;
+  `) as DbRows;
   if (rows.length === 0) return null;
   return rowToActionRequest(rows[0] as Record<string, unknown>);
 }
@@ -215,7 +416,7 @@ export async function persistActionDecisionBundle(
   const sql = getSQL();
   const result = input.result;
   const hasResult = result !== null;
-  const rows = await sql`
+  const rows = (await sql`
     WITH updated AS (
       UPDATE account_action_requests
       SET
@@ -284,14 +485,14 @@ export async function persistActionDecisionBundle(
       (SELECT to_jsonb(inserted_result) FROM inserted_result LIMIT 1) AS result,
       (SELECT to_jsonb(inserted_event) FROM inserted_event LIMIT 1) AS event
     FROM updated
-  `;
-
-  if (rows.length === 0) return null;
-  const row = rows[0] as {
+  `) as Array<{
     request: Record<string, unknown>;
     result: Record<string, unknown> | null;
     event: Record<string, unknown>;
-  };
+  }>;
+
+  if (rows.length === 0) return null;
+  const row = rows[0];
   return {
     request: rowToActionRequest(row.request),
     result: row.result ? rowToActionResult(row.result) : null,
@@ -303,7 +504,7 @@ export async function insertActionResult(
   row: ActionResultRow,
 ): Promise<ActionResultRow> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO account_action_results (
       id, action_request_id, client_id, action_code_hash, result_mode,
       result_payload, result_reference, created_at, expires_at, consumed_at
@@ -315,7 +516,7 @@ export async function insertActionResult(
       ${row.created_at}, ${row.expires_at}, ${row.consumed_at}
     )
     RETURNING *
-  `;
+  `) as DbRows;
   return rowToActionResult(rows[0] as Record<string, unknown>);
 }
 
@@ -323,7 +524,7 @@ export async function insertConsentEvent(
   row: ConsentEventRow,
 ): Promise<ConsentEventRow> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO account_consent_events (
       id, schema_version, event_type, occurred_at, issuer,
       vana_user_id, subject_wallet_address, client_id, application_id,
@@ -344,7 +545,7 @@ export async function insertConsentEvent(
       ${jsonOrNull(row.audit_metadata)}::jsonb
     )
     RETURNING *
-  `;
+  `) as DbRows;
   return rowToConsentEvent(rows[0] as Record<string, unknown>);
 }
 
@@ -385,7 +586,7 @@ export async function consumeActionCode(input: {
   const sql = getSQL();
   const presentedHash = hashActionCode(input.presentedCode);
 
-  const updated = await sql`
+  const updated = (await sql`
     UPDATE account_action_results
     SET consumed_at = now()
     WHERE action_code_hash = ${presentedHash}
@@ -393,7 +594,7 @@ export async function consumeActionCode(input: {
       AND consumed_at IS NULL
       AND expires_at > now()
     RETURNING *
-  `;
+  `) as DbRows;
 
   if (updated.length > 0) {
     return {
@@ -404,20 +605,20 @@ export async function consumeActionCode(input: {
 
   // Diagnose why nothing was updated. We deliberately look up by hash only —
   // if the hash itself does not match a row, the presented code is unknown.
-  const probe = await sql`
+  const probe = (await sql`
     SELECT client_id, consumed_at, expires_at
     FROM account_action_results
     WHERE action_code_hash = ${presentedHash}
     LIMIT 1
-  `;
-  if (probe.length === 0) {
-    return { ok: false, reason: "not_found" };
-  }
-  const row = probe[0] as {
+  `) as Array<{
     client_id: string;
     consumed_at: string | Date | null;
     expires_at: string | Date;
-  };
+  }>;
+  if (probe.length === 0) {
+    return { ok: false, reason: "not_found" };
+  }
+  const row = probe[0];
   if (row.client_id !== input.presentingClientId) {
     return { ok: false, reason: "client_mismatch" };
   }
@@ -440,7 +641,7 @@ export async function consumeActionCodeWithExchangeEvent(input: {
   const issuer = input.issuer ?? "https://account.vana.org";
   const eventId = generateConsentEventId();
 
-  const rows = await sql`
+  const rows = (await sql`
     WITH eligible AS (
       SELECT
         result.id,
@@ -513,14 +714,14 @@ export async function consumeActionCodeWithExchangeEvent(input: {
       to_jsonb(updated) AS result,
       (SELECT count(*) FROM inserted_event) AS inserted_event_count
     FROM updated
-  `;
+  `) as Array<{ result: Record<string, unknown> }>;
 
   if (rows.length > 0) {
-    const row = rows[0] as { result: Record<string, unknown> };
+    const row = rows[0];
     return { ok: true, result: rowToActionResult(row.result) };
   }
 
-  const probeRows = await sql`
+  const probeRows = (await sql`
     SELECT
       result.client_id,
       result.consumed_at,
@@ -534,16 +735,16 @@ export async function consumeActionCodeWithExchangeEvent(input: {
     FROM account_action_results result
     WHERE result.action_code_hash = ${presentedHash}
     LIMIT 1
-  `;
-  if (probeRows.length === 0) {
-    return { ok: false, reason: "not_found" };
-  }
-  const probe = probeRows[0] as {
+  `) as Array<{
     client_id: string;
     consumed_at: string | Date | null;
     expires_at: string | Date;
     has_request_hash: boolean;
-  };
+  }>;
+  if (probeRows.length === 0) {
+    return { ok: false, reason: "not_found" };
+  }
+  const probe = probeRows[0];
   if (probe.client_id !== input.presentingClientId) {
     return { ok: false, reason: "client_mismatch" };
   }
@@ -567,20 +768,63 @@ export async function findActionResultById(
   id: string,
 ): Promise<ActionResultRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM account_action_results WHERE id = ${id} LIMIT 1
-  `;
+  `) as DbRows;
   if (rows.length === 0) return null;
   return rowToActionResult(rows[0] as Record<string, unknown>);
+}
+
+export async function listActionRequestsByUser(
+  vanaUserId: string,
+  options: { limit?: number } = {},
+): Promise<ActionRequestRow[]> {
+  const sql = getSQL();
+  const limit = Math.max(1, Math.min(options.limit ?? 25, 100));
+  const rows = (await sql`
+    SELECT * FROM account_action_requests
+    WHERE vana_user_id = ${vanaUserId}
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `) as DbRows;
+  return rows.map((row) => rowToActionRequest(row));
+}
+
+export async function listActionResultsForRequests(
+  actionRequestIds: string[],
+): Promise<ActionResultRow[]> {
+  if (actionRequestIds.length === 0) return [];
+  const sql = getSQL();
+  const rows = (await sql`
+    SELECT * FROM account_action_results
+    WHERE action_request_id = ANY(${actionRequestIds})
+    ORDER BY created_at DESC
+  `) as DbRows;
+  return rows.map((row) => rowToActionResult(row));
 }
 
 export async function findConsentEventById(
   id: string,
 ): Promise<ConsentEventRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM account_consent_events WHERE id = ${id} LIMIT 1
-  `;
+  `) as DbRows;
   if (rows.length === 0) return null;
   return rowToConsentEvent(rows[0] as Record<string, unknown>);
+}
+
+export async function listConsentEventsByUser(
+  vanaUserId: string,
+  options: { limit?: number } = {},
+): Promise<ConsentEventRow[]> {
+  const sql = getSQL();
+  const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+  const rows = (await sql`
+    SELECT * FROM account_consent_events
+    WHERE vana_user_id = ${vanaUserId}
+    ORDER BY occurred_at DESC
+    LIMIT ${limit}
+  `) as DbRows;
+  return rows.map((row) => rowToConsentEvent(row));
 }

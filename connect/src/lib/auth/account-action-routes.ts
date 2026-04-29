@@ -227,34 +227,15 @@ function parseRequestedData(value: unknown): RequestedData | null {
   const out: RequestedData = {};
   if (typeof value.connector === "string") out.connector = value.connector;
   if (
-    Array.isArray(value.streams) &&
-    value.streams.every((v) => typeof v === "string")
-  ) {
-    out.streams = value.streams as string[];
-  }
-  if (
     Array.isArray(value.scopes) &&
     value.scopes.every((v) => typeof v === "string")
   ) {
     out.scopes = value.scopes as string[];
   }
-  if (
-    Array.isArray(value.fields) &&
-    value.fields.every((v) => typeof v === "string")
-  ) {
-    out.fields = value.fields as string[];
-  }
   if (typeof value.purposeCode === "string")
     out.purposeCode = value.purposeCode;
   if (typeof value.purposeDescription === "string") {
     out.purposeDescription = value.purposeDescription;
-  }
-  if (isStringRecord(value.timeRange)) {
-    const tr: { from?: string; to?: string } = {};
-    if (typeof value.timeRange.from === "string")
-      tr.from = value.timeRange.from;
-    if (typeof value.timeRange.to === "string") tr.to = value.timeRange.to;
-    out.timeRange = tr;
   }
   if (typeof value.accessMode === "string") out.accessMode = value.accessMode;
   return out;

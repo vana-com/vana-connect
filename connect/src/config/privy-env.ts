@@ -11,10 +11,10 @@
 const APP_ID_VAR = "NEXT_PUBLIC_PRIVY_APP_ID";
 const CLIENT_ID_VAR = "NEXT_PUBLIC_PRIVY_CLIENT_ID";
 
-// @privy-io/react-auth v3.14.0 validates appId as exactly 25 chars before it
-// initializes the provider. Match that locally so the failure message stays
-// Vana-owned.
-const PRIVY_APP_ID_LENGTH = 25;
+// Privy app ids have appeared in both 25-char and 27-char forms across Vana
+// projects. Validate shape, placeholders, and obvious quoting errors locally
+// without pinning to one historical length.
+const MIN_APP_ID_LENGTH = 25;
 const MIN_CLIENT_ID_LENGTH = 10;
 const PLACEHOLDER_VALUES = new Set([
   "",
@@ -33,18 +33,12 @@ export type PrivyPublicEnv =
 
 function readId(
   raw: string | undefined,
-  options: { exactLength?: number; minLength?: number } = {},
+  options: { minLength?: number } = {},
 ): string | null {
   if (raw === undefined) return null;
   const trimmed = raw.trim();
   if (trimmed.length === 0) return null;
   if (PLACEHOLDER_VALUES.has(trimmed.toLowerCase())) return null;
-  if (
-    options.exactLength !== undefined &&
-    trimmed.length !== options.exactLength
-  ) {
-    return null;
-  }
   if (options.minLength !== undefined && trimmed.length < options.minLength) {
     return null;
   }
@@ -61,7 +55,7 @@ export function resolvePrivyPublicEnv(
   },
 ): PrivyPublicEnv {
   const appId = readId(source[APP_ID_VAR], {
-    exactLength: PRIVY_APP_ID_LENGTH,
+    minLength: MIN_APP_ID_LENGTH,
   });
   const clientId = readId(source[CLIENT_ID_VAR], {
     minLength: MIN_CLIENT_ID_LENGTH,

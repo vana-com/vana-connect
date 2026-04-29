@@ -4,6 +4,7 @@ import {
   createActionRequestRow,
   hashActionCode,
 } from "@/lib/auth/account-action";
+import { createAccountLoginSessionToken } from "@/lib/auth/account-login-session";
 
 /**
  * App Router-level integration tests for `/api/account/actions/*`.
@@ -48,6 +49,10 @@ vi.mock("@privy-io/node", () => ({
 const REGISTERED_CLIENT = "memory-app-dev";
 const REGISTERED_REDIRECT = "http://localhost:3000/api/auth/callback/vana";
 const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
+const ACCOUNT_SESSION_COOKIE = `vana_account_session=${createAccountLoginSessionToken(
+  { privySubject: "did:privy:user-1" },
+  { secret: "test-privy-secret", nowMs: Date.now(), ttlMs: 60_000 },
+)}`;
 
 async function importRoutes() {
   return {
@@ -282,7 +287,7 @@ describe("GET /api/account/actions/[id]", () => {
     const response = await get.GET(
       new NextRequest(
         `https://account.vana.org/api/account/actions/${action.id}`,
-        { headers: { authorization: "Bearer privy-token-stub" } },
+        { headers: { cookie: ACCOUNT_SESSION_COOKIE } },
       ),
       { params: Promise.resolve({ id: action.id }) },
     );
@@ -307,7 +312,7 @@ describe("POST /api/account/actions/[id]/decision", () => {
     return makePostRequest(
       `https://account.vana.org/api/account/actions/${id}/decision`,
       body,
-      withAuth ? { authorization: "Bearer privy-token-stub" } : {},
+      withAuth ? { cookie: ACCOUNT_SESSION_COOKIE } : {},
     );
   }
 

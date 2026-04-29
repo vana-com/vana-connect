@@ -31,8 +31,14 @@ const STATIC_POLICY = {
   redirectUris: [
     "http://localhost:3000/api/auth/callback/vana",
     "http://localhost:3001/api/auth/callback/vana",
+    "http://localhost:3084/dev/login-with-vana",
+    "http://localhost:3084/dev/login-with-vana/callback",
   ],
-  allowedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  allowedOrigins: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3084",
+  ],
   allowedScopes: ["openid", "profile", "email", "offline_access"],
   allowedAudiences: ["memory-app-dev"],
 };
@@ -60,7 +66,9 @@ console.log("");
 console.log("Checking against static client policy...");
 
 if (fixture.clientId !== STATIC_POLICY.clientId) {
-  fail(`client_id ${fixture.clientId} does not match policy ${STATIC_POLICY.clientId}`);
+  fail(
+    `client_id ${fixture.clientId} does not match policy ${STATIC_POLICY.clientId}`,
+  );
 }
 ok(`client_id matches policy (${fixture.clientId})`);
 
@@ -95,7 +103,9 @@ if (fixture.tokenEndpointAuthMethod !== "none") {
 ok(`public PKCE client (no client_secret)`);
 
 if (fixture.codeChallengeMethod !== "S256") {
-  fail(`code_challenge_method must be S256; got ${fixture.codeChallengeMethod}`);
+  fail(
+    `code_challenge_method must be S256; got ${fixture.codeChallengeMethod}`,
+  );
 }
 ok(`code_challenge_method=S256`);
 
@@ -103,7 +113,15 @@ console.log("");
 console.log("Checking projection shapes...");
 
 const authJs = buildAuthJsProvider(fixture);
-for (const required of ["id", "name", "type", "issuer", "clientId", "authorization", "checks"]) {
+for (const required of [
+  "id",
+  "name",
+  "type",
+  "issuer",
+  "clientId",
+  "authorization",
+  "checks",
+]) {
   if (!(required in authJs)) {
     fail(`Auth.js provider missing key "${required}"`);
   }
@@ -111,23 +129,37 @@ for (const required of ["id", "name", "type", "issuer", "clientId", "authorizati
 if (authJs.type !== "oidc") {
   fail(`Auth.js provider type must be "oidc"; got "${authJs.type}"`);
 }
-if (!authJs.checks.includes("pkce") || !authJs.checks.includes("state") || !authJs.checks.includes("nonce")) {
-  fail(`Auth.js provider checks must include pkce, state, nonce; got ${JSON.stringify(authJs.checks)}`);
+if (
+  !authJs.checks.includes("pkce") ||
+  !authJs.checks.includes("state") ||
+  !authJs.checks.includes("nonce")
+) {
+  fail(
+    `Auth.js provider checks must include pkce, state, nonce; got ${JSON.stringify(authJs.checks)}`,
+  );
 }
-ok(`Auth.js provider shape: id=${authJs.id} type=${authJs.type} checks=${authJs.checks.join(",")}`);
+ok(
+  `Auth.js provider shape: id=${authJs.id} type=${authJs.type} checks=${authJs.checks.join(",")}`,
+);
 
 const oidcClient = buildOpenIdClientInputs(fixture);
 if (!oidcClient.discoveryUrl.endsWith("/.well-known/openid-configuration")) {
-  fail(`openid-client discoveryUrl must end with /.well-known/openid-configuration`);
+  fail(
+    `openid-client discoveryUrl must end with /.well-known/openid-configuration`,
+  );
 }
 if (!oidcClient.clientMetadata.redirect_uris.includes(fixture.redirectUri)) {
-  fail(`openid-client clientMetadata.redirect_uris missing fixture redirect_uri`);
+  fail(
+    `openid-client clientMetadata.redirect_uris missing fixture redirect_uri`,
+  );
 }
 if (
   !oidcClient.clientMetadata.grant_types.includes("authorization_code") ||
   !oidcClient.clientMetadata.grant_types.includes("refresh_token")
 ) {
-  fail(`openid-client clientMetadata.grant_types must include authorization_code and refresh_token`);
+  fail(
+    `openid-client clientMetadata.grant_types must include authorization_code and refresh_token`,
+  );
 }
 ok(`openid-client inputs: discovery=${oidcClient.discoveryUrl}`);
 

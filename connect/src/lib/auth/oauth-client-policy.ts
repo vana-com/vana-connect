@@ -55,8 +55,16 @@ export const DEV_MEMORY_APP_CLIENT: OauthClientRecord = {
   redirectUris: [
     "http://localhost:3000/api/auth/callback/vana",
     "http://localhost:3001/api/auth/callback/vana",
+    "http://localhost:3084/dev/login-with-vana",
+    "http://localhost:3084/dev/login-with-vana/callback",
+    "http://localhost:3084/demo/login-with-vana",
+    "http://localhost:3084/demo/login-with-vana/callback",
   ],
-  allowedOrigins: ["http://localhost:3000", "http://localhost:3001"],
+  allowedOrigins: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3084",
+  ],
   allowedScopes: ["openid", "profile", "email", "offline_access"],
   allowedAudiences: ["memory-app-dev"],
 };

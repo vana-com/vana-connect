@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useIdentityToken,
   useLoginWithEmail,
   useLoginWithOAuth,
   usePrivy,
@@ -65,6 +66,7 @@ export function useLoginPage() {
     },
   });
   const { ready, authenticated } = usePrivy();
+  const { identityToken } = useIdentityToken();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
   const [view, setView] = useState<LoginPageView>("loading");
@@ -94,22 +96,35 @@ export function useLoginPage() {
   // otherwise to connect or fallback based on handoff context.
   // Uses window.location (not Next.js router) because router.replace can
   // silently fail after full-page OAuth redirects.
-  const handleLoginComplete = useCallback(() => {
+  const handleLoginComplete = useCallback(async () => {
     if (redirectedRef.current) return;
-    redirectedRef.current = true;
 
     const oidcReturnTo = resolveOidcReturnTo(searchParams);
-    if (oidcReturnTo) {
-      clearOidcReturnTo();
-      clearHandoffContext();
-      window.location.replace(oidcReturnTo);
+    if (!identityToken) {
+      setView("completing");
       return;
     }
 
-    const url = resolvePostAuthDestination(handoffContext);
-    clearHandoffContext();
-    window.location.replace(url);
-  }, [handoffContext, searchParams]);
+    redirectedRef.current = true;
+    try {
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { authorization: `Bearer ${identityToken}` },
+      });
+      if (!response.ok) {
+        throw new Error("Could not establish account session.");
+      }
+      clearOidcReturnTo();
+      clearHandoffContext();
+      window.location.replace(
+        oidcReturnTo ?? resolvePostAuthDestination(handoffContext),
+      );
+    } catch {
+      redirectedRef.current = false;
+      setError("Could not finish sign-in. Please try again.");
+      setView("entry");
+    }
+  }, [handoffContext, identityToken, searchParams]);
 
   // Email OTP hooks
   const {
@@ -119,7 +134,7 @@ export function useLoginPage() {
   } = useLoginWithEmail({
     onComplete: () => {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     },
     onError: (err) => {
       setError(
@@ -133,7 +148,7 @@ export function useLoginPage() {
   const { initOAuth, state: oauthState } = useLoginWithOAuth({
     onComplete: () => {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     },
     onError: (err) => {
       setPendingOAuthProvider(null);
@@ -154,7 +169,7 @@ export function useLoginPage() {
   useEffect(() => {
     if (!ready) return;
     if (authenticated) {
-      handleLoginComplete();
+      void handleLoginComplete();
       return;
     }
     // Privy is ready and user is not authenticated — show entry form
@@ -181,7 +196,7 @@ export function useLoginPage() {
     }
     if (oauthState.status === "done") {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     }
   }, [oauthState.status, handoffContext, handleLoginComplete, searchParams]);
 

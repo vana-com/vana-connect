@@ -1,6 +1,5 @@
 // @vitest-environment node
 
-import { neon } from "@neondatabase/serverless";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildConsentEventRow,
@@ -23,7 +22,10 @@ import {
   insertConsentEvent,
   persistActionDecisionBundle,
   persistActionRequestDecision,
+  revokeActionRequest,
+  revokeActionRequestsForClient,
 } from "./account-actions";
+import { getSql } from "./sql";
 
 /**
  * DB-backed tests for account-action persistence and atomic action-code
@@ -44,6 +46,13 @@ function uniqueSuffix(): string {
 
 const createdUserIds = new Set<string>();
 const createdRequestIds = new Set<string>();
+
+function getTestSQL() {
+  return getSql() as unknown as (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => Promise<Array<Record<string, unknown>>>;
+}
 
 async function makePersistedRequest(
   overrides: {
@@ -78,7 +87,7 @@ dbDescribe("account-actions DB persistence", () => {
   afterEach(async () => {
     if (!databaseUrl) return;
     if (createdRequestIds.size > 0) {
-      const sql = neon(databaseUrl);
+      const sql = getTestSQL();
       const ids = Array.from(createdRequestIds);
       createdRequestIds.clear();
       try {
@@ -90,7 +99,7 @@ dbDescribe("account-actions DB persistence", () => {
       }
     }
     if (createdUserIds.size > 0) {
-      const sql = neon(databaseUrl);
+      const sql = getTestSQL();
       const ids = Array.from(createdUserIds);
       createdUserIds.clear();
       try {
@@ -303,7 +312,7 @@ dbDescribe("account-actions DB persistence", () => {
         expect(exchange.result.consumed_at).not.toBeNull();
       }
 
-      const sql = neon(databaseUrl as string);
+      const sql = getTestSQL();
       const events = (await sql`
         SELECT event_type, idempotency_key, request_hash
         FROM account_consent_events
@@ -319,6 +328,87 @@ dbDescribe("account-actions DB persistence", () => {
       expect(events[0].request_hash).toBe(requestHash);
     },
   );
+
+  dbIt("revokes one active grant and writes action.revoked", async () => {
+    const { user, request } = await makePersistedRequest();
+    await persistActionRequestDecision({
+      id: request.id,
+      decision: "approved",
+      vanaUserId: user.id,
+      decidedAt: new Date().toISOString(),
+    });
+
+    const outcome = await revokeActionRequest({
+      id: request.id,
+      vanaUserId: user.id,
+      now: new Date("2026-04-29T12:00:00.000Z"),
+    });
+
+    expect(outcome.status).toBe("revoked");
+    if (outcome.status === "revoked") {
+      expect(outcome.request.status).toBe("revoked");
+      expect(outcome.event.event_type).toBe("action.revoked");
+      expect(outcome.event.decision).toBeNull();
+      expect(outcome.event.authorization_reference).toMatchObject({
+        mode: "mock_rpc_revoke",
+        reason: "user_requested",
+      });
+    }
+  });
+
+  dbIt(
+    "disconnects an app by revoking all active grants for that user",
+    async () => {
+      const clientId = `client_${uniqueSuffix()}`;
+      const first = await makePersistedRequest({ clientId });
+      const second = await makePersistedRequest({
+        clientId,
+        vanaUserId: first.user.id,
+      });
+      await persistActionRequestDecision({
+        id: first.request.id,
+        decision: "approved",
+        vanaUserId: first.user.id,
+        decidedAt: new Date().toISOString(),
+      });
+      await persistActionRequestDecision({
+        id: second.request.id,
+        decision: "approved",
+        vanaUserId: first.user.id,
+        decidedAt: new Date().toISOString(),
+      });
+
+      const outcome = await revokeActionRequestsForClient({
+        clientId,
+        vanaUserId: first.user.id,
+      });
+
+      expect(outcome.appFound).toBe(true);
+      expect(outcome.revokedCount).toBe(2);
+      expect(outcome.events).toHaveLength(2);
+    },
+  );
+
+  dbIt("does not revoke another user's grant", async () => {
+    const first = await makePersistedRequest();
+    const second = await createVanaUser();
+    createdUserIds.add(second.user.id);
+    await persistActionRequestDecision({
+      id: first.request.id,
+      decision: "approved",
+      vanaUserId: first.user.id,
+      decidedAt: new Date().toISOString(),
+    });
+
+    const outcome = await revokeActionRequest({
+      id: first.request.id,
+      vanaUserId: second.user.id,
+    });
+    const fetched = await findActionRequestById(first.request.id);
+
+    expect(outcome.status).toBe("not_found");
+    expect(fetched?.status).toBe("approved");
+  });
 
   dbIt("never stores the raw action code, only its hash", async () => {
     const { user, request, now } = await makePersistedRequest();
@@ -343,7 +433,7 @@ dbDescribe("account-actions DB persistence", () => {
     });
     await insertActionResult(resultRow);
 
-    const sql = neon(databaseUrl as string);
+    const sql = getTestSQL();
     const probe = (await sql`
       SELECT action_code_hash, result_payload, result_reference
       FROM account_action_results
@@ -532,7 +622,7 @@ dbDescribe("account-actions DB persistence", () => {
     await insertActionResult(resultRow);
 
     // Force the row's expires_at into the past so we don't have to wait.
-    const sql = neon(databaseUrl as string);
+    const sql = getTestSQL();
     await sql`
       UPDATE account_action_results
       SET

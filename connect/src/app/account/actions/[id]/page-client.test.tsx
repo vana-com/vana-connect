@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
     authenticated: false,
     login: vi.fn(),
   },
-  identityToken: null as string | null,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -17,7 +16,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@privy-io/react-auth", () => ({
   usePrivy: () => mocks.privy,
-  useIdentityToken: () => ({ identityToken: mocks.identityToken }),
 }));
 
 import { ActionRequestPageClient } from "./page-client";
@@ -35,7 +33,6 @@ describe("ActionRequestPageClient", () => {
     mocks.privy.ready = true;
     mocks.privy.authenticated = false;
     mocks.privy.login.mockReset();
-    mocks.identityToken = null;
     vi.unstubAllGlobals();
   });
 
@@ -49,7 +46,6 @@ describe("ActionRequestPageClient", () => {
 
   it("loads action details and submits an approval with state", async () => {
     mocks.privy.authenticated = true;
-    mocks.identityToken = "privy-id-token";
     mocks.searchParams = new URLSearchParams("state=client-state");
     const fetchMock = vi
       .fn()
@@ -89,16 +85,21 @@ describe("ActionRequestPageClient", () => {
         "Memory App wants to read a mock connector scope.",
       ),
     ).toBeTruthy();
-    expect(await screen.findByText("mock, read")).toBeTruthy();
+    expect(await screen.findByText("Mock Echo")).toBeTruthy();
+    expect(await screen.findByText("Mock")).toBeTruthy();
+    expect(await screen.findByText("Read")).toBeTruthy();
+    expect(await screen.findByText("No reason provided")).toBeTruthy();
+    expect(await screen.findByText("Purpose")).toBeTruthy();
+    expect(
+      await screen.findByText("Provided by Memory App (dev)."),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^approve$/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[0][0]).toBe(
       "/api/account/actions/vana_areq_test",
     );
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({
-      headers: { authorization: "Bearer privy-id-token" },
-    });
+    expect(fetchMock.mock.calls[0][1]?.headers).toBeUndefined();
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/account/actions/vana_areq_test/decision",
     );

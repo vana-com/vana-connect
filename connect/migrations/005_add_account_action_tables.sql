@@ -19,10 +19,10 @@ CREATE TABLE IF NOT EXISTS account_action_requests (
   id                      TEXT PRIMARY KEY,           -- vana_areq_<random>
   client_id               TEXT NOT NULL,              -- registered OAuth client / app id
   vana_user_id            TEXT REFERENCES vana_users(id) ON DELETE SET NULL,
-  action_type             TEXT NOT NULL,              -- e.g. 'memory.read', 'mock.echo'
+  action_type             TEXT NOT NULL,              -- e.g. 'data.read.chatgpt', 'mock.echo'
   execution_mode          TEXT NOT NULL,
   result_mode             TEXT NOT NULL,
-  requested_data          JSONB NOT NULL,             -- scopes/streams/fields/purpose/time range
+  requested_data          JSONB NOT NULL,             -- connector/scopes/purpose/access mode
   redirect_uri            TEXT NOT NULL,
   state_hash              TEXT,                       -- hash of client-supplied state, never raw state
   status                  TEXT NOT NULL DEFAULT 'pending',
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS account_action_requests (
   CHECK (decided_at IS NULL OR decided_at >= created_at),
   CHECK (execution_mode IN ('mock', 'embedded_wallet_account_hosted', 'byo_wallet_client_signed', 'delegated_runtime')),
   CHECK (result_mode IN ('mock', 'encrypted_bundle_reference')),
-  CHECK (status IN ('pending', 'approved', 'denied', 'expired', 'consumed'))
+  CHECK (status IN ('pending', 'approved', 'denied', 'expired', 'consumed', 'revoked'))
 );
 
 CREATE INDEX IF NOT EXISTS account_action_requests_client_idx
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS account_consent_events (
   CHECK (id LIKE 'vana_evt_%'),
   CHECK (schema_version > 0),
   CHECK (request_hash ~ '^[a-f0-9]{64}$'),
-  CHECK (event_type IN ('action.requested', 'action.approved', 'action.denied', 'action.completed', 'action.exchanged', 'action.expired')),
+  CHECK (event_type IN ('action.requested', 'action.approved', 'action.denied', 'action.completed', 'action.exchanged', 'action.expired', 'action.revoked')),
   CHECK (execution_mode IN ('mock', 'embedded_wallet_account_hosted', 'byo_wallet_client_signed', 'delegated_runtime')),
   CHECK (result_mode IN ('mock', 'encrypted_bundle_reference')),
   CHECK (decision IS NULL OR decision IN ('approved', 'denied')),

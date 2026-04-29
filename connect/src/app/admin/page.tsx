@@ -32,7 +32,7 @@ export default function AdminPage() {
   }, [ui.appUrl, ui.privateKey]);
 
   return (
-    <PageShell actions={["server", "dataConnect", "logout"]}>
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <AdminHeaderLinks />
 

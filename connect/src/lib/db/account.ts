@@ -1,4 +1,3 @@
-import { neon } from "@neondatabase/serverless";
 import {
   generateLinkedWalletId,
   generateProviderLinkId,
@@ -10,6 +9,7 @@ import {
   type ProviderLinkRow,
   type VanaUserRow,
 } from "../auth/vana-account";
+import { getLocalPostgresSql, getSql, isLocalPostgresDatabase } from "./sql";
 
 /**
  * Persistence helpers for the Vana account identity model.
@@ -26,12 +26,10 @@ import {
  */
 
 function getSQL() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL environment variable is not set");
-  }
-  return neon(url);
+  return getSql();
 }
+
+type DbRows = Array<Record<string, unknown>>;
 
 export type CreateVanaUserInput = {
   displayName?: string | null;
@@ -51,11 +49,11 @@ export async function createVanaUser(
   const sql = getSQL();
   const id = generateVanaUserId();
 
-  const userRows = await sql`
+  const userRows = (await sql`
     INSERT INTO vana_users (id, display_name)
     VALUES (${id}, ${input.displayName ?? null})
     RETURNING *
-  `;
+  `) as DbRows;
   const user = userRows[0] as VanaUserRow;
 
   const wallets: LinkedWalletRow[] = [];
@@ -78,7 +76,7 @@ export async function attachLinkedWallet(
   const sql = getSQL();
   const id = generateLinkedWalletId();
   const address = normalizeWalletAddress(wallet.chainType, wallet.address);
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO vana_linked_wallets (
       id, vana_user_id, provider, provider_wallet_id,
       chain_type, address, is_primary, verified_at
@@ -88,7 +86,7 @@ export async function attachLinkedWallet(
       ${wallet.verifiedAt ? wallet.verifiedAt.toISOString() : null}
     )
     RETURNING *
-  `;
+  `) as DbRows;
   return rows[0] as LinkedWalletRow;
 }
 
@@ -98,7 +96,7 @@ export async function attachProviderLink(
 ): Promise<ProviderLinkRow> {
   const sql = getSQL();
   const id = generateProviderLinkId();
-  const rows = await sql`
+  const rows = (await sql`
     INSERT INTO vana_provider_links (
       id, vana_user_id, provider, provider_subject, email, metadata
     ) VALUES (
@@ -106,7 +104,7 @@ export async function attachProviderLink(
       ${link.email ?? null}, ${link.metadata ? JSON.stringify(link.metadata) : null}
     )
     RETURNING *
-  `;
+  `) as DbRows;
   return rows[0] as ProviderLinkRow;
 }
 
@@ -114,9 +112,9 @@ export async function findVanaUserById(
   id: string,
 ): Promise<VanaUserRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM vana_users WHERE id = ${id} LIMIT 1
-  `;
+  `) as DbRows;
   return (rows[0] as VanaUserRow | undefined) ?? null;
 }
 
@@ -124,9 +122,9 @@ export async function findLinkedWalletsByUser(
   vanaUserId: string,
 ): Promise<LinkedWalletRow[]> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM vana_linked_wallets WHERE vana_user_id = ${vanaUserId}
-  `;
+  `) as DbRows;
   return rows as LinkedWalletRow[];
 }
 
@@ -134,9 +132,9 @@ export async function findProviderLinksByUser(
   vanaUserId: string,
 ): Promise<ProviderLinkRow[]> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT * FROM vana_provider_links WHERE vana_user_id = ${vanaUserId}
-  `;
+  `) as DbRows;
   return rows as ProviderLinkRow[];
 }
 
@@ -145,13 +143,13 @@ export async function findUserByProviderSubject(
   providerSubject: string,
 ): Promise<VanaUserRow | null> {
   const sql = getSQL();
-  const rows = await sql`
+  const rows = (await sql`
     SELECT u.*
     FROM vana_users u
     JOIN vana_provider_links p ON p.vana_user_id = u.id
     WHERE p.provider = ${provider} AND p.provider_subject = ${providerSubject}
     LIMIT 1
-  `;
+  `) as DbRows;
   return (rows[0] as VanaUserRow | undefined) ?? null;
 }
 
@@ -161,13 +159,13 @@ export async function findUserByLinkedWallet(
 ): Promise<VanaUserRow | null> {
   const sql = getSQL();
   const normalized = normalizeWalletAddress(chainType, address);
-  const rows = await sql`
+  const rows = (await sql`
     SELECT u.*
     FROM vana_users u
     JOIN vana_linked_wallets w ON w.vana_user_id = u.id
     WHERE w.chain_type = ${chainType} AND w.address = ${normalized}
     LIMIT 1
-  `;
+  `) as DbRows;
   return (rows[0] as VanaUserRow | undefined) ?? null;
 }
 
@@ -204,6 +202,10 @@ export async function resolveVanaUserByPrivyEvidence(input: {
     providerWalletId?: string | null;
   };
 }): Promise<{ user: VanaUserRow; created: boolean }> {
+  if (isLocalPostgresDatabase()) {
+    return resolveVanaUserByPrivyEvidenceLocal(input);
+  }
+
   const sql = getSQL();
   const provider = "privy";
   const providerSubject = input.privySubject;
@@ -337,4 +339,109 @@ export async function resolveVanaUserByPrivyEvidence(input: {
     created: boolean;
   };
   return { user: userRow as VanaUserRow, created };
+}
+
+async function resolveVanaUserByPrivyEvidenceLocal(input: {
+  privySubject: string;
+  email?: string | null;
+  embeddedWallet?: {
+    chainType: string;
+    address: string;
+    providerWalletId?: string | null;
+  };
+}): Promise<{ user: VanaUserRow; created: boolean }> {
+  const sql = getLocalPostgresSql();
+  const provider = "privy";
+  const providerSubject = input.privySubject;
+  const email = input.email ?? null;
+  const wallet = input.embeddedWallet
+    ? {
+        chainType: input.embeddedWallet.chainType,
+        address: normalizeWalletAddress(
+          input.embeddedWallet.chainType,
+          input.embeddedWallet.address,
+        ),
+        providerWalletId: input.embeddedWallet.providerWalletId ?? null,
+      }
+    : null;
+
+  const lockKeys = [
+    `vana:provider:${provider}:${providerSubject}`,
+    ...(wallet ? [`vana:wallet:${wallet.chainType}:${wallet.address}`] : []),
+  ].sort();
+
+  return sql.begin(async (tx) => {
+    for (const key of lockKeys) {
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+    }
+
+    const providerRows = (await tx`
+      SELECT u.*
+      FROM vana_users u
+      JOIN vana_provider_links p ON p.vana_user_id = u.id
+      WHERE p.provider = ${provider}
+        AND p.provider_subject = ${providerSubject}
+      LIMIT 1
+    `) as DbRows;
+
+    let user = providerRows[0] as VanaUserRow | undefined;
+    let created = false;
+
+    if (!user && wallet) {
+      const walletRows = (await tx`
+        SELECT u.*
+        FROM vana_users u
+        JOIN vana_linked_wallets w ON w.vana_user_id = u.id
+        WHERE w.chain_type = ${wallet.chainType}
+          AND w.address = ${wallet.address}
+        LIMIT 1
+      `) as DbRows;
+      user = walletRows[0] as VanaUserRow | undefined;
+    }
+
+    if (!user) {
+      const newUserRows = (await tx`
+        INSERT INTO vana_users (id, display_name)
+        VALUES (${generateVanaUserId()}, NULL)
+        RETURNING *
+      `) as DbRows;
+      user = newUserRows[0] as VanaUserRow;
+      created = true;
+    }
+
+    await tx`
+      INSERT INTO vana_provider_links (
+        id, vana_user_id, provider, provider_subject, email
+      ) VALUES (
+        ${generateProviderLinkId()},
+        ${user.id},
+        ${provider},
+        ${providerSubject},
+        ${email}
+      )
+      ON CONFLICT (provider, provider_subject) DO UPDATE
+        SET email = COALESCE(vana_provider_links.email, EXCLUDED.email)
+    `;
+
+    if (wallet) {
+      await tx`
+        INSERT INTO vana_linked_wallets (
+          id, vana_user_id, provider, provider_wallet_id,
+          chain_type, address, is_primary, verified_at
+        ) VALUES (
+          ${generateLinkedWalletId()},
+          ${user.id},
+          ${provider},
+          ${wallet.providerWalletId},
+          ${wallet.chainType},
+          ${wallet.address},
+          TRUE,
+          now()
+        )
+        ON CONFLICT (chain_type, address) DO NOTHING
+      `;
+    }
+
+    return { user, created };
+  });
 }

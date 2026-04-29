@@ -1,6 +1,6 @@
 "use client";
 
-import { useIdentityToken, usePrivy } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
@@ -9,6 +9,11 @@ import { PageHeader } from "@/components/elements/page-header";
 import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
+import {
+  formatActionLabel,
+  formatRequestedDataDisplay,
+  formatStatusLabel,
+} from "@/lib/auth/action-display";
 
 type ActionRequestDetails = {
   action_request_id: string;
@@ -22,12 +27,9 @@ type ActionRequestDetails = {
   result_mode: string;
   requested_data: {
     connector?: string;
-    streams?: string[];
     scopes?: string[];
-    fields?: string[];
     purposeCode?: string;
     purposeDescription?: string;
-    timeRange?: { from?: string; to?: string };
     accessMode?: string;
   };
   display_metadata: {
@@ -50,7 +52,6 @@ export function ActionRequestPageClient({
 }) {
   const searchParams = useSearchParams();
   const { ready, authenticated, login } = usePrivy();
-  const { identityToken } = useIdentityToken();
   const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
   const [decisionState, setDecisionState] = useState<
     "idle" | "approving" | "denying"
@@ -58,12 +59,11 @@ export function ActionRequestPageClient({
   const [decisionError, setDecisionError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready || !authenticated || !identityToken) return;
+    if (!ready || !authenticated) return;
 
     const controller = new AbortController();
     setLoadState({ kind: "loading" });
     fetch(`/api/account/actions/${encodeURIComponent(actionRequestId)}`, {
-      headers: { authorization: `Bearer ${identityToken}` },
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -87,11 +87,11 @@ export function ActionRequestPageClient({
       });
 
     return () => controller.abort();
-  }, [actionRequestId, authenticated, identityToken, ready]);
+  }, [actionRequestId, authenticated, ready]);
 
   const decide = useCallback(
     async (decision: "approved" | "denied") => {
-      if (!identityToken || decisionState !== "idle") return;
+      if (decisionState !== "idle") return;
 
       setDecisionError(null);
       setDecisionState(decision === "approved" ? "approving" : "denying");
@@ -102,7 +102,6 @@ export function ActionRequestPageClient({
           {
             method: "POST",
             headers: {
-              authorization: `Bearer ${identityToken}`,
               "content-type": "application/json",
             },
             body: JSON.stringify({
@@ -129,7 +128,7 @@ export function ActionRequestPageClient({
         setDecisionState("idle");
       }
     },
-    [actionRequestId, decisionState, identityToken, searchParams],
+    [actionRequestId, decisionState, searchParams],
   );
 
   if (!ready) {
@@ -210,6 +209,9 @@ export function ActionRequestPageClient({
   const description =
     details.display_metadata?.description ??
     `Review what ${details.client.display_name} is requesting before continuing.`;
+  const requestedDataDisplay = formatRequestedDataDisplay(
+    details.requested_data,
+  );
 
   return (
     <PageShell>
@@ -224,13 +226,35 @@ export function ActionRequestPageClient({
 
           <dl className="space-y-3 rounded-squish bg-muted/40 p-4">
             <DetailRow label="App" value={details.client.display_name} />
-            <DetailRow label="Action" value={details.action_type} />
             <DetailRow
-              label="Requested data"
-              value={formatRequestedData(details.requested_data)}
+              label="Request"
+              value={formatActionLabel(details.action_type)}
             />
-            <DetailRow label="Status" value={displayStatus} />
-            <DetailRow label="Expires" value={formatDate(details.expires_at)} />
+            <DetailRow
+              label="Data source"
+              value={requestedDataDisplay.data_source}
+            />
+            <DetailRow
+              label="Data included"
+              value={requestedDataDisplay.data_types}
+            />
+            <DetailRow
+              label="Purpose"
+              value={requestedDataDisplay.purpose}
+              note={`Provided by ${details.client.display_name}.`}
+            />
+            <DetailRow
+              label="Access lasts"
+              value={requestedDataDisplay.access_duration}
+            />
+            <DetailRow
+              label="Status"
+              value={formatStatusLabel(displayStatus)}
+            />
+            <DetailRow
+              label="Review by"
+              value={formatDate(details.expires_at)}
+            />
           </dl>
 
           {!pending && (
@@ -270,7 +294,15 @@ export function ActionRequestPageClient({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
   return (
     <div className="grid grid-cols-[8rem_1fr] gap-3">
       <dt>
@@ -280,31 +312,14 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       </dt>
       <dd>
         <Text intent="small">{value}</Text>
+        {note && (
+          <Text intent="fine" color="mutedForeground">
+            {note}
+          </Text>
+        )}
       </dd>
     </div>
   );
-}
-
-function formatRequestedData(
-  data: ActionRequestDetails["requested_data"],
-): string {
-  const parts = [
-    data.connector,
-    ...(data.scopes ?? []),
-    ...(data.streams ?? []),
-    ...(data.fields ?? []),
-    data.purposeDescription ?? data.purposeCode,
-    formatTimeRange(data.timeRange),
-    data.accessMode,
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : "Not specified";
-}
-
-function formatTimeRange(timeRange?: { from?: string; to?: string }): string {
-  if (!timeRange?.from && !timeRange?.to) return "";
-  if (timeRange.from && timeRange.to)
-    return `${timeRange.from} to ${timeRange.to}`;
-  return timeRange.from ?? timeRange.to ?? "";
 }
 
 function formatDate(value: string): string {

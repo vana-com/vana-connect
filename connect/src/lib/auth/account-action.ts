@@ -41,7 +41,8 @@ export type ActionRequestStatus =
   | "approved"
   | "denied"
   | "expired"
-  | "consumed";
+  | "consumed"
+  | "revoked";
 
 export type ConsentEventType =
   | "action.requested"
@@ -49,7 +50,8 @@ export type ConsentEventType =
   | "action.denied"
   | "action.completed"
   | "action.exchanged"
-  | "action.expired";
+  | "action.expired"
+  | "action.revoked";
 
 export const CONSENT_EVENT_SCHEMA_VERSION = 1;
 
@@ -63,12 +65,9 @@ const CONSENT_EVENT_PREFIX = "vana_evt_";
 
 export type RequestedData = {
   connector?: string;
-  streams?: string[];
   scopes?: string[];
-  fields?: string[];
   purposeCode?: string;
   purposeDescription?: string;
-  timeRange?: { from?: string; to?: string };
   accessMode?: string;
 };
 

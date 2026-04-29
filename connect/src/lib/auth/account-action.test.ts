@@ -77,7 +77,7 @@ describe("createActionRequestRow", () => {
     expect(a).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("includes nested requested data fields in the request hash", () => {
+  it("includes requested data semantics in the request hash", () => {
     const base = {
       clientId: "c1",
       actionType: "mock.echo",
@@ -89,38 +89,42 @@ describe("createActionRequestRow", () => {
     const reordered = canonicalRequestHash({
       ...base,
       requestedData: {
+        accessMode: "read_until_revoked",
         purposeCode: "demo",
+        purposeDescription: "Read data for memory.",
         scopes: ["x"],
-        timeRange: { to: "2026-04-29", from: "2026-04-28" },
       },
     });
     const sameMeaningDifferentKeyOrder = canonicalRequestHash({
       ...base,
       requestedData: {
-        timeRange: { from: "2026-04-28", to: "2026-04-29" },
         scopes: ["x"],
+        purposeDescription: "Read data for memory.",
         purposeCode: "demo",
+        accessMode: "read_until_revoked",
       },
     });
-    const differentNestedValue = canonicalRequestHash({
+    const differentAccessMode = canonicalRequestHash({
       ...base,
       requestedData: {
+        accessMode: "one_time",
         purposeCode: "demo",
+        purposeDescription: "Read data for memory.",
         scopes: ["x"],
-        timeRange: { from: "2026-04-28", to: "2026-04-30" },
       },
     });
     const differentScope = canonicalRequestHash({
       ...base,
       requestedData: {
+        accessMode: "read_until_revoked",
         purposeCode: "demo",
+        purposeDescription: "Read data for memory.",
         scopes: ["y"],
-        timeRange: { from: "2026-04-28", to: "2026-04-29" },
       },
     });
 
     expect(reordered).toBe(sameMeaningDifferentKeyOrder);
-    expect(differentNestedValue).not.toBe(reordered);
+    expect(differentAccessMode).not.toBe(reordered);
     expect(differentScope).not.toBe(reordered);
   });
 });

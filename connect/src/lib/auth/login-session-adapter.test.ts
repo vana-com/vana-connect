@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createAccountLoginSessionToken } from "./account-login-session";
 import {
   createPrivyLoginSessionAdapter,
   type PrivyVerifiedUser,
@@ -158,6 +159,50 @@ describe("createPrivyLoginSessionAdapter", () => {
 
     expect(evidence).toBeNull();
     expect(verifyIdentityToken).toHaveBeenCalledWith("bad");
+  });
+
+  it("accepts Vana-owned account session cookies before Privy tokens", async () => {
+    vi.stubEnv("PRIVY_APP_SECRET", "test-secret");
+    const token = createAccountLoginSessionToken(
+      { privySubject: "did:privy:user-session", email: "alice@example.com" },
+      { secret: "test-secret", nowMs: Date.now(), ttlMs: 5000 },
+    );
+    const verifyIdentityToken = vi.fn();
+    const adapter = createPrivyLoginSessionAdapter({ verifyIdentityToken });
+
+    const evidence = await adapter.resolveLoginEvidence(
+      makeRequest({
+        authorization: "Bearer should-not-be-used",
+        cookie: `vana_account_session=${encodeURIComponent(token)}`,
+      }),
+    );
+
+    expect(evidence).toEqual({
+      privySubject: "did:privy:user-session",
+      email: "alice@example.com",
+    });
+    expect(verifyIdentityToken).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("falls back to Privy token verification when account session cookie is invalid", async () => {
+    vi.stubEnv("PRIVY_APP_SECRET", "test-secret");
+    const verifyIdentityToken = vi.fn().mockResolvedValue({
+      id: "did:privy:user-token",
+      linked_accounts: [],
+    } satisfies PrivyVerifiedUser);
+    const adapter = createPrivyLoginSessionAdapter({ verifyIdentityToken });
+
+    const evidence = await adapter.resolveLoginEvidence(
+      makeRequest({
+        authorization: "Bearer valid-token",
+        cookie: "vana_account_session=invalid",
+      }),
+    );
+
+    expect(evidence).toEqual({ privySubject: "did:privy:user-token" });
+    expect(verifyIdentityToken).toHaveBeenCalledWith("valid-token");
+    vi.unstubAllEnvs();
   });
 
   it("derives privySubject, email, and embedded wallet from a verified user", async () => {
