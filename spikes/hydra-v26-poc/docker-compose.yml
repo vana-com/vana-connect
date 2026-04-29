@@ -1,0 +1,107 @@
+# Hydra v26 POC -- local proof scaffold.
+#
+# Services:
+#   - postgres: backing store for Hydra
+#   - hydra-migrate: one-shot migration job (runs to completion)
+#   - hydra: public + admin API (single hydra serve all process)
+#   - login-consent: minimal Vana-owned login + consent UI on :3000
+#
+# All ports bind to 127.0.0.1 so admin is only reachable from localhost.
+#
+# config/hydra.yml is bind-mounted into both hydra services as the
+# source of truth. DSN is the only setting passed via env (it's
+# environment-specific and we don't want to commit it to YAML).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hydra-poc-postgres
+    environment:
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD: hydra-poc-pw
+      POSTGRES_DB: hydra
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra -d hydra"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks:
+      - hydra-poc
+
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0
+    container_name: hydra-poc-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://hydra:hydra-poc-pw@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./config/hydra.yml:/etc/hydra/hydra.yml:ro
+    command:
+      - migrate
+      - sql
+      - -e
+      - --yes
+      - --config
+      - /etc/hydra/hydra.yml
+    restart: "no"
+    networks:
+      - hydra-poc
+
+  hydra:
+    image: oryd/hydra:v26.2.0
+    container_name: hydra-poc
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: postgres://hydra:hydra-poc-pw@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./config/hydra.yml:/etc/hydra/hydra.yml:ro
+    command:
+      - serve
+      - all
+      - --dev
+      - --config
+      - /etc/hydra/hydra.yml
+    ports:
+      # public OAuth/OIDC endpoints
+      - "127.0.0.1:4444:4444"
+      # admin API -- localhost-only by design
+      - "127.0.0.1:4445:4445"
+    networks:
+      - hydra-poc
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--spider",
+          "http://127.0.0.1:4444/health/ready",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  login-consent:
+    build:
+      context: ./login-consent
+    container_name: hydra-poc-login-consent
+    depends_on:
+      hydra:
+        condition: service_healthy
+    environment:
+      # Login-consent calls Hydra admin from inside the docker network.
+      HYDRA_ADMIN_URL: http://hydra:4445
+      DEV_VANA_USER_ID: vana_user_dev_123
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - hydra-poc
+
+networks:
+  hydra-poc:
+    driver: bridge
