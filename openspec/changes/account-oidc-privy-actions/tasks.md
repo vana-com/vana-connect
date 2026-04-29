@@ -49,7 +49,7 @@
 
 - [x] 5.1 Add `oauth_clients` migration or static dev client config for the first slice (`connect/src/lib/auth/oauth-client-policy.ts`: static `OauthClientRecord` registry via `createDefaultOauthClientRegistry`).
 - [x] 5.2 Register the dev Memory App fixture as the first client (`DEV_MEMORY_APP_CLIENT` with `client_id = "memory-app-dev"`).
-- [ ] 5.3 Add redirect URI and origin allowlist checks (record fields `redirectUris` and `allowedOrigins` are modeled in `OauthClientRecord`; enforcement remains pending at the authorize/Hydra client-config boundary).
+- [x] 5.3 Add redirect URI and origin allowlist checks. Pure helpers `checkRedirectUri` and `checkOrigin` in `connect/src/lib/auth/oauth-client-policy.ts` enforce exact-match against `client.redirectUris` / `client.allowedOrigins`, reject blank, malformed, protocol-relative, CRLF, and non-http(s) inputs, and require https except for loopback hosts (`localhost`, `127.0.0.1`, `::1`). Tests in `connect/src/lib/auth/oauth-client-policy.test.ts` cover allow/deny paths, including the dev Memory App localhost redirect URIs and origins. No production `/oauth2/authorize` route is wired yet (that work lives behind tasks 3.3 and the Hydra client-config integration); enforcement is currently a pure policy seam ready for the route handler to consume.
 - [x] 5.4 Add client display metadata for consent/action screens (`displayName` field on `OauthClientRecord`).
 - [x] 5.5 Add future field for linked protocol principal without requiring it in the first slice (`protocolPrincipal?: { kind, id }` on `OauthClientRecord`).
 

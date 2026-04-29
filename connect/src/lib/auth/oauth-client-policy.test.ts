@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkOrigin,
+  checkRedirectUri,
   createDefaultOauthClientRegistry,
   DEV_MEMORY_APP_CLIENT,
   evaluateConsentPolicy,
   type OauthClientRecord,
 } from "./oauth-client-policy";
+
+const HTTPS_CLIENT: OauthClientRecord = {
+  clientId: "https-app",
+  displayName: "HTTPS App",
+  redirectUris: [
+    "https://app.example.com/cb",
+    "https://app.example.com/cb/alt",
+  ],
+  allowedOrigins: ["https://app.example.com"],
+  allowedScopes: ["openid"],
+  allowedAudiences: ["https-app"],
+};
 
 describe("createDefaultOauthClientRegistry", () => {
   it("registers the dev Memory App client by default", () => {
@@ -168,6 +182,221 @@ describe("evaluateConsentPolicy", () => {
     expect(decision.kind).toBe("deny");
     if (decision.kind === "deny") {
       expect(decision.reason).toBe("disallowed_scope");
+    }
+  });
+});
+
+describe("checkRedirectUri", () => {
+  it("allows the dev Memory App localhost redirect URIs exactly", () => {
+    for (const uri of DEV_MEMORY_APP_CLIENT.redirectUris) {
+      const decision = checkRedirectUri(DEV_MEMORY_APP_CLIENT, uri);
+      expect(decision).toEqual({ kind: "allow", redirectUri: uri });
+    }
+  });
+
+  it("allows explicitly registered IPv6 loopback redirect URIs", () => {
+    const client: OauthClientRecord = {
+      ...HTTPS_CLIENT,
+      redirectUris: ["http://[::1]:3000/cb"],
+    };
+    expect(checkRedirectUri(client, "http://[::1]:3000/cb")).toEqual({
+      kind: "allow",
+      redirectUri: "http://[::1]:3000/cb",
+    });
+  });
+
+  it("allows an exact-match HTTPS redirect URI", () => {
+    expect(
+      checkRedirectUri(HTTPS_CLIENT, "https://app.example.com/cb"),
+    ).toEqual({ kind: "allow", redirectUri: "https://app.example.com/cb" });
+  });
+
+  it("denies blank, null, or undefined redirect URIs", () => {
+    for (const value of ["", "   ", null, undefined]) {
+      const decision = checkRedirectUri(HTTPS_CLIENT, value);
+      expect(decision.kind).toBe("deny");
+      if (decision.kind === "deny") {
+        expect(decision.reason).toBe("missing_redirect_uri");
+      }
+    }
+  });
+
+  it("denies CRLF in the raw redirect URI to block header injection", () => {
+    const decision = checkRedirectUri(
+      HTTPS_CLIENT,
+      "https://app.example.com/cb\r\nLocation: https://evil.example.com",
+    );
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_redirect_uri");
+    }
+  });
+
+  it("denies protocol-relative redirect URIs", () => {
+    const decision = checkRedirectUri(HTTPS_CLIENT, "//evil.example.com/cb");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_redirect_uri");
+    }
+  });
+
+  it("denies non-http(s) schemes such as javascript: or data:", () => {
+    for (const uri of [
+      "javascript:alert(1)",
+      "data:text/html,evil",
+      "file:///etc/passwd",
+    ]) {
+      const decision = checkRedirectUri(HTTPS_CLIENT, uri);
+      expect(decision.kind).toBe("deny");
+      if (decision.kind === "deny") {
+        expect(decision.reason).toBe("malformed_redirect_uri");
+      }
+    }
+  });
+
+  it("denies http://non-loopback hosts", () => {
+    const insecure: OauthClientRecord = {
+      ...HTTPS_CLIENT,
+      redirectUris: ["http://app.example.com/cb"],
+    };
+    const decision = checkRedirectUri(insecure, "http://app.example.com/cb");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_redirect_uri");
+    }
+  });
+
+  it("denies a redirect URI that is not registered (no prefix matching)", () => {
+    const decision = checkRedirectUri(
+      HTTPS_CLIENT,
+      "https://app.example.com/cb/extra",
+    );
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("unregistered_redirect_uri");
+    }
+  });
+
+  it("denies subdomain mismatch even when path matches a registered URI", () => {
+    const decision = checkRedirectUri(
+      HTTPS_CLIENT,
+      "https://evil.app.example.com/cb",
+    );
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("unregistered_redirect_uri");
+    }
+  });
+
+  it("denies a malformed URL", () => {
+    const decision = checkRedirectUri(HTTPS_CLIENT, "not a url");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_redirect_uri");
+    }
+  });
+});
+
+describe("checkOrigin", () => {
+  it("allows the dev Memory App localhost origins exactly", () => {
+    for (const origin of DEV_MEMORY_APP_CLIENT.allowedOrigins) {
+      const decision = checkOrigin(DEV_MEMORY_APP_CLIENT, origin);
+      expect(decision).toEqual({ kind: "allow", origin });
+    }
+  });
+
+  it("allows explicitly registered IPv6 loopback origins", () => {
+    const client: OauthClientRecord = {
+      ...HTTPS_CLIENT,
+      allowedOrigins: ["http://[::1]:3000"],
+    };
+    expect(checkOrigin(client, "http://[::1]:3000")).toEqual({
+      kind: "allow",
+      origin: "http://[::1]:3000",
+    });
+  });
+
+  it("allows an exact-match HTTPS origin", () => {
+    expect(checkOrigin(HTTPS_CLIENT, "https://app.example.com")).toEqual({
+      kind: "allow",
+      origin: "https://app.example.com",
+    });
+  });
+
+  it("denies blank, null, or undefined origins", () => {
+    for (const value of ["", "   ", null, undefined]) {
+      const decision = checkOrigin(HTTPS_CLIENT, value);
+      expect(decision.kind).toBe("deny");
+      if (decision.kind === "deny") {
+        expect(decision.reason).toBe("missing_origin");
+      }
+    }
+  });
+
+  it("denies CRLF in the raw origin", () => {
+    const decision = checkOrigin(
+      HTTPS_CLIENT,
+      "https://app.example.com\r\nLocation: https://evil.example.com",
+    );
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_origin");
+    }
+  });
+
+  it("denies protocol-relative origins", () => {
+    const decision = checkOrigin(HTTPS_CLIENT, "//app.example.com");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_origin");
+    }
+  });
+
+  it("denies origins that include a path, query, or fragment", () => {
+    for (const origin of [
+      "https://app.example.com/cb",
+      "https://app.example.com/",
+      "https://app.example.com?x=1",
+      "https://app.example.com#frag",
+    ]) {
+      const decision = checkOrigin(HTTPS_CLIENT, origin);
+      expect(decision.kind).toBe("deny");
+      if (decision.kind === "deny") {
+        expect(decision.reason).toBe("malformed_origin");
+      }
+    }
+  });
+
+  it("denies non-http(s) schemes", () => {
+    for (const origin of [
+      "javascript://app.example.com",
+      "ftp://app.example.com",
+    ]) {
+      const decision = checkOrigin(HTTPS_CLIENT, origin);
+      expect(decision.kind).toBe("deny");
+      if (decision.kind === "deny") {
+        expect(decision.reason).toBe("malformed_origin");
+      }
+    }
+  });
+
+  it("denies http://non-loopback origins", () => {
+    const insecure: OauthClientRecord = {
+      ...HTTPS_CLIENT,
+      allowedOrigins: ["http://app.example.com"],
+    };
+    const decision = checkOrigin(insecure, "http://app.example.com");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("malformed_origin");
+    }
+  });
+
+  it("denies an origin that is not registered", () => {
+    const decision = checkOrigin(HTTPS_CLIENT, "https://evil.example.com");
+    expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("unregistered_origin");
     }
   });
 });

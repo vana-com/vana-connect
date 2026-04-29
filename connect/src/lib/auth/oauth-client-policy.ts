@@ -103,6 +103,213 @@ export type ConsentDenialReason =
   | "disallowed_scope"
   | "disallowed_audience";
 
+export type RedirectUriDenialReason =
+  | "missing_redirect_uri"
+  | "malformed_redirect_uri"
+  | "unregistered_redirect_uri";
+
+export type OriginDenialReason =
+  | "missing_origin"
+  | "malformed_origin"
+  | "unregistered_origin";
+
+export type RedirectUriDecision =
+  | { kind: "allow"; redirectUri: string }
+  | { kind: "deny"; reason: RedirectUriDenialReason; message: string };
+
+export type OriginDecision =
+  | { kind: "allow"; origin: string }
+  | { kind: "deny"; reason: OriginDenialReason; message: string };
+
+/**
+ * Decide whether a `redirect_uri` is permitted for the given client.
+ *
+ * Enforcement is exact-match against `client.redirectUris`. We deliberately do
+ * not allow prefix or path-suffix matching: an OAuth client that registers
+ * `https://app.example.com/cb` must not silently accept
+ * `https://app.example.com/cb/../evil`. We also reject blank strings,
+ * malformed URLs, protocol-relative inputs (e.g. `//evil`), and CRLF in the
+ * raw value so callers cannot smuggle header injection into a redirect.
+ *
+ * Production-style origins must use `https`; `http` is permitted only for
+ * `localhost`/`127.0.0.1` and only when the corresponding redirect URI is
+ * already in the client's allowlist (via the exact-match check). This keeps
+ * the dev Memory App localhost redirect URIs working while ensuring no
+ * real-world `http://...` redirect can sneak past policy.
+ */
+export function checkRedirectUri(
+  client: OauthClientRecord,
+  rawRedirectUri: string | null | undefined,
+): RedirectUriDecision {
+  if (typeof rawRedirectUri !== "string") {
+    return {
+      kind: "deny",
+      reason: "missing_redirect_uri",
+      message: `Missing redirect_uri for client ${client.clientId}`,
+    };
+  }
+  const trimmed = rawRedirectUri.trim();
+  if (!trimmed) {
+    return {
+      kind: "deny",
+      reason: "missing_redirect_uri",
+      message: `Missing redirect_uri for client ${client.clientId}`,
+    };
+  }
+  if (/[\r\n]/.test(rawRedirectUri)) {
+    return {
+      kind: "deny",
+      reason: "malformed_redirect_uri",
+      message: `Malformed redirect_uri for client ${client.clientId}`,
+    };
+  }
+  if (trimmed.startsWith("//")) {
+    return {
+      kind: "deny",
+      reason: "malformed_redirect_uri",
+      message: `Malformed redirect_uri for client ${client.clientId}`,
+    };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return {
+      kind: "deny",
+      reason: "malformed_redirect_uri",
+      message: `Malformed redirect_uri for client ${client.clientId}`,
+    };
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return {
+      kind: "deny",
+      reason: "malformed_redirect_uri",
+      message: `Malformed redirect_uri for client ${client.clientId}`,
+    };
+  }
+
+  if (parsed.protocol === "http:" && !isLoopbackHost(parsed.hostname)) {
+    return {
+      kind: "deny",
+      reason: "malformed_redirect_uri",
+      message: `Insecure redirect_uri for client ${client.clientId}`,
+    };
+  }
+
+  if (!client.redirectUris.includes(trimmed)) {
+    return {
+      kind: "deny",
+      reason: "unregistered_redirect_uri",
+      message: `Redirect URI not registered for client ${client.clientId}`,
+    };
+  }
+
+  return { kind: "allow", redirectUri: trimmed };
+}
+
+/**
+ * Decide whether an `Origin` (cross-origin request header) is permitted for
+ * the given client. Like {@link checkRedirectUri}, this is exact-match against
+ * `client.allowedOrigins`. We reject blanks, malformed URLs, anything with a
+ * path/query/fragment (a bare origin must be `scheme://host[:port]`), CRLF,
+ * and any non-`http(s)` scheme. `http` is allowed only for loopback hosts and
+ * only when the exact origin is already on the allowlist.
+ */
+export function checkOrigin(
+  client: OauthClientRecord,
+  rawOrigin: string | null | undefined,
+): OriginDecision {
+  if (typeof rawOrigin !== "string") {
+    return {
+      kind: "deny",
+      reason: "missing_origin",
+      message: `Missing origin for client ${client.clientId}`,
+    };
+  }
+  const trimmed = rawOrigin.trim();
+  if (!trimmed) {
+    return {
+      kind: "deny",
+      reason: "missing_origin",
+      message: `Missing origin for client ${client.clientId}`,
+    };
+  }
+  if (/[\r\n]/.test(rawOrigin)) {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Malformed origin for client ${client.clientId}`,
+    };
+  }
+  if (trimmed.startsWith("//")) {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Malformed origin for client ${client.clientId}`,
+    };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Malformed origin for client ${client.clientId}`,
+    };
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Malformed origin for client ${client.clientId}`,
+    };
+  }
+
+  // A serialized origin has no path, query, or fragment beyond a single
+  // trailing slash that the URL parser may strip. Reject anything that adds
+  // material beyond `scheme://host[:port]`.
+  const expected = `${parsed.protocol}//${parsed.host}`;
+  if (trimmed !== expected) {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Malformed origin for client ${client.clientId}`,
+    };
+  }
+
+  if (parsed.protocol === "http:" && !isLoopbackHost(parsed.hostname)) {
+    return {
+      kind: "deny",
+      reason: "malformed_origin",
+      message: `Insecure origin for client ${client.clientId}`,
+    };
+  }
+
+  if (!client.allowedOrigins.includes(trimmed)) {
+    return {
+      kind: "deny",
+      reason: "unregistered_origin",
+      message: `Origin not registered for client ${client.clientId}`,
+    };
+  }
+
+  return { kind: "allow", origin: trimmed };
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
+
 export type EvaluateConsentInput = {
   registry: OauthClientRegistry;
   clientId: string | null | undefined;
