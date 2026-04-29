@@ -31,7 +31,7 @@
 - [x] 3.4 Implement `/oauth2/token` for authorization code exchange. Code-level wiring maps `/oauth2/token` to Hydra public token endpoint when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
 - [x] 3.5 Implement `/oauth2/userinfo`. Code-level wiring maps `/oauth2/userinfo` and `/userinfo` to Hydra public userinfo when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
 - [x] 3.6 Implement `/oauth2/revoke`. Code-level wiring maps `/oauth2/revoke` to Hydra public revoke endpoint when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
-- [ ] 3.7 Add issuer, client, redirect URI, state, nonce, and PKCE tests.
+- [x] 3.7 Add issuer, client, redirect URI, state, nonce, and PKCE tests. Repository-level coverage is mapped in `openspec/changes/account-oidc-privy-actions/design-notes/oidc-test-coverage-map-2026-04-29.md`; deployed `https://account.vana.org` proof remains task 8.2 / a remaining production gate.
 - [x] 3.8 Add a NextAuth/Auth.js compatibility test or fixture (`spikes/oidc-rp-fixture/` plus `connect/src/lib/auth/oidc-rp-fixture.test.ts`; this is a config/shape fixture, not a headed RP app).
 
 ## 4. Vana Account Model
