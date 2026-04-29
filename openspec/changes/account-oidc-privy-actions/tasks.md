@@ -84,7 +84,7 @@
 - [x] 8.3 Prove Memory App can request a mock account-hosted data action. `spikes/oidc-rp-fixture/action-config.mjs` defines the Memory App mock action request body, and `connect/src/lib/auth/memory-app-action-flow.test.ts` drives `handleCreateActionRequest` with the real static client policy and in-memory persistence.
 - [x] 8.4 Prove Memory App receives only a mock result through action-code exchange. `memory-app-action-flow.test.ts` approves the request, extracts the redirect `action_code`, exchanges it through `handleExchangeActionCode`, and asserts the response is `result_mode: "mock"` with no action code, state, or `vana_user_id` leakage.
 - [x] 8.5 Prove consent/action events are persisted. `memory-app-action-flow.test.ts` records and asserts the first-slice event sequence `action.requested`, `action.approved`, and `action.exchanged` across the in-memory proof; DB-backed event persistence remains covered by `account-actions.test.ts` when `DATABASE_URL` is available.
-- [ ] 8.6 Document what is not supported: offline reads, Personal Server enforcement, and builder-side decryption.
+- [x] 8.6 Document what is not supported: offline reads, Personal Server enforcement, and builder-side decryption. See `openspec/changes/account-oidc-privy-actions/design-notes/memory-app-first-slice-limitations-2026-04-29.md`; it also calls out no real data source, no encrypted bundle/reference, no live DP RPC/L1 write, no continuous sync, no cross-device read, no BYO-wallet signing, and `execution_mode = "mock"` only.
 
 ## 9. Compatibility Guardrails
 
