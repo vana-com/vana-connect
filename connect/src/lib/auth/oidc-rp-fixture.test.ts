@@ -70,7 +70,9 @@ type FixtureModule = {
 };
 
 async function loadFixtureModule(): Promise<FixtureModule> {
-  return (await import("../../../../spikes/oidc-rp-fixture/auth-config.mjs")) as FixtureModule;
+  return (await import(
+    "../../../../spikes/oidc-rp-fixture/auth-config.mjs"
+  )) as FixtureModule;
 }
 
 describe("OIDC RP fixture", () => {
