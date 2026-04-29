@@ -95,6 +95,117 @@ export type CreateActionRequestResult =
     }
   | { kind: "error"; status: 400 | 404; code: string; message: string };
 
+export type GetActionRequestInput = {
+  request: Request;
+  actionRequestId: string;
+  registry?: OauthClientRegistry;
+  sessionAdapter: LoginSessionAdapter;
+  resolveVanaUser: (input: LoginEvidence) => Promise<{ user: { id: string } }>;
+  findActionRequestById: (id: string) => Promise<ActionRequestRow | null>;
+};
+
+export type GetActionRequestResult =
+  | {
+      kind: "ok";
+      status: 200;
+      body: {
+        action_request_id: string;
+        status: ActionRequestRow["status"];
+        client: {
+          client_id: string;
+          display_name: string;
+        };
+        action_type: string;
+        execution_mode: ActionExecutionMode;
+        result_mode: ActionResultMode;
+        requested_data: RequestedData;
+        display_metadata: DisplayMetadata | null;
+        expires_at: string;
+      };
+    }
+  | {
+      kind: "error";
+      status: 400 | 401 | 403 | 404;
+      code: string;
+      message: string;
+    };
+
+export async function handleGetActionRequest(
+  input: GetActionRequestInput,
+): Promise<GetActionRequestResult> {
+  const evidence = await input.sessionAdapter.resolveLoginEvidence(
+    input.request,
+  );
+  if (!evidence) {
+    return {
+      kind: "error",
+      status: 401,
+      code: "login_required",
+      message: "Login evidence is required to view an action request",
+    };
+  }
+
+  const { user } = await input.resolveVanaUser(evidence);
+  const vanaUserId = user.id;
+  if (!isVanaUserId(vanaUserId)) {
+    return {
+      kind: "error",
+      status: 400,
+      code: "invalid_subject",
+      message: "Resolved action subject must be an opaque vana_user_id",
+    };
+  }
+
+  const action = await input.findActionRequestById(input.actionRequestId);
+  if (!action) {
+    return {
+      kind: "error",
+      status: 404,
+      code: "not_found",
+      message: "Action request not found",
+    };
+  }
+
+  if (action.vana_user_id !== null && action.vana_user_id !== vanaUserId) {
+    return {
+      kind: "error",
+      status: 403,
+      code: "forbidden",
+      message: "Action request belongs to a different account",
+    };
+  }
+
+  const registry = input.registry ?? createDefaultOauthClientRegistry();
+  const client = registry.resolve(action.client_id);
+  if (!client) {
+    return {
+      kind: "error",
+      status: 404,
+      code: "unknown_client",
+      message: `Unknown client_id: ${action.client_id}`,
+    };
+  }
+
+  return {
+    kind: "ok",
+    status: 200,
+    body: {
+      action_request_id: action.id,
+      status: action.status,
+      client: {
+        client_id: client.clientId,
+        display_name: client.displayName,
+      },
+      action_type: action.action_type,
+      execution_mode: action.execution_mode,
+      result_mode: action.result_mode,
+      requested_data: action.requested_data,
+      display_metadata: action.display_metadata,
+      expires_at: action.expires_at,
+    },
+  };
+}
+
 const SUPPORTED_EXECUTION_MODES: readonly ActionExecutionMode[] = ["mock"];
 const SUPPORTED_RESULT_MODES: readonly ActionResultMode[] = ["mock"];
 

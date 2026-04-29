@@ -14,9 +14,11 @@ import {
   type CreateActionRequestResult,
   type DecisionRouteResult,
   type ExchangeActionCodeResult,
+  type GetActionRequestResult,
   handleActionDecision,
   handleCreateActionRequest,
   handleExchangeActionCode,
+  handleGetActionRequest,
 } from "@/lib/auth/account-action-routes";
 import {
   createPrivyLoginSessionAdapter,
@@ -102,6 +104,16 @@ function toExchangeResponse(result: ExchangeActionCodeResult): Response {
   );
 }
 
+function toGetResponse(result: GetActionRequestResult): Response {
+  if (result.kind === "ok") {
+    return NextResponse.json(result.body, { status: result.status });
+  }
+  return NextResponse.json(
+    { error: { code: result.code, message: result.message } },
+    { status: result.status },
+  );
+}
+
 function toDecisionResponse(result: DecisionRouteResult): Response {
   if (result.kind === "ok") {
     return NextResponse.json(result.body, { status: result.status });
@@ -136,6 +148,23 @@ export async function runExchangeActionCode(
     consumeActionCodeWithExchangeEvent,
   });
   return toExchangeResponse(result);
+}
+
+export async function runGetActionRequest(
+  request: Request,
+  actionRequestId: string,
+): Promise<Response> {
+  const sessionAdapter = createPrivyLoginSessionAdapter({
+    verifyIdentityToken: verifyPrivyIdentityToken,
+  });
+  const result = await handleGetActionRequest({
+    request,
+    actionRequestId,
+    sessionAdapter,
+    resolveVanaUser,
+    findActionRequestById,
+  });
+  return toGetResponse(result);
 }
 
 export async function runActionDecision(

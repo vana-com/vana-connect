@@ -52,6 +52,7 @@ const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
 async function importRoutes() {
   return {
     create: await import("./route"),
+    get: await import("./[id]/route"),
     exchange: await import("./exchange/route"),
     decision: await import("./[id]/decision/route"),
   };
@@ -241,6 +242,63 @@ describe("POST /api/account/actions/exchange", () => {
     expect(response.status).toBe(400);
     const body = await readJson(response);
     expect((body.error as Record<string, unknown>).code).toBe("invalid_grant");
+  });
+});
+
+describe("GET /api/account/actions/[id]", () => {
+  it("returns 401 without login evidence", async () => {
+    const { get } = await importRoutes();
+    const response = await get.GET(
+      new NextRequest("https://account.vana.org/api/account/actions/x"),
+      { params: Promise.resolve({ id: "vana_areq_x" }) },
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("returns display-safe request details for the logged-in user", async () => {
+    mocks.privyUsersGet.mockResolvedValueOnce({
+      id: "did:privy:user-1",
+      linked_accounts: [],
+    });
+    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValueOnce({
+      user: { id: VANA_USER_ID },
+      created: false,
+    });
+    const action = createActionRequestRow({
+      clientId: REGISTERED_CLIENT,
+      vanaUserId: null,
+      actionType: "mock.echo",
+      executionMode: "mock",
+      resultMode: "mock",
+      requestedData: { connector: "mock", scopes: ["read"] },
+      redirectUri: REGISTERED_REDIRECT,
+      state: "secret-state",
+      displayMetadata: { title: "Read memory data" },
+      now: new Date(),
+    }).row;
+    mocks.findActionRequestById.mockResolvedValueOnce(action);
+
+    const { get } = await importRoutes();
+    const response = await get.GET(
+      new NextRequest(
+        `https://account.vana.org/api/account/actions/${action.id}`,
+        { headers: { authorization: "Bearer privy-token-stub" } },
+      ),
+      { params: Promise.resolve({ id: action.id }) },
+    );
+    expect(response.status).toBe(200);
+    const body = await readJson(response);
+    expect(body.client).toEqual({
+      client_id: REGISTERED_CLIENT,
+      display_name: "Memory App (dev)",
+    });
+    expect(body.requested_data).toEqual({
+      connector: "mock",
+      scopes: ["read"],
+    });
+    expect(JSON.stringify(body)).not.toContain("secret-state");
+    expect(JSON.stringify(body)).not.toContain("state_hash");
+    expect(JSON.stringify(body)).not.toContain(REGISTERED_REDIRECT);
   });
 });
 

@@ -11,6 +11,7 @@ import {
   handleActionDecision,
   handleCreateActionRequest,
   handleExchangeActionCode,
+  handleGetActionRequest,
 } from "./account-action-routes";
 import type {
   LoginEvidence,
@@ -201,6 +202,87 @@ describe("handleCreateActionRequest", () => {
     if (result.kind !== "ok") return;
     expect(result.body.action_url).not.toContain("secret-data");
     expect(result.body.action_url).not.toContain("requested_data");
+  });
+});
+
+describe("handleGetActionRequest", () => {
+  function buildRequest(
+    overrides: Partial<ActionRequestRow> = {},
+  ): ActionRequestRow {
+    const { row } = createActionRequestRow({
+      clientId: REGISTERED_CLIENT,
+      vanaUserId: null,
+      actionType: "mock.echo",
+      executionMode: "mock",
+      resultMode: "mock",
+      requestedData: { connector: "mock", scopes: ["read"] },
+      redirectUri: REGISTERED_REDIRECT,
+      displayMetadata: { title: "Read memory data" },
+      now: new Date("2026-04-29T12:00:00.000Z"),
+    });
+    return { ...row, ...overrides };
+  }
+
+  function makeInput(
+    overrides: Partial<Parameters<typeof handleGetActionRequest>[0]> = {},
+  ) {
+    const action = buildRequest();
+    return {
+      request: new Request(
+        `https://account.vana.org/api/account/actions/${action.id}`,
+      ),
+      actionRequestId: action.id,
+      sessionAdapter: fakeSession({ privySubject: "did:privy:user-1" }),
+      resolveVanaUser: vi
+        .fn()
+        .mockResolvedValue({ user: { id: VANA_USER_ID } }),
+      findActionRequestById: vi.fn().mockResolvedValue(action),
+      ...overrides,
+    } as Parameters<typeof handleGetActionRequest>[0];
+  }
+
+  it("requires login evidence", async () => {
+    const input = makeInput({ sessionAdapter: fakeSession(null) });
+    const result = await handleGetActionRequest(input);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") return;
+    expect(result.status).toBe(401);
+    expect(result.code).toBe("login_required");
+  });
+
+  it("returns display-safe action details for the current user", async () => {
+    const action = buildRequest({ state_hash: "a".repeat(64) });
+    const input = makeInput({
+      actionRequestId: action.id,
+      findActionRequestById: vi.fn().mockResolvedValue(action),
+    });
+    const result = await handleGetActionRequest(input);
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.body.client.display_name).toBe("Memory App (dev)");
+    expect(result.body.action_type).toBe("mock.echo");
+    expect(result.body.requested_data).toEqual({
+      connector: "mock",
+      scopes: ["read"],
+    });
+    expect(result.body.display_metadata).toEqual({
+      title: "Read memory data",
+    });
+    expect(JSON.stringify(result.body)).not.toContain("state_hash");
+    expect(JSON.stringify(result.body)).not.toContain(VANA_USER_ID);
+  });
+
+  it("forbids viewing an action already bound to another Vana user", async () => {
+    const input = makeInput({
+      findActionRequestById: vi
+        .fn()
+        .mockResolvedValue(buildRequest({ vana_user_id: OTHER_VANA_USER_ID })),
+    });
+    const result = await handleGetActionRequest(input);
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") return;
+    expect(result.status).toBe(403);
+    expect(result.code).toBe("forbidden");
   });
 });
 
