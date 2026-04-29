@@ -32,7 +32,7 @@
 - [ ] 3.5 Implement `/oauth2/userinfo`.
 - [ ] 3.6 Implement `/oauth2/revoke`.
 - [ ] 3.7 Add issuer, client, redirect URI, state, nonce, and PKCE tests.
-- [ ] 3.8 Add a NextAuth/Auth.js compatibility test or fixture.
+- [x] 3.8 Add a NextAuth/Auth.js compatibility test or fixture (`spikes/oidc-rp-fixture/` plus `connect/src/lib/auth/oidc-rp-fixture.test.ts`; this is a config/shape fixture, not a headed RP app).
 
 ## 4. Vana Account Model
 
@@ -79,7 +79,7 @@
 
 ## 8. Memory App Spike
 
-- [ ] 8.1 Implement a dev Memory App or Auth.js client fixture.
+- [x] 8.1 Implement a dev Memory App or Auth.js client fixture (`spikes/oidc-rp-fixture/` defines the `memory-app-dev` Auth.js/OpenID client fixture and validates it against the static client policy; no headed Memory App is included).
 - [ ] 8.2 Prove Login with Vana from Memory App to account domain.
 - [ ] 8.3 Prove Memory App can request a mock account-hosted data action.
 - [ ] 8.4 Prove Memory App receives only a mock result through action-code exchange.
