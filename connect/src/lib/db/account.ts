@@ -181,8 +181,19 @@ export async function findUserByLinkedWallet(
  *      `(chainType, normalized address)`.
  *
  * Email is intentionally NOT a merge key — it is stored on the provider link
- * as audit metadata. If the caller wants email-based merging, that is a
- * separate, explicit decision and should not happen silently here.
+ * as audit metadata. A later verified email can backfill a previously-NULL
+ * email via the `ON CONFLICT DO UPDATE` clause, but it never causes two
+ * different Vana users to merge.
+ *
+ * Concurrency: a read-committed transaction first acquires sorted,
+ * transaction-scoped advisory locks on hashed evidence keys, then resolves
+ * and upserts in a second statement. Keeping the lock acquisition in its own
+ * statement matters because Postgres takes a statement snapshot before
+ * waiting on locks; the second statement sees rows committed by the prior
+ * holder. Sorting means two concurrent transactions sharing any subset of
+ * evidence always lock in the same order, preventing deadlocks. The provider
+ * and wallet writes are upserts so unique-constraint conflicts under the lock
+ * degrade to no-ops (or an email backfill) instead of throws.
  */
 export async function resolveVanaUserByPrivyEvidence(input: {
   privySubject: string;
@@ -193,51 +204,137 @@ export async function resolveVanaUserByPrivyEvidence(input: {
     providerWalletId?: string | null;
   };
 }): Promise<{ user: VanaUserRow; created: boolean }> {
-  const existingByProvider = await findUserByProviderSubject(
-    "privy",
-    input.privySubject,
-  );
-  if (existingByProvider) {
-    return { user: existingByProvider, created: false };
-  }
+  const sql = getSQL();
+  const provider = "privy";
+  const providerSubject = input.privySubject;
+  const email = input.email ?? null;
 
-  if (input.embeddedWallet) {
-    const existingByWallet = await findUserByLinkedWallet(
-      input.embeddedWallet.chainType,
-      input.embeddedWallet.address,
-    );
-    if (existingByWallet) {
-      // Backfill the provider link so future lookups are O(1).
-      await attachProviderLink(existingByWallet.id, {
-        provider: "privy",
-        providerSubject: input.privySubject,
-        email: input.email ?? null,
-      });
-      return { user: existingByWallet, created: false };
-    }
-  }
+  const wallet = input.embeddedWallet
+    ? {
+        chainType: input.embeddedWallet.chainType,
+        address: normalizeWalletAddress(
+          input.embeddedWallet.chainType,
+          input.embeddedWallet.address,
+        ),
+        providerWalletId: input.embeddedWallet.providerWalletId ?? null,
+      }
+    : null;
 
-  const created = await createVanaUser({
-    providerLinks: [
-      {
-        provider: "privy",
-        providerSubject: input.privySubject,
-        email: input.email ?? null,
-      },
+  const newUserId = generateVanaUserId();
+  const newProviderLinkId = generateProviderLinkId();
+  const newWalletId = generateLinkedWalletId();
+  const hasWallet = wallet !== null;
+
+  // Lock keys are sorted inside SQL (`ORDER BY key`) so concurrent calls that
+  // share any subset of evidence always acquire locks in the same order.
+  const lockKeys = [
+    `vana:provider:${provider}:${providerSubject}`,
+    ...(wallet ? [`vana:wallet:${wallet.chainType}:${wallet.address}`] : []),
+  ];
+
+  const [, result] = (await sql.transaction(
+    (tx) => [
+      tx`
+        WITH lock_keys AS MATERIALIZED (
+          SELECT key FROM unnest(${lockKeys}::text[]) AS t(key) ORDER BY key
+        )
+        SELECT pg_advisory_xact_lock(hashtextextended(key, 0)) AS acquired
+        FROM lock_keys
+      `,
+      tx`
+        WITH
+          existing_provider AS (
+            SELECT vana_user_id
+            FROM vana_provider_links
+            WHERE provider = ${provider}
+              AND provider_subject = ${providerSubject}
+            LIMIT 1
+          ),
+          existing_wallet AS (
+            SELECT vana_user_id
+            FROM vana_linked_wallets
+            WHERE ${hasWallet}::boolean
+              AND chain_type = ${wallet?.chainType ?? ""}
+              AND address = ${wallet?.address ?? ""}
+            LIMIT 1
+          ),
+          resolved AS (
+            SELECT vana_user_id FROM existing_provider
+            UNION ALL
+            SELECT vana_user_id FROM existing_wallet
+            WHERE NOT EXISTS (SELECT 1 FROM existing_provider)
+            LIMIT 1
+          ),
+          new_user AS (
+            INSERT INTO vana_users (id, display_name)
+            SELECT ${newUserId}, NULL
+            WHERE NOT EXISTS (SELECT 1 FROM resolved)
+            RETURNING *
+          ),
+          existing_user AS (
+            SELECT u.*
+            FROM vana_users u
+            WHERE u.id = (SELECT vana_user_id FROM resolved)
+          ),
+          final_user AS (
+            SELECT *, FALSE AS created FROM existing_user
+            UNION ALL
+            SELECT *, TRUE AS created FROM new_user
+            LIMIT 1
+          ),
+          upsert_provider AS (
+            INSERT INTO vana_provider_links (
+              id, vana_user_id, provider, provider_subject, email
+            )
+            SELECT
+              ${newProviderLinkId},
+              (SELECT id FROM final_user),
+              ${provider},
+              ${providerSubject},
+              ${email}
+            WHERE EXISTS (SELECT 1 FROM final_user)
+            ON CONFLICT (provider, provider_subject) DO UPDATE
+              SET email = COALESCE(vana_provider_links.email, EXCLUDED.email)
+            RETURNING vana_user_id
+          ),
+          upsert_wallet AS (
+            INSERT INTO vana_linked_wallets (
+              id, vana_user_id, provider, provider_wallet_id,
+              chain_type, address, is_primary, verified_at
+            )
+            SELECT
+              ${newWalletId},
+              (SELECT id FROM final_user),
+              ${provider},
+              ${wallet?.providerWalletId ?? null},
+              ${wallet?.chainType ?? ""},
+              ${wallet?.address ?? ""},
+              TRUE,
+              now()
+            WHERE ${hasWallet}::boolean
+              AND EXISTS (SELECT 1 FROM final_user)
+            ON CONFLICT (chain_type, address) DO NOTHING
+            RETURNING vana_user_id
+          ),
+          write_barrier AS (
+            SELECT
+              (SELECT count(*) FROM upsert_provider) AS provider_write_count,
+              (SELECT count(*) FROM upsert_wallet) AS wallet_write_count
+          )
+        SELECT final_user.* FROM final_user, write_barrier
+      `,
     ],
-    wallets: input.embeddedWallet
-      ? [
-          {
-            provider: "privy",
-            providerWalletId: input.embeddedWallet.providerWalletId ?? null,
-            chainType: input.embeddedWallet.chainType,
-            address: input.embeddedWallet.address,
-            isPrimary: true,
-            verifiedAt: new Date(),
-          },
-        ]
-      : [],
-  });
+    { isolationLevel: "ReadCommitted" },
+  )) as [Array<Record<string, unknown>>, Array<Record<string, unknown>>];
 
-  return { user: created.user, created: true };
+  const finalRow = result[0];
+  if (!finalRow) {
+    throw new Error(
+      "resolveVanaUserByPrivyEvidence: failed to resolve or create Vana user",
+    );
+  }
+  const { created, ...userRow } = finalRow as VanaUserRow & {
+    created: boolean;
+  };
+  return { user: userRow as VanaUserRow, created };
 }
