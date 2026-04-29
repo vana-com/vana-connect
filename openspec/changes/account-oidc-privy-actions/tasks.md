@@ -35,12 +35,12 @@
 
 ## 4. Vana Account Model
 
-- [ ] 4.1 Add `vana_users` migration.
-- [ ] 4.2 Add `vana_linked_wallets` migration.
-- [ ] 4.3 Add `vana_provider_links` migration.
-- [ ] 4.4 Add typed DB helpers for creating/resolving Vana users from provider auth and linked wallet.
-- [ ] 4.5 Add tests proving provider ids, email, and wallet addresses are not used as OIDC `sub`.
-- [ ] 4.6 Add userinfo/claim tests for linked wallets.
+- [x] 4.1 Add `vana_users` migration (`connect/migrations/004_add_vana_account_tables.sql`).
+- [x] 4.2 Add `vana_linked_wallets` migration (`connect/migrations/004_add_vana_account_tables.sql`).
+- [x] 4.3 Add `vana_provider_links` migration (`connect/migrations/004_add_vana_account_tables.sql`).
+- [x] 4.4 Add typed DB helpers for creating/resolving Vana users from provider auth and linked wallet (`connect/src/lib/auth/vana-account.ts`, `connect/src/lib/db/account.ts`). Runtime integration with OIDC routes is pending.
+- [x] 4.5 Add tests proving provider ids, email, and wallet addresses are not used as OIDC `sub` (`connect/src/lib/auth/vana-account.test.ts`).
+- [x] 4.6 Add userinfo/claim tests for linked wallets (`buildAccountClaims` test in `connect/src/lib/auth/vana-account.test.ts`).
 
 ## 5. OAuth Client Model
 
