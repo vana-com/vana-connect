@@ -89,9 +89,9 @@
 ## 9. Compatibility Guardrails
 
 - [x] 9.1 Verify `/login` keeps current behavior until intentionally migrated. Narrow OIDC continuation added: `/login` now reads `?return_to=` (validated via `isSafeOidcReturnTo`), persists it via `oidc-continuation.ts` so it survives OAuth redirects, prefers it in `handleLoginComplete`, and clears it after use. DataConnect handoff path is unchanged when no safe OIDC `return_to` is present.
-- [ ] 9.2 Verify `/connect` keeps current DataConnect handoff behavior.
-- [ ] 9.3 Verify `/auth/device` and `/api/auth/device/*` keep CLI behavior.
-- [ ] 9.4 Verify `/api/sign` remains allowlisted and transitional.
+- [x] 9.2 Verify `/connect` keeps current DataConnect handoff behavior (`connect/src/app/(handoff)/connect/use-connect-page.test.ts`).
+- [x] 9.3 Verify `/auth/device` and `/api/auth/device/*` keep CLI behavior (`connect/src/app/auth/device/page.test.tsx`, `connect/src/app/api/auth/device/device-routes.test.ts`).
+- [x] 9.4 Verify `/api/sign` remains allowlisted and transitional (`connect/src/app/api/sign/sign-validation.test.ts`, `connect/src/app/api/sign/route.test.ts`).
 - [x] 9.5 Add regression tests for existing handoff/login routes touched by OIDC work (`connect/src/app/(public)/login/use-login-page.test.ts` covers OIDC return_to redirect, external `return_to` rejection, persisted return_to recovery after OAuth callback, and pre-existing OAuth/email flows).
 
 ## 10. Validation
@@ -101,6 +101,6 @@
 - [ ] 10.3 Run `cd connect && pnpm lint` after implementation tasks.
 - [ ] 10.4 Run `cd connect && pnpm build` before review.
 - [ ] 10.5 Run the standard OIDC relying-party fixture from a clean user and record the exact command/output in the PR.
-- [ ] 10.6 Run regression tests for `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign`.
+- [x] 10.6 Run regression tests for `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign`.
 - [ ] 10.7 Verify no redirect URL contains raw action result data or user data.
 - [ ] 10.8 Verify the PR description lists remaining production gaps: issuer decision, first real-data source, first non-mock result implementation, live DP RPC integration, and production Memory App integration.
