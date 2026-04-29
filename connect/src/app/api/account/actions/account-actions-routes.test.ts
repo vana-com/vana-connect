@@ -17,22 +17,20 @@ import {
 
 const mocks = vi.hoisted(() => ({
   insertActionRequest: vi.fn(),
-  consumeActionCode: vi.fn(),
+  consumeActionCodeWithExchangeEvent: vi.fn(),
   findActionRequestById: vi.fn(),
-  insertActionResult: vi.fn(),
   insertConsentEvent: vi.fn(),
-  persistActionRequestDecision: vi.fn(),
+  persistActionDecisionBundle: vi.fn(),
   resolveVanaUserByPrivyEvidence: vi.fn(),
   privyUsersGet: vi.fn(),
 }));
 
 vi.mock("@/lib/db/account-actions", () => ({
   insertActionRequest: mocks.insertActionRequest,
-  consumeActionCode: mocks.consumeActionCode,
+  consumeActionCodeWithExchangeEvent: mocks.consumeActionCodeWithExchangeEvent,
   findActionRequestById: mocks.findActionRequestById,
-  insertActionResult: mocks.insertActionResult,
   insertConsentEvent: mocks.insertConsentEvent,
-  persistActionRequestDecision: mocks.persistActionRequestDecision,
+  persistActionDecisionBundle: mocks.persistActionDecisionBundle,
 }));
 
 vi.mock("@/lib/db/account", () => ({
@@ -205,11 +203,7 @@ describe("POST /api/account/actions/exchange", () => {
         consumed_at: new Date().toISOString(),
       },
     };
-    mocks.consumeActionCode.mockResolvedValueOnce(consumed);
-    mocks.findActionRequestById.mockResolvedValueOnce(requestRow);
-    mocks.insertConsentEvent.mockImplementationOnce(
-      async (row: unknown) => row,
-    );
+    mocks.consumeActionCodeWithExchangeEvent.mockResolvedValueOnce(consumed);
 
     const { exchange } = await importRoutes();
     const response = await exchange.POST(
@@ -233,7 +227,7 @@ describe("POST /api/account/actions/exchange", () => {
   });
 
   it("maps consumed reason to invalid_grant", async () => {
-    mocks.consumeActionCode.mockResolvedValueOnce({
+    mocks.consumeActionCodeWithExchangeEvent.mockResolvedValueOnce({
       ok: false,
       reason: "consumed",
     });
@@ -289,17 +283,17 @@ describe("POST /api/account/actions/[id]/decision", () => {
       now: new Date(),
     }).row;
     mocks.findActionRequestById.mockResolvedValueOnce(pending);
-    mocks.persistActionRequestDecision.mockResolvedValueOnce({
-      ...pending,
-      status: "approved",
-      vana_user_id: VANA_USER_ID,
-      decided_at: new Date().toISOString(),
-    });
-    mocks.insertActionResult.mockImplementationOnce(
-      async (row: unknown) => row,
-    );
-    mocks.insertConsentEvent.mockImplementationOnce(
-      async (row: unknown) => row,
+    mocks.persistActionDecisionBundle.mockImplementationOnce(
+      async ({ result, event }: { result: unknown; event: unknown }) => ({
+        request: {
+          ...pending,
+          status: "approved",
+          vana_user_id: VANA_USER_ID,
+          decided_at: new Date().toISOString(),
+        },
+        result,
+        event,
+      }),
     );
 
     const { decision } = await importRoutes();

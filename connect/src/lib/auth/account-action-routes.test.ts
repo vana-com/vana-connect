@@ -231,21 +231,21 @@ describe("handleExchangeActionCode", () => {
   }
 
   it("rejects unknown client_id with stable invalid_grant", async () => {
-    const consumeActionCode = vi.fn();
+    const consumeActionCodeWithExchangeEvent = vi.fn();
     const result = await handleExchangeActionCode({
       body: { client_id: "unregistered", action_code: "vana_ac_xxx" },
-      consumeActionCode,
+      consumeActionCodeWithExchangeEvent,
     });
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
     expect(result.code).toBe("invalid_grant");
-    expect(consumeActionCode).not.toHaveBeenCalled();
+    expect(consumeActionCodeWithExchangeEvent).not.toHaveBeenCalled();
   });
 
   it("rejects missing action_code", async () => {
     const result = await handleExchangeActionCode({
       body: { client_id: REGISTERED_CLIENT },
-      consumeActionCode: vi.fn(),
+      consumeActionCodeWithExchangeEvent: vi.fn(),
     });
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
@@ -254,13 +254,13 @@ describe("handleExchangeActionCode", () => {
 
   it("returns mock result on success and never leaks the action code hash", async () => {
     const persisted = makeResult();
-    const consumeActionCode = vi.fn().mockResolvedValue({
+    const consumeActionCodeWithExchangeEvent = vi.fn().mockResolvedValue({
       ok: true,
       result: persisted,
     });
     const result = await handleExchangeActionCode({
       body: { client_id: REGISTERED_CLIENT, action_code: "vana_ac_ok" },
-      consumeActionCode,
+      consumeActionCodeWithExchangeEvent,
     });
     expect(result.kind).toBe("ok");
     if (result.kind !== "ok") return;
@@ -274,35 +274,26 @@ describe("handleExchangeActionCode", () => {
     expect(serialized).not.toContain(persisted.action_code_hash);
   });
 
-  it("persists action.exchanged when request lookup is wired", async () => {
+  it("delegates exchange consumption and action.exchanged persistence to one effect", async () => {
     const persisted = makeResult();
-    const consumeActionCode = vi.fn().mockResolvedValue({
+    const consumeActionCodeWithExchangeEvent = vi.fn().mockResolvedValue({
       ok: true,
       result: persisted,
     });
-    const requestRow = createActionRequestRow({
-      clientId: REGISTERED_CLIENT,
-      vanaUserId: VANA_USER_ID,
-      actionType: "mock.echo",
-      executionMode: "mock",
-      resultMode: "mock",
-      requestedData: { connector: "mock" },
-      redirectUri: REGISTERED_REDIRECT,
-      now: new Date(),
-    }).row;
-    const findActionRequestById = vi.fn().mockResolvedValue(requestRow);
-    const insertConsentEvent = vi.fn(async (row: ConsentEventRow) => row);
+    const now = new Date("2026-04-29T12:00:00.000Z");
     const result = await handleExchangeActionCode({
       body: { client_id: REGISTERED_CLIENT, action_code: "vana_ac_ok" },
-      consumeActionCode,
-      findActionRequestById,
-      insertConsentEvent,
+      consumeActionCodeWithExchangeEvent,
+      now,
+      issuer: "https://account.vana.org",
     });
     expect(result.kind).toBe("ok");
-    expect(insertConsentEvent).toHaveBeenCalledOnce();
-    const evt = insertConsentEvent.mock.calls[0][0];
-    expect(evt.event_type).toBe("action.exchanged");
-    expect(evt.idempotency_key).toBe(`${requestRow.id}:exchanged`);
+    expect(consumeActionCodeWithExchangeEvent).toHaveBeenCalledWith({
+      presentedCode: "vana_ac_ok",
+      presentingClientId: REGISTERED_CLIENT,
+      issuer: "https://account.vana.org",
+      now,
+    });
   });
 
   it("maps consume failures to stable OAuth-ish errors", async () => {
@@ -311,12 +302,12 @@ describe("handleExchangeActionCode", () => {
       "client_mismatch",
       "consumed",
     ] as const) {
-      const consumeActionCode = vi
+      const consumeActionCodeWithExchangeEvent = vi
         .fn()
         .mockResolvedValue({ ok: false, reason });
       const result = await handleExchangeActionCode({
         body: { client_id: REGISTERED_CLIENT, action_code: "vana_ac_x" },
-        consumeActionCode,
+        consumeActionCodeWithExchangeEvent,
       });
       expect(result.kind).toBe("error");
       if (result.kind !== "error") continue;
@@ -325,7 +316,7 @@ describe("handleExchangeActionCode", () => {
 
     const expiredResult = await handleExchangeActionCode({
       body: { client_id: REGISTERED_CLIENT, action_code: "vana_ac_x" },
-      consumeActionCode: vi
+      consumeActionCodeWithExchangeEvent: vi
         .fn()
         .mockResolvedValue({ ok: false, reason: "expired" }),
     });
@@ -381,11 +372,19 @@ describe("handleActionDecision", () => {
         .fn()
         .mockResolvedValue({ user: { id: VANA_USER_ID } }),
       findActionRequestById: vi.fn().mockResolvedValue(pending),
-      persistActionRequestDecision: vi
-        .fn()
-        .mockResolvedValue(persistedApproved),
-      insertActionResult: vi.fn(async (row: ActionResultRow) => row),
-      insertConsentEvent: vi.fn(async (row: ConsentEventRow) => row),
+      persistActionDecisionBundle: vi.fn(
+        async ({
+          result,
+          event,
+        }: {
+          result: ActionResultRow | null;
+          event: ConsentEventRow;
+        }) => ({
+          request: persistedApproved,
+          result,
+          event,
+        }),
+      ),
       ...overrides,
     } as Parameters<typeof handleActionDecision>[0];
   }
@@ -400,19 +399,19 @@ describe("handleActionDecision", () => {
   });
 
   it("rejects a resolved provider subject before mutating the request", async () => {
-    const persistActionRequestDecision = vi.fn();
+    const persistActionDecisionBundle = vi.fn();
     const input = buildInput({
       resolveVanaUser: vi
         .fn()
         .mockResolvedValue({ user: { id: "did:privy:user-1" } }),
-      persistActionRequestDecision,
+      persistActionDecisionBundle,
     });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
     expect(result.status).toBe(400);
     expect(result.code).toBe("invalid_subject");
-    expect(persistActionRequestDecision).not.toHaveBeenCalled();
+    expect(persistActionDecisionBundle).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the request is unknown", async () => {
@@ -441,7 +440,7 @@ describe("handleActionDecision", () => {
 
   it("returns 409 when the pending gate fails", async () => {
     const input = buildInput({
-      persistActionRequestDecision: vi.fn().mockResolvedValue(null),
+      persistActionDecisionBundle: vi.fn().mockResolvedValue(null),
     });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("error");
@@ -454,23 +453,39 @@ describe("handleActionDecision", () => {
     const nonMockRequest = buildPendingRequest({
       execution_mode: "byo_wallet_client_signed",
     });
-    const persistActionRequestDecision = vi.fn();
+    const persistActionDecisionBundle = vi.fn();
     const input = buildInput({
       findActionRequestById: vi.fn().mockResolvedValue(nonMockRequest),
-      persistActionRequestDecision,
+      persistActionDecisionBundle,
     });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
     expect(result.status).toBe(409);
     expect(result.code).toBe("unsupported_action_mode");
-    expect(persistActionRequestDecision).not.toHaveBeenCalled();
+    expect(persistActionDecisionBundle).not.toHaveBeenCalled();
   });
 
   it("approves a pending request and emits a redirect with action_code only", async () => {
-    const insertActionResult = vi.fn(async (row: ActionResultRow) => row);
-    const insertConsentEvent = vi.fn(async (row: ConsentEventRow) => row);
-    const input = buildInput({ insertActionResult, insertConsentEvent });
+    const persistActionDecisionBundle = vi.fn(
+      async ({
+        result,
+        event,
+      }: {
+        result: ActionResultRow | null;
+        event: ConsentEventRow;
+      }) => ({
+        request: {
+          ...buildPendingRequest(),
+          status: "approved" as const,
+          vana_user_id: VANA_USER_ID,
+          decided_at: new Date().toISOString(),
+        },
+        result,
+        event,
+      }),
+    );
+    const input = buildInput({ persistActionDecisionBundle });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("ok");
     if (result.kind !== "ok") return;
@@ -482,8 +497,14 @@ describe("handleActionDecision", () => {
       /^vana_ac_[a-f0-9]{64}$/,
     );
 
-    expect(insertActionResult).toHaveBeenCalledOnce();
-    const resultRow = insertActionResult.mock.calls[0][0];
+    expect(persistActionDecisionBundle).toHaveBeenCalledOnce();
+    const approvalCall = persistActionDecisionBundle.mock.calls[0][0] as {
+      result: ActionResultRow | null;
+      event: ConsentEventRow;
+    };
+    const resultRow = approvalCall.result;
+    expect(resultRow).not.toBeNull();
+    if (!resultRow) return;
     expect(resultRow.action_code_hash).toBe(
       hashActionCode(redirect.searchParams.get("action_code") ?? ""),
     );
@@ -492,8 +513,7 @@ describe("handleActionDecision", () => {
       action_type: "mock.echo",
     });
 
-    expect(insertConsentEvent).toHaveBeenCalledOnce();
-    const consentRow = insertConsentEvent.mock.calls[0][0];
+    const consentRow = approvalCall.event;
     expect(consentRow.event_type).toBe("action.approved");
     expect(consentRow.decision).toBe("approved");
     expect(consentRow.vana_user_id).toBe(VANA_USER_ID);
@@ -506,13 +526,16 @@ describe("handleActionDecision", () => {
       vana_user_id: VANA_USER_ID,
       decided_at: new Date().toISOString(),
     };
-    const insertConsentEvent = vi.fn(async (row: ConsentEventRow) => row);
-    const insertActionResult = vi.fn(async (row: ActionResultRow) => row);
+    const persistActionDecisionBundle = vi.fn(
+      async ({ event }: { event: ConsentEventRow }) => ({
+        request: persistedDenied,
+        result: null,
+        event,
+      }),
+    );
     const input = buildInput({
       body: { decision: "denied" },
-      persistActionRequestDecision: vi.fn().mockResolvedValue(persistedDenied),
-      insertActionResult,
-      insertConsentEvent,
+      persistActionDecisionBundle,
     });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("ok");
@@ -521,11 +544,13 @@ describe("handleActionDecision", () => {
     const redirect = new URL(result.body.redirect_url ?? "");
     expect(`${redirect.origin}${redirect.pathname}`).toBe(REGISTERED_REDIRECT);
     expect([...redirect.searchParams.keys()]).toEqual([]);
-    expect(insertActionResult).not.toHaveBeenCalled();
-    expect(insertConsentEvent).toHaveBeenCalledOnce();
-    expect(insertConsentEvent.mock.calls[0][0].event_type).toBe(
-      "action.denied",
-    );
+    expect(persistActionDecisionBundle).toHaveBeenCalledOnce();
+    const denialCall = persistActionDecisionBundle.mock.calls[0][0] as {
+      result: ActionResultRow | null;
+      event: ConsentEventRow;
+    };
+    expect(denialCall.result).toBeNull();
+    expect(denialCall.event.event_type).toBe("action.denied");
   });
 
   it("rejects approval when state is required but missing", async () => {
@@ -573,9 +598,15 @@ describe("handleActionDecision", () => {
     const input = buildInput({
       body: { decision: "approved", state: presentedState },
       findActionRequestById: vi.fn().mockResolvedValue(pending),
-      persistActionRequestDecision: vi
+      persistActionDecisionBundle: vi
         .fn()
-        .mockResolvedValue(persistedApproved),
+        .mockImplementation(
+          async ({ result, event }: { result: unknown; event: unknown }) => ({
+            request: persistedApproved,
+            result,
+            event,
+          }),
+        ),
     });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("ok");

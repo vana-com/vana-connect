@@ -14,12 +14,14 @@ import {
 import { createVanaUser } from "./account";
 import {
   consumeActionCode,
+  consumeActionCodeWithExchangeEvent,
   findActionRequestById,
   findActionResultById,
   findConsentEventById,
   insertActionRequest,
   insertActionResult,
   insertConsentEvent,
+  persistActionDecisionBundle,
   persistActionRequestDecision,
 } from "./account-actions";
 
@@ -184,6 +186,137 @@ dbDescribe("account-actions DB persistence", () => {
       expect(fetchedEvent?.result_mode).toBe("mock");
       expect(fetchedEvent?.request_hash).toBe(requestHash);
       expect(fetchedEvent?.audit_metadata).toEqual({ user_agent: "vitest" });
+    },
+  );
+
+  dbIt(
+    "persists approved decision, result, and event as one atomic bundle",
+    async () => {
+      const { user, request, now } = await makePersistedRequest();
+      const decidedAt = now.toISOString();
+      const approvedRequest = decideActionRequest({
+        request,
+        decision: "approved",
+        vanaUserId: user.id,
+        now,
+      });
+      const code = generateActionCode();
+      const resultRow = buildMockActionResult({
+        request: approvedRequest,
+        actionCode: code,
+        now,
+      });
+      const requestHash = canonicalRequestHash({
+        clientId: request.client_id,
+        actionType: request.action_type,
+        executionMode: request.execution_mode,
+        resultMode: request.result_mode,
+        requestedData: request.requested_data,
+        redirectUri: request.redirect_uri,
+      });
+      const eventRow = buildConsentEventRow({
+        request: approvedRequest,
+        eventType: "action.approved",
+        decision: "approved",
+        vanaUserId: user.id,
+        idempotencyKey: `${request.id}:approved`,
+        requestHash,
+        issuer: "https://account.vana.org",
+        now,
+      });
+
+      const outcome = await persistActionDecisionBundle({
+        id: request.id,
+        decision: "approved",
+        vanaUserId: user.id,
+        decidedAt,
+        result: resultRow,
+        event: eventRow,
+      });
+      expect(outcome).not.toBeNull();
+      expect(outcome?.request.status).toBe("approved");
+      expect(outcome?.result?.id).toBe(resultRow.id);
+      expect(outcome?.event.id).toBe(eventRow.id);
+
+      const fetchedRequest = await findActionRequestById(request.id);
+      expect(fetchedRequest?.status).toBe("approved");
+      const fetchedResult = await findActionResultById(resultRow.id);
+      expect(fetchedResult?.action_code_hash).toBe(hashActionCode(code));
+      const fetchedEvent = await findConsentEventById(eventRow.id);
+      expect(fetchedEvent?.event_type).toBe("action.approved");
+      expect(fetchedEvent?.request_hash).toBe(requestHash);
+    },
+  );
+
+  dbIt(
+    "consumes an action code and persists action.exchanged in one helper",
+    async () => {
+      const { user, request, now } = await makePersistedRequest();
+      const approvedRequest = decideActionRequest({
+        request,
+        decision: "approved",
+        vanaUserId: user.id,
+        now,
+      });
+      const code = generateActionCode();
+      const resultRow = buildMockActionResult({
+        request: approvedRequest,
+        actionCode: code,
+        now,
+      });
+      const requestHash = canonicalRequestHash({
+        clientId: request.client_id,
+        actionType: request.action_type,
+        executionMode: request.execution_mode,
+        resultMode: request.result_mode,
+        requestedData: request.requested_data,
+        redirectUri: request.redirect_uri,
+      });
+      const approvedEvent = buildConsentEventRow({
+        request: approvedRequest,
+        eventType: "action.approved",
+        decision: "approved",
+        vanaUserId: user.id,
+        idempotencyKey: `${request.id}:approved`,
+        requestHash,
+        issuer: "https://account.vana.org",
+        now,
+      });
+      await persistActionDecisionBundle({
+        id: request.id,
+        decision: "approved",
+        vanaUserId: user.id,
+        decidedAt: now.toISOString(),
+        result: resultRow,
+        event: approvedEvent,
+      });
+
+      const exchange = await consumeActionCodeWithExchangeEvent({
+        presentedCode: code,
+        presentingClientId: request.client_id,
+        issuer: "https://account.vana.org",
+        now: new Date(now.getTime() + 1000),
+      });
+      expect(exchange.ok).toBe(true);
+      if (exchange.ok) {
+        expect(exchange.result.id).toBe(resultRow.id);
+        expect(exchange.result.consumed_at).not.toBeNull();
+      }
+
+      const sql = neon(databaseUrl as string);
+      const events = (await sql`
+        SELECT event_type, idempotency_key, request_hash
+        FROM account_consent_events
+        WHERE action_request_id = ${request.id}
+          AND event_type = 'action.exchanged'
+      `) as Array<{
+        event_type: string;
+        idempotency_key: string;
+        request_hash: string;
+      }>;
+      expect(events).toHaveLength(1);
+      expect(events[0].idempotency_key).toBe(`${request.id}:exchanged`);
+      expect(events[0].request_hash).toBe(requestHash);
     },
   );
 
@@ -402,7 +535,9 @@ dbDescribe("account-actions DB persistence", () => {
     const sql = neon(databaseUrl as string);
     await sql`
       UPDATE account_action_results
-      SET expires_at = now() - interval '1 second'
+      SET
+        created_at = now() - interval '2 seconds',
+        expires_at = now() - interval '1 second'
       WHERE id = ${resultRow.id}
     `;
 

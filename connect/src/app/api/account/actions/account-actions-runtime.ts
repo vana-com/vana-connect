@@ -25,12 +25,11 @@ import {
 } from "@/lib/auth/login-session-adapter";
 import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
 import {
-  consumeActionCode,
+  consumeActionCodeWithExchangeEvent,
   findActionRequestById,
   insertActionRequest,
-  insertActionResult,
   insertConsentEvent,
-  persistActionRequestDecision,
+  persistActionDecisionBundle,
 } from "@/lib/db/account-actions";
 
 let privyClient: PrivyClient | null = null;
@@ -134,9 +133,7 @@ export async function runExchangeActionCode(
   const body = await readJsonBody(request);
   const result = await handleExchangeActionCode({
     body,
-    consumeActionCode,
-    findActionRequestById,
-    insertConsentEvent,
+    consumeActionCodeWithExchangeEvent,
   });
   return toExchangeResponse(result);
 }
@@ -156,9 +153,7 @@ export async function runActionDecision(
     sessionAdapter,
     resolveVanaUser,
     findActionRequestById,
-    persistActionRequestDecision,
-    insertActionResult,
-    insertConsentEvent,
+    persistActionDecisionBundle,
   });
   return toDecisionResponse(result);
 }

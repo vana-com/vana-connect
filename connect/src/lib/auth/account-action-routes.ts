@@ -314,9 +314,11 @@ export async function handleCreateActionRequest(
 export type ExchangeActionCodeInput = {
   body: unknown;
   registry?: OauthClientRegistry;
-  consumeActionCode: (input: {
+  consumeActionCodeWithExchangeEvent: (input: {
     presentedCode: string;
     presentingClientId: string;
+    issuer?: string;
+    now?: Date;
   }) => Promise<
     | { ok: true; result: ActionResultRow }
     | {
@@ -324,14 +326,6 @@ export type ExchangeActionCodeInput = {
         reason: "not_found" | "client_mismatch" | "expired" | "consumed";
       }
   >;
-  /**
-   * Look up the originating action request so an `action.exchanged` consent
-   * event can be persisted with the same request hash and request shape that
-   * created/approved events used. The route does not surface this row to the
-   * OAuth client; it is read only to build the audit event.
-   */
-  findActionRequestById?: (id: string) => Promise<ActionRequestRow | null>;
-  insertConsentEvent?: (row: ConsentEventRow) => Promise<ConsentEventRow>;
   now?: Date;
   issuer?: string;
 };
@@ -395,9 +389,11 @@ export async function handleExchangeActionCode(
     };
   }
 
-  const outcome = await input.consumeActionCode({
+  const outcome = await input.consumeActionCodeWithExchangeEvent({
     presentedCode: actionCode,
     presentingClientId: clientId,
+    issuer: input.issuer ?? DEFAULT_ACCOUNT_ACTION_ISSUER,
+    now: input.now,
   });
 
   if (!outcome.ok) {
@@ -405,38 +401,6 @@ export async function handleExchangeActionCode(
   }
 
   const { result } = outcome;
-
-  // Best-effort `action.exchanged` event. We persist the audit event when we
-  // can fetch the originating request (so request_hash and request fields are
-  // consistent with prior events). If either dep is not wired or the lookup
-  // returns null (e.g. row was archived), we skip the event rather than
-  // failing the exchange — the OAuth client must still receive the result.
-  if (input.findActionRequestById && input.insertConsentEvent) {
-    const request = await input.findActionRequestById(result.action_request_id);
-    if (request) {
-      const issuer = input.issuer ?? DEFAULT_ACCOUNT_ACTION_ISSUER;
-      const now = input.now ?? new Date();
-      const requestHash = canonicalRequestHash({
-        clientId: request.client_id,
-        actionType: request.action_type,
-        executionMode: request.execution_mode,
-        resultMode: request.result_mode,
-        requestedData: request.requested_data,
-        redirectUri: request.redirect_uri,
-      });
-      await input.insertConsentEvent(
-        buildConsentEventRow({
-          request,
-          eventType: "action.exchanged",
-          vanaUserId: request.vana_user_id,
-          idempotencyKey: `${request.id}:exchanged`,
-          requestHash,
-          issuer,
-          now,
-        }),
-      );
-    }
-  }
 
   return {
     kind: "ok",
@@ -484,14 +448,18 @@ export type DecisionRouteInput = {
   sessionAdapter: LoginSessionAdapter;
   resolveVanaUser: (input: LoginEvidence) => Promise<{ user: { id: string } }>;
   findActionRequestById: (id: string) => Promise<ActionRequestRow | null>;
-  persistActionRequestDecision: (input: {
+  persistActionDecisionBundle: (input: {
     id: string;
     decision: "approved" | "denied";
     vanaUserId: string;
     decidedAt: string;
-  }) => Promise<ActionRequestRow | null>;
-  insertActionResult: (row: ActionResultRow) => Promise<ActionResultRow>;
-  insertConsentEvent: (row: ConsentEventRow) => Promise<ConsentEventRow>;
+    result: ActionResultRow | null;
+    event: ConsentEventRow;
+  }) => Promise<{
+    request: ActionRequestRow;
+    result: ActionResultRow | null;
+    event: ConsentEventRow;
+  } | null>;
   now?: Date;
   issuer?: string;
 };
@@ -641,11 +609,100 @@ export async function handleActionDecision(
 
   const now = input.now ?? new Date();
 
-  const persisted = await input.persistActionRequestDecision({
+  const issuer = input.issuer ?? DEFAULT_ACCOUNT_ACTION_ISSUER;
+  const requestHash = canonicalRequestHash({
+    clientId: existing.client_id,
+    actionType: existing.action_type,
+    executionMode: existing.execution_mode,
+    resultMode: existing.result_mode,
+    requestedData: existing.requested_data,
+    redirectUri: existing.redirect_uri,
+  });
+
+  if (rawDecision === "denied") {
+    const deniedRequest: ActionRequestRow = {
+      ...existing,
+      status: "denied",
+      vana_user_id: vanaUserId,
+      decided_at: now.toISOString(),
+    };
+    const event = buildConsentEventRow({
+      request: deniedRequest,
+      eventType: "action.denied",
+      decision: "denied",
+      vanaUserId,
+      idempotencyKey: `${deniedRequest.id}:denied`,
+      requestHash,
+      issuer,
+      now,
+    });
+    const persisted = await input.persistActionDecisionBundle({
+      id: existing.id,
+      decision: "denied",
+      vanaUserId,
+      decidedAt: now.toISOString(),
+      result: null,
+      event,
+    });
+    if (!persisted) {
+      return {
+        kind: "error",
+        status: 409,
+        code: "not_pending",
+        message: "Action request is no longer pending or has expired",
+      };
+    }
+    // Denial redirect carries `state` only — never an action_code. Clients
+    // reading the redirect see no code, must not retry, and may surface the
+    // denial to the user.
+    const denyRedirect = new URL(persisted.request.redirect_uri);
+    if (presentedState !== undefined) {
+      denyRedirect.searchParams.set("state", presentedState);
+    }
+    return {
+      kind: "ok",
+      status: 200,
+      body: {
+        action_request_id: persisted.request.id,
+        decision: "denied",
+        redirect_url: denyRedirect.toString(),
+      },
+    };
+  }
+
+  // Approved branch: precompute the result/event from the validated request,
+  // then let the DB helper persist the decision and both dependent rows
+  // atomically.
+  const actionCode = generateActionCode();
+  const approvedRequest: ActionRequestRow = {
+    ...existing,
+    status: "approved",
+    vana_user_id: vanaUserId,
+    decided_at: now.toISOString(),
+  };
+  const result = buildMockActionResult({
+    request: approvedRequest,
+    actionCode,
+    now,
+    ttlSeconds: ACTION_CODE_TTL_SECONDS,
+  });
+  const event = buildConsentEventRow({
+    request: approvedRequest,
+    eventType: "action.approved",
+    decision: "approved",
+    vanaUserId,
+    idempotencyKey: `${approvedRequest.id}:approved`,
+    requestHash,
+    issuer,
+    now,
+  });
+  const persisted = await input.persistActionDecisionBundle({
     id: existing.id,
-    decision: rawDecision,
+    decision: "approved",
     vanaUserId,
     decidedAt: now.toISOString(),
+    result,
+    event,
   });
   if (!persisted) {
     return {
@@ -656,76 +713,11 @@ export async function handleActionDecision(
     };
   }
 
-  const issuer = input.issuer ?? DEFAULT_ACCOUNT_ACTION_ISSUER;
-  const requestHash = canonicalRequestHash({
-    clientId: persisted.client_id,
-    actionType: persisted.action_type,
-    executionMode: persisted.execution_mode,
-    resultMode: persisted.result_mode,
-    requestedData: persisted.requested_data,
-    redirectUri: persisted.redirect_uri,
-  });
-
-  if (rawDecision === "denied") {
-    await input.insertConsentEvent(
-      buildConsentEventRow({
-        request: persisted,
-        eventType: "action.denied",
-        decision: "denied",
-        vanaUserId,
-        idempotencyKey: `${persisted.id}:denied`,
-        requestHash,
-        issuer,
-        now,
-      }),
-    );
-    // Denial redirect carries `state` only — never an action_code. Clients
-    // reading the redirect see no code, must not retry, and may surface the
-    // denial to the user.
-    const denyRedirect = new URL(persisted.redirect_uri);
-    if (presentedState !== undefined) {
-      denyRedirect.searchParams.set("state", presentedState);
-    }
-    return {
-      kind: "ok",
-      status: 200,
-      body: {
-        action_request_id: persisted.id,
-        decision: "denied",
-        redirect_url: denyRedirect.toString(),
-      },
-    };
-  }
-
-  // Approved branch — issue mock result. `persisted` is already in
-  // `approved` status from the gated UPDATE, so we hand it directly to
-  // buildMockActionResult.
-  const actionCode = generateActionCode();
-  const result = buildMockActionResult({
-    request: persisted,
-    actionCode,
-    now,
-    ttlSeconds: ACTION_CODE_TTL_SECONDS,
-  });
-  await input.insertActionResult(result);
-  await input.insertConsentEvent(
-    buildConsentEventRow({
-      request: persisted,
-      eventType: "action.approved",
-      decision: "approved",
-      vanaUserId,
-      idempotencyKey: `${persisted.id}:approved`,
-      requestHash,
-      issuer,
-      now,
-    }),
-  );
-
   const params = buildRedirectParams({
     actionCode,
     state: presentedState,
   });
-  const redirect = new URL(persisted.redirect_uri);
+  const redirect = new URL(persisted.request.redirect_uri);
   for (const [key, value] of Object.entries(params)) {
     redirect.searchParams.set(key, value);
   }
@@ -734,7 +726,7 @@ export async function handleActionDecision(
     kind: "ok",
     status: 200,
     body: {
-      action_request_id: persisted.id,
+      action_request_id: persisted.request.id,
       decision: "approved",
       redirect_url: redirect.toString(),
     },

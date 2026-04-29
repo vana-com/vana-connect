@@ -3,6 +3,7 @@ import {
   type ActionRequestRow,
   type ActionResultRow,
   type ConsentEventRow,
+  generateConsentEventId,
   hashActionCode,
 } from "../auth/account-action";
 
@@ -173,6 +174,131 @@ export async function persistActionRequestDecision(input: {
   return rowToActionRequest(rows[0] as Record<string, unknown>);
 }
 
+export type PersistActionDecisionBundleInput = {
+  id: string;
+  decision: "approved" | "denied";
+  vanaUserId: string;
+  decidedAt: string;
+  result: ActionResultRow | null;
+  event: ConsentEventRow;
+};
+
+export type PersistActionDecisionBundleOutcome = {
+  request: ActionRequestRow;
+  result: ActionResultRow | null;
+  event: ConsentEventRow;
+};
+
+/**
+ * Persist the user decision and its dependent artifact rows in one statement.
+ *
+ * A route must not be able to leave a request in `approved` without the action
+ * result/code row, or in `denied` without the audit event. The CTE gates the
+ * state transition on `pending` + unexpired, then inserts result/event rows
+ * only from the updated request row. If any insert fails, Postgres rolls the
+ * whole statement back.
+ */
+export async function persistActionDecisionBundle(
+  input: PersistActionDecisionBundleInput,
+): Promise<PersistActionDecisionBundleOutcome | null> {
+  if (input.decision === "approved" && input.result === null) {
+    throw new Error(
+      "persistActionDecisionBundle: approved decisions need a result",
+    );
+  }
+  if (input.decision === "denied" && input.result !== null) {
+    throw new Error(
+      "persistActionDecisionBundle: denied decisions cannot include a result",
+    );
+  }
+
+  const sql = getSQL();
+  const result = input.result;
+  const hasResult = result !== null;
+  const rows = await sql`
+    WITH updated AS (
+      UPDATE account_action_requests
+      SET
+        status = ${input.decision},
+        vana_user_id = ${input.vanaUserId},
+        decided_at = ${input.decidedAt}
+      WHERE id = ${input.id}
+        AND status = 'pending'
+        AND expires_at > now()
+      RETURNING *
+    ),
+    inserted_result AS (
+      INSERT INTO account_action_results (
+        id, action_request_id, client_id, action_code_hash, result_mode,
+        result_payload, result_reference, created_at, expires_at, consumed_at
+      )
+      SELECT
+        ${result?.id ?? null},
+        updated.id,
+        updated.client_id,
+        ${result?.action_code_hash ?? null},
+        ${result?.result_mode ?? null},
+        ${jsonOrNull(result?.result_payload)}::jsonb,
+        ${result?.result_reference ?? null},
+        ${result?.created_at ?? null},
+        ${result?.expires_at ?? null},
+        ${result?.consumed_at ?? null}
+      FROM updated
+      WHERE ${hasResult}::boolean
+      RETURNING *
+    ),
+    inserted_event AS (
+      INSERT INTO account_consent_events (
+        id, schema_version, event_type, occurred_at, issuer,
+        vana_user_id, subject_wallet_address, client_id, application_id,
+        protocol_principal, action_request_id, action_type, requested_data,
+        decision, execution_mode, result_mode, authorization_reference,
+        idempotency_key, request_hash, audit_metadata
+      )
+      SELECT
+        ${input.event.id},
+        ${input.event.schema_version},
+        ${input.event.event_type},
+        ${input.event.occurred_at},
+        ${input.event.issuer},
+        ${input.vanaUserId},
+        ${input.event.subject_wallet_address},
+        updated.client_id,
+        ${input.event.application_id},
+        ${jsonOrNull(input.event.protocol_principal)}::jsonb,
+        updated.id,
+        updated.action_type,
+        updated.requested_data,
+        ${input.event.decision},
+        updated.execution_mode,
+        updated.result_mode,
+        ${jsonOrNull(input.event.authorization_reference)}::jsonb,
+        ${input.event.idempotency_key},
+        ${input.event.request_hash},
+        ${jsonOrNull(input.event.audit_metadata)}::jsonb
+      FROM updated
+      RETURNING *
+    )
+    SELECT
+      to_jsonb(updated) AS request,
+      (SELECT to_jsonb(inserted_result) FROM inserted_result LIMIT 1) AS result,
+      (SELECT to_jsonb(inserted_event) FROM inserted_event LIMIT 1) AS event
+    FROM updated
+  `;
+
+  if (rows.length === 0) return null;
+  const row = rows[0] as {
+    request: Record<string, unknown>;
+    result: Record<string, unknown> | null;
+    event: Record<string, unknown>;
+  };
+  return {
+    request: rowToActionRequest(row.request),
+    result: row.result ? rowToActionResult(row.result) : null,
+    event: rowToConsentEvent(row.event),
+  };
+}
+
 export async function insertActionResult(
   row: ActionResultRow,
 ): Promise<ActionResultRow> {
@@ -300,6 +426,141 @@ export async function consumeActionCode(input: {
   }
   // Remaining case: expired (covered by the `expires_at > now()` predicate).
   return { ok: false, reason: "expired" };
+}
+
+export async function consumeActionCodeWithExchangeEvent(input: {
+  presentedCode: string;
+  presentingClientId: string;
+  issuer?: string;
+  now?: Date;
+}): Promise<ConsumeActionCodeOutcome> {
+  const sql = getSQL();
+  const presentedHash = hashActionCode(input.presentedCode);
+  const occurredAt = (input.now ?? new Date()).toISOString();
+  const issuer = input.issuer ?? "https://account.vana.org";
+  const eventId = generateConsentEventId();
+
+  const rows = await sql`
+    WITH eligible AS (
+      SELECT
+        result.id,
+        event_hash.request_hash
+      FROM account_action_results result
+      JOIN account_action_requests request
+        ON request.id = result.action_request_id
+      JOIN LATERAL (
+        SELECT request_hash
+        FROM account_consent_events
+        WHERE action_request_id = request.id
+          AND event_type IN ('action.approved', 'action.requested')
+        ORDER BY
+          CASE WHEN event_type = 'action.approved' THEN 0 ELSE 1 END,
+          occurred_at DESC
+        LIMIT 1
+      ) event_hash ON TRUE
+      WHERE result.action_code_hash = ${presentedHash}
+        AND result.client_id = ${input.presentingClientId}
+        AND result.consumed_at IS NULL
+        AND result.expires_at > ${occurredAt}
+    ),
+    updated AS (
+      UPDATE account_action_results
+      SET consumed_at = ${occurredAt}
+      FROM eligible
+      WHERE account_action_results.id = eligible.id
+      RETURNING account_action_results.*, eligible.request_hash
+    ),
+    request_context AS (
+      SELECT
+        request.*,
+        updated.request_hash
+      FROM account_action_requests request
+      JOIN updated ON updated.action_request_id = request.id
+    ),
+    inserted_event AS (
+      INSERT INTO account_consent_events (
+        id, schema_version, event_type, occurred_at, issuer,
+        vana_user_id, subject_wallet_address, client_id, application_id,
+        protocol_principal, action_request_id, action_type, requested_data,
+        decision, execution_mode, result_mode, authorization_reference,
+        idempotency_key, request_hash, audit_metadata
+      )
+      SELECT
+        ${eventId},
+        1,
+        'action.exchanged',
+        ${occurredAt},
+        ${issuer},
+        request_context.vana_user_id,
+        NULL,
+        request_context.client_id,
+        NULL,
+        NULL::jsonb,
+        request_context.id,
+        request_context.action_type,
+        request_context.requested_data,
+        NULL,
+        request_context.execution_mode,
+        request_context.result_mode,
+        NULL::jsonb,
+        request_context.id || ':exchanged',
+        request_context.request_hash,
+        NULL::jsonb
+      FROM request_context
+      RETURNING *
+    )
+    SELECT
+      to_jsonb(updated) AS result,
+      (SELECT count(*) FROM inserted_event) AS inserted_event_count
+    FROM updated
+  `;
+
+  if (rows.length > 0) {
+    const row = rows[0] as { result: Record<string, unknown> };
+    return { ok: true, result: rowToActionResult(row.result) };
+  }
+
+  const probeRows = await sql`
+    SELECT
+      result.client_id,
+      result.consumed_at,
+      result.expires_at,
+      EXISTS (
+        SELECT 1
+        FROM account_consent_events event
+        WHERE event.action_request_id = result.action_request_id
+          AND event.event_type IN ('action.approved', 'action.requested')
+      ) AS has_request_hash
+    FROM account_action_results result
+    WHERE result.action_code_hash = ${presentedHash}
+    LIMIT 1
+  `;
+  if (probeRows.length === 0) {
+    return { ok: false, reason: "not_found" };
+  }
+  const probe = probeRows[0] as {
+    client_id: string;
+    consumed_at: string | Date | null;
+    expires_at: string | Date;
+    has_request_hash: boolean;
+  };
+  if (probe.client_id !== input.presentingClientId) {
+    return { ok: false, reason: "client_mismatch" };
+  }
+  if (probe.consumed_at !== null) {
+    return { ok: false, reason: "consumed" };
+  }
+  if (Date.parse(toIsoString(probe.expires_at)) <= Date.parse(occurredAt)) {
+    return { ok: false, reason: "expired" };
+  }
+  if (!probe.has_request_hash) {
+    throw new Error(
+      "consumeActionCodeWithExchangeEvent: cannot consume without a prior request_hash event",
+    );
+  }
+  throw new Error(
+    "consumeActionCodeWithExchangeEvent: consume failed without a diagnosable reason",
+  );
 }
 
 export async function findActionResultById(
