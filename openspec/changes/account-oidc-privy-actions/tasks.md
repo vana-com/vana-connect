@@ -18,9 +18,10 @@
 - [x] 2.3 Audit prior Vana Ory Hydra implementation across `vana-oauth`, `vana-gotchi-js-api`, `vana-gotchi-pwa`, and `kubernetes-services`.
 - [x] 2.4 Verify current Ory Hydra / Ory Network viability, including version upgrade path from `oryd/hydra:v2.1.2`, subject control, custom domain/issuer, Postgres, key rotation, login/consent, and Cloud Run/admin isolation.
 - [x] 2.5 Define pass/fail POC criteria for managed issuer options, at minimum WorkOS Connect/AuthKit and Stytch Connected Apps.
-- [ ] 2.6 Select issuer shape before implementing production endpoints: self-hosted Hydra, Ory Network, managed issuer, or `oidc-provider` sidecar fallback.
+- [x] 2.6 Select issuer shape before implementing production endpoints: Ory Hydra is the implementation path for the next slice; Ory Network or a managed issuer remains available if deployment/security review blocks self-hosted Hydra.
 - [x] 2.7 Run a Hydra `v26.2.0+` migration/config POC against disposable Postgres (`spikes/hydra-v26-poc/`, worker commit `354eb4051`).
 - [ ] 2.8 Run one managed issuer POC or vendor confirmation for exact `sub = vana_user_id` and exact `https://account.vana.org` issuer support.
+- [x] 2.9 Add production-code Hydra admin adapter seam and tests (`connect/src/lib/auth/hydra-admin.ts`) without wiring App Router login/consent routes yet.
 
 ## 3. OIDC Provider Surface
 

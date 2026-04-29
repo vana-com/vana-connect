@@ -20,8 +20,9 @@ import {
  * transitional Privy-native login evidence.
  *
  * Important: provider ids and email are stored as evidence/metadata on
- * `vana_provider_links`. They are NEVER used as a merge key — see
- * `resolveVanaUserByPrivyEvidence` for the explicit merge keys.
+ * `vana_provider_links`. Email is never used as a merge key. Verified provider
+ * subjects and embedded wallet addresses are explicit transitional merge keys
+ * in `resolveVanaUserByPrivyEvidence`.
  */
 
 function getSQL() {

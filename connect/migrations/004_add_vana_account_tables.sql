@@ -4,7 +4,9 @@
 -- token uses vana_users.id (a vana_user_... opaque id) as `sub`. Wallet
 -- addresses, Privy ids, emails, and OAuth provider subjects live in
 -- vana_linked_wallets / vana_provider_links as evidence and metadata only.
--- They are never the merge key and never the OIDC subject.
+-- They are never the OIDC subject. Transitional merge logic may use verified
+-- provider subjects or linked-wallet addresses; email is intentionally not a
+-- merge key.
 
 CREATE TABLE IF NOT EXISTS vana_users (
   id              TEXT PRIMARY KEY,           -- vana_user_<random>
