@@ -42,6 +42,8 @@
 - [x] 4.4 Add typed DB helpers for creating/resolving Vana users from provider auth and linked wallet (`connect/src/lib/auth/vana-account.ts`, `connect/src/lib/db/account.ts`). Runtime integration with OIDC routes is pending.
 - [x] 4.5 Add tests proving provider ids, email, and wallet addresses are not used as OIDC `sub` (`connect/src/lib/auth/vana-account.test.ts`).
 - [x] 4.6 Add userinfo/claim tests for linked wallets (`buildAccountClaims` test in `connect/src/lib/auth/vana-account.test.ts`).
+- [ ] 4.7 Harden `resolveVanaUserByPrivyEvidence` for concurrent first login using a single SQL CTE/upsert with advisory locks over provider and wallet evidence keys.
+- [ ] 4.8 Add DB-backed concurrency tests for same provider, same wallet, provider backfill, provider-wallet conflict, and different providers sharing one wallet; skip unless `DATABASE_URL` is set.
 
 ## 5. OAuth Client Model
 
