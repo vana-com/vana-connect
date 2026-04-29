@@ -29,6 +29,11 @@ does not prove deployed production OIDC for `account.vana.org`.
 - A clean-user smoke (below) that records the exact commands and
   output from driving the fixture through a standard `openid-client`
   relying party against the local Hydra v26 POC.
+- A mock account-hosted action fixture (`action-config.mjs`) that
+  defines the request and exchange bodies for the first Memory App
+  action-code proof. The companion vitest at
+  `connect/src/lib/auth/memory-app-action-flow.test.ts` drives the
+  real account-action handlers with in-memory persistence.
 
 ## What this fixture is NOT
 
@@ -55,6 +60,7 @@ does not prove deployed production OIDC for `account.vana.org`.
 spikes/oidc-rp-fixture/
 +-- README.md              # this document
 +-- auth-config.mjs        # pure config module (no runtime deps)
++-- action-config.mjs      # Memory App mock action request/exchange fixture
 +-- validate-fixture.mjs   # node-only validator (no install)
 \-- standard-rp-smoke.mjs  # openid-client end-to-end RP smoke
 ```
@@ -81,6 +87,36 @@ The fixture exports two views of the same RP configuration:
 
 Both share a single `RpFixture` source of truth so they cannot
 drift.
+
+## Mock action-code shape
+
+`action-config.mjs` exports the first Memory App action request body:
+
+- `client_id = "memory-app-dev"`
+- `redirect_uri = "http://localhost:3000/api/auth/callback/vana"`
+- `action_type = "memory.read.mock"`
+- `execution_mode = "mock"`
+- `result_mode = "mock"`
+- `requested_data.connector = "memory"`
+- `requested_data.scopes = ["memory.read"]`
+- `requested_data.accessMode = "read_once"`
+- user-facing display metadata for the account-hosted review page
+- browser-carried `state`
+
+The authoritative proof is
+`connect/src/lib/auth/memory-app-action-flow.test.ts`. It creates a
+mock action request, approves it as a logged-in Vana user, extracts
+the redirect `action_code`, exchanges that code as `memory-app-dev`,
+and asserts:
+
+- the exchanged payload is `result_mode: "mock"`
+- the exchanged payload does not include the raw action code, state,
+  or `vana_user_id`
+- the consent/action event sequence is `action.requested`,
+  `action.approved`, `action.exchanged`
+
+This is still an in-process fixture proof. It does not prove a headed
+Memory App or deployed `account.vana.org` action flow.
 
 ## Default issuer
 
