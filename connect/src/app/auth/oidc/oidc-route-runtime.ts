@@ -26,7 +26,11 @@ import {
   handleOidcLogin,
   type OidcRouteResult,
 } from "@/lib/auth/oidc-routes";
-import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
+import {
+  findLinkedWalletsByUser,
+  findProviderLinksByUser,
+  resolveVanaUserByPrivyEvidence,
+} from "@/lib/db/account";
 
 let privyClient: PrivyClient | null = null;
 
@@ -82,6 +86,22 @@ async function resolveVanaUser(input: LoginEvidence) {
   return { user: { id: user.id }, created };
 }
 
+async function loadAccountClaims(vanaUserId: string) {
+  const [wallets, providerLinks] = await Promise.all([
+    findLinkedWalletsByUser(vanaUserId),
+    findProviderLinksByUser(vanaUserId),
+  ]);
+  return {
+    linkedWallets: wallets.map((wallet) => ({
+      provider: wallet.provider,
+      chainType: wallet.chain_type,
+      address: wallet.address,
+      isPrimary: wallet.is_primary,
+    })),
+    email: providerLinks.find((link) => link.email)?.email ?? null,
+  };
+}
+
 function toNextResponse(result: OidcRouteResult): Response {
   if (result.kind === "redirect") {
     return NextResponse.redirect(result.location, { status: result.status });
@@ -108,6 +128,7 @@ export async function runOidcConsent(request: Request): Promise<Response> {
   const result = await handleOidcConsent({
     consentChallenge: url.searchParams.get("consent_challenge"),
     hydra,
+    loadAccountClaims,
   });
   return toNextResponse(result);
 }

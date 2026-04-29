@@ -272,6 +272,54 @@ describe("handleOidcConsent", () => {
     );
   });
 
+  it("loads account claims before accepting consent when a loader is configured", async () => {
+    const hydra = fakeHydra({
+      getConsentRequest: vi.fn().mockResolvedValue({
+        client: { client_id: MEMORY_APP_CLIENT_ID },
+        subject: VANA_USER_ID,
+        requested_scope: ["openid", "profile", "email"],
+        requested_access_token_audience: [MEMORY_APP_CLIENT_ID],
+      }),
+    });
+    const loadAccountClaims = vi.fn().mockResolvedValue({
+      email: "user@example.com",
+      linkedWallets: [
+        {
+          provider: "privy",
+          chainType: "evm",
+          address: "0xabcdef0000000000000000000000000000000001",
+          isPrimary: true,
+        },
+      ],
+    });
+
+    const result = await handleOidcConsent(
+      buildInput({ hydra, loadAccountClaims }),
+    );
+
+    expect(result.kind).toBe("redirect");
+    expect(loadAccountClaims).toHaveBeenCalledWith(VANA_USER_ID);
+    expect(hydra.acceptConsentRequest).toHaveBeenCalledWith(
+      "consent-challenge-1",
+      {
+        subject: VANA_USER_ID,
+        grantScope: ["openid", "profile", "email"],
+        grantAccessTokenAudience: [MEMORY_APP_CLIENT_ID],
+        accountClaims: {
+          email: "user@example.com",
+          linkedWallets: [
+            {
+              provider: "privy",
+              chainType: "evm",
+              address: "0xabcdef0000000000000000000000000000000001",
+              isPrimary: true,
+            },
+          ],
+        },
+      },
+    );
+  });
+
   it("rejects a provider subject on consent before accepting requested grants", async () => {
     const hydra = fakeHydra({
       getConsentRequest: vi.fn().mockResolvedValue({

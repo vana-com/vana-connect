@@ -15,6 +15,7 @@ import type {
   HydraConsentRequest,
   HydraLoginRequest,
   HydraRedirectResponse,
+  HydraSessionClaimInput,
 } from "./hydra-admin";
 import type {
   LoginEvidence,
@@ -47,6 +48,10 @@ export type HydraAdminClientForOidc = {
 export type ResolveVanaUser = (
   input: LoginEvidence,
 ) => Promise<{ user: { id: string }; created: boolean }>;
+
+export type LoadOidcAccountClaims = (
+  vanaUserId: string,
+) => Promise<Pick<HydraSessionClaimInput, "email" | "linkedWallets">>;
 
 export type OidcRouteResult =
   | { kind: "redirect"; status: 302 | 303; location: string }
@@ -141,6 +146,12 @@ export type HandleOidcConsentInput = {
    * registry built by {@link createDefaultOauthClientRegistry}.
    */
   clientRegistry?: OauthClientRegistry;
+  /**
+   * Optional account-claim loader used to populate Hydra session claims.
+   * Without it, consent still grants `sub = vana_user_id` plus the
+   * non-standard `vana_user_id` claim, but no wallet/email claims.
+   */
+  loadAccountClaims?: LoadOidcAccountClaims;
 };
 
 export async function handleOidcConsent(
@@ -177,10 +188,15 @@ export async function handleOidcConsent(
     return { kind: "error", status: 400, message: decision.message };
   }
 
+  const accountClaims = input.loadAccountClaims
+    ? await input.loadAccountClaims(consentRequest.subject)
+    : undefined;
+
   const accepted = await input.hydra.acceptConsentRequest(challenge, {
     grantScope: decision.grantScope,
     grantAccessTokenAudience: decision.grantAudience,
     subject: consentRequest.subject,
+    ...(accountClaims ? { accountClaims } : {}),
   });
 
   return { kind: "redirect", status: 303, location: accepted.redirect_to };

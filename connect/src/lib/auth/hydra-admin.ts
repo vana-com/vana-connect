@@ -1,4 +1,9 @@
-import { isVanaUserId } from "./vana-account";
+import {
+  buildAccountClaims,
+  isVanaUserId,
+  type LinkedWalletInput,
+  type VanaAccountClaims,
+} from "./vana-account";
 
 type JsonObject = Record<string, unknown>;
 
@@ -38,11 +43,33 @@ export type AcceptHydraLoginRequest = {
 };
 
 export type AcceptHydraConsentRequest = {
+  accountClaims?: {
+    email?: string | null;
+    linkedWallets?: HydraSessionClaimInput["linkedWallets"];
+  };
   grantAccessTokenAudience?: string[];
   grantScope: string[];
   remember?: boolean;
   rememberForSeconds?: number;
   subject: string;
+};
+
+export type HydraSessionClaimInput = {
+  vanaUserId: string;
+  linkedWallets?: Array<
+    Pick<LinkedWalletInput, "address" | "chainType" | "provider"> & {
+      isPrimary?: boolean;
+    }
+  >;
+  email?: string | null;
+};
+
+export type HydraSessionClaims = {
+  id_token: {
+    email?: string;
+    linked_wallets?: VanaAccountClaims["linked_wallets"];
+    vana_user_id: string;
+  };
 };
 
 export class HydraAdminError extends Error {
@@ -102,7 +129,11 @@ export function createHydraAdminClient({
           grant_scope: input.grantScope,
           remember: input.remember ?? false,
           remember_for: input.rememberForSeconds ?? 0,
-          session: buildHydraSessionClaims(input.subject),
+          session: buildHydraSessionClaims({
+            vanaUserId: input.subject,
+            email: input.accountClaims?.email,
+            linkedWallets: input.accountClaims?.linkedWallets,
+          }),
         },
         fetchImpl,
         method: "PUT",
@@ -183,12 +214,29 @@ export function createHydraAdminClient({
   };
 }
 
-export function buildHydraSessionClaims(vanaUserId: string) {
-  assertVanaUserId(vanaUserId);
+export function buildHydraSessionClaims(
+  input: string | HydraSessionClaimInput,
+): HydraSessionClaims {
+  const claimInput =
+    typeof input === "string"
+      ? { vanaUserId: input, linkedWallets: [] }
+      : input;
+  const accountClaims = buildAccountClaims({
+    vanaUserId: claimInput.vanaUserId,
+    linkedWallets: claimInput.linkedWallets ?? [],
+    email: claimInput.email,
+  });
+  const idToken: HydraSessionClaims["id_token"] = {
+    vana_user_id: accountClaims.sub,
+  };
+  if (accountClaims.email) {
+    idToken.email = accountClaims.email;
+  }
+  if (accountClaims.linked_wallets.length > 0) {
+    idToken.linked_wallets = accountClaims.linked_wallets;
+  }
   return {
-    id_token: {
-      vana_user_id: vanaUserId,
-    },
+    id_token: idToken,
   };
 }
 

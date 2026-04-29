@@ -138,4 +138,34 @@ describe("buildHydraSessionClaims", () => {
       },
     });
   });
+
+  it("adds linked wallet and email claims without overriding sub", () => {
+    expect(
+      buildHydraSessionClaims({
+        vanaUserId: VANA_USER_ID,
+        email: "user@example.com",
+        linkedWallets: [
+          {
+            provider: "privy",
+            chainType: "evm",
+            address: "0xAbCdEf0000000000000000000000000000000001",
+            isPrimary: true,
+          },
+        ],
+      }),
+    ).toEqual({
+      id_token: {
+        vana_user_id: VANA_USER_ID,
+        email: "user@example.com",
+        linked_wallets: [
+          {
+            provider: "privy",
+            chain_type: "evm",
+            address: "0xabcdef0000000000000000000000000000000001",
+            is_primary: true,
+          },
+        ],
+      },
+    });
+  });
 });
