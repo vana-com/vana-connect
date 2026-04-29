@@ -25,12 +25,12 @@
 
 ## 3. OIDC Provider Surface
 
-- [ ] 3.1 Implement `/.well-known/openid-configuration` through the chosen issuer shape.
-- [ ] 3.2 Implement or configure `/.well-known/jwks.json`.
-- [ ] 3.3 Implement `/oauth2/authorize` with Authorization Code + PKCE.
-- [ ] 3.4 Implement `/oauth2/token` for authorization code exchange.
-- [ ] 3.5 Implement `/oauth2/userinfo`.
-- [ ] 3.6 Implement `/oauth2/revoke`.
+- [x] 3.1 Implement `/.well-known/openid-configuration` through the chosen issuer shape. Code-level wiring exists via `buildHydraPublicRewrites` in `connect/next.config.ts`: when `HYDRA_PUBLIC_URL` is configured, account-domain discovery rewrites to Hydra public discovery. Deployment proof for `https://account.vana.org` remains pending.
+- [x] 3.2 Implement or configure `/.well-known/jwks.json`. Code-level wiring exists via `buildHydraPublicRewrites`: account-domain JWKS rewrites to Hydra public JWKS when `HYDRA_PUBLIC_URL` is configured. Deployment proof remains pending.
+- [x] 3.3 Implement `/oauth2/authorize` with Authorization Code + PKCE. Code-level wiring maps `/oauth2/authorize` to Hydra `/oauth2/auth`; the local Hydra POC and standard RP smoke prove PKCE behavior in disposable local state, while deployed account-domain proof remains pending.
+- [x] 3.4 Implement `/oauth2/token` for authorization code exchange. Code-level wiring maps `/oauth2/token` to Hydra public token endpoint when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
+- [x] 3.5 Implement `/oauth2/userinfo`. Code-level wiring maps `/oauth2/userinfo` and `/userinfo` to Hydra public userinfo when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
+- [x] 3.6 Implement `/oauth2/revoke`. Code-level wiring maps `/oauth2/revoke` to Hydra public revoke endpoint when `HYDRA_PUBLIC_URL` is configured; deployed account-domain proof remains pending.
 - [ ] 3.7 Add issuer, client, redirect URI, state, nonce, and PKCE tests.
 - [x] 3.8 Add a NextAuth/Auth.js compatibility test or fixture (`spikes/oidc-rp-fixture/` plus `connect/src/lib/auth/oidc-rp-fixture.test.ts`; this is a config/shape fixture, not a headed RP app).
 
