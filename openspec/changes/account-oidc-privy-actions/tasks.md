@@ -100,7 +100,7 @@
 - [x] 10.2 Run `cd connect && pnpm test` after implementation tasks.
 - [x] 10.3 Run `cd connect && pnpm lint` after implementation tasks.
 - [x] 10.4 Run `cd connect && pnpm build` before review (`NEXT_PUBLIC_PRIVY_APP_ID` and `NEXT_PUBLIC_PRIVY_CLIENT_ID` supplied with valid-looking local values).
-- [ ] 10.5 Run the standard OIDC relying-party fixture from a clean user and record the exact command/output in the PR.
+- [x] 10.5 Run the standard OIDC relying-party fixture from clean local state and record the exact command/output in the PR. Scope: local Hydra v26 POC plus `openid-client@6.8.4`, not deployed production `account.vana.org` OIDC.
 - [x] 10.6 Run regression tests for `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign`.
 - [x] 10.7 Verify no redirect URL contains raw action result data or user data (`connect/src/lib/auth/account-action.test.ts` verifies the action redirect parameter set).
 - [x] 10.8 Verify the PR description lists remaining production gaps: issuer decision, first real-data source, first non-mock result implementation, live DP RPC integration, and production Memory App integration.

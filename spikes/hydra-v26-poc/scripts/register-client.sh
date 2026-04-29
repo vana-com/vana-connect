@@ -9,6 +9,14 @@ set -euo pipefail
 ADMIN_URL="${HYDRA_ADMIN_URL:-http://127.0.0.1:4445}"
 CLIENT_ID="${CLIENT_ID:-vana-poc-public-client}"
 REDIRECT_URI="${REDIRECT_URI:-http://127.0.0.1:8765/callback}"
+SCOPE="${SCOPE:-openid offline_access}"
+CLIENT_NAME="${CLIENT_NAME:-Vana POC Public PKCE Client}"
+AUDIENCE="${AUDIENCE:-}"
+
+AUDIENCE_JSON=""
+if [[ -n "${AUDIENCE}" ]]; then
+  AUDIENCE_JSON='  "audience": ["'"${AUDIENCE}"'"],'
+fi
 
 echo "[register-client] admin=${ADMIN_URL} client_id=${CLIENT_ID}" >&2
 
@@ -20,10 +28,11 @@ curl -fsS -X POST "${ADMIN_URL}/admin/clients" \
   -d @- <<JSON >/dev/null
 {
   "client_id": "${CLIENT_ID}",
-  "client_name": "Vana POC Public PKCE Client",
+  "client_name": "${CLIENT_NAME}",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
-  "scope": "openid offline_access",
+  "scope": "${SCOPE}",
+${AUDIENCE_JSON}
   "redirect_uris": ["${REDIRECT_URI}"],
   "token_endpoint_auth_method": "none"
 }
