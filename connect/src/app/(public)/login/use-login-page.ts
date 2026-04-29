@@ -7,14 +7,19 @@ import {
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { APP_ROUTES } from "@/app/routes";
-import { CONNECT_CONFIG } from "@/config/config";
 import {
   clearHandoffContext,
   persistHandoffContext,
   resolvePostAuthDestination,
 } from "@/app/_lib/handoff-contract";
+import {
+  clearOidcReturnTo,
+  persistOidcReturnTo,
+  resolveOidcReturnTo,
+} from "@/app/_lib/oidc-continuation";
 import { useHandoffResolution } from "@/app/_lib/use-handoff-resolution";
+import { APP_ROUTES } from "@/app/routes";
+import { CONNECT_CONFIG } from "@/config/config";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
@@ -79,17 +84,32 @@ export function useLoginPage() {
     clearHandoffContext();
   }, [hasClearHandoffFlag, hasSessionIdInUrl, isOAuthReturn]);
 
-  // Redirect helper — navigates to connect or fallback based on handoff context.
+  // Persist a safe OIDC `return_to` from the URL so it survives the full-page
+  // OAuth redirect. Unsafe values are silently dropped by the seam.
+  useEffect(() => {
+    persistOidcReturnTo(searchParams.get("return_to"));
+  }, [searchParams]);
+
+  // Redirect helper — navigates to OIDC continuation if one is pending,
+  // otherwise to connect or fallback based on handoff context.
   // Uses window.location (not Next.js router) because router.replace can
   // silently fail after full-page OAuth redirects.
   const handleLoginComplete = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
 
+    const oidcReturnTo = resolveOidcReturnTo(searchParams);
+    if (oidcReturnTo) {
+      clearOidcReturnTo();
+      clearHandoffContext();
+      window.location.replace(oidcReturnTo);
+      return;
+    }
+
     const url = resolvePostAuthDestination(handoffContext);
     clearHandoffContext();
     window.location.replace(url);
-  }, [handoffContext]);
+  }, [handoffContext, searchParams]);
 
   // Email OTP hooks
   const {

@@ -52,6 +52,7 @@ describe("useLoginPage oauth loading behavior", () => {
     mocks.sendCode.mockReset();
     mocks.loginWithCode.mockReset();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("keeps entry view and shows only Google loading after Google click", async () => {
@@ -209,6 +210,95 @@ describe("useLoginPage oauth loading behavior", () => {
 
     expect(result.current.view).toBe("code");
     expect(result.current.code).toBe("");
+  });
+
+  function stubWindowLocationReplace() {
+    const calls: string[] = [];
+    const original = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: {
+        ...original,
+        href: original.href,
+        origin: original.origin,
+        replace: (url: string) => {
+          calls.push(url);
+        },
+      },
+    });
+    return {
+      calls,
+      restore: () => {
+        Object.defineProperty(window, "location", {
+          configurable: true,
+          writable: true,
+          value: original,
+        });
+      },
+    };
+  }
+
+  it("redirects authenticated users to a safe OIDC return_to", async () => {
+    const { calls, restore } = stubWindowLocationReplace();
+    mocks.searchParams = new URLSearchParams({
+      return_to: "/auth/oidc/login?login_challenge=abc",
+    });
+    mocks.privyState.authenticated = true;
+
+    renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(calls).toContain("/auth/oidc/login?login_challenge=abc");
+    });
+
+    expect(sessionStorage.getItem("vana_oidc_return_to")).toBeNull();
+    restore();
+  });
+
+  it("ignores external return_to and falls back to handoff destination", async () => {
+    const { calls, restore } = stubWindowLocationReplace();
+    sessionStorage.setItem(
+      "vana_oidc_return_to",
+      "/auth/oidc/login?login_challenge=stale",
+    );
+    mocks.searchParams = new URLSearchParams({
+      return_to: "https://evil.example.com/auth/oidc/login",
+      sessionId: "session-123",
+      secret: "secret-abc",
+    });
+    mocks.privyState.authenticated = true;
+
+    renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(calls.length).toBeGreaterThan(0);
+    });
+
+    expect(calls[0]).not.toMatch(/evil\.example\.com/);
+    expect(calls[0]).not.toBe("/auth/oidc/login?login_challenge=stale");
+    expect(sessionStorage.getItem("vana_oidc_return_to")).toBeNull();
+    restore();
+  });
+
+  it("recovers persisted OIDC return_to after OAuth callback", async () => {
+    const { calls, restore } = stubWindowLocationReplace();
+    sessionStorage.setItem(
+      "vana_oidc_return_to",
+      "/auth/oidc/login?login_challenge=stored",
+    );
+    mocks.searchParams = new URLSearchParams({
+      code: "oauth-code",
+      state: "oauth-state",
+    });
+    mocks.privyState.authenticated = true;
+
+    renderHook(() => useLoginPage());
+
+    await waitFor(() => {
+      expect(calls).toContain("/auth/oidc/login?login_challenge=stored");
+    });
+    restore();
   });
 
   it("submits explicit code override (paste/autosubmit path) instead of stale state", async () => {

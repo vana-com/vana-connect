@@ -55,9 +55,9 @@
 
 ## 6. Privy Provider Boundary
 
-- [ ] 6.1 Define provider adapter interface for current Privy-native session resolution.
-- [ ] 6.2 Resolve embedded wallet address from current Privy session and create linked wallet records.
-- [ ] 6.3 Document the transitional nature of Privy-native login if used.
+- [x] 6.1 Define provider adapter interface for current Privy-native session resolution (`connect/src/lib/auth/login-session-adapter.ts`: `LoginSessionAdapter`, `LoginEvidence`, `createPrivyLoginSessionAdapter`).
+- [x] 6.2 Resolve embedded wallet address from current Privy session and create linked wallet records (`pickEmbeddedEvmWallet` requires Privy-issued `wallet_client_type` / `wallet_client`; OIDC login route forwards evidence to `resolveVanaUserByPrivyEvidence`).
+- [x] 6.3 Document the transitional nature of Privy-native login if used (file-level docstring on `login-session-adapter.ts` and adapter export comment).
 - [ ] 6.4 Define target Privy custom JWT auth integration path.
 - [ ] 6.5 Add tests that downstream OIDC tokens contain Vana account subject, not Privy subject.
 
@@ -88,11 +88,11 @@
 
 ## 9. Compatibility Guardrails
 
-- [ ] 9.1 Verify `/login` keeps current behavior until intentionally migrated.
+- [x] 9.1 Verify `/login` keeps current behavior until intentionally migrated. Narrow OIDC continuation added: `/login` now reads `?return_to=` (validated via `isSafeOidcReturnTo`), persists it via `oidc-continuation.ts` so it survives OAuth redirects, prefers it in `handleLoginComplete`, and clears it after use. DataConnect handoff path is unchanged when no safe OIDC `return_to` is present.
 - [ ] 9.2 Verify `/connect` keeps current DataConnect handoff behavior.
 - [ ] 9.3 Verify `/auth/device` and `/api/auth/device/*` keep CLI behavior.
 - [ ] 9.4 Verify `/api/sign` remains allowlisted and transitional.
-- [ ] 9.5 Add regression tests for existing handoff/login routes touched by OIDC work.
+- [x] 9.5 Add regression tests for existing handoff/login routes touched by OIDC work (`connect/src/app/(public)/login/use-login-page.test.ts` covers OIDC return_to redirect, external `return_to` rejection, persisted return_to recovery after OAuth callback, and pre-existing OAuth/email flows).
 
 ## 10. Validation
 
