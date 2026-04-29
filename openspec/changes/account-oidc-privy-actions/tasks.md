@@ -20,7 +20,7 @@
 - [x] 2.5 Define pass/fail POC criteria for managed issuer options, at minimum WorkOS Connect/AuthKit and Stytch Connected Apps.
 - [x] 2.6 Select issuer shape before implementing production endpoints: Ory Hydra is the implementation path for the next slice; Ory Network or a managed issuer remains available if deployment/security review blocks self-hosted Hydra.
 - [x] 2.7 Run a Hydra `v26.2.0+` migration/config POC against disposable Postgres (`spikes/hydra-v26-poc/`, worker commit `354eb4051`).
-- [ ] 2.8 Run one managed issuer POC or vendor confirmation for exact `sub = vana_user_id` and exact `https://account.vana.org` issuer support.
+- [x] 2.8 Run one managed issuer POC or vendor confirmation for exact `sub = vana_user_id` and exact `https://account.vana.org` issuer support. Ory Network is confirmed from official docs for issuer URL/custom-domain support plus app-controlled login subject; WorkOS and Stytch remain fallback candidates pending vendor confirmation for customer-controlled `sub` (`openspec/changes/account-oidc-privy-actions/design-notes/managed-issuer-confirmation-2026-04-29.md`).
 - [x] 2.9 Add production-code Hydra admin adapter seam and tests (`connect/src/lib/auth/hydra-admin.ts`) without wiring App Router login/consent routes yet.
 
 ## 3. OIDC Provider Surface
