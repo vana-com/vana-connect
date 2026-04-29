@@ -17,7 +17,7 @@ The next implementation target is auth-focused:
 - Define app/client registration records for Memory App and future consumers.
 - Define account-hosted action requests for user-present data access.
 - Define token and action semantics so OIDC tokens are not mistaken for protocol data grants.
-- Define `oidc-provider` mounting as the first implementation spike because the account app is Vercel-linked Next.js and the library is Node/Koa middleware.
+- Define Ory Hydra / Ory Network as the control-path issuer evaluation, with the completed `oidc-provider` route-handler spike preserved only as fallback evidence.
 - Define the first action result as mock-only and the first non-mock result as encrypted bundle plus short-lived reference.
 - Define account-local consent/action events as the first DP RPC-compatible seam.
 - Preserve existing `/login`, `/connect`, `/auth/device`, `/api/auth/device/*`, and `/api/sign` until follow-up changes explicitly migrate them.
@@ -37,5 +37,5 @@ The next implementation target is auth-focused:
 - `connect/src/app/**`: OIDC routes, consent/action pages, and integration with existing login.
 - `connect/src/lib/auth/**`: OIDC provider configuration, Vana account model, Privy adapter, token/session helpers.
 - `connect/src/lib/db/neon.ts` and `connect/migrations/**`: Vana accounts, linked wallets, OAuth clients, authorization codes, refresh sessions, action requests, action results, and consent/action audit records.
-- `connect/package.json`: likely adds `oidc-provider` or another mature OIDC provider library, plus direct JWT/JWK dependencies if not provided by the chosen library.
+- `connect/package.json` and/or deployment manifests: may add issuer-adapter dependencies, Hydra admin client helpers, or JWT/JWK verification dependencies depending on the chosen issuer shape.
 - Existing routes stay compatible unless a task explicitly changes them.
