@@ -4,7 +4,7 @@
 // Privy Scale-plan feature unlock.
 
 const baseUrl = (
-  process.argv[2] ||
+  process.argv.slice(2).find((arg) => arg !== "--") ||
   process.env.ACCOUNT_BASE_URL ||
   "https://account-dev.vana.org"
 ).replace(/\/+$/u, "");
