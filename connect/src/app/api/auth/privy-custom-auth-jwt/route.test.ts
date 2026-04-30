@@ -4,6 +4,7 @@ import { createAccountLoginSessionToken } from "@/lib/auth/account-login-session
 const mocks = vi.hoisted(() => ({
   privyUsersGet: vi.fn(),
   resolveVanaUserByPrivyEvidence: vi.fn(),
+  inspectVanaCustomAuthJwtConfig: vi.fn(),
   resolveVanaCustomAuthJwtConfig: vi.fn(),
   createVanaCustomAuthJwt: vi.fn(),
 }));
@@ -21,6 +22,7 @@ vi.mock("@/lib/db/account", () => ({
 }));
 
 vi.mock("@/lib/auth/privy-custom-auth", () => ({
+  inspectVanaCustomAuthJwtConfig: mocks.inspectVanaCustomAuthJwtConfig,
   resolveVanaCustomAuthJwtConfig: mocks.resolveVanaCustomAuthJwtConfig,
   createVanaCustomAuthJwt: mocks.createVanaCustomAuthJwt,
 }));
@@ -37,6 +39,14 @@ beforeEach(() => {
   process.env.PRIVY_APP_SECRET = "test-privy-secret";
   mocks.resolveVanaUserByPrivyEvidence.mockResolvedValue({
     user: { id: "vana_user_1234567890abcdef" },
+  });
+  mocks.inspectVanaCustomAuthJwtConfig.mockReturnValue({
+    ready: true,
+    missing: [],
+    keyId: "test-key",
+    issuer: "https://account.vana.org",
+    audience: "test-privy-app",
+    publicKeyReady: true,
   });
   mocks.resolveVanaCustomAuthJwtConfig.mockReturnValue({
     privateKeyPem: "test-private-key",
@@ -134,8 +144,10 @@ describe("GET /api/auth/privy-custom-auth-jwt", () => {
 
   it("returns 500 when signing is not configured", async () => {
     const { GET } = await importRoute();
-    mocks.resolveVanaCustomAuthJwtConfig.mockImplementation(() => {
-      throw new Error("missing key");
+    mocks.inspectVanaCustomAuthJwtConfig.mockReturnValue({
+      ready: false,
+      missing: ["VANA_AUTH_JWT_PRIVATE_KEY"],
+      publicKeyReady: false,
     });
     const session = createAccountLoginSessionToken(
       { privySubject: "did:privy:user-1" },
@@ -153,5 +165,29 @@ describe("GET /api/auth/privy-custom-auth-jwt", () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: { code: "jwt_not_configured" } });
+    expect(JSON.stringify(body)).not.toContain("VANA_AUTH_JWT_PRIVATE_KEY");
+  });
+
+  it("returns 500 when signing fails after config is ready", async () => {
+    const { GET } = await importRoute();
+    mocks.createVanaCustomAuthJwt.mockImplementation(() => {
+      throw new Error("signing failed");
+    });
+    const session = createAccountLoginSessionToken(
+      { privySubject: "did:privy:user-1" },
+      { secret: "test-session-secret", nowMs: Date.now(), ttlMs: 5000 },
+    );
+
+    const response = await GET(
+      new Request("https://account.vana.org/api/auth/privy-custom-auth-jwt", {
+        headers: {
+          cookie: `vana_account_session=${encodeURIComponent(session)}`,
+        },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: { code: "jwt_signing_failed" } });
   });
 });

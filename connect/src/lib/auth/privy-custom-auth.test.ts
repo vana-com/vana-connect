@@ -9,6 +9,7 @@ import {
   buildVanaCustomAuthClaims,
   buildVanaCustomAuthJwks,
   createVanaCustomAuthJwt,
+  inspectVanaCustomAuthJwtConfig,
   type PrivyCustomAuthClient,
   type PrivyCustomAuthResult,
   signVanaCustomAuthJwt,
@@ -122,6 +123,53 @@ describe("buildVanaCustomAuthClaims", () => {
 });
 
 describe("Vana custom-auth JWT issuer", () => {
+  it("inspects config readiness without returning private key material", () => {
+    expect(
+      inspectVanaCustomAuthJwtConfig({
+        VANA_AUTH_JWT_PRIVATE_KEY: TEST_PRIVATE_KEY_PEM,
+        VANA_AUTH_JWT_KEY_ID: "test-key-1",
+        VANA_AUTH_JWT_ISSUER: "https://account.vana.org",
+        PRIVY_CUSTOM_AUTH_AUDIENCE: "privy-app-id-abc",
+      }),
+    ).toEqual({
+      ready: true,
+      missing: [],
+      keyId: "test-key-1",
+      issuer: "https://account.vana.org",
+      audience: "privy-app-id-abc",
+      publicKeyReady: true,
+    });
+  });
+
+  it("reports missing custom-auth JWT env without throwing", () => {
+    expect(inspectVanaCustomAuthJwtConfig({})).toEqual({
+      ready: false,
+      missing: [
+        "VANA_AUTH_JWT_PRIVATE_KEY",
+        "VANA_AUTH_JWT_KEY_ID",
+        "VANA_AUTH_JWT_ISSUER",
+        "PRIVY_CUSTOM_AUTH_AUDIENCE",
+      ],
+      publicKeyReady: false,
+    });
+  });
+
+  it("reports invalid private key config without returning the key", () => {
+    const result = inspectVanaCustomAuthJwtConfig({
+      VANA_AUTH_JWT_PRIVATE_KEY: "not-a-key",
+      VANA_AUTH_JWT_KEY_ID: "test-key-1",
+      VANA_AUTH_JWT_ISSUER: "https://account.vana.org",
+      PRIVY_CUSTOM_AUTH_AUDIENCE: "privy-app-id-abc",
+    });
+
+    expect(result).toMatchObject({
+      ready: false,
+      missing: [],
+      publicKeyReady: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("not-a-key");
+  });
+
   it("signs a JWT that verifies against the published JWKS", () => {
     const vanaUserId = generateVanaUserId();
     const token = createVanaCustomAuthJwt({

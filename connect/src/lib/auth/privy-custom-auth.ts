@@ -74,9 +74,25 @@ export type JsonWebKeySet = {
   keys: VanaCustomAuthPublicJwk[];
 };
 
+export type VanaCustomAuthJwtConfigInspection = {
+  ready: boolean;
+  missing: string[];
+  keyId?: string;
+  issuer?: string;
+  audience?: string;
+  publicKeyReady: boolean;
+  error?: string;
+};
+
 const VANA_CUSTOM_AUTH_ALG = "RS256";
 const VANA_CUSTOM_AUTH_USE = "sig";
 const DEFAULT_VANA_CUSTOM_AUTH_TTL_SECONDS = 5 * 60;
+const VANA_CUSTOM_AUTH_REQUIRED_ENV = [
+  "VANA_AUTH_JWT_PRIVATE_KEY",
+  "VANA_AUTH_JWT_KEY_ID",
+  "VANA_AUTH_JWT_ISSUER",
+  "PRIVY_CUSTOM_AUTH_AUDIENCE",
+] as const;
 
 /**
  * Input shape for asking the Privy custom-auth boundary to authenticate a
@@ -170,13 +186,47 @@ export function buildVanaCustomAuthClaims(input: {
 }
 
 export function resolveVanaCustomAuthJwtConfig(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Record<string, string | undefined> = process.env,
 ): VanaCustomAuthJwtConfig {
   const privateKeyPem = readRequiredEnv(env, "VANA_AUTH_JWT_PRIVATE_KEY");
   const keyId = readRequiredEnv(env, "VANA_AUTH_JWT_KEY_ID");
   const issuer = readRequiredEnv(env, "VANA_AUTH_JWT_ISSUER");
   const audience = readRequiredEnv(env, "PRIVY_CUSTOM_AUTH_AUDIENCE");
   return { privateKeyPem, keyId, issuer, audience };
+}
+
+export function inspectVanaCustomAuthJwtConfig(
+  env: Record<string, string | undefined> = process.env,
+): VanaCustomAuthJwtConfigInspection {
+  const missing = VANA_CUSTOM_AUTH_REQUIRED_ENV.filter(
+    (name) => !env[name]?.trim(),
+  );
+  if (missing.length > 0) {
+    return { ready: false, missing, publicKeyReady: false };
+  }
+
+  try {
+    const config = resolveVanaCustomAuthJwtConfig(env);
+    buildVanaCustomAuthJwks({
+      privateKeyPem: config.privateKeyPem,
+      keyId: config.keyId,
+    });
+    return {
+      ready: true,
+      missing: [],
+      keyId: config.keyId,
+      issuer: config.issuer,
+      audience: config.audience,
+      publicKeyReady: true,
+    };
+  } catch (error) {
+    return {
+      ready: false,
+      missing,
+      publicKeyReady: false,
+      error: error instanceof Error ? error.message : "unknown_error",
+    };
+  }
 }
 
 export function createVanaCustomAuthJwt(input: {
@@ -254,7 +304,10 @@ export function buildVanaCustomAuthJwks(input: {
   };
 }
 
-function readRequiredEnv(env: NodeJS.ProcessEnv, name: string): string {
+function readRequiredEnv(
+  env: Record<string, string | undefined>,
+  name: string,
+): string {
   const value = env[name]?.trim();
   if (!value) {
     throw new Error(`Missing required environment variable ${name}`);

@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/login-session-adapter";
 import {
   createVanaCustomAuthJwt,
+  inspectVanaCustomAuthJwtConfig,
   resolveVanaCustomAuthJwtConfig,
 } from "@/lib/auth/privy-custom-auth";
 import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
@@ -64,6 +65,11 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
+  const inspection = inspectVanaCustomAuthJwtConfig();
+  if (!inspection.ready) {
+    return json({ error: { code: "jwt_not_configured" } }, { status: 500 });
+  }
+
   try {
     const config = resolveVanaCustomAuthJwtConfig();
     return json({
@@ -73,6 +79,6 @@ export async function GET(request: Request): Promise<Response> {
       }),
     });
   } catch {
-    return json({ error: { code: "jwt_not_configured" } }, { status: 500 });
+    return json({ error: { code: "jwt_signing_failed" } }, { status: 500 });
   }
 }

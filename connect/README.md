@@ -33,6 +33,7 @@ Vana-root Privy JWT auth is opt-in while the dashboard config is being proven:
 - `NEXT_PUBLIC_PRIVY_JWT_AUTH_SYNC_ENABLED=true` enables browser sync through Privy's `useSyncJwtBasedAuthState`.
 - `VANA_AUTH_JWT_PRIVATE_KEY`, `VANA_AUTH_JWT_KEY_ID`, `VANA_AUTH_JWT_ISSUER`, and `PRIVY_CUSTOM_AUTH_AUDIENCE` configure the server-side Vana JWT issuer.
 - `/.well-known/jwks.json` publishes the corresponding public key for Privy's JWT-based auth setup.
+- See `docs/privy-custom-auth-runbook.md` for the plan-gated Privy dashboard setup, switch-on checklist, smoke command, and rollback.
 
 ## Local end-to-end (account app + Postgres + Hydra)
 
