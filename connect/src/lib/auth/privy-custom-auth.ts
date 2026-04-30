@@ -30,6 +30,7 @@
  * See: openspec/changes/account-oidc-privy-actions/design-notes/provider-issuer-source-check-2026-04-29.md
  */
 
+import crypto from "node:crypto";
 import type { LoginEvidence } from "./login-session-adapter";
 import { isVanaUserId } from "./vana-account";
 
@@ -54,6 +55,28 @@ export type VanaCustomAuthClaims = {
   /** Expiration, seconds since epoch. */
   exp: number;
 };
+
+export type VanaCustomAuthJwtConfig = {
+  privateKeyPem: string;
+  keyId: string;
+  issuer: string;
+  audience: string;
+  ttlSeconds?: number;
+};
+
+export type VanaCustomAuthPublicJwk = crypto.JsonWebKey & {
+  kid: string;
+  alg: typeof VANA_CUSTOM_AUTH_ALG;
+  use: typeof VANA_CUSTOM_AUTH_USE;
+};
+
+export type JsonWebKeySet = {
+  keys: VanaCustomAuthPublicJwk[];
+};
+
+const VANA_CUSTOM_AUTH_ALG = "RS256";
+const VANA_CUSTOM_AUTH_USE = "sig";
+const DEFAULT_VANA_CUSTOM_AUTH_TTL_SECONDS = 5 * 60;
 
 /**
  * Input shape for asking the Privy custom-auth boundary to authenticate a
@@ -144,6 +167,111 @@ export function buildVanaCustomAuthClaims(input: {
     iat,
     exp,
   };
+}
+
+export function resolveVanaCustomAuthJwtConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): VanaCustomAuthJwtConfig {
+  const privateKeyPem = readRequiredEnv(env, "VANA_AUTH_JWT_PRIVATE_KEY");
+  const keyId = readRequiredEnv(env, "VANA_AUTH_JWT_KEY_ID");
+  const issuer = readRequiredEnv(env, "VANA_AUTH_JWT_ISSUER");
+  const audience = readRequiredEnv(env, "PRIVY_CUSTOM_AUTH_AUDIENCE");
+  return { privateKeyPem, keyId, issuer, audience };
+}
+
+export function createVanaCustomAuthJwt(input: {
+  vanaUserId: string;
+  config: VanaCustomAuthJwtConfig;
+  now?: Date;
+}): string {
+  const now = input.now ?? new Date();
+  const ttlSeconds =
+    input.config.ttlSeconds ?? DEFAULT_VANA_CUSTOM_AUTH_TTL_SECONDS;
+  if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+    throw new Error("Privy custom-auth token ttlSeconds must be positive");
+  }
+
+  const claims = buildVanaCustomAuthClaims({
+    vanaUserId: input.vanaUserId,
+    issuer: input.config.issuer,
+    audience: input.config.audience,
+    issuedAt: now,
+    expiresAt: new Date(now.getTime() + ttlSeconds * 1000),
+  });
+  return signVanaCustomAuthJwt({
+    claims,
+    privateKeyPem: input.config.privateKeyPem,
+    keyId: input.config.keyId,
+  });
+}
+
+export function signVanaCustomAuthJwt(input: {
+  claims: VanaCustomAuthClaims;
+  privateKeyPem: string;
+  keyId: string;
+}): string {
+  assertVanaCustomAuthSubject(input.claims.sub);
+  if (input.claims.exp <= input.claims.iat) {
+    throw new Error("Privy custom-auth exp must be after iat");
+  }
+  if (!input.keyId) {
+    throw new Error("Privy custom-auth JWT kid is required");
+  }
+  const header = {
+    alg: VANA_CUSTOM_AUTH_ALG,
+    typ: "JWT",
+    kid: input.keyId,
+  };
+  const signingInput = `${base64UrlJson(header)}.${base64UrlJson(input.claims)}`;
+  const signature = crypto.sign(
+    "RSA-SHA256",
+    Buffer.from(signingInput),
+    crypto.createPrivateKey(input.privateKeyPem),
+  );
+  return `${signingInput}.${base64Url(signature)}`;
+}
+
+export function buildVanaCustomAuthJwks(input: {
+  privateKeyPem: string;
+  keyId: string;
+}): JsonWebKeySet {
+  if (!input.keyId) {
+    throw new Error("Privy custom-auth JWKS kid is required");
+  }
+  const publicKey = crypto.createPublicKey(
+    crypto.createPrivateKey(input.privateKeyPem),
+  );
+  const jwk = publicKey.export({ format: "jwk" });
+  return {
+    keys: [
+      {
+        ...jwk,
+        kid: input.keyId,
+        alg: VANA_CUSTOM_AUTH_ALG,
+        use: VANA_CUSTOM_AUTH_USE,
+      } as VanaCustomAuthPublicJwk,
+    ],
+  };
+}
+
+function readRequiredEnv(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name]?.trim();
+  if (!value) {
+    throw new Error(`Missing required environment variable ${name}`);
+  }
+  return value.replaceAll("\\n", "\n");
+}
+
+function base64UrlJson(value: unknown): string {
+  return base64Url(Buffer.from(JSON.stringify(value)));
+}
+
+function base64Url(value: Buffer): string {
+  return value
+    .toString("base64")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
 }
 
 /**

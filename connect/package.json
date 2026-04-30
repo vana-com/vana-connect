@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:auth": "vitest run src/app/_auth/auth.test.ts",
+    "db:migrate": "node scripts/migrate-account-db.mjs",
+    "db:migrate:local": "node scripts/migrate-local.mjs",
     "lint": "biome check",
     "format": "biome format --write"
   },

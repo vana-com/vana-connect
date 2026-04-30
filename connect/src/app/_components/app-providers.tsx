@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import type { ReactNode } from "react";
 import { resolvePrivyPublicEnv } from "@/config/privy-env";
+import { VanaJwtAuthSync } from "./vana-jwt-auth-sync";
 
 /**
  * Wraps the app in `<PrivyProvider>`.
@@ -37,6 +38,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       }}
     >
+      <VanaJwtAuthSync />
       {children}
     </PrivyProvider>
   );

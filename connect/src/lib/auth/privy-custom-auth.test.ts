@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { LoginEvidence } from "./login-session-adapter";
 import {
@@ -6,10 +7,18 @@ import {
   assertVanaCustomAuthSubject,
   buildPrivyCustomAuthInput,
   buildVanaCustomAuthClaims,
+  buildVanaCustomAuthJwks,
+  createVanaCustomAuthJwt,
   type PrivyCustomAuthClient,
   type PrivyCustomAuthResult,
+  signVanaCustomAuthJwt,
 } from "./privy-custom-auth";
 import { generateVanaUserId } from "./vana-account";
+
+const TEST_PRIVATE_KEY_PEM = crypto
+  .generateKeyPairSync("rsa", { modulusLength: 2048 })
+  .privateKey.export({ type: "pkcs8", format: "pem" })
+  .toString();
 
 describe("assertVanaCustomAuthSubject", () => {
   it("accepts an opaque vana_user_id", () => {
@@ -109,6 +118,108 @@ describe("buildVanaCustomAuthClaims", () => {
         expiresAt: at,
       }),
     ).toThrow(/exp must be after iat/);
+  });
+});
+
+describe("Vana custom-auth JWT issuer", () => {
+  it("signs a JWT that verifies against the published JWKS", () => {
+    const vanaUserId = generateVanaUserId();
+    const token = createVanaCustomAuthJwt({
+      vanaUserId,
+      now: new Date("2026-04-28T00:00:00.000Z"),
+      config: {
+        privateKeyPem: TEST_PRIVATE_KEY_PEM,
+        keyId: "test-key-1",
+        issuer: "https://account.vana.org",
+        audience: "privy-app-id-abc",
+        ttlSeconds: 300,
+      },
+    });
+    const jwks = buildVanaCustomAuthJwks({
+      privateKeyPem: TEST_PRIVATE_KEY_PEM,
+      keyId: "test-key-1",
+    });
+
+    const [encodedHeader, encodedPayload, encodedSignature] = token.split(".");
+    const header = parseJwtPart(encodedHeader);
+    const payload = parseJwtPart(encodedPayload);
+    const publicKey = crypto.createPublicKey({
+      key: jwks.keys[0] as crypto.JsonWebKey,
+      format: "jwk",
+    });
+    const verified = crypto.verify(
+      "RSA-SHA256",
+      Buffer.from(`${encodedHeader}.${encodedPayload}`),
+      publicKey,
+      base64UrlDecode(encodedSignature),
+    );
+
+    expect(verified).toBe(true);
+    expect(header).toMatchObject({ alg: "RS256", kid: "test-key-1" });
+    expect(payload).toEqual({
+      sub: vanaUserId,
+      iss: "https://account.vana.org",
+      aud: "privy-app-id-abc",
+      iat: 1777334400,
+      exp: 1777334700,
+    });
+  });
+
+  it("rejects a wrong subject before signing", () => {
+    expect(() =>
+      createVanaCustomAuthJwt({
+        vanaUserId: "did:privy:cln1234567890abcdef",
+        config: {
+          privateKeyPem: TEST_PRIVATE_KEY_PEM,
+          keyId: "test-key-1",
+          issuer: "https://account.vana.org",
+          audience: "privy-app-id-abc",
+        },
+      }),
+    ).toThrow(/vana_user_id/);
+  });
+
+  it("rejects bad exp claims before signing", () => {
+    const issuedAt = Math.floor(
+      new Date("2026-04-28T00:00:00.000Z").getTime() / 1000,
+    );
+
+    expect(() =>
+      signVanaCustomAuthJwt({
+        privateKeyPem: TEST_PRIVATE_KEY_PEM,
+        keyId: "test-key-1",
+        claims: {
+          sub: generateVanaUserId(),
+          iss: "https://account.vana.org",
+          aud: "privy-app-id-abc",
+          iat: issuedAt,
+          exp: issuedAt,
+        },
+      }),
+    ).toThrow(/exp must be after iat/);
+  });
+
+  it("publishes public JWKS fields only", () => {
+    const jwks = buildVanaCustomAuthJwks({
+      privateKeyPem: TEST_PRIVATE_KEY_PEM,
+      keyId: "test-key-1",
+    });
+    const key = jwks.keys[0];
+
+    expect(key).toMatchObject({
+      kty: "RSA",
+      kid: "test-key-1",
+      alg: "RS256",
+      use: "sig",
+    });
+    expect(key).toHaveProperty("n");
+    expect(key).toHaveProperty("e");
+    expect(key).not.toHaveProperty("d");
+    expect(key).not.toHaveProperty("p");
+    expect(key).not.toHaveProperty("q");
+    expect(key).not.toHaveProperty("dp");
+    expect(key).not.toHaveProperty("dq");
+    expect(key).not.toHaveProperty("qi");
   });
 });
 
@@ -253,3 +364,17 @@ describe("PrivyCustomAuthClient contract", () => {
     expect(result.privyUserId).not.toBe(vanaUserId);
   });
 });
+
+function parseJwtPart(value: string | undefined): Record<string, unknown> {
+  if (!value) throw new Error("JWT part is missing");
+  return JSON.parse(base64UrlDecode(value).toString("utf8")) as Record<
+    string,
+    unknown
+  >;
+}
+
+function base64UrlDecode(value: string | undefined): Buffer {
+  if (!value) throw new Error("JWT part is missing");
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  return Buffer.from(normalized, "base64");
+}

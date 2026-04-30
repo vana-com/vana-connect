@@ -8,6 +8,7 @@ import {
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { VANA_ACCOUNT_SESSION_CHANGED_EVENT } from "@/app/_components/vana-jwt-auth-sync";
 import {
   clearHandoffContext,
   persistHandoffContext,
@@ -114,6 +115,7 @@ export function useLoginPage() {
       if (!response.ok) {
         throw new Error("Could not establish account session.");
       }
+      window.dispatchEvent(new Event(VANA_ACCOUNT_SESSION_CHANGED_EVENT));
       clearOidcReturnTo();
       clearHandoffContext();
       window.location.replace(
