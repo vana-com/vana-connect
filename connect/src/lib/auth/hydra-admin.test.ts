@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearGoogleIdTokenCacheForTests } from "./google-id-token";
 import {
   buildHydraSessionClaims,
   createHydraAdminClient,
   type HydraAdminError,
 } from "./hydra-admin";
-import { clearGoogleIdTokenCacheForTests } from "./google-id-token";
 
 const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
 
@@ -80,8 +80,64 @@ describe("createHydraAdminClient", () => {
 
     await client.getLoginRequest("login-challenge");
 
+    const [, tokenRequest] = fetchImpl.mock.calls[0] ?? [];
+    expect(tokenRequest?.body).toBeInstanceOf(URLSearchParams);
+    expect((tokenRequest?.body as URLSearchParams).get("assertion")).toEqual(
+      expect.any(String),
+    );
     expect(fetchImpl).toHaveBeenLastCalledWith(
       "https://hydra-admin.example.com/admin/oauth2/auth/requests/login?login_challenge=login-challenge",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: "Bearer google-id-token",
+        }),
+      }),
+    );
+  });
+
+  it("can use a separate Google ID token audience for Cloud Run admin calls", async () => {
+    clearGoogleIdTokenCacheForTests();
+    const privateKey = crypto
+      .generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+      })
+      .privateKey.export({ format: "pem", type: "pkcs8" }) as string;
+    vi.stubEnv(
+      "GCP_SERVICE_ACCOUNT_KEY",
+      JSON.stringify({
+        client_email: "hydra-admin-caller@example.iam.gserviceaccount.com",
+        private_key: privateKey,
+      }),
+    );
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (url === "https://oauth2.googleapis.com/token") {
+        return jsonResponse({ id_token: "google-id-token" });
+      }
+      return jsonResponse({
+        client: { client_id: "memory-app" },
+        requested_scope: ["openid"],
+      });
+    });
+    const client = createHydraAdminClient({
+      adminAudience: "https://ory-hydra-admin-development.run.app/",
+      adminUrl: "https://oauth-admin-dev.vana.org",
+      fetch: fetchImpl,
+    });
+
+    await client.getLoginRequest("login-challenge");
+
+    const [[, tokenRequest]] = fetchImpl.mock.calls;
+    const assertion = (tokenRequest?.body as URLSearchParams).get("assertion");
+    const [, encodedClaims] = assertion?.split(".") ?? [];
+    const claims = JSON.parse(
+      Buffer.from(encodedClaims ?? "", "base64url").toString("utf-8"),
+    ) as { target_audience?: string };
+
+    expect(claims.target_audience).toBe(
+      "https://ory-hydra-admin-development.run.app",
+    );
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      "https://oauth-admin-dev.vana.org/admin/oauth2/auth/requests/login?login_challenge=login-challenge",
       expect.objectContaining({
         headers: expect.objectContaining({
           authorization: "Bearer google-id-token",

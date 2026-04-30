@@ -1,10 +1,10 @@
+import { fetchGoogleIdTokenForAudience } from "./google-id-token";
 import {
   buildAccountClaims,
   isVanaUserId,
   type LinkedWalletInput,
   type VanaAccountClaims,
 } from "./vana-account";
-import { fetchGoogleIdTokenForAudience } from "./google-id-token";
 
 type JsonObject = Record<string, unknown>;
 
@@ -107,14 +107,21 @@ export function getHydraAdminUrl() {
   return url;
 }
 
+export function getHydraAdminAudience() {
+  return process.env.HYDRA_ADMIN_AUDIENCE?.trim() || undefined;
+}
+
 export function createHydraAdminClient({
+  adminAudience = getHydraAdminAudience(),
   adminUrl = getHydraAdminUrl(),
   fetch: fetchImpl = fetch,
 }: {
+  adminAudience?: string;
   adminUrl?: string;
   fetch?: HydraFetch;
 } = {}) {
   const baseUrl = normalizeBaseUrl(adminUrl);
+  const audience = adminAudience ? normalizeBaseUrl(adminAudience) : baseUrl;
 
   return {
     acceptConsentRequest(
@@ -124,6 +131,7 @@ export function createHydraAdminClient({
       assertVanaUserId(input.subject);
 
       return request<HydraRedirectResponse>({
+        audience,
         baseUrl,
         body: {
           grant_access_token_audience: input.grantAccessTokenAudience ?? [],
@@ -166,6 +174,7 @@ export function createHydraAdminClient({
       assertVanaUserId(input.subject);
 
       return request<HydraRedirectResponse>({
+        audience,
         baseUrl,
         body: {
           remember: input.remember ?? false,
@@ -182,6 +191,7 @@ export function createHydraAdminClient({
 
     acceptLogoutRequest(logoutChallenge: string) {
       return request<HydraRedirectResponse>({
+        audience,
         baseUrl,
         fetchImpl,
         method: "PUT",
@@ -193,6 +203,7 @@ export function createHydraAdminClient({
 
     getConsentRequest(consentChallenge: string) {
       return request<HydraConsentRequest>({
+        audience,
         baseUrl,
         fetchImpl,
         method: "GET",
@@ -204,6 +215,7 @@ export function createHydraAdminClient({
 
     getLoginRequest(loginChallenge: string) {
       return request<HydraLoginRequest>({
+        audience,
         baseUrl,
         fetchImpl,
         method: "GET",
@@ -269,19 +281,21 @@ async function parseHydraResponse(response: Response) {
 }
 
 async function request<T>({
+  audience,
   baseUrl,
   body,
   fetchImpl,
   method,
   path,
 }: {
+  audience: string;
   baseUrl: string;
   body?: JsonObject;
   fetchImpl: HydraFetch;
   method: string;
   path: string;
 }): Promise<T> {
-  const token = await fetchGoogleIdTokenForAudience(baseUrl, {
+  const token = await fetchGoogleIdTokenForAudience(audience, {
     fetch: fetchImpl,
   });
   const response = await fetchImpl(`${baseUrl}${path}`, {
