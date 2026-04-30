@@ -1,11 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import crypto from "node:crypto";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildHydraSessionClaims,
   createHydraAdminClient,
   type HydraAdminError,
 } from "./hydra-admin";
+import { clearGoogleIdTokenCacheForTests } from "./google-id-token";
 
 const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
+
+afterEach(() => {
+  clearGoogleIdTokenCacheForTests();
+  vi.unstubAllEnvs();
+});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -40,6 +47,46 @@ describe("createHydraAdminClient", () => {
         },
         method: "GET",
       },
+    );
+  });
+
+  it("adds a Google ID token when service account credentials are configured", async () => {
+    clearGoogleIdTokenCacheForTests();
+    const privateKey = crypto
+      .generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+      })
+      .privateKey.export({ format: "pem", type: "pkcs8" }) as string;
+    vi.stubEnv(
+      "GCP_SERVICE_ACCOUNT_KEY",
+      JSON.stringify({
+        client_email: "hydra-admin-caller@example.iam.gserviceaccount.com",
+        private_key: privateKey,
+      }),
+    );
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (url === "https://oauth2.googleapis.com/token") {
+        return jsonResponse({ id_token: "google-id-token" });
+      }
+      return jsonResponse({
+        client: { client_id: "memory-app" },
+        requested_scope: ["openid"],
+      });
+    });
+    const client = createHydraAdminClient({
+      adminUrl: "https://hydra-admin.example.com",
+      fetch: fetchImpl,
+    });
+
+    await client.getLoginRequest("login-challenge");
+
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      "https://hydra-admin.example.com/admin/oauth2/auth/requests/login?login_challenge=login-challenge",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: "Bearer google-id-token",
+        }),
+      }),
     );
   });
 

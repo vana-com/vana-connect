@@ -4,6 +4,7 @@ import {
   type LinkedWalletInput,
   type VanaAccountClaims,
 } from "./vana-account";
+import { fetchGoogleIdTokenForAudience } from "./google-id-token";
 
 type JsonObject = Record<string, unknown>;
 
@@ -280,10 +281,14 @@ async function request<T>({
   method: string;
   path: string;
 }): Promise<T> {
+  const token = await fetchGoogleIdTokenForAudience(baseUrl, {
+    fetch: fetchImpl,
+  });
   const response = await fetchImpl(`${baseUrl}${path}`, {
     body: body ? JSON.stringify(body) : undefined,
     headers: {
       accept: "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       "content-type": "application/json",
     },
     method,
