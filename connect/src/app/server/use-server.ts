@@ -38,6 +38,11 @@ export function useServer() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialFetchDone = useRef(false);
   const provisioningServerIdRef = useRef<string | null>(null);
+  // Tracks server ids we've already triggered on-chain registration for, so
+  // we don't repeat the call on every poll/refresh after the server transitions
+  // to `running`. Idempotent on the server too (gateway returns 409 →
+  // treated as success), but avoiding the network roundtrip is cheaper.
+  const registeredOnChainRef = useRef<Set<string>>(new Set());
 
   const embeddedWalletAddress = (() => {
     for (const wallet of wallets) {
@@ -171,6 +176,34 @@ export function useServer() {
     initialFetchDone.current = true;
     fetchServer();
   }, [walletsReady, embeddedWalletAddress, fetchServer]);
+
+  // When status flips to `running` for a server we haven't registered on-chain
+  // yet, fire-and-forget the gateway registration. Failure is non-fatal — the
+  // user can retry, and the server still serves owner traffic without it; only
+  // delegated grant/file signing is gated on this.
+  useEffect(() => {
+    if (status !== "running" || !server) return;
+    if (registeredOnChainRef.current.has(server.id)) return;
+    registeredOnChainRef.current.add(server.id);
+
+    void (async () => {
+      try {
+        const sig = await getSignature();
+        const res = await fetch(`/api/servers/${server.id}/register-on-chain`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${sig}` },
+        });
+        if (!res.ok) {
+          // Soft failure — log but don't surface as a hard error in the UI.
+          // The server is still running and usable for owner ops.
+          const body = await res.json().catch(() => ({}));
+          console.warn("On-chain registration failed:", body);
+        }
+      } catch (err) {
+        console.warn("On-chain registration error:", err);
+      }
+    })();
+  }, [status, server, getSignature]);
 
   // Poll while provisioning
   useEffect(() => {
