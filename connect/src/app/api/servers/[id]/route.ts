@@ -106,11 +106,29 @@ export async function DELETE(
         dnsRecordId: server.dns_record_id,
       });
     } catch (err) {
-      console.error("Deprovision error:", err);
+      const errorName = err instanceof Error ? err.name : "Error";
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const deprovisionErrors = (
+        err as Error & {
+          deprovisionErrors?: { step: string; code: number; message: string }[];
+        }
+      ).deprovisionErrors;
+      console.error(
+        `[api/servers DELETE] serverId=${id} providerId=${server.provider_id ?? ""} tunnelId=${server.tunnel_id ?? ""} dnsRecordId=${server.dns_record_id ?? ""} ${errorName}: ${errorMessage}`,
+      );
       await updateServer(id, { state: "deprovision_failed" });
+      // Return the actual failure detail in the response body so it's visible
+      // without runtime-log access. This is admin/control-plane data; nothing
+      // here is secret (just step names + GCP/Cloudflare error messages).
       return apiError(
         "internal_error",
-        "Failed to deprovision server. Resources may still be running.",
+        `Failed to deprovision server: ${errorMessage}${
+          deprovisionErrors?.length
+            ? ` [steps: ${deprovisionErrors
+                .map((e) => `${e.step}(code=${e.code})`)
+                .join(", ")}]`
+            : ""
+        }`,
         500,
       );
     }
