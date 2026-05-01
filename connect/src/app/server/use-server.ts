@@ -25,6 +25,7 @@ export type ServerStatus =
   | "provisioning"
   | "running"
   | "stopped"
+  | "deprovision_failed"
   | "error";
 
 export function useServer() {

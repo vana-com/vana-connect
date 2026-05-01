@@ -28,6 +28,6 @@ export interface ServerProvider {
   status(serverId: string): Promise<ServerStatus>;
   deprovision(
     serverId: string,
-    options?: { tunnelId?: string; dnsRecordId?: string },
+    options?: { tunnelId?: string | null; dnsRecordId?: string | null },
   ): Promise<void>;
 }

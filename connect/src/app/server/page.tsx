@@ -341,6 +341,8 @@ function getStatusInfo(status: ServerStatus): {
       return { tone: "accent", label: "Provisioning..." };
     case "stopped":
       return { tone: "warning", label: "Stopped" };
+    case "deprovision_failed":
+      return { tone: "destructive", label: "Cleanup failed" };
     case "error":
       return { tone: "destructive", label: "Error" };
     default:
