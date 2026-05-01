@@ -346,6 +346,10 @@ export class GCPProvider implements ServerProvider {
           },
           {
             initializeParams: {
+              // Pin the underlying GCE disk resource name. Without this, GCE
+              // auto-generates `<vmName>-1` and deprovision can't find the
+              // disk to delete by the deviceName-based lookup.
+              diskName: `${vmName}-data`,
               diskSizeGb: "10",
               diskType: `zones/${GCP_ZONE}/diskTypes/pd-standard`,
             },
@@ -514,8 +518,11 @@ export class GCPProvider implements ServerProvider {
       }
     }
 
-    // 3. Delete the persistent data disk (not auto-deleted with VM)
-    const diskName = `${serverId}-data`;
+    // 3. Delete the persistent data disk (not auto-deleted with VM).
+    // Newer provisions pin the disk name to `${vmName}-data`. Older
+    // provisions let GCE auto-generate the name, which lands as
+    // `${vmName}-1`. Try both so legacy rows can be cleaned up too.
+    const diskNameCandidates = [`${serverId}-data`, `${serverId}-1`];
     try {
       const { DisksClient } = await import("@google-cloud/compute");
       const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
@@ -536,20 +543,27 @@ export class GCPProvider implements ServerProvider {
       } else {
         disksClient = new DisksClient({ projectId: this.project });
       }
-      await disksClient.delete({
-        project: this.project,
-        zone: GCP_ZONE,
-        disk: diskName,
-      });
-    } catch (err: unknown) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code: number }).code
-          : 0;
-      if (code !== 5 && code !== 404) {
-        console.error("Disk deletion failed:", err);
-        errors.push(err instanceof Error ? err : new Error(String(err)));
+      for (const diskName of diskNameCandidates) {
+        try {
+          await disksClient.delete({
+            project: this.project,
+            zone: GCP_ZONE,
+            disk: diskName,
+          });
+        } catch (err: unknown) {
+          const code =
+            err && typeof err === "object" && "code" in err
+              ? (err as { code: number }).code
+              : 0;
+          if (code !== 5 && code !== 404) {
+            console.error(`Disk deletion failed for ${diskName}:`, err);
+            errors.push(err instanceof Error ? err : new Error(String(err)));
+          }
+        }
       }
+    } catch (err) {
+      console.error("DisksClient init failed:", err);
+      errors.push(err instanceof Error ? err : new Error(String(err)));
     }
 
     if (errors.length > 0) {
