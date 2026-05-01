@@ -282,6 +282,25 @@ docker run -d \\
 // GCP Provider
 // ---------------------------------------------------------------------------
 
+/**
+ * Load GCP credentials from GCP_SERVICE_ACCOUNT_KEY.
+ * Vercel sometimes mangles raw JSON in env vars, so we accept either raw JSON
+ * or base64-encoded JSON. Returns null when no key is configured (falls back
+ * to ADC, which only works on GCP-hosted runtimes).
+ */
+function loadGcpCredentials(): {
+  client_email: string;
+  private_key: string;
+} | null {
+  const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
+  if (!saKey) return null;
+  try {
+    return JSON.parse(saKey);
+  } catch {
+    return JSON.parse(Buffer.from(saKey, "base64").toString("utf-8"));
+  }
+}
+
 export class GCPProvider implements ServerProvider {
   private client: InstancesClient;
   private project: string;
@@ -289,19 +308,12 @@ export class GCPProvider implements ServerProvider {
   constructor() {
     this.project = requireEnv("GCP_PROJECT");
 
-    const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
-    if (saKey) {
-      let key: { client_email: string; private_key: string };
-      try {
-        key = JSON.parse(saKey);
-      } catch {
-        // Try base64 decoding (some env var systems mangle raw JSON)
-        key = JSON.parse(Buffer.from(saKey, "base64").toString("utf-8"));
-      }
+    const credentials = loadGcpCredentials();
+    if (credentials) {
       this.client = new InstancesClient({
         credentials: {
-          client_email: key.client_email,
-          private_key: key.private_key,
+          client_email: credentials.client_email,
+          private_key: credentials.private_key,
         },
         projectId: this.project,
       });
@@ -558,24 +570,16 @@ export class GCPProvider implements ServerProvider {
       const diskNameCandidates = [`${serverId}-data`, `${serverId}-1`];
       try {
         const { DisksClient } = await import("@google-cloud/compute");
-        const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
-        let disksClient: InstanceType<typeof DisksClient>;
-        if (saKey) {
-          try {
-            const key = JSON.parse(saKey);
-            disksClient = new DisksClient({
+        const credentials = loadGcpCredentials();
+        const disksClient: InstanceType<typeof DisksClient> = credentials
+          ? new DisksClient({
               credentials: {
-                client_email: key.client_email,
-                private_key: key.private_key,
+                client_email: credentials.client_email,
+                private_key: credentials.private_key,
               },
               projectId: this.project,
-            });
-          } catch {
-            disksClient = new DisksClient({ projectId: this.project });
-          }
-        } else {
-          disksClient = new DisksClient({ projectId: this.project });
-        }
+            })
+          : new DisksClient({ projectId: this.project });
         for (const diskName of diskNameCandidates) {
           // Up to 5 retries for FAILED_PRECONDITION (disk still attached to a
           // VM that is mid-delete) — usually clears within a few seconds.
