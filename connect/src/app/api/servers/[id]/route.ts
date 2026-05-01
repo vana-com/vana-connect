@@ -94,12 +94,14 @@ export async function DELETE(
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  if (server.provider_id) {
+  // Always run cleanup if we have any provider-side state recorded —
+  // VM, tunnel, or DNS — so retry from `deprovision_failed` works.
+  if (server.provider_id || server.tunnel_id || server.dns_record_id) {
     try {
       const provider = getServerProvider();
-      await provider.deprovision(server.provider_id, {
-        tunnelId: server.tunnel_id ?? undefined,
-        dnsRecordId: server.dns_record_id ?? undefined,
+      await provider.deprovision(server.provider_id ?? "", {
+        tunnelId: server.tunnel_id,
+        dnsRecordId: server.dns_record_id,
       });
     } catch (err) {
       console.error("Deprovision error:", err);

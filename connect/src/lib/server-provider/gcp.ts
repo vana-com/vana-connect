@@ -63,17 +63,39 @@ async function cfFetch<T = unknown>(
 
   const json = (await resp.json()) as {
     success: boolean;
-    errors?: { message: string }[];
+    errors?: { code?: number; message: string }[];
     result: T;
   };
 
   if (!json.success) {
     const msg =
       json.errors?.map((e) => e.message).join("; ") ?? "Unknown CF error";
-    throw new Error(`Cloudflare API error: ${msg}`);
+    const err = new Error(`Cloudflare API error: ${msg}`) as Error & {
+      cfErrors?: { code?: number; message: string }[];
+      cfStatus?: number;
+    };
+    err.cfErrors = json.errors;
+    err.cfStatus = resp.status;
+    throw err;
   }
 
   return json.result;
+}
+
+// Cloudflare error codes that mean "the resource is already gone" — safe to ignore on delete.
+// 1003: tunnel not found; 7003/7000: route/path not found; 81044: DNS record not found.
+const CF_NOT_FOUND_CODES = new Set([1003, 7003, 7000, 81044]);
+
+function isCfNotFound(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const cfErr = err as Error & {
+    cfErrors?: { code?: number }[];
+    cfStatus?: number;
+  };
+  if (cfErr.cfStatus === 404) return true;
+  return (cfErr.cfErrors ?? []).some(
+    (e) => e.code !== undefined && CF_NOT_FOUND_CODES.has(e.code),
+  );
 }
 
 /**
@@ -150,26 +172,39 @@ async function createTunnel(userId: string): Promise<CloudflareTunnelResult> {
 }
 
 async function deleteTunnel(
-  tunnelId: string,
-  dnsRecordId: string,
+  tunnelId: string | null | undefined,
+  dnsRecordId: string | null | undefined,
 ): Promise<void> {
   const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
   const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
 
   // Delete DNS record first (so traffic stops going to the tunnel)
-  try {
-    await cfFetch(`/zones/${zoneId}/dns_records/${dnsRecordId}`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    console.error("Failed to delete DNS record:", err);
-    // Continue to delete the tunnel even if DNS delete fails
+  if (dnsRecordId) {
+    try {
+      await cfFetch(`/zones/${zoneId}/dns_records/${dnsRecordId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      if (!isCfNotFound(err)) {
+        console.error("Failed to delete DNS record:", err);
+        // Continue to delete the tunnel even if DNS delete fails for non-404 reasons
+      }
+    }
   }
 
   // Delete the tunnel — cascade=true cleans up connections even if cloudflared is still running
-  await cfFetch(`/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`, {
-    method: "DELETE",
-  });
+  if (tunnelId) {
+    try {
+      await cfFetch(
+        `/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`,
+        { method: "DELETE" },
+      );
+    } catch (err) {
+      if (!isCfNotFound(err)) {
+        throw err;
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -442,14 +477,19 @@ export class GCPProvider implements ServerProvider {
 
   async deprovision(
     serverId: string,
-    options?: { tunnelId?: string; dnsRecordId?: string },
+    options?: { tunnelId?: string | null; dnsRecordId?: string | null },
   ): Promise<void> {
     const errors: Error[] = [];
 
-    // 1. Delete Cloudflare Tunnel + DNS (proceed even if this fails)
-    if (options?.tunnelId && options?.dnsRecordId) {
+    // 1. Delete Cloudflare Tunnel + DNS (proceed even if this fails).
+    // deleteTunnel tolerates already-deleted resources and missing ids,
+    // so retry from a `deprovision_failed` state is safe.
+    if (options?.tunnelId || options?.dnsRecordId) {
       try {
-        await deleteTunnel(options.tunnelId, options.dnsRecordId);
+        await deleteTunnel(
+          options.tunnelId ?? null,
+          options.dnsRecordId ?? null,
+        );
       } catch (err) {
         console.error("Tunnel cleanup failed:", err);
         errors.push(err instanceof Error ? err : new Error(String(err)));
