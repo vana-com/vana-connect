@@ -5,8 +5,10 @@ import { toApiServer } from "@/lib/api-server";
 import { findServerById, updateServer } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
-// Allow up to 30s for GCP API calls during provisioning checks
-export const maxDuration = 30;
+// Allow up to 60s — DELETE waits for the GCE VM delete operation to
+// complete before deleting the persistent data disk, which can take
+// 15-30s on its own. GET only does a fast status read.
+export const maxDuration = 60;
 
 function extractSignature(request: NextRequest): string | null {
   return (
