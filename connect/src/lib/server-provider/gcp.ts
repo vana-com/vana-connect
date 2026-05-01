@@ -483,7 +483,21 @@ export class GCPProvider implements ServerProvider {
     serverId: string,
     options?: { tunnelId?: string | null; dnsRecordId?: string | null },
   ): Promise<void> {
-    const errors: Error[] = [];
+    const errors: { step: string; code: number; message: string }[] = [];
+
+    const errCode = (err: unknown): number =>
+      err && typeof err === "object" && "code" in err
+        ? Number((err as { code: number }).code) || 0
+        : 0;
+    const errMessage = (err: unknown): string =>
+      err instanceof Error ? err.message : String(err);
+    const recordError = (step: string, err: unknown) => {
+      const entry = { step, code: errCode(err), message: errMessage(err) };
+      console.error(
+        `[deprovision] step=${step} serverId=${serverId} code=${entry.code} message=${entry.message}`,
+      );
+      errors.push(entry);
+    };
 
     // 1. Delete Cloudflare Tunnel + DNS (proceed even if this fails).
     // deleteTunnel tolerates already-deleted resources and missing ids,
@@ -495,39 +509,44 @@ export class GCPProvider implements ServerProvider {
           options.dnsRecordId ?? null,
         );
       } catch (err) {
-        console.error("Tunnel cleanup failed:", err);
-        errors.push(err instanceof Error ? err : new Error(String(err)));
+        recordError("tunnel", err);
       }
     }
 
     // 2. Delete the GCP VM and wait for completion. Without waiting, the
     // disk delete in step 3 races the VM teardown and fails with
     // RESOURCE_IN_USE_BY_ANOTHER_RESOURCE while the VM is still STOPPING.
-    try {
-      const [operation] = await this.client.delete({
-        project: this.project,
-        zone: GCP_ZONE,
-        instance: serverId,
-      });
-      // Poll until the VM is fully deleted (typically <15s for a stopped instance).
-      // The Compute v1 SDK exposes operation.promise() via the long-running
-      // operation client returned alongside InstancesClient; for older
-      // versions, fall back to manual polling via the zone operations endpoint.
-      const op = operation as unknown as {
-        promise?: () => Promise<unknown>;
-        latestResponse?: { name?: string };
-      };
-      if (typeof op.promise === "function") {
-        await op.promise();
-      }
-    } catch (err: unknown) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code: number }).code
-          : 0;
-      if (code !== 5 && code !== 404) {
-        console.error("VM deletion failed:", err);
-        errors.push(err instanceof Error ? err : new Error(String(err)));
+    if (serverId) {
+      try {
+        const [operation] = await this.client.delete({
+          project: this.project,
+          zone: GCP_ZONE,
+          instance: serverId,
+        });
+        // Poll until the VM is fully deleted (typically <15s for a stopped instance).
+        // The Compute v1 SDK exposes operation.promise() via the long-running
+        // operation client returned alongside InstancesClient; for older
+        // versions, fall back to manual polling via the zone operations endpoint.
+        const op = operation as unknown as {
+          promise?: () => Promise<unknown>;
+        };
+        if (typeof op.promise === "function") {
+          try {
+            await op.promise();
+          } catch (waitErr) {
+            // The VM may have been deleted between our delete call and the
+            // wait — that's a "stopped" code we can ignore.
+            const code = errCode(waitErr);
+            if (code !== 5 && code !== 404) {
+              recordError("vm-wait", waitErr);
+            }
+          }
+        }
+      } catch (err: unknown) {
+        const code = errCode(err);
+        if (code !== 5 && code !== 404) {
+          recordError("vm-delete", err);
+        }
       }
     }
 
@@ -535,75 +554,76 @@ export class GCPProvider implements ServerProvider {
     // Newer provisions pin the disk name to `${vmName}-data`. Older
     // provisions let GCE auto-generate the name, which lands as
     // `${vmName}-1`. Try both so legacy rows can be cleaned up too.
-    const diskNameCandidates = [`${serverId}-data`, `${serverId}-1`];
-    try {
-      const { DisksClient } = await import("@google-cloud/compute");
-      const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
-      let disksClient: InstanceType<typeof DisksClient>;
-      if (saKey) {
-        try {
-          const key = JSON.parse(saKey);
-          disksClient = new DisksClient({
-            credentials: {
-              client_email: key.client_email,
-              private_key: key.private_key,
-            },
-            projectId: this.project,
-          });
-        } catch {
+    if (serverId) {
+      const diskNameCandidates = [`${serverId}-data`, `${serverId}-1`];
+      try {
+        const { DisksClient } = await import("@google-cloud/compute");
+        const saKey = process.env.GCP_SERVICE_ACCOUNT_KEY;
+        let disksClient: InstanceType<typeof DisksClient>;
+        if (saKey) {
+          try {
+            const key = JSON.parse(saKey);
+            disksClient = new DisksClient({
+              credentials: {
+                client_email: key.client_email,
+                private_key: key.private_key,
+              },
+              projectId: this.project,
+            });
+          } catch {
+            disksClient = new DisksClient({ projectId: this.project });
+          }
+        } else {
           disksClient = new DisksClient({ projectId: this.project });
         }
-      } else {
-        disksClient = new DisksClient({ projectId: this.project });
-      }
-      for (const diskName of diskNameCandidates) {
-        // Up to 5 retries for FAILED_PRECONDITION (disk still attached to a
-        // VM that is mid-delete) — usually clears within a few seconds.
-        let attempt = 0;
-        const maxAttempts = 5;
-        while (attempt < maxAttempts) {
-          try {
-            await disksClient.delete({
-              project: this.project,
-              zone: GCP_ZONE,
-              disk: diskName,
-            });
-            break;
-          } catch (err: unknown) {
-            const code =
-              err && typeof err === "object" && "code" in err
-                ? (err as { code: number }).code
-                : 0;
-            if (code === 5 || code === 404) {
-              break; // already gone
-            }
-            // gRPC FAILED_PRECONDITION (9) or HTTP 400 — disk still in use,
-            // back off and retry. Anything else is a real failure.
-            const isInUse = code === 9 || code === 400;
-            if (!isInUse || attempt === maxAttempts - 1) {
-              console.error(
-                `Disk deletion failed for ${diskName} (code=${code}):`,
-                err,
-              );
-              errors.push(err instanceof Error ? err : new Error(String(err)));
+        for (const diskName of diskNameCandidates) {
+          // Up to 5 retries for FAILED_PRECONDITION (disk still attached to a
+          // VM that is mid-delete) — usually clears within a few seconds.
+          let attempt = 0;
+          const maxAttempts = 5;
+          while (attempt < maxAttempts) {
+            try {
+              await disksClient.delete({
+                project: this.project,
+                zone: GCP_ZONE,
+                disk: diskName,
+              });
               break;
+            } catch (err: unknown) {
+              const code = errCode(err);
+              if (code === 5 || code === 404) {
+                break; // already gone
+              }
+              // gRPC FAILED_PRECONDITION (9) or HTTP 400 — disk still in use,
+              // back off and retry. Anything else is a real failure.
+              const isInUse = code === 9 || code === 400;
+              if (!isInUse || attempt === maxAttempts - 1) {
+                recordError(`disk:${diskName}`, err);
+                break;
+              }
+              await new Promise((resolve) =>
+                setTimeout(resolve, 2000 * (attempt + 1)),
+              );
+              attempt += 1;
             }
-            await new Promise((resolve) =>
-              setTimeout(resolve, 2000 * (attempt + 1)),
-            );
-            attempt += 1;
           }
         }
+      } catch (err) {
+        recordError("disks-init", err);
       }
-    } catch (err) {
-      console.error("DisksClient init failed:", err);
-      errors.push(err instanceof Error ? err : new Error(String(err)));
     }
 
     if (errors.length > 0) {
-      throw new Error(
-        `Deprovision partially failed: ${errors.map((e) => e.message).join("; ")}`,
-      );
+      const detail = errors
+        .map((e) => `${e.step}(code=${e.code}): ${e.message}`)
+        .join("; ");
+      const wrapped = new Error(
+        `Deprovision partially failed: ${detail}`,
+      ) as Error & {
+        deprovisionErrors?: typeof errors;
+      };
+      wrapped.deprovisionErrors = errors;
+      throw wrapped;
     }
   }
 }
