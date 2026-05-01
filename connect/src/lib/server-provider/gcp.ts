@@ -500,13 +500,26 @@ export class GCPProvider implements ServerProvider {
       }
     }
 
-    // 2. Delete the GCP VM (proceed even if this fails)
+    // 2. Delete the GCP VM and wait for completion. Without waiting, the
+    // disk delete in step 3 races the VM teardown and fails with
+    // RESOURCE_IN_USE_BY_ANOTHER_RESOURCE while the VM is still STOPPING.
     try {
-      await this.client.delete({
+      const [operation] = await this.client.delete({
         project: this.project,
         zone: GCP_ZONE,
         instance: serverId,
       });
+      // Poll until the VM is fully deleted (typically <15s for a stopped instance).
+      // The Compute v1 SDK exposes operation.promise() via the long-running
+      // operation client returned alongside InstancesClient; for older
+      // versions, fall back to manual polling via the zone operations endpoint.
+      const op = operation as unknown as {
+        promise?: () => Promise<unknown>;
+        latestResponse?: { name?: string };
+      };
+      if (typeof op.promise === "function") {
+        await op.promise();
+      }
     } catch (err: unknown) {
       const code =
         err && typeof err === "object" && "code" in err
@@ -544,20 +557,41 @@ export class GCPProvider implements ServerProvider {
         disksClient = new DisksClient({ projectId: this.project });
       }
       for (const diskName of diskNameCandidates) {
-        try {
-          await disksClient.delete({
-            project: this.project,
-            zone: GCP_ZONE,
-            disk: diskName,
-          });
-        } catch (err: unknown) {
-          const code =
-            err && typeof err === "object" && "code" in err
-              ? (err as { code: number }).code
-              : 0;
-          if (code !== 5 && code !== 404) {
-            console.error(`Disk deletion failed for ${diskName}:`, err);
-            errors.push(err instanceof Error ? err : new Error(String(err)));
+        // Up to 5 retries for FAILED_PRECONDITION (disk still attached to a
+        // VM that is mid-delete) — usually clears within a few seconds.
+        let attempt = 0;
+        const maxAttempts = 5;
+        while (attempt < maxAttempts) {
+          try {
+            await disksClient.delete({
+              project: this.project,
+              zone: GCP_ZONE,
+              disk: diskName,
+            });
+            break;
+          } catch (err: unknown) {
+            const code =
+              err && typeof err === "object" && "code" in err
+                ? (err as { code: number }).code
+                : 0;
+            if (code === 5 || code === 404) {
+              break; // already gone
+            }
+            // gRPC FAILED_PRECONDITION (9) or HTTP 400 — disk still in use,
+            // back off and retry. Anything else is a real failure.
+            const isInUse = code === 9 || code === 400;
+            if (!isInUse || attempt === maxAttempts - 1) {
+              console.error(
+                `Disk deletion failed for ${diskName} (code=${code}):`,
+                err,
+              );
+              errors.push(err instanceof Error ? err : new Error(String(err)));
+              break;
+            }
+            await new Promise((resolve) =>
+              setTimeout(resolve, 2000 * (attempt + 1)),
+            );
+            attempt += 1;
           }
         }
       }
