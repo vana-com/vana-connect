@@ -1,0 +1,91 @@
+# Ory Hydra POC configuration -- ACCOUNT-APP MODE (v26.2.0).
+#
+# Same as ./hydra.yml except the login/consent/logout URLs point at the
+# Vana Next account app's OIDC routes on http://localhost:3000 instead
+# of the in-tree login-consent stub.
+#
+# Use with docker-compose.account.yml (which omits the stub container)
+# via scripts/up-account.sh. The stub-mode config remains the default
+# `hydra.yml` so the existing `./scripts/up.sh && node ./scripts/smoke.mjs`
+# proof is untouched.
+#
+# Reference: https://www.ory.sh/docs/hydra/reference/configuration
+
+serve:
+  cookies:
+    same_site_mode: Lax
+  public:
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://127.0.0.1:3000
+        - http://localhost:3000
+        - http://localhost:3084
+      allowed_methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+  admin:
+    # Admin is exposed only on localhost via docker compose port mapping.
+    # In production, this MUST stay private.
+    cors:
+      enabled: false
+
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+    public: http://127.0.0.1:4444
+  # Account-app mode: Hydra delegates login/consent to the Next routes
+  # under connect/src/app/auth/oidc/. The account app must already be
+  # running on localhost:3000 with its Privy + DB env wired up; this
+  # stack does not start it.
+  consent: http://localhost:3000/auth/oidc/consent
+  login: http://localhost:3000/auth/oidc/login
+  # No logout route exists in the account app yet; this URL will 404
+  # if Hydra's logout flow is exercised. The smoke flows do not touch
+  # logout, so this is a known stub. Replace once the account app has
+  # an /auth/oidc/logout handler.
+  logout: http://localhost:3000/auth/oidc/logout
+
+secrets:
+  # 32+ char dev secrets. Rotate / replace for any non-POC use.
+  system:
+    - youReallyNeedToChangeThis32CharsMinimum
+  cookie:
+    - youReallyNeedToChangeThis32CharsMinimum
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - public
+  dynamic_client_registration:
+    enabled: false
+
+oauth2:
+  expose_internal_errors: true
+  pkce:
+    enforced_for_public_clients: true
+
+ttl:
+  access_token: 15m
+  refresh_token: 24h
+  id_token: 15m
+  auth_code: 10m
+  login_consent_request: 30m
+
+strategies:
+  access_token: opaque
+  jwt:
+    scope_claim: list
+
+log:
+  level: debug
+  format: text
+  leak_sensitive_values: true

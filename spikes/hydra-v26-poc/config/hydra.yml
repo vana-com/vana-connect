@@ -1,0 +1,79 @@
+# Ory Hydra POC configuration (v26.2.0).
+# Reference: https://www.ory.sh/docs/hydra/reference/configuration
+#
+# This file is the source of truth for Hydra config in this POC.
+# docker-compose.yml bind-mounts it to /etc/hydra/hydra.yml in both
+# the migrate job and the hydra serve container, and Hydra is started
+# with `--config /etc/hydra/hydra.yml`. Only DSN is supplied via env.
+
+serve:
+  cookies:
+    same_site_mode: Lax
+  public:
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://127.0.0.1:3000
+        - http://localhost:3000
+      allowed_methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowed_headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - Content-Type
+      allow_credentials: true
+  admin:
+    # Admin is exposed only on localhost via docker compose port mapping.
+    # In production, this MUST stay private.
+    cors:
+      enabled: false
+
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+    public: http://127.0.0.1:4444
+  consent: http://127.0.0.1:3000/consent
+  login: http://127.0.0.1:3000/login
+  logout: http://127.0.0.1:3000/logout
+
+secrets:
+  # 32+ char dev secrets. Rotate / replace for any non-POC use.
+  system:
+    - youReallyNeedToChangeThis32CharsMinimum
+  cookie:
+    - youReallyNeedToChangeThis32CharsMinimum
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - public
+    # We pin subject = vana_user_id at the consent step, so we use
+    # public subjects (no salting) to keep the proof simple.
+  dynamic_client_registration:
+    enabled: false
+
+oauth2:
+  expose_internal_errors: true
+  pkce:
+    enforced_for_public_clients: true
+
+ttl:
+  access_token: 15m
+  refresh_token: 24h
+  id_token: 15m
+  auth_code: 10m
+  login_consent_request: 30m
+
+strategies:
+  access_token: opaque
+  jwt:
+    scope_claim: list
+
+log:
+  level: debug
+  format: text
+  leak_sensitive_values: true

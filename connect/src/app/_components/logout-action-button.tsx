@@ -2,12 +2,12 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { LogOutIcon } from "lucide-react";
-import { Spinner } from "@/components/elements/spinner";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 import { runClientLogout } from "@/app/_auth/logout-client";
 import { getPageShellActionButtonClassName } from "@/app/_components/page-shell-action-button-class";
+import { Spinner } from "@/components/elements/spinner";
 
 type LogoutActionButtonProps = {
   href: string;

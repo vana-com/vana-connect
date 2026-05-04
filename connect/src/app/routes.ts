@@ -3,6 +3,7 @@ export const APP_ROUTES = {
   connect: "/connect",
   login: "/login",
   logout: "/logout",
+  accountAccess: "/account/access",
   admin: "/admin",
   server: "/server",
   downloadDataConnect: "/download-data-connect",

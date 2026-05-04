@@ -1,0 +1,31 @@
+# Compose override for ACCOUNT-APP mode.
+#
+# Layered on top of docker-compose.yml via:
+#   docker compose -f docker-compose.yml -f docker-compose.account.yml ...
+#
+# Differences from the default stub-mode stack:
+#   1. Both hydra-migrate and hydra mount config/hydra.account.yml in
+#      place of config/hydra.yml. The account-mode YAML points
+#      login/consent at the Next account app on localhost:3000 instead
+#      of the in-tree stub.
+#   2. The login-consent stub service is replaced with a no-op
+#      (`profiles: ["disabled"]`) so docker compose does not start it.
+#      The account app must be running independently on host port 3000.
+#
+# The default `docker-compose.yml` is unchanged; running it without
+# this override still produces the original stub-mode proof.
+
+services:
+  hydra-migrate:
+    volumes:
+      - ./config/hydra.account.yml:/etc/hydra/hydra.yml:ro
+
+  hydra:
+    volumes:
+      - ./config/hydra.account.yml:/etc/hydra/hydra.yml:ro
+
+  login-consent:
+    # Disable the stub container in account-app mode. The Next account
+    # app on host :3000 owns /auth/oidc/login and /auth/oidc/consent.
+    profiles:
+      - disabled

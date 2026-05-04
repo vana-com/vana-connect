@@ -8,16 +8,16 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { useAuthGuard } from "@/app/_auth/use-auth-guard";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { LoadingButton } from "@/components/elements/button-loading";
 import {
   PageHeader,
   PageLoadingState,
 } from "@/components/elements/page-header";
-import { LoadingButton } from "@/components/elements/button-loading";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
-import { useAuthGuard } from "@/app/_auth/use-auth-guard";
 import { cn } from "@/lib/classes";
 import {
   type RegistrationStatus,
@@ -436,8 +436,7 @@ function CopyableValue({
   return (
     <div className="relative min-w-0">
       {copied && (
-        <div
-          role="status"
+        <output
           aria-live="polite"
           className={cn(
             "pointer-events-none absolute -top-9 right-0 z-50 overflow-hidden",
@@ -447,7 +446,7 @@ function CopyableValue({
           )}
         >
           Copied to clipboard
-        </div>
+        </output>
       )}
       <button
         type="button"

@@ -2,13 +2,13 @@ import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
 import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
+import { provisionPersonalServerSessionToken } from "@/lib/auth/personal-server-session";
 import {
   approveDeviceCode,
   createSession,
   findDeviceCodeByUserCode,
   findServerByUserId,
 } from "@/lib/db/neon";
-import { provisionPersonalServerSessionToken } from "@/lib/auth/personal-server-session";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 

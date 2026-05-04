@@ -13,10 +13,32 @@ export function clearLocalSessionState() {
   }
 }
 
+function resolveLogoutDestination() {
+  const fallback = APP_ROUTES.login;
+  const returnTo = new URLSearchParams(window.location.search).get("return_to");
+  if (!returnTo) return fallback;
+
+  try {
+    const url = new URL(returnTo);
+    if (url.origin === "http://localhost:3084") {
+      return url.toString();
+    }
+  } catch {
+    if (returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+      return returnTo;
+    }
+  }
+
+  return fallback;
+}
+
 export async function runClientLogout(logout: () => Promise<void>) {
   try {
     await Promise.race([
-      logout(),
+      Promise.allSettled([
+        logout(),
+        fetch("/api/auth/session", { method: "DELETE", cache: "no-store" }),
+      ]).then(() => undefined),
       new Promise<void>((resolve) => {
         window.setTimeout(resolve, LOGOUT_TIMEOUT_MS);
       }),
@@ -25,6 +47,6 @@ export async function runClientLogout(logout: () => Promise<void>) {
     // Best effort: always continue to login even if SDK logout fails.
   } finally {
     clearLocalSessionState();
-    window.location.replace(APP_ROUTES.login);
+    window.location.replace(resolveLogoutDestination());
   }
 }

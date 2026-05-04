@@ -24,7 +24,7 @@ export function resolveConnectLaunchUrl(
 
   // OAuth redirect: return HTTPS callback URL with masterKeySig
   const redirectUri = options.redirectUri?.trim();
-  if (redirectUri && redirectUri.startsWith("https://")) {
+  if (redirectUri?.startsWith("https://")) {
     const url = new URL(redirectUri);
     url.searchParams.set("masterKeySig", masterKeySig);
     const oauthState = options.oauthState?.trim();
