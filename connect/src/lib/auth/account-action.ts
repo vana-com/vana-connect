@@ -288,9 +288,17 @@ export function buildMockActionResult(input: {
       `buildMockActionResult: request ${input.request.id} is not approved`,
     );
   }
-  if (input.request.execution_mode !== "mock") {
+  // `mock` and `embedded_wallet_account_hosted` may produce backend-built
+  // mock RESULTS — both have their grant minting handled server-side already
+  // (the hosted-wallet flow proves authority via PS OAuth2 + EIP-712 signed
+  // by the PS's own key). BYO-wallet / delegated-runtime modes still require
+  // a client/user signature and must not flow through this helper.
+  if (
+    input.request.execution_mode !== "mock" &&
+    input.request.execution_mode !== "embedded_wallet_account_hosted"
+  ) {
     throw new Error(
-      `buildMockActionResult: refusing to backend-sign execution_mode=${input.request.execution_mode}; only 'mock' may produce a mock result without client/user signing`,
+      `buildMockActionResult: refusing to backend-sign execution_mode=${input.request.execution_mode}; only 'mock' and 'embedded_wallet_account_hosted' may produce a backend-built mock result`,
     );
   }
   if (input.request.result_mode !== "mock") {
