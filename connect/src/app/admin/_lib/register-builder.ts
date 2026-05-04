@@ -1,10 +1,17 @@
 import type { Address, Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
+/**
+ * EIP-712 domain for BuilderRegistration. The chainId must match the
+ * gateway's expected chain — Vana mainnet (1480) for prod, Moksha testnet
+ * (14800) for dev — otherwise the gateway rejects the signature with
+ * "Invalid signature: signature verification failed". Mirrors the
+ * `NEXT_PUBLIC_VANA_CHAIN_ID` pattern in `register-on-chain.ts`.
+ */
 const BUILDERS_DOMAIN = {
   name: "Vana Data Portability",
   version: "1",
-  chainId: BigInt(1480),
+  chainId: BigInt(process.env.NEXT_PUBLIC_VANA_CHAIN_ID ?? 1480),
   verifyingContract: "0x8325C0A0948483EdA023A1A2Fd895e62C5131234" as Address,
 } as const;
 
