@@ -1,17 +1,25 @@
 import { PrivyClient } from "@privy-io/node";
-import { hashMessage, recoverAddress } from "viem";
 import { type NextRequest, NextResponse } from "next/server";
+import { hashMessage, recoverAddress } from "viem";
 import { validateSignRequest } from "./sign-validation";
 
 let _privy: PrivyClient | null = null;
 function getPrivyClient() {
   if (!_privy) {
     _privy = new PrivyClient({
-      appId: process.env.PRIVY_APP_ID!,
-      appSecret: process.env.PRIVY_APP_SECRET!,
+      appId: requireEnv("PRIVY_APP_ID"),
+      appSecret: requireEnv("PRIVY_APP_SECRET"),
     });
   }
   return _privy;
+}
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
 }
 
 const CORS_HEADERS = {
@@ -72,6 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const walletId = embeddedWallet.id as string;
+    const signerPrivateKey = requireEnv("PRIVY_SIGNER_PRIVATE_KEY");
     let signature: string;
 
     if (type === "personal_sign") {
@@ -81,7 +90,7 @@ export async function POST(request: NextRequest) {
         .signMessage(walletId, {
           message,
           authorization_context: {
-            authorization_private_keys: [process.env.PRIVY_SIGNER_PRIVATE_KEY!],
+            authorization_private_keys: [signerPrivateKey],
           },
         });
       signature = result.signature;
@@ -93,7 +102,7 @@ export async function POST(request: NextRequest) {
         .signTypedData(walletId, {
           params: { typed_data: typedData },
           authorization_context: {
-            authorization_private_keys: [process.env.PRIVY_SIGNER_PRIVATE_KEY!],
+            authorization_private_keys: [signerPrivateKey],
           },
         });
       signature = result.signature;

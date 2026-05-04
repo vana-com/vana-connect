@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { AdminFooterLinks } from "./_components/admin-footer-links";
-import { AdminHeaderLinks } from "./_components/admin-header-links";
 import { AdminFormView } from "./_components/admin-form-view";
+import { AdminHeaderLinks } from "./_components/admin-header-links";
 import { AdminResultView } from "./_components/admin-result-view";
 import { useAdminRegistration } from "./_hooks/use-admin-registration";
 import { resolveAdminPageUiDebugState } from "./admin-page.ui-debug";
@@ -32,7 +32,7 @@ export default function AdminPage() {
   }, [ui.appUrl, ui.privateKey]);
 
   return (
-    <PageShell actions={["server", "dataConnect", "logout"]}>
+    <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <AdminHeaderLinks />
 

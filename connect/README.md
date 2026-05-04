@@ -28,6 +28,75 @@ The grants page supports an optional launch override:
 
 - `NEXT_PUBLIC_GRANTS_TEST_DEEPLINK_URL` - deterministic deep-link used for local launch smoke tests.
 
+Vana-root Privy JWT auth is opt-in while the dashboard config is being proven:
+
+- `NEXT_PUBLIC_PRIVY_JWT_AUTH_SYNC_ENABLED=true` enables browser sync through Privy's `useSyncJwtBasedAuthState`.
+- `VANA_AUTH_JWT_PRIVATE_KEY`, `VANA_AUTH_JWT_KEY_ID`, `VANA_AUTH_JWT_ISSUER`, and `PRIVY_CUSTOM_AUTH_AUDIENCE` configure the server-side Vana JWT issuer.
+- `/.well-known/jwks.json` publishes the corresponding public key for Privy's JWT-based auth setup.
+- See `docs/privy-custom-auth-runbook.md` for the plan-gated Privy dashboard setup, switch-on checklist, smoke command, and rollback.
+
+## Local end-to-end (account app + Postgres + Hydra)
+
+This brings up the account app on `http://localhost:3000` against a local Postgres and a local Hydra, with a real Privy dev app. No cloud deps required.
+
+1. Start local Postgres for the account app:
+
+   ```bash
+   docker compose -f connect/docker-compose.local.yml up -d
+   ```
+
+   Postgres binds to `127.0.0.1:54329` and persists in the `vana-connect-local-pgdata` volume.
+
+2. Apply migrations (idempotent; tracks applied files in `_migrations`):
+
+   ```bash
+   DATABASE_URL=postgres://vana:vana-local-pw@127.0.0.1:54329/vana_connect?sslmode=disable \
+     node connect/scripts/migrate-local.mjs
+   ```
+
+   Or from `connect/`:
+
+   ```bash
+   pnpm db:migrate:local
+   ```
+
+3. Start local Hydra in account-app mode (admin `:4445`, public `:4444`) from the POC stack:
+
+   ```bash
+   (cd spikes/hydra-v26-poc && ./scripts/up-account.sh)
+   (cd spikes/hydra-v26-poc && ./scripts/register-memory-app-client.sh)
+   ```
+
+4. Configure env: `cp connect/.env.local.example connect/.env.local`, then fill in the four Privy values from your dev app at https://dashboard.privy.io. Leave `DATABASE_URL`, `HYDRA_PUBLIC_URL`, and `HYDRA_ADMIN_URL` as the local defaults.
+
+5. Run the account app:
+
+   ```bash
+   pnpm --filter connect dev
+   ```
+
+   Open http://localhost:3000.
+
+To reset the local DB, stop the stack and remove the volume:
+
+```bash
+docker compose -f connect/docker-compose.local.yml down -v
+```
+
+## Account DB migrations
+
+`connect/migrations/*.sql` are applied in filename order and recorded in `_migrations`. Local DBs can use `pnpm db:migrate` or the existing `migrate-local.mjs` path.
+
+Remote account DBs require both opt-ins so a production-like database is not migrated by accident:
+
+```bash
+ACCOUNT_DB_MIGRATE_ALLOW_REMOTE=true \
+  DATABASE_URL="$DATABASE_URL" \
+  pnpm --filter connect db:migrate -- --allow-remote
+```
+
+The runner prints applied filenames and a final count, but never prints `DATABASE_URL`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

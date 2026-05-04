@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { APP_ROUTES } from "@/app/routes";
 import {
+  type ConnectHandoffContext,
   HANDOFF_CONTEXT_TTL_MS,
   HANDOFF_COOKIE_KEY,
   HANDOFF_RETURN_TO_DEFAULT,
   HANDOFF_STORAGE_KEY,
   parseFromCookie,
-  resolveHandoffContext,
-  resolvePostAuthDestination,
   parseFromSearchParams,
   parseFromStorage,
   resolveByPrecedence,
+  resolveHandoffContext,
+  resolvePostAuthDestination,
   serializeHandoffContext,
   toConnectUrl,
   toDownloadDataConnectUrl,
   toLoginUrl,
-  type ConnectHandoffContext,
 } from "./handoff-contract";
-import { APP_ROUTES } from "@/app/routes";
 
 const NOW = 1_700_000_000_000;
 

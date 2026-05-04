@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BoxIcon, LogOutIcon, ServerIcon } from "lucide-react";
+import { ArrowLeftIcon, BoxIcon, KeyRoundIcon, LogOutIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoutActionButton } from "@/app/_components/logout-action-button";
@@ -11,6 +11,7 @@ type PageShellProps = {
   backHref?: string;
   showBackButton?: boolean;
   actions?: PageShellActionInput[];
+  contentPlacement?: "center" | "start";
 };
 
 type PageShellAction = {
@@ -20,7 +21,7 @@ type PageShellAction = {
   className?: string;
   kind?: PageShellActionPreset;
 };
-type PageShellActionPreset = "logout" | "yourApps" | "dataConnect" | "server";
+type PageShellActionPreset = "logout" | "access" | "yourApps" | "dataConnect";
 type PageShellActionInput = PageShellActionPreset | PageShellAction;
 
 export function PageShell({
@@ -28,15 +29,17 @@ export function PageShell({
   backHref = APP_ROUTES.root,
   showBackButton = false,
   actions = [],
+  contentPlacement = "center",
 }: PageShellProps) {
   const resolvedActions = actions.map((action) =>
     resolvePageShellAction(action, {
       logoutHref: APP_ROUTES.logout,
+      accessHref: APP_ROUTES.accountAccess,
       yourAppsHref: APP_ROUTES.admin,
       downloadDataConnectHref: APP_ROUTES.downloadDataConnect,
-      serverHref: APP_ROUTES.server,
     }),
   );
+  const hasHeader = showBackButton || resolvedActions.length > 0;
 
   return (
     <div
@@ -44,51 +47,63 @@ export function PageShell({
       className={cn(
         "relative min-h-screen bg-canvas",
         "p-w8 [@media(min-height:801px)]:pb-w32",
-        "flex flex-col",
+        "flex flex-col gap-w8",
       )}
     >
-      {showBackButton && (
-        <Link
-          href={backHref}
-          className={cn(
-            "absolute top-gap left-0",
-            "inline-flex items-center gap-1.5 px-w8 h-[48px]",
-            "text-muted-foreground",
-            "transition-colors hover:text-foreground",
-          )}
+      {hasHeader && (
+        <div
+          data-slot="page-shell-nav"
+          className="flex min-h-[48px] w-full items-start justify-between gap-w4"
         >
-          <ArrowLeftIcon aria-hidden="true" className="size-em" />
-          Back
-        </Link>
-      )}
-      {resolvedActions.length > 0 && (
-        <div className="absolute top-gap right-gap flex items-center gap-1">
-          {resolvedActions.map((action, index) =>
-            action.kind === "logout" ? (
-              <LogoutActionButton
-                key={`${action.href}-${index}`}
-                href={action.href}
-                className={action.className}
+          <div className="flex min-w-0 items-center">
+            {showBackButton && (
+              <Link
+                href={backHref}
+                className={cn(
+                  "inline-flex h-[48px] items-center gap-1.5",
+                  "text-muted-foreground",
+                  "transition-colors hover:text-foreground",
+                )}
               >
-                {action.label}
-              </LogoutActionButton>
-            ) : (
-              <NavLink
-                key={`${action.href}-${index}`}
-                href={action.href}
-                icon={action.icon}
-                className={action.className}
-              >
-                {action.label}
-              </NavLink>
-            ),
+                <ArrowLeftIcon aria-hidden="true" className="size-em" />
+                Back
+              </Link>
+            )}
+          </div>
+          {resolvedActions.length > 0 && (
+            <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
+              {resolvedActions.map((action, index) =>
+                action.kind === "logout" ? (
+                  <LogoutActionButton
+                    key={`${action.href}-${index}`}
+                    href={action.href}
+                    className={action.className}
+                  >
+                    {action.label}
+                  </LogoutActionButton>
+                ) : (
+                  <NavLink
+                    key={`${action.href}-${index}`}
+                    href={action.href}
+                    icon={action.icon}
+                    className={action.className}
+                  >
+                    {action.label}
+                  </NavLink>
+                ),
+              )}
+            </div>
           )}
         </div>
       )}
 
       <div
         data-slot="page-shell-content"
-        className="flex flex-1 items-center justify-center"
+        className={
+          contentPlacement === "start"
+            ? "flex flex-1 items-start justify-center"
+            : "flex flex-1 items-center justify-center"
+        }
       >
         {children}
       </div>
@@ -120,9 +135,9 @@ function resolvePageShellAction(
   action: PageShellActionInput,
   hrefs: {
     logoutHref: string;
+    accessHref: string;
     yourAppsHref: string;
     downloadDataConnectHref: string;
-    serverHref: string;
   },
 ): PageShellAction {
   if (typeof action !== "string") return action;
@@ -135,20 +150,20 @@ function resolvePageShellAction(
       kind: "dataConnect",
     };
   }
+  if (action === "access") {
+    return {
+      href: hrefs.accessHref,
+      icon: <KeyRoundIcon aria-hidden="true" />,
+      label: "Access",
+      kind: "access",
+    };
+  }
   if (action === "yourApps") {
     return {
       href: hrefs.yourAppsHref,
       icon: <BoxIcon aria-hidden="true" />,
       label: "Your apps",
       kind: "yourApps",
-    };
-  }
-  if (action === "server") {
-    return {
-      href: hrefs.serverHref,
-      icon: <ServerIcon aria-hidden="true" />,
-      label: "Server",
-      kind: "server",
     };
   }
   return {

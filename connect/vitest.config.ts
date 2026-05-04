@@ -10,6 +10,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // jsdom 28 refuses to expose localStorage / sessionStorage on opaque
+    // origins, so pin a URL.
+    environmentOptions: {
+      jsdom: { url: "https://account.vana.test/" },
+    },
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["./vitest.setup.ts"],
   },
 });

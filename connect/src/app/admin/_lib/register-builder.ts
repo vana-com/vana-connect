@@ -1,5 +1,5 @@
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Address, Hex } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const BUILDERS_DOMAIN = {
   name: "Vana Data Portability",

@@ -1,0 +1,31 @@
+# Local Postgres for the account app (true local E2E).
+#
+# Pairs with `connect/scripts/migrate-local.mjs`, which applies every SQL
+# file in `connect/migrations/` against this database in lexicographic
+# order. Hydra (admin/public) is run separately from
+# `spikes/hydra-v26-poc/docker-compose.yml`; this compose file only owns
+# the account app's `vana_connect` database.
+#
+# Port 54329 (not 5432) avoids conflicts with system Postgres or the
+# Hydra POC's :5432. Bind is 127.0.0.1 only -- never expose to the LAN.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vana-connect-local-postgres
+    environment:
+      POSTGRES_USER: vana
+      POSTGRES_PASSWORD: vana-local-pw
+      POSTGRES_DB: vana_connect
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - vana-connect-local-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vana -d vana_connect"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  vana-connect-local-pgdata:

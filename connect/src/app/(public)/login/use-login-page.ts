@@ -1,20 +1,27 @@
 "use client";
 
 import {
+  useIdentityToken,
   useLoginWithEmail,
   useLoginWithOAuth,
   usePrivy,
 } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { APP_ROUTES } from "@/app/routes";
-import { CONNECT_CONFIG } from "@/config/config";
+import { VANA_ACCOUNT_SESSION_CHANGED_EVENT } from "@/app/_components/vana-jwt-auth-sync";
 import {
   clearHandoffContext,
   persistHandoffContext,
   resolvePostAuthDestination,
 } from "@/app/_lib/handoff-contract";
+import {
+  clearOidcReturnTo,
+  persistOidcReturnTo,
+  resolveOidcReturnTo,
+} from "@/app/_lib/oidc-continuation";
 import { useHandoffResolution } from "@/app/_lib/use-handoff-resolution";
+import { APP_ROUTES } from "@/app/routes";
+import { CONNECT_CONFIG } from "@/config/config";
 import { resolveLoginPageUiDebugState } from "./use-login-page.ui-debug";
 
 const PASSPORT_AGREEMENT_STORAGE_KEY = "vana_passport_agreement_acceptance";
@@ -60,6 +67,7 @@ export function useLoginPage() {
     },
   });
   const { ready, authenticated } = usePrivy();
+  const { identityToken } = useIdentityToken();
   const { privacyPolicyUrl, termsOfServiceUrl } = CONNECT_CONFIG.legal;
 
   const [view, setView] = useState<LoginPageView>("loading");
@@ -79,17 +87,46 @@ export function useLoginPage() {
     clearHandoffContext();
   }, [hasClearHandoffFlag, hasSessionIdInUrl, isOAuthReturn]);
 
-  // Redirect helper — navigates to connect or fallback based on handoff context.
+  // Persist a safe OIDC `return_to` from the URL so it survives the full-page
+  // OAuth redirect. Unsafe values are silently dropped by the seam.
+  useEffect(() => {
+    persistOidcReturnTo(searchParams.get("return_to"));
+  }, [searchParams]);
+
+  // Redirect helper — navigates to OIDC continuation if one is pending,
+  // otherwise to connect or fallback based on handoff context.
   // Uses window.location (not Next.js router) because router.replace can
   // silently fail after full-page OAuth redirects.
-  const handleLoginComplete = useCallback(() => {
+  const handleLoginComplete = useCallback(async () => {
     if (redirectedRef.current) return;
-    redirectedRef.current = true;
 
-    const url = resolvePostAuthDestination(handoffContext);
-    clearHandoffContext();
-    window.location.replace(url);
-  }, [handoffContext]);
+    const oidcReturnTo = resolveOidcReturnTo(searchParams);
+    if (!identityToken) {
+      setView("completing");
+      return;
+    }
+
+    redirectedRef.current = true;
+    try {
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { authorization: `Bearer ${identityToken}` },
+      });
+      if (!response.ok) {
+        throw new Error("Could not establish account session.");
+      }
+      window.dispatchEvent(new Event(VANA_ACCOUNT_SESSION_CHANGED_EVENT));
+      clearOidcReturnTo();
+      clearHandoffContext();
+      window.location.replace(
+        oidcReturnTo ?? resolvePostAuthDestination(handoffContext),
+      );
+    } catch {
+      redirectedRef.current = false;
+      setError("Could not finish sign-in. Please try again.");
+      setView("entry");
+    }
+  }, [handoffContext, identityToken, searchParams]);
 
   // Email OTP hooks
   const {
@@ -99,7 +136,7 @@ export function useLoginPage() {
   } = useLoginWithEmail({
     onComplete: () => {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     },
     onError: (err) => {
       setError(
@@ -113,7 +150,7 @@ export function useLoginPage() {
   const { initOAuth, state: oauthState } = useLoginWithOAuth({
     onComplete: () => {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     },
     onError: (err) => {
       setPendingOAuthProvider(null);
@@ -134,7 +171,7 @@ export function useLoginPage() {
   useEffect(() => {
     if (!ready) return;
     if (authenticated) {
-      handleLoginComplete();
+      void handleLoginComplete();
       return;
     }
     // Privy is ready and user is not authenticated — show entry form
@@ -161,7 +198,7 @@ export function useLoginPage() {
     }
     if (oauthState.status === "done") {
       setView("completing");
-      handleLoginComplete();
+      void handleLoginComplete();
     }
   }, [oauthState.status, handoffContext, handleLoginComplete, searchParams]);
 
