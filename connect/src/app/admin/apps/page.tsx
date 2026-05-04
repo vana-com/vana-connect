@@ -14,8 +14,8 @@ import { AdminFooterLinks } from "../_components/admin-footer-links";
 import { AdminHeaderLinks } from "../_components/admin-header-links";
 import {
   deleteAdminApp,
+  dismissLegacyAdminApps,
   listAdminApps,
-  migrateLegacyAdminApps,
   readLegacyAdminApps,
   type RegisteredAdminApp,
 } from "../_lib/admin-apps-storage";
@@ -30,8 +30,6 @@ export default function AdminAppsPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [legacyApps, setLegacyApps] = useState<RegisteredAdminApp[]>([]);
-  const [migrationBusy, setMigrationBusy] = useState(false);
-  const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!embeddedWalletAddress) return;
@@ -71,30 +69,9 @@ export default function AdminAppsPage() {
     }
   }
 
-  async function handleMigrate() {
-    setMigrationBusy(true);
-    setMigrationMessage(null);
-    try {
-      const sig = await getSignature();
-      const result = await migrateLegacyAdminApps(sig);
-      // Refresh both lists from source-of-truth.
-      setLegacyApps(readLegacyAdminApps());
-      const rows = await listAdminApps(sig);
-      setApps(resolveAdminAppsPageUiDebugState({ apps: rows }).apps);
-      if (result.complete && result.migrated > 0) {
-        setMigrationMessage(`Migrated ${result.migrated} app(s).`);
-      } else if (result.failed > 0) {
-        setMigrationMessage(
-          `Migrated ${result.migrated} of ${result.legacyCount}. ${result.failed} failed and remain on this device.`,
-        );
-      }
-    } catch (err) {
-      setMigrationMessage(
-        err instanceof Error ? err.message : "Migration failed.",
-      );
-    } finally {
-      setMigrationBusy(false);
-    }
+  function handleDismissLegacy() {
+    dismissLegacyAdminApps();
+    setLegacyApps([]);
   }
 
   return (
@@ -108,28 +85,39 @@ export default function AdminAppsPage() {
             <div
               className={cn(
                 "rounded-button border bg-muted/40",
-                "px-3 py-2.5 flex items-center gap-3",
+                "px-3 py-2.5 flex flex-col gap-2",
               )}
             >
-              <Text intent="small" muted className="flex-1">
-                {legacyApps.length} app(s) saved on this device. Move them to
-                your account so they appear on every device.
+              <Text intent="small" muted>
+                Found {legacyApps.length} app(s) saved on this device from a
+                previous version of the admin tool. We can&apos;t verify they
+                belong to your account, so they aren&apos;t shown above.
+                Re-register any you still want, or dismiss this notice.
               </Text>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                disabled={migrationBusy}
-                onClick={() => void handleMigrate()}
-              >
-                {migrationBusy ? "Moving…" : "Move to account"}
-              </Button>
+              <ul className="space-y-1">
+                {legacyApps.map((app) => (
+                  <li key={app.id}>
+                    <Text intent="fine" muted withIcon truncate>
+                      <BoxIcon className="size-[1em]" />
+                      {app.name} — {app.url}
+                    </Text>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2 pt-1">
+                <SettingsConfirmAction
+                  title="Dismiss device-only apps?"
+                  description="Removes the device-only entries from this browser. The on-chain builders still exist; they're just not surfaced here. You can always re-register an app to see it again."
+                  actionLabel="Dismiss"
+                  onAction={handleDismissLegacy}
+                  trigger={
+                    <Button type="button" variant="outline" size="xs">
+                      Dismiss
+                    </Button>
+                  }
+                />
+              </div>
             </div>
-          )}
-          {migrationMessage && (
-            <Text intent="fine" muted>
-              {migrationMessage}
-            </Text>
           )}
 
           <div className="flex min-h-0 flex-1 flex-col space-y-gap pt-gap">
