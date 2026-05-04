@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { useAdminMasterKey } from "../_lib/use-admin-master-key";
 import { registerAdminApp } from "../_lib/register-admin-app";
 
 type AdminState = "form" | "loading" | "result" | "error";
@@ -9,6 +10,7 @@ type AdminState = "form" | "loading" | "result" | "error";
 const DEFAULT_APP_URL = "";
 
 export function useAdminRegistration() {
+  const { getSignature } = useAdminMasterKey();
   const [state, setState] = useState<AdminState>("form");
   const [appUrl, setAppUrl] = useState(DEFAULT_APP_URL);
   const [privateKey, setPrivateKey] = useState<`0x${string}` | "">("");
@@ -35,8 +37,22 @@ export function useAdminRegistration() {
     setError(null);
     setState("loading");
 
+    let masterKeySignature: string;
+    try {
+      masterKeySignature = await getSignature();
+    } catch (err) {
+      setState("error");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not sign master-key challenge",
+      );
+      return;
+    }
+
     const result = await registerAdminApp({
       appUrl: trimmedUrl,
+      masterKeySignature,
     });
     if (!result.ok) {
       setState("error");

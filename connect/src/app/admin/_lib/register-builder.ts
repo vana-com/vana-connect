@@ -31,6 +31,7 @@ type RegisterBuilderSuccess = {
     privateKey: Hex;
     builderId: string;
     ownerAddress: string;
+    publicKey: string;
   };
 };
 
@@ -91,6 +92,7 @@ export async function registerBuilder(
           privateKey,
           builderId: data.builderId ?? "",
           ownerAddress,
+          publicKey,
         },
       };
     }
