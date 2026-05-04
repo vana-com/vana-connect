@@ -28,12 +28,21 @@ export type ServerStatus =
   | "deprovision_failed"
   | "error";
 
+export type RegistrationStatus =
+  | "unknown"
+  | "registering"
+  | "registered"
+  | "not_registered";
+
 export function useServer() {
   const { signMessage } = useSignMessage();
   const { wallets, ready: walletsReady } = useWallets();
   const [server, setServer] = useState<ApiServer | null>(null);
   const [status, setStatus] = useState<ServerStatus>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [registrationStatus, setRegistrationStatus] =
+    useState<RegistrationStatus>("unknown");
+  const [serverId, setServerId] = useState<string | null>(null);
   const signatureRef = useRef<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialFetchDone = useRef(false);
@@ -106,6 +115,8 @@ export function useServer() {
       setServer(null);
       setStatus("idle");
       setError(null);
+      setRegistrationStatus("unknown");
+      setServerId(null);
       return null;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -177,32 +188,70 @@ export function useServer() {
     fetchServer();
   }, [walletsReady, embeddedWalletAddress, fetchServer]);
 
-  // When status flips to `running` for a server we haven't registered on-chain
-  // yet, fire-and-forget the gateway registration. Failure is non-fatal — the
-  // user can retry, and the server still serves owner traffic without it; only
-  // delegated grant/file signing is gated on this.
+  // When status flips to `running`, check whether the server is already
+  // registered on the gateway (PS /health exposes serverId). If not, kick off
+  // registration. Re-checks /health after registration completes so the UI
+  // reflects the final state.
   useEffect(() => {
-    if (status !== "running" || !server) return;
-    if (registeredOnChainRef.current.has(server.id)) return;
-    registeredOnChainRef.current.add(server.id);
+    if (status !== "running" || !server?.url) return;
+
+    let cancelled = false;
+    const serverUrl = server.url;
+    const dbId = server.id;
 
     void (async () => {
+      // 1. Probe /health for an existing serverId.
+      try {
+        const healthRes = await fetch(`${serverUrl}/health`, {
+          cache: "no-store",
+        });
+        if (!cancelled && healthRes.ok) {
+          const health = (await healthRes.json()) as {
+            identity?: { serverId?: string | null };
+          };
+          if (health.identity?.serverId) {
+            setServerId(health.identity.serverId);
+            setRegistrationStatus("registered");
+            registeredOnChainRef.current.add(dbId);
+            return;
+          }
+        }
+      } catch {
+        // Health probe failed — fall through to attempt registration anyway.
+      }
+
+      if (cancelled) return;
+      if (registeredOnChainRef.current.has(dbId)) return;
+      registeredOnChainRef.current.add(dbId);
+
+      // 2. Trigger registration.
+      setRegistrationStatus("registering");
       try {
         const sig = await getSignature();
-        const res = await fetch(`/api/servers/${server.id}/register-on-chain`, {
+        const res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
           method: "POST",
           headers: { Authorization: `Bearer ${sig}` },
         });
-        if (!res.ok) {
-          // Soft failure — log but don't surface as a hard error in the UI.
-          // The server is still running and usable for owner ops.
+        if (cancelled) return;
+        if (res.ok) {
+          const body = (await res.json()) as { serverId?: string };
+          setServerId(body.serverId ?? null);
+          setRegistrationStatus("registered");
+        } else {
           const body = await res.json().catch(() => ({}));
           console.warn("On-chain registration failed:", body);
+          setRegistrationStatus("not_registered");
         }
       } catch (err) {
+        if (cancelled) return;
         console.warn("On-chain registration error:", err);
+        setRegistrationStatus("not_registered");
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [status, server, getSignature]);
 
   // Poll while provisioning
@@ -222,6 +271,8 @@ export function useServer() {
     status,
     error,
     walletAddress: embeddedWalletAddress,
+    registrationStatus,
+    serverId,
     provision,
     deprovision,
     refresh,

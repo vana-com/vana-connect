@@ -19,7 +19,11 @@ import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/app/_auth/use-auth-guard";
 import { cn } from "@/lib/classes";
-import { useServer, type ServerStatus } from "./use-server";
+import {
+  type RegistrationStatus,
+  type ServerStatus,
+  useServer,
+} from "./use-server";
 
 export default function ServerPage() {
   const { isAuthed, isChecking } = useAuthGuard();
@@ -45,6 +49,7 @@ function ServerPageContent() {
     status,
     error,
     walletAddress,
+    registrationStatus,
     provision,
     deprovision,
     refresh,
@@ -142,6 +147,23 @@ function ServerPageContent() {
                   ) : null
                 }
               />
+              {status === "running" && (
+                <DetailRow
+                  hasTopRule
+                  label={
+                    <div className="flex items-baseline gap-1.75">
+                      <span className="font-semibold">Discoverable</span>
+                      <StatusIndicator
+                        tone={getRegistrationInfo(registrationStatus).tone}
+                        pulse={registrationStatus === "registering"}
+                      >
+                        {getRegistrationInfo(registrationStatus).label}
+                      </StatusIndicator>
+                    </div>
+                  }
+                  value={null}
+                />
+              )}
             </ServerCard>
           </ServerSection>
 
@@ -347,6 +369,22 @@ function getStatusInfo(status: ServerStatus): {
       return { tone: "destructive", label: "Error" };
     default:
       return { tone: "muted", label: status };
+  }
+}
+
+function getRegistrationInfo(status: RegistrationStatus): {
+  tone: StatusTone;
+  label: string;
+} {
+  switch (status) {
+    case "registered":
+      return { tone: "success", label: "Registered" };
+    case "registering":
+      return { tone: "accent", label: "Registering..." };
+    case "not_registered":
+      return { tone: "warning", label: "Not registered" };
+    default:
+      return { tone: "muted", label: "Checking..." };
   }
 }
 
