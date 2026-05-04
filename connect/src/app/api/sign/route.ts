@@ -101,9 +101,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ signature }, { headers: CORS_HEADERS });
   } catch (err) {
-    console.error("Signing error:", err);
+    const errorName = err instanceof Error ? err.name : "Error";
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[api/sign] ${errorName}: ${errorMessage}`, err);
+    // Surface the underlying error so callers can diagnose without runtime-log
+    // access. Privy-side validation/lookup messages — non-secret operational data.
     return NextResponse.json(
-      { error: "Signing failed" },
+      { error: `Signing failed: ${errorName}: ${errorMessage}` },
       { status: 500, headers: CORS_HEADERS },
     );
   }
