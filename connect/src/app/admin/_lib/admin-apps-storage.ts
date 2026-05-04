@@ -26,7 +26,11 @@ export type RegisteredAdminApp = {
 };
 
 const LEGACY_LOCAL_STORAGE_KEY = "vana.connect.admin.apps";
-const MIGRATION_FLAG_KEY = "vana.connect.admin.apps.migrated_at";
+// Bump this version when the migration logic changes so previously-marked
+// browsers retry the import (otherwise a silent failure leaves apps stuck
+// in localStorage forever).
+const MIGRATION_FLAG_KEY = "vana.connect.admin.apps.migrated_at.v2";
+const LEGACY_MIGRATION_FLAG_KEYS = ["vana.connect.admin.apps.migrated_at"];
 
 type ApiClient = {
   client_id: string;
@@ -71,6 +75,9 @@ function clearLegacyApps(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY);
+    for (const stale of LEGACY_MIGRATION_FLAG_KEYS) {
+      window.localStorage.removeItem(stale);
+    }
     window.localStorage.setItem(MIGRATION_FLAG_KEY, new Date().toISOString());
   } catch {
     // ignore
@@ -146,43 +153,82 @@ export async function deleteAdminApp(
   }
 }
 
+export type LegacyMigrationResult = {
+  legacyCount: number;
+  migrated: number;
+  failed: number;
+  /** True iff every legacy row was successfully persisted; safe to clear localStorage. */
+  complete: boolean;
+};
+
+/** List legacy entries without mutating anything. */
+export function readLegacyAdminApps(): RegisteredAdminApp[] {
+  return readLegacyApps();
+}
+
 /**
- * Best-effort migration of any localStorage-only admin apps into the DB.
- * Runs once per browser (gated by a flag) and silently skips on errors so
- * migration failures never block the page. Legacy entries lacking a stable
- * `id`/`url` pair are dropped.
+ * Migration of localStorage-only admin apps into the DB.
+ *
+ * SAFETY: never destroys legacy localStorage entries unless every entry
+ * was successfully persisted. Partial failures keep all rows in
+ * localStorage so the user can retry or re-register manually. Migration
+ * flag is set only on full success; until then, callers can re-trigger.
+ *
+ * Identity-only entries (legacy rows without the full builder triple)
+ * are persisted as such — the gateway has the on-chain builder either
+ * way, the row just won't carry builder identity until re-registered.
  */
 export async function migrateLegacyAdminApps(
   masterKeySignature: string,
-): Promise<{ migrated: number }> {
-  if (typeof window === "undefined") return { migrated: 0 };
-  if (window.localStorage.getItem(MIGRATION_FLAG_KEY)) return { migrated: 0 };
+): Promise<LegacyMigrationResult> {
+  if (typeof window === "undefined") {
+    return { legacyCount: 0, migrated: 0, failed: 0, complete: true };
+  }
+  if (window.localStorage.getItem(MIGRATION_FLAG_KEY)) {
+    return { legacyCount: 0, migrated: 0, failed: 0, complete: true };
+  }
 
   const legacy = readLegacyApps();
   if (legacy.length === 0) {
-    clearLegacyApps();
-    return { migrated: 0 };
+    // Nothing to migrate — flag and clear stale flags, but don't touch the
+    // localStorage app key (it's already empty).
+    if (typeof window !== "undefined") {
+      try {
+        for (const stale of LEGACY_MIGRATION_FLAG_KEYS) {
+          window.localStorage.removeItem(stale);
+        }
+        window.localStorage.setItem(
+          MIGRATION_FLAG_KEY,
+          new Date().toISOString(),
+        );
+      } catch {
+        // ignore
+      }
+    }
+    return { legacyCount: 0, migrated: 0, failed: 0, complete: true };
   }
 
   let migrated = 0;
+  let failed = 0;
   for (const app of legacy) {
     try {
       await saveAdminApp(masterKeySignature, {
         clientId: app.id,
         name: app.name,
         url: app.url,
-        builderId: app.builderId,
-        granteeAddress: app.ownerAddress,
       });
       migrated += 1;
     } catch {
-      // Skip rows the API rejects (e.g. missing builder data); they'll need
-      // to be re-registered manually. Don't block the migration on partial
-      // failure.
+      failed += 1;
     }
   }
-  clearLegacyApps();
-  return { migrated };
+
+  const complete = failed === 0;
+  if (complete) {
+    // Only safe to drop localStorage when every row is in the DB.
+    clearLegacyApps();
+  }
+  return { legacyCount: legacy.length, migrated, failed, complete };
 }
 
 function isRegisteredAdminApp(value: unknown): value is RegisteredAdminApp {
