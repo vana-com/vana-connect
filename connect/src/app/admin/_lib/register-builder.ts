@@ -17,7 +17,15 @@ const BUILDER_REGISTRATION_TYPES = {
   ],
 } as const;
 
-const GATEWAY_URL = "https://data-gateway.vana.org";
+/**
+ * Gateway URL for builder registration. Falls back to prod for backwards
+ * compatibility with existing prod deployments; non-prod environments
+ * should set NEXT_PUBLIC_DATA_GATEWAY_URL on Vercel to keep registrations
+ * scoped to the matching gateway env (PS reads its gateway from server
+ * config and dev/prod gateways are distinct deployments).
+ */
+const GATEWAY_URL =
+  process.env.NEXT_PUBLIC_DATA_GATEWAY_URL ?? "https://data-gateway.vana.org";
 
 export type RegisterBuilderErrorCode =
   | "ALREADY_REGISTERED"
