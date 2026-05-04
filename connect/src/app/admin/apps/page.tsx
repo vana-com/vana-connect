@@ -16,6 +16,7 @@ import {
   deleteAdminApp,
   listAdminApps,
   migrateLegacyAdminApps,
+  readLegacyAdminApps,
   type RegisteredAdminApp,
 } from "../_lib/admin-apps-storage";
 import { useAdminMasterKey } from "../_lib/use-admin-master-key";
@@ -28,19 +29,24 @@ export default function AdminAppsPage() {
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
+  const [legacyApps, setLegacyApps] = useState<RegisteredAdminApp[]>([]);
+  const [migrationBusy, setMigrationBusy] = useState(false);
+  const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!embeddedWalletAddress) return;
     let cancelled = false;
     void (async () => {
       try {
+        // Surface any legacy localStorage entries so the user can choose to
+        // migrate them (rather than running the destructive cleanup
+        // automatically). NEVER auto-clears localStorage.
+        if (!cancelled) {
+          setLegacyApps(readLegacyAdminApps());
+        }
         const sig = await getSignature();
-        // Best-effort migration of any legacy localStorage entries.
-        await migrateLegacyAdminApps(sig).catch(() => undefined);
         const rows = await listAdminApps(sig);
         if (cancelled) return;
-        // UI debug overrides (?appsDebug=1&appsScenario=...) still apply so
-        // existing manual QA harnesses keep working.
         const resolved = resolveAdminAppsPageUiDebugState({ apps: rows }).apps;
         setApps(resolved);
         setStatus("ready");
@@ -65,12 +71,66 @@ export default function AdminAppsPage() {
     }
   }
 
+  async function handleMigrate() {
+    setMigrationBusy(true);
+    setMigrationMessage(null);
+    try {
+      const sig = await getSignature();
+      const result = await migrateLegacyAdminApps(sig);
+      // Refresh both lists from source-of-truth.
+      setLegacyApps(readLegacyAdminApps());
+      const rows = await listAdminApps(sig);
+      setApps(resolveAdminAppsPageUiDebugState({ apps: rows }).apps);
+      if (result.complete && result.migrated > 0) {
+        setMigrationMessage(`Migrated ${result.migrated} app(s).`);
+      } else if (result.failed > 0) {
+        setMigrationMessage(
+          `Migrated ${result.migrated} of ${result.legacyCount}. ${result.failed} failed and remain on this device.`,
+        );
+      }
+    } catch (err) {
+      setMigrationMessage(
+        err instanceof Error ? err.message : "Migration failed.",
+      );
+    } finally {
+      setMigrationBusy(false);
+    }
+  }
+
   return (
     <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <AdminHeaderLinks showYourApps={false} />
         <div className="flex flex-1 flex-col space-y-gap">
           <PageHeader showVanaLogotype heading="Your apps" color="iris" />
+
+          {legacyApps.length > 0 && (
+            <div
+              className={cn(
+                "rounded-button border bg-muted/40",
+                "px-3 py-2.5 flex items-center gap-3",
+              )}
+            >
+              <Text intent="small" muted className="flex-1">
+                {legacyApps.length} app(s) saved on this device. Move them to
+                your account so they appear on every device.
+              </Text>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                disabled={migrationBusy}
+                onClick={() => void handleMigrate()}
+              >
+                {migrationBusy ? "Moving…" : "Move to account"}
+              </Button>
+            </div>
+          )}
+          {migrationMessage && (
+            <Text intent="fine" muted>
+              {migrationMessage}
+            </Text>
+          )}
 
           <div className="flex min-h-0 flex-1 flex-col space-y-gap pt-gap">
             <div className="rounded-button border flex-1">
