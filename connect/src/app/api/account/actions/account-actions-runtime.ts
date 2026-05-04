@@ -223,7 +223,7 @@ export async function runActionDecision(
           return {
             serverId: server.id,
             serverUrl: server.url,
-            accessToken: server.control_plane_token,
+            controlPlaneSecret: server.control_plane_token,
           };
         },
         resolveOauthClient: async (clientId) => findOauthClientById(clientId),

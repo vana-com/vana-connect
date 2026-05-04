@@ -46,6 +46,9 @@ importers:
       next:
         specifier: 16.1.6
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      oauth4webapi:
+        specifier: ^3.8.6
+        version: 3.8.6
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
@@ -7390,6 +7393,12 @@ packages:
         integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==,
       }
     engines: { node: ">=18" }
+
+  oauth4webapi@3.8.6:
+    resolution:
+      {
+        integrity: sha512-iwemM91xz8nryHti2yTmg5fhyEMVOkOXwHNqbvcATjyajb5oQxCQzrNOA6uElRHuMhQQTKUyFKV9y/CNyg25BQ==,
+      }
 
   obj-multiplex@1.0.0:
     resolution:
@@ -15918,6 +15927,8 @@ snapshots:
     dependencies:
       path-key: 4.0.0
       unicorn-magic: 0.3.0
+
+  oauth4webapi@3.8.6: {}
 
   obj-multiplex@1.0.0:
     dependencies:
