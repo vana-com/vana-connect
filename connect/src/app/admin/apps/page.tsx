@@ -1,63 +1,89 @@
 "use client";
 
 import { ArrowUpRightIcon, BoxIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
 import { SettingsConfirmAction } from "@/components/elements/confirm-action";
 import { PageHeader } from "@/components/elements/page-header";
+import { Spinner } from "@/components/elements/spinner";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminFooterLinks } from "../_components/admin-footer-links";
 import { AdminHeaderLinks } from "../_components/admin-header-links";
 import {
-  deleteRegisteredAdminApp,
+  deleteAdminApp,
+  listAdminApps,
+  migrateLegacyAdminApps,
   type RegisteredAdminApp,
-  readRegisteredAdminApps,
 } from "../_lib/admin-apps-storage";
+import { useAdminMasterKey } from "../_lib/use-admin-master-key";
 import { resolveAdminAppsPageUiDebugState } from "./apps-page.ui-debug";
 
 export default function AdminAppsPage() {
-  // UI debug quick usage (dev only):
-  // - /admin/apps?appsDebug=1&appsScenario=empty
-  // - /admin/apps?appsDebug=1&appsScenario=seven
-  // - No appsDebug/appsScenario => real account state (no debug override).
-  const [apps, setApps] = useState(
-    () =>
-      resolveAdminAppsPageUiDebugState({
-        apps: readRegisteredAdminApps(),
-      }).apps,
+  const { getSignature, embeddedWalletAddress } = useAdminMasterKey();
+  const [apps, setApps] = useState<RegisteredAdminApp[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
   );
+  const [error, setError] = useState<string | null>(null);
 
-  function handleDelete(app: RegisteredAdminApp) {
-    deleteRegisteredAdminApp(app.id);
-    setApps((current) => current.filter((entry) => entry.id !== app.id));
+  useEffect(() => {
+    if (!embeddedWalletAddress) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sig = await getSignature();
+        // Best-effort migration of any legacy localStorage entries.
+        await migrateLegacyAdminApps(sig).catch(() => undefined);
+        const rows = await listAdminApps(sig);
+        if (cancelled) return;
+        // UI debug overrides (?appsDebug=1&appsScenario=...) still apply so
+        // existing manual QA harnesses keep working.
+        const resolved = resolveAdminAppsPageUiDebugState({ apps: rows }).apps;
+        setApps(resolved);
+        setStatus("ready");
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [embeddedWalletAddress, getSignature]);
+
+  async function handleDelete(app: RegisteredAdminApp) {
+    try {
+      const sig = await getSignature();
+      await deleteAdminApp(sig, app.id);
+      setApps((current) => current.filter((entry) => entry.id !== app.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   return (
     <PageShell actions={["dataConnect", "logout"]}>
       <PagePanel footer={<AdminFooterLinks />}>
         <AdminHeaderLinks showYourApps={false} />
-        {/* purposely not space-y-small to avoid extra space between list and button; header to list is actually -small via pt-gap on the list. */}
         <div className="flex flex-1 flex-col space-y-gap">
-          <PageHeader
-            showVanaLogotype
-            heading="Your apps"
-            color="iris"
-            // description={
-            //   <Text>
-            //     {apps.length === 0
-            //       ? "Your registered apps will appear here."
-            //       : "Your registered apps."}
-            //   </Text>
-            // }
-          />
+          <PageHeader showVanaLogotype heading="Your apps" color="iris" />
 
-          {/* -mx-1.5 */}
           <div className="flex min-h-0 flex-1 flex-col space-y-gap pt-gap">
             <div className="rounded-button border flex-1">
-              {apps.length === 0 ? (
+              {status === "loading" ? (
+                <Text intent="small" muted withIcon className="p-gap">
+                  <Spinner className="size-[1.1em]" />
+                  Loading apps…
+                </Text>
+              ) : status === "error" ? (
+                <Text intent="small" color="destructive" className="p-gap">
+                  {error ?? "Could not load apps."}
+                </Text>
+              ) : apps.length === 0 ? (
                 <Text intent="small" muted withIcon className="p-gap">
                   <BoxIcon className="size-[1.25em]" />
                   No apps registered yet.
@@ -108,7 +134,7 @@ export default function AdminAppsPage() {
                         title={`Delete ${app.name}?`}
                         description="This only removes the app from your account list so you can register it again later."
                         actionLabel="Delete app"
-                        onAction={() => handleDelete(app)}
+                        onAction={() => void handleDelete(app)}
                         trigger={
                           <Button
                             type="button"
