@@ -225,9 +225,29 @@ describe("buildMockActionResult — mock-only invariants", () => {
     );
   });
 
-  it("rejects embedded-wallet execution mode for the mock path", () => {
+  it("accepts embedded-wallet execution mode (grant minting is server-side)", () => {
+    // The hosted-wallet flow proves authority via PS OAuth2 + EIP-712 signed
+    // by the PS's own key, so the result envelope can be backend-built without
+    // user signing. The route caller stitches the real grantId onto the
+    // result_payload alongside the mock marker.
     const req = decideActionRequest({
       request: makeRequest({ executionMode: "embedded_wallet_account_hosted" }),
+      decision: "approved",
+      vanaUserId: VANA_USER_ID,
+      now: NOW,
+    });
+    const result = buildMockActionResult({
+      request: req,
+      actionCode: generateActionCode(),
+      now: NOW,
+    });
+    expect(result.action_request_id).toBe(req.id);
+    expect(result.result_mode).toBe("mock");
+  });
+
+  it("still rejects delegated_runtime execution mode (not yet a supported backend path)", () => {
+    const req = decideActionRequest({
+      request: makeRequest({ executionMode: "delegated_runtime" }),
       decision: "approved",
       vanaUserId: VANA_USER_ID,
       now: NOW,
@@ -238,7 +258,7 @@ describe("buildMockActionResult — mock-only invariants", () => {
         actionCode: generateActionCode(),
         now: NOW,
       }),
-    ).toThrow(/execution_mode=embedded_wallet_account_hosted/);
+    ).toThrow(/execution_mode=delegated_runtime/);
   });
 
   it("rejects encrypted_bundle_reference result_mode in the mock helper", () => {
