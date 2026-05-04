@@ -188,10 +188,16 @@ export function useServer() {
     fetchServer();
   }, [walletsReady, embeddedWalletAddress, fetchServer]);
 
-  // When status flips to `running`, check whether the server is already
-  // registered on the gateway (PS /health exposes serverId). If not, kick off
-  // registration. Re-checks /health after registration completes so the UI
-  // reflects the final state.
+  // When status flips to `running`, determine whether this server is already
+  // registered on the gateway and kick off registration if not.
+  //
+  // Source of truth is the gateway, NOT PS /health. PS only sets
+  // identity.serverId once at boot via gateway.getServer(); if that lookup
+  // happened to fire before registration (or failed), serverId stays null
+  // forever until PS restarts. Querying gateway directly sidesteps that.
+  //
+  // Gateway lookup is by serverAddress, not ownerAddress (the
+  // /v1/servers/{address} route is keyed on serverAddress).
   useEffect(() => {
     if (status !== "running" || !server?.url) return;
 
@@ -199,16 +205,23 @@ export function useServer() {
     const serverUrl = server.url;
     const dbId = server.id;
 
+    const gatewayUrl =
+      process.env.NEXT_PUBLIC_DATA_GATEWAY_URL ??
+      "https://data-gateway.vana.org";
+
     void (async () => {
-      // 1. Probe /health for an existing serverId.
+      // 1. Fetch PS /health to discover this server's serverAddress.
+      let serverAddress: string | null = null;
       try {
         const healthRes = await fetch(`${serverUrl}/health`, {
           cache: "no-store",
         });
         if (!cancelled && healthRes.ok) {
           const health = (await healthRes.json()) as {
-            identity?: { serverId?: string | null };
+            identity?: { address?: string; serverId?: string | null };
           };
+          serverAddress = health.identity?.address ?? null;
+          // If PS already knows its serverId, skip the gateway round-trip.
           if (health.identity?.serverId) {
             setServerId(health.identity.serverId);
             setRegistrationStatus("registered");
@@ -219,12 +232,40 @@ export function useServer() {
       } catch {
         // Health probe failed — fall through to attempt registration anyway.
       }
+      if (cancelled) return;
+
+      // 2. Ask gateway directly: does this serverAddress have a registration?
+      //    PS /health.identity.serverId is unreliable (stale until restart);
+      //    gateway is canonical.
+      if (serverAddress) {
+        try {
+          const gwRes = await fetch(
+            `${gatewayUrl}/v1/servers/${serverAddress}`,
+            { cache: "no-store" },
+          );
+          if (cancelled) return;
+          if (gwRes.ok) {
+            const body = (await gwRes.json()) as {
+              data?: { id?: string };
+            };
+            if (body.data?.id) {
+              setServerId(body.data.id);
+              setRegistrationStatus("registered");
+              registeredOnChainRef.current.add(dbId);
+              return;
+            }
+          }
+          // 404 → not registered yet, fall through to register.
+        } catch {
+          // Gateway unreachable — fall through to attempt registration.
+        }
+      }
 
       if (cancelled) return;
       if (registeredOnChainRef.current.has(dbId)) return;
       registeredOnChainRef.current.add(dbId);
 
-      // 2. Trigger registration.
+      // 3. Trigger registration.
       setRegistrationStatus("registering");
       try {
         const sig = await getSignature();
@@ -235,8 +276,31 @@ export function useServer() {
         if (cancelled) return;
         if (res.ok) {
           const body = (await res.json()) as { serverId?: string };
-          setServerId(body.serverId ?? null);
-          setRegistrationStatus("registered");
+          // Helper returns "" for the 409-already-registered case. In that
+          // case (or any case where serverId is missing), re-query gateway
+          // to fetch the real id rather than displaying empty.
+          if (body.serverId) {
+            setServerId(body.serverId);
+            setRegistrationStatus("registered");
+          } else if (serverAddress) {
+            try {
+              const gwRes = await fetch(
+                `${gatewayUrl}/v1/servers/${serverAddress}`,
+                { cache: "no-store" },
+              );
+              if (gwRes.ok) {
+                const gwBody = (await gwRes.json()) as {
+                  data?: { id?: string };
+                };
+                setServerId(gwBody.data?.id ?? null);
+              }
+            } catch {
+              // Best-effort; UI still flips to registered below.
+            }
+            setRegistrationStatus("registered");
+          } else {
+            setRegistrationStatus("registered");
+          }
         } else {
           const body = await res.json().catch(() => ({}));
           console.warn("On-chain registration failed:", body);
