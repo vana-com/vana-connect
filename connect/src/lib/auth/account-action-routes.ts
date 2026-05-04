@@ -208,7 +208,14 @@ export async function handleGetActionRequest(
   };
 }
 
-const SUPPORTED_EXECUTION_MODES: readonly ActionExecutionMode[] = ["mock"];
+// Create-time guard. Mirrors the relaxed approval guard in
+// {@link handleActionDecision}: `embedded_wallet_account_hosted` is now
+// supported end-to-end (real grants minted via PR #124). Result-mode is
+// still mock-only until encrypted-bundle delivery lands.
+const SUPPORTED_EXECUTION_MODES: readonly ActionExecutionMode[] = [
+  "mock",
+  "embedded_wallet_account_hosted",
+];
 const SUPPORTED_RESULT_MODES: readonly ActionResultMode[] = ["mock"];
 
 function isStringRecord(value: unknown): value is Record<string, unknown> {
