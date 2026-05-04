@@ -131,7 +131,9 @@ export async function registerServerOnChain(
       ],
       ...SERVER_REGISTRATION_TYPES,
     },
-    primaryType: "ServerRegistration" as const,
+    // Privy's signTypedData expects snake_case `primary_type`, not the
+    // EIP-712 standard `primaryType`. Validation in /api/sign accepts both.
+    primary_type: "ServerRegistration" as const,
     message: {
       ownerAddress: input.ownerAddress,
       serverAddress,
