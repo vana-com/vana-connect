@@ -25,7 +25,10 @@ import {
   type LoginEvidence,
   type PrivyVerifiedUser,
 } from "@/lib/auth/login-session-adapter";
-import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
+import {
+  findLinkedWalletsByUser,
+  resolveVanaUserByPrivyEvidence,
+} from "@/lib/db/account";
 import {
   consumeActionCodeWithExchangeEvent,
   findActionRequestById,
@@ -33,6 +36,10 @@ import {
   insertConsentEvent,
   persistActionDecisionBundle,
 } from "@/lib/db/account-actions";
+import { findOauthClientById } from "@/lib/db/oauth-clients";
+import { findServerByUserId } from "@/lib/db/neon";
+import { executeGrantViaPersonalServer } from "@/lib/auth/execute-grant-via-personal-server";
+import type { RequestedData } from "@/lib/auth/account-action";
 
 let privyClient: PrivyClient | null = null;
 
@@ -167,6 +174,17 @@ export async function runGetActionRequest(
   return toGetResponse(result);
 }
 
+async function resolveSubjectWalletAddress(
+  vanaUserId: string,
+): Promise<string | null> {
+  const wallets = await findLinkedWalletsByUser(vanaUserId);
+  // Primary wallet wins; fall back to first verified Ethereum wallet.
+  const primary = wallets.find((w) => w.is_primary);
+  if (primary) return primary.address;
+  const firstEth = wallets.find((w) => w.chain_type === "ethereum");
+  return firstEth?.address ?? null;
+}
+
 export async function runActionDecision(
   request: Request,
   actionRequestId: string,
@@ -183,6 +201,34 @@ export async function runActionDecision(
     resolveVanaUser,
     findActionRequestById,
     persistActionDecisionBundle,
+    resolveSubjectWalletAddress,
+    executeGrant: async (input) => {
+      const requestedData = input.requestedData as RequestedData;
+      return executeGrantViaPersonalServer({
+        vanaUserId: input.vanaUserId,
+        clientId: input.clientId,
+        scopes: requestedData.scopes ?? [],
+        // expiresAt + nonce are caller-driven; first slice mints unbounded
+        // grants (expiresAt=0 = no expiry) with epoch-ms nonce. Future
+        // slices may pull these from the request body.
+        expiresAt: 0,
+        nonce: Date.now(),
+        resolvePersonalServer: async (vanaUserId) => {
+          // vana_user_id → primary wallet → personal_servers row
+          const subject = await resolveSubjectWalletAddress(vanaUserId);
+          if (!subject) return null;
+          const server = await findServerByUserId(subject.toLowerCase());
+          if (!server || !server.url || !server.control_plane_token)
+            return null;
+          return {
+            serverId: server.id,
+            serverUrl: server.url,
+            accessToken: server.control_plane_token,
+          };
+        },
+        resolveOauthClient: async (clientId) => findOauthClientById(clientId),
+      });
+    },
   });
   return toDecisionResponse(result);
 }
