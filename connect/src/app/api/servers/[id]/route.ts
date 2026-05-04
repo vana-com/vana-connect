@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
-import { findServerById, updateServer } from "@/lib/db/neon";
+import { deleteServer, findServerById, updateServer } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
 // Allow up to 60s — DELETE waits for the GCE VM delete operation to
@@ -134,19 +134,16 @@ export async function DELETE(
     }
   }
 
-  const diskExpires = new Date(
-    Date.now() + 30 * 24 * 60 * 60 * 1000,
-  ).toISOString();
-
-  await updateServer(id, {
-    state: "stopped",
-    disk_expires: diskExpires,
-  });
+  // Provider deprovision destroys VM + tunnel + DNS + data disk. There's
+  // nothing left to recover, so drop the row entirely. The UI then shows
+  // "Provision Server" (idle) instead of a misleading "Stopped" with a
+  // dead public endpoint.
+  await deleteServer(id);
 
   return apiSuccess({
     object: "server",
     id,
-    state: "stopped",
-    disk_expires: diskExpires,
+    deleted: true,
+    state: "deleted",
   });
 }
