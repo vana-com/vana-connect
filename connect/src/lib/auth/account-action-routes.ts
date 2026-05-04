@@ -50,6 +50,7 @@ import type {
   LoginEvidence,
   LoginSessionAdapter,
 } from "./login-session-adapter";
+import type { ExecuteGrantResult } from "./execute-grant-via-personal-server";
 import {
   checkRedirectUri,
   createDefaultOauthClientRegistry,
@@ -57,7 +58,8 @@ import {
 } from "./oauth-client-policy";
 import { isVanaUserId } from "./vana-account";
 
-export const DEFAULT_ACCOUNT_ACTION_ISSUER = "https://account.vana.org";
+export const DEFAULT_ACCOUNT_ACTION_ISSUER =
+  process.env.VANA_ACCOUNT_ISSUER ?? "https://account.vana.org";
 
 export type CreateActionRequestInput = {
   body: unknown;
@@ -540,6 +542,21 @@ export type DecisionRouteInput = {
   sessionAdapter: LoginSessionAdapter;
   resolveVanaUser: (input: LoginEvidence) => Promise<{ user: { id: string } }>;
   findActionRequestById: (id: string) => Promise<ActionRequestRow | null>;
+  /**
+   * Look up the user's wallet address by vana_user_id, used to populate
+   * `subject_wallet_address` on consent events.
+   */
+  resolveSubjectWalletAddress?: (vanaUserId: string) => Promise<string | null>;
+  /**
+   * Execute the protocol grant on the user's Personal Server. Required when
+   * `execution_mode === "embedded_wallet_account_hosted"`. Tests inject a
+   * fake; production wires {@link executeGrantViaPersonalServer}.
+   */
+  executeGrant?: (input: {
+    vanaUserId: string;
+    clientId: string;
+    requestedData: RequestedData;
+  }) => Promise<ExecuteGrantResult>;
   persistActionDecisionBundle: (input: {
     id: string;
     decision: "approved" | "denied";
@@ -568,7 +585,7 @@ export type DecisionRouteResult =
     }
   | {
       kind: "error";
-      status: 400 | 401 | 403 | 404 | 409;
+      status: 400 | 401 | 403 | 404 | 409 | 500 | 502;
       code: string;
       message: string;
     };
@@ -653,16 +670,43 @@ export async function handleActionDecision(
     };
   }
 
-  if (
-    rawDecision === "approved" &&
-    (existing.execution_mode !== "mock" || existing.result_mode !== "mock")
-  ) {
-    return {
-      kind: "error",
-      status: 409,
-      code: "unsupported_action_mode",
-      message: "This action request cannot be approved by the mock route slice",
-    };
+  if (rawDecision === "approved") {
+    const supportedExecutionModes: ActionExecutionMode[] = [
+      "mock",
+      "embedded_wallet_account_hosted",
+    ];
+    if (!supportedExecutionModes.includes(existing.execution_mode)) {
+      return {
+        kind: "error",
+        status: 409,
+        code: "unsupported_action_mode",
+        message: `Approval flow does not support execution_mode='${existing.execution_mode}' yet`,
+      };
+    }
+    // Only mock result_mode is supported in this slice (real result_mode
+    // requires encrypted bundle delivery, tracked separately).
+    if (existing.result_mode !== "mock") {
+      return {
+        kind: "error",
+        status: 409,
+        code: "unsupported_action_mode",
+        message: `Approval flow does not support result_mode='${existing.result_mode}' yet`,
+      };
+    }
+    // Real-grant execution requires an executor and a registry (to look up
+    // builder identity). Reject early with a clear error if missing.
+    if (
+      existing.execution_mode === "embedded_wallet_account_hosted" &&
+      !input.executeGrant
+    ) {
+      return {
+        kind: "error",
+        status: 500,
+        code: "grant_executor_unavailable",
+        message:
+          "Server is misconfigured: real-grant executor not wired into the action-decision route",
+      } as DecisionRouteResult;
+    }
   }
 
   // Verify presented state against the stored hash BEFORE persisting the
@@ -718,11 +762,17 @@ export async function handleActionDecision(
       vana_user_id: vanaUserId,
       decided_at: now.toISOString(),
     };
+    const subjectWalletAddress = input.resolveSubjectWalletAddress
+      ? await input.resolveSubjectWalletAddress(vanaUserId).catch(() => null)
+      : null;
+    const clientRecord = input.registry?.resolve(deniedRequest.client_id);
     const event = buildConsentEventRow({
       request: deniedRequest,
       eventType: "action.denied",
       decision: "denied",
       vanaUserId,
+      subjectWalletAddress,
+      applicationId: clientRecord?.protocolPrincipal?.id ?? null,
       idempotencyKey: `${deniedRequest.id}:denied`,
       requestHash,
       issuer,
@@ -772,17 +822,81 @@ export async function handleActionDecision(
     vana_user_id: vanaUserId,
     decided_at: now.toISOString(),
   };
-  const result = buildMockActionResult({
-    request: approvedRequest,
-    actionCode,
-    now,
-    ttlSeconds: ACTION_CODE_TTL_SECONDS,
-  });
+
+  // For embedded-wallet account-hosted execution, mint a real grant on the
+  // user's Personal Server before persisting. Failure aborts the approval —
+  // the action request stays pending so the user can retry.
+  let authorizationReference: Record<string, unknown> | null = null;
+  let result: ActionResultRow;
+  if (existing.execution_mode === "embedded_wallet_account_hosted") {
+    // Guarded above; assert non-null for the type system.
+    const executor = input.executeGrant;
+    if (!executor) {
+      return {
+        kind: "error",
+        status: 500,
+        code: "grant_executor_unavailable",
+        message: "Real-grant executor missing",
+      };
+    }
+    const grant = await executor({
+      vanaUserId,
+      clientId: existing.client_id,
+      requestedData: existing.requested_data,
+    });
+    if (!grant.ok) {
+      return {
+        kind: "error",
+        status: grant.code === "no_personal_server" ? 409 : 502,
+        code: `grant_${grant.code}`,
+        message: grant.message,
+      };
+    }
+    authorizationReference = {
+      grantId: grant.grantId,
+      granteeAddress: grant.granteeAddress,
+      personalServer: grant.personalServer,
+    };
+    // Mock result_mode still applies for the data delivery path; real grant
+    // id rides on the result_payload alongside the marker so clients can
+    // resolve the on-chain grant after the OAuth code exchange.
+    result = buildMockActionResult({
+      request: approvedRequest,
+      actionCode,
+      now,
+      ttlSeconds: ACTION_CODE_TTL_SECONDS,
+    });
+    result = {
+      ...result,
+      result_payload: {
+        ...(result.result_payload as Record<string, unknown> | null),
+        grant_id: grant.grantId,
+        grantee_address: grant.granteeAddress,
+        personal_server: grant.personalServer,
+      },
+    };
+  } else {
+    result = buildMockActionResult({
+      request: approvedRequest,
+      actionCode,
+      now,
+      ttlSeconds: ACTION_CODE_TTL_SECONDS,
+    });
+  }
+
+  const subjectWalletAddress = input.resolveSubjectWalletAddress
+    ? await input.resolveSubjectWalletAddress(vanaUserId).catch(() => null)
+    : null;
+  const clientRecord = input.registry?.resolve(approvedRequest.client_id);
+
   const event = buildConsentEventRow({
     request: approvedRequest,
     eventType: "action.approved",
     decision: "approved",
     vanaUserId,
+    subjectWalletAddress,
+    applicationId: clientRecord?.protocolPrincipal?.id ?? null,
+    authorizationReference,
     idempotencyKey: `${approvedRequest.id}:approved`,
     requestHash,
     issuer,
