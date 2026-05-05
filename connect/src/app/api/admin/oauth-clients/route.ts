@@ -1,50 +1,40 @@
 /**
  * Admin API for the `oauth_clients` registry — replaces the localStorage
- * admin store. Authenticated callers must present a master-key signature
- * (proves wallet ownership) and become the registry's `owner_address`.
+ * admin store. Authenticated callers must present a Vana session
+ * (`getVanaSession(req)`); the resolved `vanaUserId` becomes the registry's
+ * canonical owner via `owner_vana_user_id`.
  *
- * GET  /api/admin/oauth-clients          — list clients owned by the caller
- * POST /api/admin/oauth-clients          — register or upsert a client
- * DELETE /api/admin/oauth-clients/{id}   — delete a client (other route file)
+ * GET    /api/admin/oauth-clients          — list clients owned by the caller
+ * POST   /api/admin/oauth-clients          — register or upsert a client
+ * DELETE /api/admin/oauth-clients/{id}     — delete a client (other route file)
+ *
+ * The legacy `oauth_clients.owner_address` column is left in place during the
+ * PR-Y transition (per docs/auth-redesign/01-architecture.md §10.1) and is
+ * populated from the caller's primary linked wallet so the existing CHECK
+ * constraint and downstream readers continue to function. Backfill of older
+ * rows is a follow-up cleanup PR.
  */
 
 import type { NextRequest } from "next/server";
 import { isAddress } from "viem";
-import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
+import { getVanaSession } from "@/lib/auth/vana-session";
+import { findLinkedWalletsByUser } from "@/lib/db/account";
 import {
-  findOauthClientsByOwner,
+  findOauthClientsByOwnerVanaUserId,
   upsertOauthClient,
 } from "@/lib/db/oauth-clients";
 
 export const maxDuration = 30;
 
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
-}
-
-async function authenticate(
-  request: NextRequest,
-): Promise<{ ok: true; ownerAddress: string } | { ok: false; res: Response }> {
-  const sig = extractSignature(request);
-  if (!sig) {
-    return {
-      ok: false,
-      res: apiError("authentication_error", "Missing masterKeySignature", 401),
-    };
-  }
-  try {
-    const ownerAddress = await recoverWalletAddress(sig);
-    return { ok: true, ownerAddress: ownerAddress.toLowerCase() };
-  } catch {
-    return {
-      ok: false,
-      res: apiError("authentication_error", "Invalid signature", 401),
-    };
-  }
+async function resolvePrimaryWalletAddress(
+  vanaUserId: string,
+): Promise<string | null> {
+  const wallets = await findLinkedWalletsByUser(vanaUserId);
+  const primary = wallets.find((w) => w.is_primary);
+  if (primary) return primary.address.toLowerCase();
+  const first = wallets[0];
+  return first?.address?.toLowerCase() ?? null;
 }
 
 export async function OPTIONS() {
@@ -52,15 +42,19 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await authenticate(request);
-  if (!auth.ok) return auth.res;
-  const rows = await findOauthClientsByOwner(auth.ownerAddress);
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
+  }
+  const rows = await findOauthClientsByOwnerVanaUserId(session.vanaUserId);
   return apiSuccess({ object: "list", data: rows });
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticate(request);
-  if (!auth.ok) return auth.res;
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -129,12 +123,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // The legacy NOT NULL `owner_address` column needs a value during the
+  // PR-Y transition. Sourced from the caller's primary linked wallet.
+  const ownerAddress = await resolvePrimaryWalletAddress(session.vanaUserId);
+  if (!ownerAddress) {
+    return apiError(
+      "invalid_request_error",
+      "Caller has no linked wallet to register as owner_address",
+      400,
+    );
+  }
+
   const row = await upsertOauthClient({
     clientId,
     applicationId: asNonEmptyString(body.applicationId),
     displayName,
     appUrl,
-    ownerAddress: auth.ownerAddress,
+    ownerAddress,
+    ownerVanaUserId: session.vanaUserId,
     granteeAddress,
     builderId,
     publicKey,

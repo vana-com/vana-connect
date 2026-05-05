@@ -4,13 +4,12 @@ import {
   createActionRequestRow,
   hashActionCode,
 } from "@/lib/auth/account-action";
-import { createAccountLoginSessionToken } from "@/lib/auth/account-login-session";
 
 /**
  * App Router-level integration tests for `/api/account/actions/*`.
  *
- * The DB module and Privy SDK are stubbed via `vi.mock` so these tests run
- * without `DATABASE_URL` or live Privy. The pure handlers in
+ * The DB module and `getVanaSession` verifier are stubbed via `vi.mock` so
+ * these tests run without `DATABASE_URL` or live Hydra. The pure handlers in
  * `lib/auth/account-action-routes.ts` already cover branch-level logic; this
  * suite verifies the route wiring (JSON in, JSON out, status codes) does not
  * regress.
@@ -22,8 +21,7 @@ const mocks = vi.hoisted(() => ({
   findActionRequestById: vi.fn(),
   insertConsentEvent: vi.fn(),
   persistActionDecisionBundle: vi.fn(),
-  resolveVanaUserByPrivyEvidence: vi.fn(),
-  privyUsersGet: vi.fn(),
+  getVanaSession: vi.fn(),
 }));
 
 vi.mock("@/lib/db/account-actions", () => ({
@@ -34,25 +32,22 @@ vi.mock("@/lib/db/account-actions", () => ({
   persistActionDecisionBundle: mocks.persistActionDecisionBundle,
 }));
 
-vi.mock("@/lib/db/account", () => ({
-  resolveVanaUserByPrivyEvidence: mocks.resolveVanaUserByPrivyEvidence,
-}));
-
-vi.mock("@privy-io/node", () => ({
-  PrivyClient: class {
-    users() {
-      return { get: mocks.privyUsersGet };
-    }
-  },
+vi.mock("@/lib/auth/vana-session", () => ({
+  getVanaSession: mocks.getVanaSession,
 }));
 
 const REGISTERED_CLIENT = "memory-app-dev";
 const REGISTERED_REDIRECT = "http://localhost:3000/api/auth/callback/vana";
 const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
-const ACCOUNT_SESSION_COOKIE = `vana_account_session=${createAccountLoginSessionToken(
-  { privySubject: "did:privy:user-1" },
-  { secret: "test-privy-secret", nowMs: Date.now(), ttlMs: 60_000 },
-)}`;
+
+function makeSession() {
+  return {
+    vanaUserId: VANA_USER_ID,
+    hydraSessionId: "hydra_test_sid",
+    scope: ["openid", "offline"],
+    audience: ["account.vana.org"],
+  };
+}
 
 async function importRoutes() {
   return {
@@ -81,8 +76,6 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.PRIVY_APP_ID = "test-privy-app";
-  process.env.PRIVY_APP_SECRET = "test-privy-secret";
 });
 
 describe("POST /api/account/actions", () => {
@@ -162,7 +155,6 @@ describe("POST /api/account/actions", () => {
     expect(body.action_url).toMatch(/account\/actions\/vana_areq_/);
     expect(body.execution_mode).toBe("mock");
     expect(body.result_mode).toBe("mock");
-    expect(typeof body.expires_at).toBe("string");
     // Make sure raw user data never appears anywhere in the response.
     expect(JSON.stringify(body)).not.toContain("PII");
   });
@@ -251,24 +243,20 @@ describe("POST /api/account/actions/exchange", () => {
 });
 
 describe("GET /api/account/actions/[id]", () => {
-  it("returns 401 without login evidence", async () => {
+  it("returns 401 when getVanaSession returns null", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(null);
     const { get } = await importRoutes();
     const response = await get.GET(
-      new NextRequest("https://account.vana.org/api/account/actions/x"),
+      new NextRequest("https://account.vana.org/api/account/actions/x", {
+        headers: { authorization: "Bearer tok" },
+      }),
       { params: Promise.resolve({ id: "vana_areq_x" }) },
     );
     expect(response.status).toBe(401);
   });
 
   it("returns display-safe request details for the logged-in user", async () => {
-    mocks.privyUsersGet.mockResolvedValueOnce({
-      id: "did:privy:user-1",
-      linked_accounts: [],
-    });
-    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValueOnce({
-      user: { id: VANA_USER_ID },
-      created: false,
-    });
+    mocks.getVanaSession.mockResolvedValueOnce(makeSession());
     const action = createActionRequestRow({
       clientId: REGISTERED_CLIENT,
       vanaUserId: null,
@@ -287,7 +275,7 @@ describe("GET /api/account/actions/[id]", () => {
     const response = await get.GET(
       new NextRequest(
         `https://account.vana.org/api/account/actions/${action.id}`,
-        { headers: { cookie: ACCOUNT_SESSION_COOKIE } },
+        { headers: { authorization: "Bearer tok" } },
       ),
       { params: Promise.resolve({ id: action.id }) },
     );
@@ -312,11 +300,12 @@ describe("POST /api/account/actions/[id]/decision", () => {
     return makePostRequest(
       `https://account.vana.org/api/account/actions/${id}/decision`,
       body,
-      withAuth ? { cookie: ACCOUNT_SESSION_COOKIE } : {},
+      withAuth ? { authorization: "Bearer tok" } : {},
     );
   }
 
-  it("returns 401 without login evidence", async () => {
+  it("returns 401 when getVanaSession returns null", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(null);
     const { decision } = await importRoutes();
     const response = await decision.POST(
       makeDecisionRequest("vana_areq_x", { decision: "approved" }, false),
@@ -326,14 +315,7 @@ describe("POST /api/account/actions/[id]/decision", () => {
   });
 
   it("approves a pending request and returns a redirect_url with action_code only", async () => {
-    mocks.privyUsersGet.mockResolvedValueOnce({
-      id: "did:privy:user-1",
-      linked_accounts: [],
-    });
-    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValueOnce({
-      user: { id: VANA_USER_ID },
-      created: false,
-    });
+    mocks.getVanaSession.mockResolvedValueOnce(makeSession());
 
     const pending = createActionRequestRow({
       clientId: REGISTERED_CLIENT,

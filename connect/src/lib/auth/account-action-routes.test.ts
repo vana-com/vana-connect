@@ -13,10 +13,6 @@ import {
   handleExchangeActionCode,
   handleGetActionRequest,
 } from "./account-action-routes";
-import type {
-  LoginEvidence,
-  LoginSessionAdapter,
-} from "./login-session-adapter";
 
 const VANA_USER_ID = "vana_user_0123456789abcdef0123456789abcdef";
 const OTHER_VANA_USER_ID = "vana_user_aaaabbbbccccddddeeeefffff0000111";
@@ -24,10 +20,10 @@ const OTHER_VANA_USER_ID = "vana_user_aaaabbbbccccddddeeeefffff0000111";
 const REGISTERED_REDIRECT = "http://localhost:3000/api/auth/callback/vana";
 const REGISTERED_CLIENT = "memory-app-dev";
 
-function fakeSession(evidence: LoginEvidence | null): LoginSessionAdapter {
-  return {
-    resolveLoginEvidence: vi.fn().mockResolvedValue(evidence),
-  };
+function fakeResolveVanaUserId(
+  vanaUserId: string | null,
+): (request: Request) => Promise<string | null> {
+  return vi.fn().mockResolvedValue(vanaUserId);
 }
 
 function buildBody(overrides: Record<string, unknown> = {}): unknown {
@@ -232,17 +228,14 @@ describe("handleGetActionRequest", () => {
         `https://account.vana.org/api/account/actions/${action.id}`,
       ),
       actionRequestId: action.id,
-      sessionAdapter: fakeSession({ privySubject: "did:privy:user-1" }),
-      resolveVanaUser: vi
-        .fn()
-        .mockResolvedValue({ user: { id: VANA_USER_ID } }),
+      resolveVanaUserId: fakeResolveVanaUserId(VANA_USER_ID),
       findActionRequestById: vi.fn().mockResolvedValue(action),
       ...overrides,
     } as Parameters<typeof handleGetActionRequest>[0];
   }
 
   it("requires login evidence", async () => {
-    const input = makeInput({ sessionAdapter: fakeSession(null) });
+    const input = makeInput({ resolveVanaUserId: fakeResolveVanaUserId(null) });
     const result = await handleGetActionRequest(input);
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
@@ -449,10 +442,7 @@ describe("handleActionDecision", () => {
       request: fakeRequest(),
       actionRequestId: pending.id,
       body: { decision: "approved" },
-      sessionAdapter: fakeSession({ privySubject: "did:privy:user-1" }),
-      resolveVanaUser: vi
-        .fn()
-        .mockResolvedValue({ user: { id: VANA_USER_ID } }),
+      resolveVanaUserId: fakeResolveVanaUserId(VANA_USER_ID),
       findActionRequestById: vi.fn().mockResolvedValue(pending),
       persistActionDecisionBundle: vi.fn(
         async ({
@@ -472,7 +462,9 @@ describe("handleActionDecision", () => {
   }
 
   it("returns 401 when no login evidence is present", async () => {
-    const input = buildInput({ sessionAdapter: fakeSession(null) });
+    const input = buildInput({
+      resolveVanaUserId: fakeResolveVanaUserId(null),
+    });
     const result = await handleActionDecision(input);
     expect(result.kind).toBe("error");
     if (result.kind !== "error") return;
@@ -480,12 +472,10 @@ describe("handleActionDecision", () => {
     expect(result.code).toBe("login_required");
   });
 
-  it("rejects a resolved provider subject before mutating the request", async () => {
+  it("rejects a non-canonical subject before mutating the request", async () => {
     const persistActionDecisionBundle = vi.fn();
     const input = buildInput({
-      resolveVanaUser: vi
-        .fn()
-        .mockResolvedValue({ user: { id: "did:privy:user-1" } }),
+      resolveVanaUserId: fakeResolveVanaUserId("did:privy:user-1"),
       persistActionDecisionBundle,
     });
     const result = await handleActionDecision(input);

@@ -7,15 +7,31 @@
  *
  * Trust chain established here:
  *   user wallet (ownerAddress)
- *     └── signs ServerRegistration EIP-712
+ *     └── signs ServerRegistration EIP-712  via wallet.signTypedData
  *           → gateway records: ownerAddress trusts serverAddress
  *
  * After this lands, builder discovery (`GET /v1/servers/{ownerAddress}`)
  * resolves to this server's URL, and PS-signed grant/file operations are
  * accepted by the gateway under the delegation fallback.
+ *
+ * --- Migration notes (auth-redesign PR-X) ---
+ *
+ * Pre-PR-X: this lib POSTed to `/api/sign` with a `masterKeySignature`
+ * recovered from the user's `vana-master-key-v1` signature. That path is
+ * gone. The lib now calls `wallet.signTypedData(...)` directly with
+ * `purpose: 'register_personal_server'` (a HIGH_RISK_PURPOSE).
+ *
+ * Because it's high-risk, the call MAY return `kind: 'confirmation_required'`
+ * — the user must click Confirm in the inline modal first. The route
+ * caller bubbles this up as a 401 envelope; the client handles the
+ * confirmation dance and retries with `confirmationId`.
+ *
+ * See docs/auth-redesign/01-architecture.md §1.5, §10.2 (PR-X).
  */
 
-import type { Address, Hex } from "viem";
+import type { Address } from "viem";
+import { signTypedData, type SigningResult } from "@/lib/auth/wallet";
+import { privyAdapter } from "@/lib/auth/wallet-providers/privy";
 
 const SERVERS_DOMAIN = {
   name: "Vana Data Portability",
@@ -43,31 +59,49 @@ export type RegisterServerErrorCode =
   | "ALREADY_REGISTERED"
   | "VALIDATION_ERROR"
   | "SIGN_FAILED"
+  | "CONFIRMATION_REQUIRED"
+  | "WALLET_NOT_SUPPORTED"
   | "HEALTH_FETCH_FAILED"
   | "NETWORK_ERROR"
   | "UNEXPECTED_ERROR";
 
 export type RegisterServerResult =
   | { ok: true; data: { serverId: string; serverAddress: Address } }
-  | { ok: false; error: { code: RegisterServerErrorCode; message: string } };
+  | {
+      ok: false;
+      error: {
+        code: "CONFIRMATION_REQUIRED";
+        message: string;
+        confirmationId: string;
+        payloadSummary: Record<string, unknown>;
+        expiresAt: string;
+      };
+    }
+  | {
+      ok: false;
+      error: {
+        code: Exclude<RegisterServerErrorCode, "CONFIRMATION_REQUIRED">;
+        message: string;
+      };
+    };
 
 export interface RegisterServerInput {
-  /** EIP-191 signature over "vana-master-key-v1" — used to sign ServerRegistration via /api/sign */
-  masterKeySignature: Hex;
-  /** Owner wallet address (recovered from masterKeySignature) */
+  vanaUserId: string;
+  hydraSessionId: string;
+  /** Owner wallet address (resolved by the route from vana_linked_wallets). */
   ownerAddress: Address;
   /** Public URL the PS is reachable at, e.g. https://0xabc….myvana.app */
   serverUrl: string;
-  /** Origin to call /api/sign on (defaults to current host's account.vana.org) */
-  signEndpoint: string;
+  /** Optional: forward the user's confirmation row id when retrying after the inline modal. */
+  confirmationId?: string;
 }
 
 /**
  * Fetches the PS's identity (serverAddress + publicKey) from its /health
  * endpoint, then signs and submits the ServerRegistration to the gateway.
  *
- * Idempotent: gateway returns 409 if server is already registered, which we
- * treat as success (caller usually doesn't care).
+ * Idempotent: gateway returns 409 if the server is already registered, which
+ * we treat as success.
  */
 export async function registerServerOnChain(
   input: RegisterServerInput,
@@ -77,7 +111,6 @@ export async function registerServerOnChain(
   let publicKey: string;
   try {
     const healthRes = await fetch(`${input.serverUrl}/health`, {
-      // Gateway calls are public; /health is unauthenticated.
       cache: "no-store",
     });
     if (!healthRes.ok) {
@@ -114,26 +147,18 @@ export async function registerServerOnChain(
   }
 
   // 2. Build the EIP-712 typed-data payload exactly matching the gateway's
-  //    ServerRegistration verification (lib/eip712.ts in vana-com/data-gateway).
+  //    ServerRegistration verification.
   const typedData = {
     domain: {
       name: SERVERS_DOMAIN.name,
       version: SERVERS_DOMAIN.version,
-      chainId: SERVERS_DOMAIN.chainId.toString(),
+      chainId: Number(SERVERS_DOMAIN.chainId),
       verifyingContract: SERVERS_DOMAIN.verifyingContract,
     },
+    primaryType: "ServerRegistration" as const,
     types: {
-      EIP712Domain: [
-        { name: "name", type: "string" },
-        { name: "version", type: "string" },
-        { name: "chainId", type: "uint256" },
-        { name: "verifyingContract", type: "address" },
-      ],
       ...SERVER_REGISTRATION_TYPES,
     },
-    // Privy's signTypedData expects snake_case `primary_type`, not the
-    // EIP-712 standard `primaryType`. Validation in /api/sign accepts both.
-    primary_type: "ServerRegistration" as const,
     message: {
       ownerAddress: input.ownerAddress,
       serverAddress,
@@ -142,38 +167,20 @@ export async function registerServerOnChain(
     },
   };
 
-  // 3. Sign via /api/sign (server-side Privy authorization signer)
-  let signature: Hex;
+  // 3. Sign via the Vana wallet API. May return confirmation_required for the
+  //    high-risk register_personal_server purpose.
+  let signResult: SigningResult;
   try {
-    const signRes = await fetch(input.signEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        masterKeySignature: input.masterKeySignature,
-        type: "eth_signTypedData_v4",
+    signResult = await signTypedData(
+      {
+        vanaUserId: input.vanaUserId,
+        hydraSessionId: input.hydraSessionId,
+        purpose: "register_personal_server",
         typedData,
-      }),
-    });
-    if (!signRes.ok) {
-      const body = await signRes.json().catch(() => ({}));
-      return {
-        ok: false,
-        error: {
-          code: "SIGN_FAILED",
-          message:
-            (body as { error?: string }).error ??
-            `Sign endpoint returned ${signRes.status}`,
-        },
-      };
-    }
-    const json = (await signRes.json()) as { signature?: Hex };
-    if (!json.signature) {
-      return {
-        ok: false,
-        error: { code: "SIGN_FAILED", message: "No signature returned" },
-      };
-    }
-    signature = json.signature;
+        confirmationId: input.confirmationId,
+      },
+      { adapter: privyAdapter },
+    );
   } catch (err) {
     return {
       ok: false,
@@ -183,6 +190,32 @@ export async function registerServerOnChain(
       },
     };
   }
+
+  if (signResult.kind === "not_supported_yet") {
+    return {
+      ok: false,
+      error: {
+        code: "WALLET_NOT_SUPPORTED",
+        message:
+          "Server-side signing is not supported for this wallet type. " +
+          "User-controlled EOAs require an interactive signature flow that " +
+          "isn't yet implemented.",
+      },
+    };
+  }
+  if (signResult.kind === "confirmation_required") {
+    return {
+      ok: false,
+      error: {
+        code: "CONFIRMATION_REQUIRED",
+        message: "User confirmation required for this signing operation",
+        confirmationId: signResult.confirmationId,
+        payloadSummary: signResult.payloadSummary,
+        expiresAt: signResult.expiresAt,
+      },
+    };
+  }
+  const signature = signResult.signature;
 
   // 4. POST to gateway /v1/servers
   try {
@@ -209,7 +242,6 @@ export async function registerServerOnChain(
     }
 
     if (res.status === 409) {
-      // Already registered for this serverAddress — treat as success.
       return {
         ok: true,
         data: { serverId: "", serverAddress },

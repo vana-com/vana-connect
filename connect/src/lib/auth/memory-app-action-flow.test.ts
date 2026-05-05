@@ -13,7 +13,6 @@ import {
   handleCreateActionRequest,
   handleExchangeActionCode,
 } from "./account-action-routes";
-import type { LoginSessionAdapter } from "./login-session-adapter";
 
 type MemoryActionFixture = {
   actionType: string;
@@ -61,12 +60,7 @@ async function loadActionFixture(): Promise<MemoryActionModule> {
   return actionFixtureModulePromise;
 }
 
-const loggedInSession: LoginSessionAdapter = {
-  resolveLoginEvidence: async () => ({
-    privySubject: "did:privy:memory-user",
-    email: "memory-user@example.test",
-  }),
-};
+const resolveLoggedInVanaUserId = async () => VANA_USER_ID;
 
 function extractActionCode(redirectUrl: string | null): string {
   if (!redirectUrl) throw new Error("expected redirect_url");
@@ -117,8 +111,7 @@ describe("Memory App account-hosted action fixture", () => {
       }),
       actionRequestId: create.body.action_request_id,
       body: { decision: "approved", state: actionFixture.state },
-      sessionAdapter: loggedInSession,
-      resolveVanaUser: async () => ({ user: { id: VANA_USER_ID } }),
+      resolveVanaUserId: resolveLoggedInVanaUserId,
       findActionRequestById: async () => actionRequest,
       now: new Date("2026-04-29T12:01:00.000Z"),
       persistActionDecisionBundle: async ({
