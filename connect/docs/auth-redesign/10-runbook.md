@@ -1,58 +1,180 @@
-# Auth Redesign — Runbook (in-progress)
+# Runbook — End-to-End Validation
 
-Status: living doc; updated as each stage lands.
+For when Tim returns. Validates the auth-redesign work end-to-end with two
+manual steps (Privy login, ChatGPT Playwright login).
 
-## What's done
+## Pre-flight (claude self-checks before declaring done)
 
-- **Stage 1**: Architecture design (`01-architecture.md` + 3 sub-doc drafts in `_drafts/`).
-- **Stage 2**: Migration `008_signing_auth_plane.sql` adds the signing-authority + session-tombstone + encrypted-refresh-token tables. Repo functions in `src/lib/db/auth-signing.ts` and `src/lib/db/sessions.ts`. Tests skip without DATABASE_URL.
-- **Stage 3 (partial)**: `getVanaSession()` verifier in `src/lib/auth/vana-session.ts` — cached Hydra introspection + DB tombstone check + audience/exp/sub validation.
+Run these before you sit down. Each must pass.
 
-## What's left
+- [ ] `npx tsc --noEmit` is clean across `vana-connect/connect`.
+- [ ] `npx vitest run src/lib/auth src/lib/db` passes (excluding DB-backed
+      tests that require `DATABASE_URL`).
+- [ ] All open questions in `01-architecture.md §1.12` have your sign-off.
+- [ ] Migration `008_auth_signing_plane.sql` runs cleanly against the dev
+      DB (apply with your existing migration runner).
+- [ ] Vercel envs set on Preview for `vana-connect/connect`:
+  - `REFRESH_TOKEN_ENC_KEY` (32-byte base64). Generate with
+    `node -e 'console.log(require("crypto").randomBytes(32).toString("base64"))'`
+  - `HYDRA_ADMIN_URL` (already exists)
+  - `HYDRA_ADMIN_AUDIENCE` (already exists)
+  - `HYDRA_PUBLIC_URL` (already exists)
+  - `VANA_SESSION_EXPECTED_AUDIENCE=account.vana.org`
+- [ ] Hydra OAuth clients exist:
+  - `vana-account-web` — code+refresh, opaque, aud=`account.vana.org`
+  - `data-connect` — device-code+refresh, opaque, aud=`account.vana.org`
+    (per-user PS URLs added at consent time)
 
-- **Stage 3 remainder**: login bridge rewrite (`/api/auth/session`), `/api/auth/refresh`, `/api/auth/logout`, `/api/oauth/introspect` proxy, `.well-known/oauth-authorization-server`, Hydra setup script.
-- **Stage 5**: signing plane — `signing-purposes.ts`, `wallet.ts`, `wallet-providers/privy.ts`, interactive-confirmation routes.
-- **Stage 4 (3 PRs)**: cutover routes to `getVanaSession`; cutover `register-on-chain` to `wallet.signTypedData`; decommission legacy device-flow routes.
-- **Stage 6**: branded `VanaUserId` TS type sweep + dev tripwire.
-- **Stage 7**: data-connect remote PS support + Hydra device-code Login with Vana + PS-side Vana session auth.
-- **Stage 8/9**: Memory App regression + runbook for end-to-end test.
+## What's NOT yet wired (deferred to next PR after sign-off)
 
-## Required environment variables (set before stage 3 ships)
+These require live Hydra round-trips to validate so they're best landed
+under your eyes:
 
-These need to be added to Vercel (Preview + Development) and `.env.local` before the new auth plane will function. None are committed to the repo.
+- `/api/auth/session` rewrite (Privy → Hydra accept-login dance).
+- `/auth/device` UI page calling `getDeviceUserCodeRequest` + `acceptUserCodeRequest`.
+- `/api/auth/confirmations/:id/{status,consume}` routes.
+- Inline `<ConfirmationModal>` component.
+- Privy custody adapter (`wallet-providers/privy.ts`).
+- Per-flow route migrations (PR-Y, PR-X, PR-Z).
+- data-connect remote PS support.
+- PS-side Vana session integration.
 
-| Var                              | Source                       | Notes                                                                                     |
-| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `REFRESH_TOKEN_ENC_KEY`          | 32 random bytes, base64      | Must be DISTINCT from `PRIVY_SIGNER_PRIVATE_KEY`. Generate via `openssl rand -base64 32`. |
-| `REFRESH_TOKEN_ENC_KEY_OLD`      | optional, base64             | Set during KEK rotation; allows decrypt of pre-rotation rows.                             |
-| `VANA_SESSION_EXPECTED_AUDIENCE` | `account.vana.org`           | Audience the verifier requires on access tokens.                                          |
-| `HYDRA_PUBLIC_URL`               | `https://oauth-dev.vana.org` | Already set; `iss` pinning.                                                               |
-| `HYDRA_ADMIN_URL`                | already set                  | Cloud Run admin URL.                                                                      |
-| `HYDRA_ADMIN_AUDIENCE`           | already set                  | Cloud Run audience for Google ID-token Bearer.                                            |
+## Two manual steps you must perform
 
-## End-to-end test path (after all stages land)
+These cannot be automated:
 
-1. **Vercel envs**: confirm `REFRESH_TOKEN_ENC_KEY` is set on the Preview environment for `vana-connect/connect`.
-2. **Migration**: run `008_signing_auth_plane.sql` on the dev DB. The migration is idempotent and includes the greenfield wipe of `personal_servers`.
-3. **Reprovision PS**: `account-dev.vana.org/server` → log in via Privy → click Provision. The `personal_servers` row will be re-created with `user_id = vana_user_<…>` instead of the old wallet-address shape.
-4. **Login with Vana on data-connect**: open Tauri data-connect → Settings → "Connect with Vana" → device code displays → browser opens to `account-dev.vana.org/auth/device` → Privy login if needed → click Approve → Tauri receives access + refresh tokens.
-5. **Discover remote PS**: data-connect calls `account-dev.vana.org/api/servers` with the new Bearer token → reads PS URL → auto-populates `remoteServerUrl` setting.
-6. **Run ChatGPT connector**: data-connect → Connectors → ChatGPT → Sync. Playwright opens; **manual step: log in to ChatGPT in the visible browser window**. Connector exports memories + conversations.
-7. **Ingest to remote PS**: connector exports get POSTed to `<remoteServerUrl>/v1/data/<scope>` with Bearer = the data-connect access token. PS introspects via `account.vana.org/api/oauth/introspect` and accepts as owner-equivalent.
-8. **Memory App grant**: open `vana-connect-mobile-dev.vercel.app/demo/login-with-vana` → click "Connect ChatGPT" → review on account-dev → **manual step: click Confirm in the inline modal** (the new `interactive_confirmations` flow). Action exchange returns `grant_id` + `personal_server` URL.
-9. **Memory App fetch**: Memory App's `/demo/login-with-vana/actions/fetch-data` route signs `Web3Signed grant_id` with `MEMORY_APP_GRANTEE_PRIVATE_KEY` and calls `<psUrl>/v1/data/chatgpt.memories`. Returns the real memories Tim ingested in step 6.
-10. **Display**: `memory-app-demo.tsx` renders the real memories instead of `MOCK_CHATGPT_MEMORIES`.
+1. **Privy login.** Open `https://account-dev.vana.org` in a fresh browser
+   profile, click sign in, complete Privy's flow.
+2. **ChatGPT Playwright login.** Once data-connect is launched, the
+   ChatGPT connector opens a browser window for you to log into
+   chatgpt.com manually. The connector then scrapes memories and
+   conversations.
 
-## Manual steps (the only two)
+## End-to-end happy path (target state)
 
-- **Privy login** in step 4 (and step 8 if not already authed).
-- **ChatGPT Playwright login** in step 6.
+1. **Log in to account-dev.vana.org.** Privy flow completes, you're
+   redirected back, browser holds `vana_session` (HttpOnly) and
+   `vana_access` (JS-readable) cookies.
+2. **Provision a Personal Server.** `/server` page → Provision. The
+   register-on-chain step fires `wallet.signTypedData({purpose:
+register_personal_server})`. UI shows the inline confirmation modal
+   with the typed-data summary; you click Confirm; the route retries
+   with `x-vana-confirmation-id`; signature lands; PS is registered on
+   the dev gateway.
+3. **Register Memory App at /admin.** Sign with master key (Privy prompt);
+   POST to `/api/admin/oauth-clients` with the Memory App URL; gets
+   `owner_vana_user_id` set.
+4. **Launch data-connect** (Tauri app). Settings → Server Mode = Remote
+   → "Connect with Vana". Tauri opens browser to Hydra device-flow page;
+   you authenticate; data-connect polls Hydra and receives access +
+   refresh tokens; auto-discovers your PS URL via
+   `account-dev.vana.org/api/servers`.
+5. **Run ChatGPT connector.** Sync → Playwright opens browser → you log
+   into ChatGPT manually → connector exports memories +
+   conversations → ingestion POSTs to your remote PS with `Authorization:
+Bearer <vana access token>`. PS's web3-auth middleware matches the
+   `vana-session` mechanism, introspects against
+   `account.vana.org/api/oauth/introspect`, validates audience includes
+   the PS URL, sets owner auth, accepts the write.
+6. **Open Memory App demo.** `vana-connect-mobile-dev.vercel.app/demo/
+login-with-vana`. Click Import. Approval flow runs against
+   account-dev (using your Vana session). Grant is minted on PS via
+   real OAuth2 client_credentials. Result_payload includes `grant_id`,
+   `personal_server.serverUrl`. Memory App's
+   `/demo/login-with-vana/actions/fetch-data` route signs Web3Signed
+   with grantee key + grant_id, fetches your real ChatGPT memories from
+   PS.
 
-## Rollback
+When you see your real ChatGPT memories rendered in Memory App and
+none of them match `MOCK_CHATGPT_MEMORIES`, end-to-end is done.
 
-This is a forward-only refactor on dev. To roll back:
+## Diagnostic queries (live DB)
 
-1. Drop in reverse order: `vana_refresh_tokens`, `vana_session_tombstones`, `signing_authorizations`, `interactive_confirmations`.
-2. Drop columns: `oauth_clients.owner_vana_user_id`, `vana_linked_wallets.key_control_type`.
-3. Drop type: `vana_key_control_type`.
-4. `personal_servers` must be reprovisioned regardless of direction.
+After step 2, verify the signing plane wrote a row:
+
+```sql
+SELECT id, purpose, payload_hash, used_count, consumed_at,
+       signature_hex IS NOT NULL AS has_sig
+FROM signing_authorizations
+WHERE vana_user_id = '<your vana_user_id>'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+You should see at least one row with `purpose=register_personal_server`,
+`used_count=1`, `consumed_at` non-null, `has_sig=true`, and an associated
+`confirmation_id` matching a row in `interactive_confirmations` whose
+`consumed_at` precedes the authority's.
+
+After logout, verify the tombstone:
+
+```sql
+SELECT hydra_session_id, vana_user_id, revoked_at, expires_at
+FROM vana_session_tombstones
+WHERE vana_user_id = '<your vana_user_id>'
+ORDER BY revoked_at DESC LIMIT 5;
+```
+
+After ingest, verify a fresh refresh-token row exists:
+
+```sql
+SELECT id, family_id, expires_at,
+       rotated_at IS NOT NULL AS rotated,
+       revoked_at IS NOT NULL AS revoked
+FROM vana_refresh_tokens
+WHERE vana_user_id = '<your vana_user_id>'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+## If something breaks
+
+- **`getVanaSession` returns null on a known-good token.** Check
+  `HYDRA_PUBLIC_URL` matches the actual Hydra issuer; `iss` mismatch
+  is silent. Check `aud` includes `account.vana.org`.
+- **`/api/oauth/introspect` returns `active: false` to PS.** Check
+  Hydra admin Bearer (Google ID token) is valid; check token isn't in
+  `vana_session_tombstones` (we filter NOT in the proxy itself, but
+  you'll see it via `getVanaSession`).
+- **Confirmation_required keeps re-firing.** Check the client is
+  sending `x-vana-confirmation-id` header on retry; check the
+  confirmation row exists with `consumed_at IS NOT NULL` and within 30s
+  of the retry.
+- **PS rejects Vana session with AUDIENCE_MISMATCH.** Verify the
+  user's `personal_servers.url` matches what's set as the per-consent
+  audience in `acceptUserCodeRequest`. PS validates its own URL.
+- **Tripwire fires in dev.** Read the response body diagnostic; the
+  match + context tell you which response leaked a provider DID. Fix
+  the route, don't disable the tripwire.
+
+## Reverting
+
+If things go badly wrong in dev:
+
+1. Roll back the migration:
+   ```sql
+   DROP TABLE signing_authorizations, interactive_confirmations,
+              vana_refresh_tokens, vana_session_tombstones;
+   ALTER TABLE vana_linked_wallets DROP COLUMN key_control_type;
+   ALTER TABLE oauth_clients DROP COLUMN owner_vana_user_id;
+   ```
+2. Revert the merge commit on `develop`.
+3. Reset env vars: remove `REFRESH_TOKEN_ENC_KEY`,
+   `VANA_SESSION_EXPECTED_AUDIENCE` from Preview.
+
+The legacy `master-key-signature` and `ACCOUNT_LOGIN_SESSION_COOKIE`
+machinery is still present; reverting restores the previous behavior.
+
+## Stage progress
+
+| Stage | What                                       | Status                                                |
+| ----- | ------------------------------------------ | ----------------------------------------------------- |
+| 0     | Discovery + critique                       | done                                                  |
+| 1     | Architecture design doc                    | done                                                  |
+| 2     | Schema additions                           | done                                                  |
+| 3     | Vana session-token plane                   | partial — verifier, introspect proxy, logout, tests   |
+| 4     | Atomic per-flow cutovers                   | not started                                           |
+| 5     | Signing authority plane                    | partial — orchestrator, payload-hash, purposes, tests |
+| 6     | Branded types + dev tripwire               | done                                                  |
+| 7     | data-connect remote PS + Hydra device-code | not started                                           |
+| 8     | Memory App regression check                | pending stage 4                                       |
+| 9     | This runbook                               | done                                                  |
