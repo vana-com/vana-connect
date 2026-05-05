@@ -231,7 +231,7 @@ dbDescribe("signing_authorizations", () => {
       payloadHash: sharedHash,
       payloadSummary: {},
     });
-    const consumed = await consumeSigningAuthorization(first.id);
+    const consumed = await consumeSigningAuthorization(first.id, "0xfakesig");
     expect(consumed?.used_count).toBe(1);
     expect(consumed?.consumed_at).not.toBeNull();
 
@@ -259,11 +259,11 @@ dbDescribe("signing_authorizations", () => {
       payloadSummary: {},
     });
 
-    const first = await consumeSigningAuthorization(auth.id);
+    const first = await consumeSigningAuthorization(auth.id, "0xfakesig");
     expect(first).not.toBeNull();
     expect(first?.used_count).toBe(1);
 
-    const second = await consumeSigningAuthorization(auth.id);
+    const second = await consumeSigningAuthorization(auth.id, "0xfakesig2");
     expect(second).toBeNull();
   });
 
@@ -292,7 +292,7 @@ dbDescribe("signing_authorizations", () => {
       payloadSummary: {},
       confirmationId: confirmation.id,
     });
-    await consumeSigningAuthorization(auth.id);
+    await consumeSigningAuthorization(auth.id, "0xfakesig");
 
     const found = await findConsumedAuthorizationByConfirmationId(
       confirmation.id,

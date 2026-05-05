@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS signing_authorizations (
   payload_hash     TEXT NOT NULL,                                          -- sha256(canonicalize(typedData))
   payload_summary  JSONB NOT NULL,                                         -- verbatim summary user saw at confirmation
   confirmation_id  TEXT,                                                   -- nullable; set for high-risk purposes
+  -- Signature material cached for idempotent retry. Cleared on row GC.
+  -- Storing the signature is acceptable: the typed-data hash is already
+  -- bound and the signature alone reveals nothing about the wallet's
+  -- private key. Caching prevents a network blip from causing a
+  -- duplicate sign within the 30s idempotency grace window.
+  signature_hex    TEXT,
   max_uses         INT  NOT NULL DEFAULT 1,
   used_count       INT  NOT NULL DEFAULT 0,
   expires_at       TIMESTAMPTZ NOT NULL,

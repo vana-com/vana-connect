@@ -50,6 +50,8 @@ export type SigningAuthorizationRow = {
   payload_hash: string;
   payload_summary: Record<string, unknown>;
   confirmation_id: string | null;
+  /** Signature material cached for idempotent retry; null until consumed. */
+  signature_hex: string | null;
   max_uses: number;
   used_count: number;
   expires_at: string;
@@ -187,18 +189,26 @@ export async function insertSigningAuthorization(input: {
 }
 
 /**
- * Atomically mark an authorization as consumed. Returns the row if the
- * pre-update state was used_count = 0; null otherwise (already consumed
- * or stolen by a concurrent caller — should be impossible given the
- * UNIQUE on payload_hash, but is asserted as a defense in depth).
+ * Atomically mark an authorization as consumed and store the resulting
+ * signature for idempotent retry. Returns the row if the pre-update state
+ * was used_count = 0; null otherwise (already consumed or stolen by a
+ * concurrent caller).
+ *
+ * Storing the signature here is what makes the 30s idempotency grace
+ * window safe: a network blip between provider sign and the original
+ * route response can be retried, and the cached signature is returned
+ * rather than re-signing.
  */
 export async function consumeSigningAuthorization(
   id: string,
+  signatureHex: string,
 ): Promise<SigningAuthorizationRow | null> {
   const sql = getSql();
   const rows = await sql`
     UPDATE signing_authorizations
-       SET used_count = 1, consumed_at = now()
+       SET used_count = 1,
+           consumed_at = now(),
+           signature_hex = ${signatureHex}
      WHERE id = ${id}
        AND used_count = 0
        AND consumed_at IS NULL
