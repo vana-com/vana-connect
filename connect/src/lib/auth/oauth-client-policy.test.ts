@@ -3,6 +3,7 @@ import {
   checkOrigin,
   checkRedirectUri,
   createDefaultOauthClientRegistry,
+  DATA_CONNECT_CLIENT,
   DEV_MEMORY_APP_CLIENT,
   evaluateConsentPolicy,
   type OauthClientRecord,
@@ -25,6 +26,12 @@ describe("createDefaultOauthClientRegistry", () => {
     const registry = createDefaultOauthClientRegistry();
     const resolved = registry.resolve("memory-app-dev");
     expect(resolved).toEqual(DEV_MEMORY_APP_CLIENT);
+  });
+
+  it("registers the data-connect client by default", () => {
+    const registry = createDefaultOauthClientRegistry();
+    const resolved = registry.resolve("data-connect");
+    expect(resolved).toEqual(DATA_CONNECT_CLIENT);
   });
 
   it("returns null for unknown, blank, null, or undefined client ids", () => {
@@ -67,6 +74,22 @@ describe("evaluateConsentPolicy", () => {
       client: DEV_MEMORY_APP_CLIENT,
       grantScope: ["openid", "profile"],
       grantAudience: ["memory-app-dev"],
+    });
+  });
+
+  it("allows the data-connect device-grant scope/audience pair", () => {
+    const decision = evaluateConsentPolicy({
+      registry,
+      clientId: "data-connect",
+      requestedScope: ["openid", "offline"],
+      requestedAudience: ["account.vana.org"],
+    });
+
+    expect(decision).toEqual({
+      kind: "allow",
+      client: DATA_CONNECT_CLIENT,
+      grantScope: ["openid", "offline"],
+      grantAudience: ["account.vana.org"],
     });
   });
 
