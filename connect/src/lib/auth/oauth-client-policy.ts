@@ -74,7 +74,30 @@ export const DEV_MEMORY_APP_CLIENT: OauthClientRecord = {
   allowedAudiences: ["memory-app-dev"],
 };
 
-const DEFAULT_CLIENTS: readonly OauthClientRecord[] = [DEV_MEMORY_APP_CLIENT];
+/**
+ * Static registry for the Vana data-connect desktop app. Public client (no
+ * secret) using the OAuth 2.0 device authorization grant (RFC 8628). Hydra
+ * registers it with `client_id="data-connect"`, scope `"openid offline"`,
+ * audience `["account.vana.org"]`, and `token_endpoint_auth_method=none`.
+ *
+ * No redirectUris/allowedOrigins — the device flow does not use redirects;
+ * the desktop app polls the token endpoint after the user approves on the
+ * verification page. The redirect-URI / origin guards in this module are
+ * not consulted on the device-grant path; they're for the auth-code flow.
+ */
+export const DATA_CONNECT_CLIENT: OauthClientRecord = {
+  clientId: "data-connect",
+  displayName: "Vana data-connect",
+  redirectUris: [],
+  allowedOrigins: [],
+  allowedScopes: ["openid", "offline", "offline_access"],
+  allowedAudiences: ["account.vana.org"],
+};
+
+const DEFAULT_CLIENTS: readonly OauthClientRecord[] = [
+  DEV_MEMORY_APP_CLIENT,
+  DATA_CONNECT_CLIENT,
+];
 
 /**
  * Build an in-memory registry from a list of client records. Defaults to the
