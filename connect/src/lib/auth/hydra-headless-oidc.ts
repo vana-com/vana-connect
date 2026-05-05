@@ -117,6 +117,45 @@ function param(urlOrPath: string, name: string): string | null {
   return u.searchParams.get(name);
 }
 
+/**
+ * Minimal cookie jar — captures Set-Cookie name=value pairs and serializes
+ * them back as a Cookie header. Hydra v2 binds the auth flow to a CSRF
+ * cookie set on /oauth2/auth and read on the consent/code redirects, so
+ * we MUST forward cookies through the redirect chain even though we're
+ * driving it server-side. We don't model domain/path/expiry — every cookie
+ * Hydra sets is for its own host and only used by this single flow.
+ */
+class CookieJar {
+  private readonly jar = new Map<string, string>();
+
+  capture(res: Response): void {
+    // Node's fetch exposes multiple Set-Cookie headers via getSetCookie()
+    // (a no-op flat header join would corrupt cookies whose values contain
+    // commas, e.g. expires= dates).
+    const headers = res.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies = headers.getSetCookie?.() ?? [];
+    for (const raw of setCookies) {
+      const eq = raw.indexOf("=");
+      if (eq <= 0) continue;
+      const name = raw.slice(0, eq).trim();
+      const semi = raw.indexOf(";", eq);
+      const value = (
+        semi === -1 ? raw.slice(eq + 1) : raw.slice(eq + 1, semi)
+      ).trim();
+      this.jar.set(name, value);
+    }
+  }
+
+  header(): string | undefined {
+    if (this.jar.size === 0) return undefined;
+    return Array.from(this.jar.entries())
+      .map(([k, v]) => `${k}=${v}`)
+      .join("; ");
+  }
+}
+
 async function adminBearer(
   hydraAdminAudience: string,
   fetchImpl?: typeof fetch,
@@ -163,8 +202,12 @@ export async function exchangeForVanaSession(
   const pkce = makePkcePair();
   const state = base64UrlEncode(randomBytes(16));
   const nonce = base64UrlEncode(randomBytes(16));
+  const cookies = new CookieJar();
 
   // 1. GET /oauth2/auth → Hydra redirects to login UI with login_challenge.
+  // Hydra sets a CSRF cookie here that we must forward on the subsequent
+  // redirect-following GETs (steps 3 + 5) — otherwise consent rejects with
+  // request_forbidden / "No CSRF value available in the session cookie".
   const authUrl = new URL(`${hydraPublic.replace(/\/+$/, "")}/oauth2/auth`);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", input.clientId);
@@ -182,6 +225,7 @@ export async function exchangeForVanaSession(
     method: "GET",
     redirect: "manual",
   });
+  cookies.capture(authRes);
   if (authRes.status !== 302 && authRes.status !== 303) {
     throw new HydraHeadlessError(
       "auth_no_redirect",
@@ -247,10 +291,15 @@ export async function exchangeForVanaSession(
   }
 
   // 3. GET the accept-login redirect — Hydra responds with another redirect carrying consent_challenge.
+  const consentRedirectHeaders: Record<string, string> = {};
+  const consentCookieHeader = cookies.header();
+  if (consentCookieHeader) consentRedirectHeaders.cookie = consentCookieHeader;
   const consentRedirectRes = await fetchImpl(acceptLoginBody.redirect_to, {
     method: "GET",
     redirect: "manual",
+    headers: consentRedirectHeaders,
   });
+  cookies.capture(consentRedirectRes);
   if (consentRedirectRes.status !== 302 && consentRedirectRes.status !== 303) {
     throw new HydraHeadlessError(
       "consent_no_redirect",
@@ -334,10 +383,15 @@ export async function exchangeForVanaSession(
   }
 
   // 5. GET the accept-consent redirect — Hydra responds with a redirect to redirect_uri with the code.
+  const codeRedirectHeaders: Record<string, string> = {};
+  const codeCookieHeader = cookies.header();
+  if (codeCookieHeader) codeRedirectHeaders.cookie = codeCookieHeader;
   const codeRedirectRes = await fetchImpl(acceptConsentBody.redirect_to, {
     method: "GET",
     redirect: "manual",
+    headers: codeRedirectHeaders,
   });
+  cookies.capture(codeRedirectRes);
   if (codeRedirectRes.status !== 302 && codeRedirectRes.status !== 303) {
     throw new HydraHeadlessError(
       "code_no_redirect",
