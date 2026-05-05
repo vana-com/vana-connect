@@ -10,10 +10,14 @@ import {
 import {
   buildLoginRedirectForOidcChallenge,
   type HandleOidcConsentInput,
+  type HandleOidcDeviceAcceptInput,
   type HandleOidcLoginInput,
+  type HandleOidcLogoutInput,
   type HydraAdminClientForOidc,
   handleOidcConsent,
+  handleOidcDeviceAccept,
   handleOidcLogin,
+  handleOidcLogout,
   isSafeOidcReturnTo,
 } from "./oidc-routes";
 
@@ -44,6 +48,12 @@ function fakeHydra(
     }),
     acceptConsentRequest: vi.fn().mockResolvedValue({
       redirect_to: "https://hydra.example.com/oauth2/auth?ok=consent",
+    }),
+    acceptDeviceUserCodeRequest: vi.fn().mockResolvedValue({
+      redirect_to: "https://hydra.example.com/oauth2/auth?ok=device",
+    }),
+    acceptLogoutRequest: vi.fn().mockResolvedValue({
+      redirect_to: "https://hydra.example.com/oauth2/sessions/logout?ok=true",
     }),
     ...overrides,
   };
@@ -399,5 +409,106 @@ describe("isSafeOidcReturnTo", () => {
       false,
     );
     expect(isSafeOidcReturnTo("/auth/oidc/login\r\nLocation: x")).toBe(false);
+  });
+});
+
+describe("handleOidcLogout", () => {
+  function buildInput(
+    overrides: Partial<HandleOidcLogoutInput> = {},
+  ): HandleOidcLogoutInput {
+    return {
+      logoutChallenge: "logout-challenge-1",
+      hydra: fakeHydra(),
+      ...overrides,
+    };
+  }
+
+  it("returns 400 when logout_challenge is missing", async () => {
+    const result = await handleOidcLogout(
+      buildInput({ logoutChallenge: null }),
+    );
+    expect(result).toEqual({
+      kind: "error",
+      status: 400,
+      message: "Missing required logout_challenge",
+    });
+  });
+
+  it("returns 400 when logout_challenge is blank", async () => {
+    const result = await handleOidcLogout(
+      buildInput({ logoutChallenge: "  " }),
+    );
+    expect(result.kind).toBe("error");
+  });
+
+  it("accepts the Hydra logout request and redirects to Hydra's redirect_to", async () => {
+    const hydra = fakeHydra();
+    const result = await handleOidcLogout(buildInput({ hydra }));
+
+    expect(hydra.acceptLogoutRequest).toHaveBeenCalledWith(
+      "logout-challenge-1",
+    );
+    expect(result).toEqual({
+      kind: "redirect",
+      status: 303,
+      location: "https://hydra.example.com/oauth2/sessions/logout?ok=true",
+    });
+  });
+
+  it("returns 502 when Hydra rejects the logout request", async () => {
+    const hydra = fakeHydra({
+      acceptLogoutRequest: vi
+        .fn()
+        .mockRejectedValue(new Error("hydra unreachable")),
+    });
+
+    const result = await handleOidcLogout(buildInput({ hydra }));
+
+    expect(result).toEqual({
+      kind: "error",
+      status: 502,
+      message: "Logout could not be processed",
+    });
+  });
+});
+
+describe("handleOidcDeviceAccept", () => {
+  function buildInput(
+    overrides: Partial<HandleOidcDeviceAcceptInput> = {},
+  ): HandleOidcDeviceAcceptInput {
+    return {
+      deviceChallenge: "dev-chal-1",
+      userCode: "ABCD-EFGH",
+      hydra: fakeHydra(),
+      ...overrides,
+    };
+  }
+
+  it("returns 400 when device_challenge is missing", async () => {
+    const result = await handleOidcDeviceAccept(
+      buildInput({ deviceChallenge: null }),
+    );
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") expect(result.status).toBe(400);
+  });
+
+  it("returns 400 when user_code is missing", async () => {
+    const result = await handleOidcDeviceAccept(buildInput({ userCode: null }));
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") expect(result.status).toBe(400);
+  });
+
+  it("calls acceptDeviceUserCodeRequest with normalized inputs and redirects", async () => {
+    const hydra = fakeHydra();
+    const result = await handleOidcDeviceAccept(buildInput({ hydra }));
+    expect(hydra.acceptDeviceUserCodeRequest).toHaveBeenCalledWith(
+      "dev-chal-1",
+      { userCode: "ABCD-EFGH" },
+    );
+    expect(result).toEqual({
+      kind: "redirect",
+      status: 303,
+      location: "https://hydra.example.com/oauth2/auth?ok=device",
+    });
   });
 });

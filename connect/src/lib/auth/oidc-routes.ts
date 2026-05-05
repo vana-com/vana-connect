@@ -30,6 +30,7 @@ import { isVanaUserId } from "./vana-account";
 
 export const OIDC_LOGIN_PATH = "/auth/oidc/login";
 export const OIDC_CONSENT_PATH = "/auth/oidc/consent";
+export const OIDC_LOGOUT_PATH = "/auth/oidc/logout";
 export const LOGIN_PATH = "/login";
 
 export type HydraAdminClientForOidc = {
@@ -43,6 +44,11 @@ export type HydraAdminClientForOidc = {
     challenge: string,
     input: AcceptHydraConsentRequest,
   ): Promise<HydraRedirectResponse>;
+  acceptDeviceUserCodeRequest(
+    deviceChallenge: string,
+    input: { userCode: string },
+  ): Promise<HydraRedirectResponse>;
+  acceptLogoutRequest(challenge: string): Promise<HydraRedirectResponse>;
 };
 
 export type ResolveVanaUser = (
@@ -55,7 +61,7 @@ export type LoadOidcAccountClaims = (
 
 export type OidcRouteResult =
   | { kind: "redirect"; status: 302 | 303; location: string }
-  | { kind: "error"; status: 400; message: string };
+  | { kind: "error"; status: 400 | 502; message: string };
 
 /**
  * Build the URL the user should land on if they need to sign in before the
@@ -198,6 +204,93 @@ export async function handleOidcConsent(
     subject: consentRequest.subject,
     ...(accountClaims ? { accountClaims } : {}),
   });
+
+  return { kind: "redirect", status: 303, location: accepted.redirect_to };
+}
+
+/**
+ * Handle the POST that fires when the signed-in user clicks "Authorize this
+ * device" on the verification page (`/auth/oidc/device`). Calls Hydra admin's
+ * `acceptDeviceUserCodeRequest`. The redirect_to from Hydra typically points
+ * back into the OAuth authorize endpoint (`/oauth2/auth?…&login_verifier=…`),
+ * which re-enters this app's `/auth/oidc/login` and `/auth/oidc/consent`
+ * with the user already signed in.
+ *
+ * The verification page itself is a client-side React page that gates the
+ * Authorize button on Privy/Vana auth state and POSTs here. We don't render
+ * the page server-side, so no `handleOidcDeviceVerification` is needed —
+ * the page imports `usePrivy()` and drives sign-in directly.
+ */
+export type HandleOidcDeviceAcceptInput = {
+  deviceChallenge: string | null;
+  userCode: string | null;
+  hydra: HydraAdminClientForOidc;
+};
+
+export type HandleOidcLogoutInput = {
+  logoutChallenge: string | null;
+  hydra: Pick<HydraAdminClientForOidc, "acceptLogoutRequest">;
+};
+
+/**
+ * Accept a Hydra OIDC logout challenge and forward the user to Hydra's
+ * `redirect_to`. Hydra has already validated the id_token_hint and any
+ * post_logout_redirect_uri before issuing the challenge, so there is no
+ * additional consent screen to render here — we just rubber-stamp it.
+ *
+ * Network/non-2xx failures from Hydra surface as a 502 to the caller; we do
+ * not leak Hydra error bodies into the response.
+ */
+export async function handleOidcLogout(
+  input: HandleOidcLogoutInput,
+): Promise<OidcRouteResult> {
+  const challenge = input.logoutChallenge?.trim();
+  if (!challenge) {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Missing required logout_challenge",
+    };
+  }
+
+  let accepted: HydraRedirectResponse;
+  try {
+    accepted = await input.hydra.acceptLogoutRequest(challenge);
+  } catch {
+    return {
+      kind: "error",
+      status: 502,
+      message: "Logout could not be processed",
+    };
+  }
+
+  return { kind: "redirect", status: 303, location: accepted.redirect_to };
+}
+
+export async function handleOidcDeviceAccept(
+  input: HandleOidcDeviceAcceptInput,
+): Promise<OidcRouteResult> {
+  const deviceChallenge = input.deviceChallenge?.trim();
+  const userCode = input.userCode?.trim();
+  if (!deviceChallenge) {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Missing required device_challenge",
+    };
+  }
+  if (!userCode) {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Missing required user_code",
+    };
+  }
+
+  const accepted = await input.hydra.acceptDeviceUserCodeRequest(
+    deviceChallenge,
+    { userCode },
+  );
 
   return { kind: "redirect", status: 303, location: accepted.redirect_to };
 }

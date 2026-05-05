@@ -170,6 +170,24 @@ export function createHydraAdminClient({
       });
     },
 
+    acceptDeviceUserCodeRequest(
+      deviceChallenge: string,
+      input: { userCode: string },
+    ) {
+      return request<HydraRedirectResponse>({
+        audience,
+        baseUrl,
+        body: {
+          user_code: input.userCode,
+        },
+        fetchImpl,
+        method: "PUT",
+        path: `/admin/oauth2/auth/requests/device/accept?device_challenge=${encodeURIComponent(
+          deviceChallenge,
+        )}`,
+      });
+    },
+
     acceptLoginRequest(loginChallenge: string, input: AcceptHydraLoginRequest) {
       assertVanaUserId(input.subject);
 

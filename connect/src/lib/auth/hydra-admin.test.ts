@@ -215,6 +215,60 @@ describe("createHydraAdminClient", () => {
     );
   });
 
+  it("accepts device user code requests with the encoded challenge and user_code body", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse({ redirect_to: "https://account.vana.org/device/done" }),
+      );
+    const client = createHydraAdminClient({
+      adminUrl: "https://hydra-admin.example.com/",
+      fetch: fetchImpl,
+    });
+
+    const result = await client.acceptDeviceUserCodeRequest(
+      "device/challenge?",
+      {
+        userCode: "ABCD-EFGH",
+      },
+    );
+
+    expect(result.redirect_to).toBe("https://account.vana.org/device/done");
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://hydra-admin.example.com/admin/oauth2/auth/requests/device/accept?device_challenge=device%2Fchallenge%3F",
+      {
+        body: JSON.stringify({ user_code: "ABCD-EFGH" }),
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+    );
+  });
+
+  it("surfaces Hydra errors when accepting a device user code fails", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ error: "invalid_user_code" }), {
+        headers: { "content-type": "application/json" },
+        status: 404,
+      }),
+    );
+    const client = createHydraAdminClient({
+      adminUrl: "https://hydra-admin.example.com",
+      fetch: fetchImpl,
+    });
+
+    await expect(
+      client.acceptDeviceUserCodeRequest("dev-1", { userCode: "WRONG" }),
+    ).rejects.toMatchObject({
+      body: { error: "invalid_user_code" },
+      method: "PUT",
+      path: "/admin/oauth2/auth/requests/device/accept?device_challenge=dev-1",
+      status: 404,
+    } satisfies Partial<HydraAdminError>);
+  });
+
   it("preserves Hydra error context", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
