@@ -30,6 +30,13 @@ export type OauthClientRecord = {
   /** Audience identifiers Vana is willing to grant for this client. */
   allowedAudiences: readonly string[];
   /**
+   * Optional regex allowlist for audiences. Used when audiences are
+   * user-derived (e.g. a Personal Server URL containing the user's wallet
+   * address). Patterns are checked AFTER `allowedAudiences`; an audience
+   * passes if it matches either the exact list or any pattern.
+   */
+  allowedAudiencePatterns?: readonly RegExp[];
+  /**
    * Optional reference to a future protocol/application principal (builder
    * address, grantee address, etc.). Intentionally optional in the first
    * slice: OIDC client identity is separate from protocol principals.
@@ -85,6 +92,16 @@ export const DEV_MEMORY_APP_CLIENT: OauthClientRecord = {
  * verification page. The redirect-URI / origin guards in this module are
  * not consulted on the device-grant path; they're for the auth-code flow.
  */
+/**
+ * Personal Server URLs are derived from the owner's wallet address:
+ * `https://0x<40-hex>.myvana.app`. We allow these as audiences for
+ * data-connect tokens so the desktop app can authenticate to the user's
+ * own PS. Hydra's per-client audience whitelist is updated separately
+ * when a user provisions a PS (server-side admin call).
+ */
+const PERSONAL_SERVER_AUDIENCE_PATTERN =
+  /^https:\/\/0x[0-9a-f]{40}\.myvana\.app$/;
+
 export const DATA_CONNECT_CLIENT: OauthClientRecord = {
   clientId: "data-connect",
   displayName: "Vana data-connect",
@@ -92,6 +109,7 @@ export const DATA_CONNECT_CLIENT: OauthClientRecord = {
   allowedOrigins: [],
   allowedScopes: ["openid", "offline", "offline_access"],
   allowedAudiences: ["account.vana.org"],
+  allowedAudiencePatterns: [PERSONAL_SERVER_AUDIENCE_PATTERN],
 };
 
 const DEFAULT_CLIENTS: readonly OauthClientRecord[] = [
@@ -387,8 +405,11 @@ export function evaluateConsentPolicy(
 
   const requestedAudience = normalizeList(input.requestedAudience);
   const allowedAudiences = new Set(client.allowedAudiences);
+  const audiencePatterns = client.allowedAudiencePatterns ?? [];
+  const isAudienceAllowed = (a: string): boolean =>
+    allowedAudiences.has(a) || audiencePatterns.some((re) => re.test(a));
   const disallowedAudience = requestedAudience.find(
-    (a) => !allowedAudiences.has(a),
+    (a) => !isAudienceAllowed(a),
   );
   if (disallowedAudience) {
     return {
