@@ -5,10 +5,10 @@ import type {
   ActionResultRow,
   ConsentEventRow,
 } from "@/lib/auth/account-action";
-import { createAccountLoginSessionToken } from "@/lib/auth/account-login-session";
 
 const mocks = vi.hoisted(() => ({
-  resolveVanaUserByPrivyEvidence: vi.fn(),
+  getVanaSession: vi.fn(),
+  findVanaUserById: vi.fn(),
   findProviderLinksByUser: vi.fn(),
   findLinkedWalletsByUser: vi.fn(),
   listActionRequestsByUser: vi.fn(),
@@ -18,8 +18,12 @@ const mocks = vi.hoisted(() => ({
   revokeActionRequestsForClient: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/vana-session", () => ({
+  getVanaSession: mocks.getVanaSession,
+}));
+
 vi.mock("@/lib/db/account", () => ({
-  resolveVanaUserByPrivyEvidence: mocks.resolveVanaUserByPrivyEvidence,
+  findVanaUserById: mocks.findVanaUserById,
   findProviderLinksByUser: mocks.findProviderLinksByUser,
   findLinkedWalletsByUser: mocks.findLinkedWalletsByUser,
 }));
@@ -32,9 +36,11 @@ vi.mock("@/lib/db/account-actions", () => ({
   revokeActionRequestsForClient: mocks.revokeActionRequestsForClient,
 }));
 
-function makeRequest(cookie?: string) {
+const VANA_USER_ID = "vana_user_" + "0".repeat(32);
+
+function makeRequest(authorized = false) {
   return new NextRequest("https://account.vana.org/api/account/access", {
-    headers: cookie ? { cookie } : {},
+    headers: authorized ? { authorization: "Bearer tok" } : {},
   });
 }
 
@@ -42,26 +48,28 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
 
-function accountCookie() {
-  const token = createAccountLoginSessionToken(
-    {
-      privySubject: "did:privy:user-1",
-      email: "tim@example.com",
-      embeddedWallet: {
-        chainType: "evm",
-        address: "0xabc",
-        providerWalletId: "wallet-1",
-      },
-    },
-    { secret: "test-secret", nowMs: Date.now(), ttlMs: 60_000 },
-  );
-  return `vana_account_session=${token}`;
+function makeSession() {
+  return {
+    vanaUserId: VANA_USER_ID,
+    hydraSessionId: "hydra_test_sid",
+    scope: ["openid", "offline"],
+    audience: ["account.vana.org"],
+  };
+}
+
+function makeUser() {
+  return {
+    id: VANA_USER_ID,
+    display_name: "Tim",
+    created_at: "2026-04-29T11:00:00.000Z",
+    updated_at: "2026-04-29T11:00:00.000Z",
+  };
 }
 
 const actionRequest: ActionRequestRow = {
   id: "vana_areq_1",
   client_id: "memory-app-dev",
-  vana_user_id: "vana_user_1",
+  vana_user_id: VANA_USER_ID,
   action_type: "data.read.chatgpt",
   execution_mode: "mock",
   result_mode: "mock",
@@ -101,7 +109,7 @@ const consentEvent: ConsentEventRow = {
   event_type: "action.approved",
   occurred_at: "2026-04-29T12:01:00.000Z",
   issuer: "account.vana.org",
-  vana_user_id: "vana_user_1",
+  vana_user_id: VANA_USER_ID,
   subject_wallet_address: null,
   client_id: "memory-app-dev",
   application_id: null,
@@ -120,30 +128,32 @@ const consentEvent: ConsentEventRow = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.ACCOUNT_LOGIN_SESSION_SECRET = "test-secret";
 });
 
 describe("GET /api/account/access", () => {
-  it("returns 401 without a Vana account session cookie", async () => {
+  it("returns 401 when getVanaSession returns null", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(null);
     const route = await import("./route");
     const response = await route.GET(makeRequest());
     expect(response.status).toBe(401);
-    expect(mocks.resolveVanaUserByPrivyEvidence).not.toHaveBeenCalled();
+    expect(mocks.findVanaUserById).not.toHaveBeenCalled();
   });
 
-  it("returns real account summary from canonical session state", async () => {
-    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValueOnce({
-      user: {
-        id: "vana_user_1",
-        display_name: "Tim",
-        created_at: "2026-04-29T11:00:00.000Z",
-        updated_at: "2026-04-29T11:00:00.000Z",
-      },
-    });
+  it("returns 401 when the vana_user row is missing", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(makeSession());
+    mocks.findVanaUserById.mockResolvedValueOnce(null);
+    const route = await import("./route");
+    const response = await route.GET(makeRequest(true));
+    expect(response.status).toBe(401);
+  });
+
+  it("returns real account summary using session.vanaUserId", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(makeSession());
+    mocks.findVanaUserById.mockResolvedValueOnce(makeUser());
     mocks.findProviderLinksByUser.mockResolvedValueOnce([
       {
         id: "vana_plink_1",
-        vana_user_id: "vana_user_1",
+        vana_user_id: VANA_USER_ID,
         provider: "privy",
         provider_subject: "did:privy:user-1",
         email: "tim@example.com",
@@ -154,7 +164,7 @@ describe("GET /api/account/access", () => {
     mocks.findLinkedWalletsByUser.mockResolvedValueOnce([
       {
         id: "vana_wallet_1",
-        vana_user_id: "vana_user_1",
+        vana_user_id: VANA_USER_ID,
         provider: "privy",
         provider_wallet_id: "wallet-1",
         chain_type: "evm",
@@ -169,11 +179,11 @@ describe("GET /api/account/access", () => {
     mocks.listConsentEventsByUser.mockResolvedValueOnce([consentEvent]);
 
     const route = await import("./route");
-    const response = await route.GET(makeRequest(accountCookie()));
+    const response = await route.GET(makeRequest(true));
     const body = await readJson(response);
 
     expect(response.status).toBe(200);
-    expect(body.account).toMatchObject({ vana_user_id: "vana_user_1" });
+    expect(body.account).toMatchObject({ vana_user_id: VANA_USER_ID });
     expect(body.provider_links).toHaveLength(1);
     expect(body.linked_wallets).toHaveLength(1);
     expect(body.connected_apps).toMatchObject([
@@ -203,9 +213,20 @@ describe("GET /api/account/access", () => {
 });
 
 describe("POST /api/account/access/grants/[id]/revoke", () => {
-  it("rejects unauthenticated revoke", async () => {
+  function makePostRequest(authorized = false) {
+    return new NextRequest(
+      "https://account.vana.org/api/account/access/grants/vana_areq_1/revoke",
+      {
+        method: "POST",
+        headers: authorized ? { authorization: "Bearer tok" } : {},
+      },
+    );
+  }
+
+  it("returns 401 when getVanaSession returns null", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(null);
     const route = await import("./grants/[id]/revoke/route");
-    const response = await route.POST(makeRequest(), {
+    const response = await route.POST(makePostRequest(), {
       params: Promise.resolve({ id: "vana_areq_1" }),
     });
 
@@ -214,32 +235,41 @@ describe("POST /api/account/access/grants/[id]/revoke", () => {
   });
 
   it("returns 409 for inactive grant revocation", async () => {
-    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValueOnce({
-      user: {
-        id: "vana_user_1",
-        display_name: "Tim",
-        created_at: "2026-04-29T11:00:00.000Z",
-        updated_at: "2026-04-29T11:00:00.000Z",
-      },
-    });
+    mocks.getVanaSession.mockResolvedValueOnce(makeSession());
+    mocks.findVanaUserById.mockResolvedValueOnce(makeUser());
     mocks.revokeActionRequest.mockResolvedValueOnce({
       status: "not_active",
       request: { ...actionRequest, status: "revoked" },
     });
 
     const route = await import("./grants/[id]/revoke/route");
-    const response = await route.POST(makeRequest(accountCookie()), {
+    const response = await route.POST(makePostRequest(true), {
       params: Promise.resolve({ id: "vana_areq_1" }),
     });
 
     expect(response.status).toBe(409);
+    expect(mocks.revokeActionRequest).toHaveBeenCalledWith({
+      id: "vana_areq_1",
+      vanaUserId: VANA_USER_ID,
+    });
   });
 });
 
 describe("POST /api/account/access/apps/[clientId]/disconnect", () => {
-  it("rejects unauthenticated disconnect", async () => {
+  function makePostRequest(authorized = false) {
+    return new NextRequest(
+      "https://account.vana.org/api/account/access/apps/memory-app-dev/disconnect",
+      {
+        method: "POST",
+        headers: authorized ? { authorization: "Bearer tok" } : {},
+      },
+    );
+  }
+
+  it("returns 401 when getVanaSession returns null", async () => {
+    mocks.getVanaSession.mockResolvedValueOnce(null);
     const route = await import("./apps/[clientId]/disconnect/route");
-    const response = await route.POST(makeRequest(), {
+    const response = await route.POST(makePostRequest(), {
       params: Promise.resolve({ clientId: "memory-app-dev" }),
     });
 

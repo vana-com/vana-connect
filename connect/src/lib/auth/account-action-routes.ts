@@ -46,11 +46,16 @@ import {
   generateActionCode,
   type RequestedData,
 } from "./account-action";
-import type {
-  LoginEvidence,
-  LoginSessionAdapter,
-} from "./login-session-adapter";
 import type { ExecuteGrantResult } from "./execute-grant-via-personal-server";
+
+/**
+ * Pulls the canonical `vana_user_id` for the current request. Returns `null`
+ * for unauthenticated requests; routes treat that as 401.
+ *
+ * In production this wraps `getVanaSession(req)` (see PR-Y in
+ * `docs/auth-redesign/01-architecture.md`); tests inject a fake.
+ */
+export type ResolveVanaUserId = (request: Request) => Promise<string | null>;
 import {
   checkRedirectUri,
   createDefaultOauthClientRegistry,
@@ -101,8 +106,7 @@ export type GetActionRequestInput = {
   request: Request;
   actionRequestId: string;
   registry?: OauthClientRegistry;
-  sessionAdapter: LoginSessionAdapter;
-  resolveVanaUser: (input: LoginEvidence) => Promise<{ user: { id: string } }>;
+  resolveVanaUserId: ResolveVanaUserId;
   findActionRequestById: (id: string) => Promise<ActionRequestRow | null>;
 };
 
@@ -135,10 +139,8 @@ export type GetActionRequestResult =
 export async function handleGetActionRequest(
   input: GetActionRequestInput,
 ): Promise<GetActionRequestResult> {
-  const evidence = await input.sessionAdapter.resolveLoginEvidence(
-    input.request,
-  );
-  if (!evidence) {
+  const vanaUserId = await input.resolveVanaUserId(input.request);
+  if (!vanaUserId) {
     return {
       kind: "error",
       status: 401,
@@ -147,8 +149,6 @@ export async function handleGetActionRequest(
     };
   }
 
-  const { user } = await input.resolveVanaUser(evidence);
-  const vanaUserId = user.id;
   if (!isVanaUserId(vanaUserId)) {
     return {
       kind: "error",
@@ -546,8 +546,7 @@ export type DecisionRouteInput = {
   actionRequestId: string;
   body: unknown;
   registry?: OauthClientRegistry;
-  sessionAdapter: LoginSessionAdapter;
-  resolveVanaUser: (input: LoginEvidence) => Promise<{ user: { id: string } }>;
+  resolveVanaUserId: ResolveVanaUserId;
   findActionRequestById: (id: string) => Promise<ActionRequestRow | null>;
   /**
    * Look up the user's wallet address by vana_user_id, used to populate
@@ -616,10 +615,8 @@ export type DecisionRouteResult =
 export async function handleActionDecision(
   input: DecisionRouteInput,
 ): Promise<DecisionRouteResult> {
-  const evidence = await input.sessionAdapter.resolveLoginEvidence(
-    input.request,
-  );
-  if (!evidence) {
+  const vanaUserId = await input.resolveVanaUserId(input.request);
+  if (!vanaUserId) {
     return {
       kind: "error",
       status: 401,
@@ -628,8 +625,6 @@ export async function handleActionDecision(
     };
   }
 
-  const { user } = await input.resolveVanaUser(evidence);
-  const vanaUserId = user.id;
   if (!isVanaUserId(vanaUserId)) {
     return {
       kind: "error",

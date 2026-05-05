@@ -23,6 +23,7 @@ export type OauthClientRow = {
   display_name: string;
   app_url: string;
   owner_address: string;
+  owner_vana_user_id: string | null;
   grantee_address: string | null;
   builder_id: string | null;
   public_key: string | null;
@@ -38,6 +39,7 @@ export type OauthClientInput = {
   displayName: string;
   appUrl: string;
   ownerAddress: string;
+  ownerVanaUserId?: string | null;
   granteeAddress?: string | null;
   builderId?: string | null;
   publicKey?: string | null;
@@ -52,6 +54,7 @@ function rowToRecord(row: Record<string, unknown>): OauthClientRow {
     display_name: row.display_name as string,
     app_url: row.app_url as string,
     owner_address: row.owner_address as string,
+    owner_vana_user_id: (row.owner_vana_user_id as string | null) ?? null,
     grantee_address: (row.grantee_address as string | null) ?? null,
     builder_id: (row.builder_id as string | null) ?? null,
     public_key: (row.public_key as string | null) ?? null,
@@ -95,6 +98,18 @@ export async function findOauthClientsByOwner(
   return rows.map(rowToRecord);
 }
 
+export async function findOauthClientsByOwnerVanaUserId(
+  ownerVanaUserId: string,
+): Promise<OauthClientRow[]> {
+  const sql = getSQL();
+  const rows = (await sql`
+    SELECT * FROM oauth_clients
+    WHERE owner_vana_user_id = ${ownerVanaUserId}
+    ORDER BY registered_at DESC
+  `) as DbRows;
+  return rows.map(rowToRecord);
+}
+
 export async function listOauthClients(): Promise<OauthClientRow[]> {
   const sql = getSQL();
   const rows = (await sql`
@@ -111,6 +126,7 @@ export async function upsertOauthClient(
   const rows = (await sql`
     INSERT INTO oauth_clients (
       client_id, application_id, display_name, app_url, owner_address,
+      owner_vana_user_id,
       grantee_address, builder_id, public_key, webhook_url, redirect_uris
     ) VALUES (
       ${input.clientId},
@@ -118,6 +134,7 @@ export async function upsertOauthClient(
       ${input.displayName},
       ${input.appUrl},
       ${input.ownerAddress.toLowerCase()},
+      ${input.ownerVanaUserId ?? null},
       ${input.granteeAddress ?? null},
       ${input.builderId ?? null},
       ${input.publicKey ?? null},
@@ -125,16 +142,17 @@ export async function upsertOauthClient(
       ${redirectUrisJson}::jsonb
     )
     ON CONFLICT (client_id) DO UPDATE SET
-      application_id = EXCLUDED.application_id,
-      display_name   = EXCLUDED.display_name,
-      app_url        = EXCLUDED.app_url,
-      owner_address  = EXCLUDED.owner_address,
-      grantee_address = EXCLUDED.grantee_address,
-      builder_id     = EXCLUDED.builder_id,
-      public_key     = EXCLUDED.public_key,
-      webhook_url    = EXCLUDED.webhook_url,
-      redirect_uris  = EXCLUDED.redirect_uris,
-      updated_at     = now()
+      application_id     = EXCLUDED.application_id,
+      display_name       = EXCLUDED.display_name,
+      app_url            = EXCLUDED.app_url,
+      owner_address      = EXCLUDED.owner_address,
+      owner_vana_user_id = EXCLUDED.owner_vana_user_id,
+      grantee_address    = EXCLUDED.grantee_address,
+      builder_id         = EXCLUDED.builder_id,
+      public_key         = EXCLUDED.public_key,
+      webhook_url        = EXCLUDED.webhook_url,
+      redirect_uris      = EXCLUDED.redirect_uris,
+      updated_at         = now()
     RETURNING *
   `) as DbRows;
   return rowToRecord(rows[0]);

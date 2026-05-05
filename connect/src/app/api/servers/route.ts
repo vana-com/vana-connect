@@ -1,8 +1,25 @@
+/**
+ * /api/servers
+ *
+ * Auth-redesign PR-X: route auth swapped from `master-key-signature`-recovery
+ * to `getVanaSession()`. The user's primary EVM wallet address is resolved
+ * from `vana_linked_wallets` (still the legacy `user_id` semantics on
+ * `personal_servers` rows during the transitional window).
+ *
+ * Provisioning POST still accepts `masterKeySignature` in the body — but
+ * for a different reason than auth: PS's startup script needs it as
+ * `VANA_MASTER_KEY_SIGNATURE` to deterministically derive its signing
+ * keypair so the same user's PS always boots with the same serverAddress.
+ * That's a PS-keypair-derivation concern, not authentication, so we keep
+ * it in the body. Authentication is now via the Vana session Bearer.
+ */
+
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
-import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
+import { getVanaSession } from "@/lib/auth/vana-session";
+import { findLinkedWalletsByUser } from "@/lib/db/account";
 import {
   findServerByUserId,
   insertServerIfNotExists,
@@ -13,38 +30,38 @@ import { getServerProvider } from "@/lib/server-provider";
 
 // Provisioning calls Cloudflare API + GCP API — needs more time than default 15s
 export const maxDuration = 60;
+export const runtime = "nodejs";
 
 function generateServerId(): string {
   const bytes = crypto.randomBytes(10);
   return `srv_${bytes.toString("base64url")}`;
 }
 
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
-}
-
 export async function OPTIONS() {
   return apiOptions();
 }
 
+async function resolvePrimaryEvmWallet(vanaUserId: string) {
+  const wallets = await findLinkedWalletsByUser(vanaUserId);
+  return (
+    wallets.find((w) => w.is_primary && w.chain_type === "evm") ??
+    wallets.find((w) => w.chain_type === "evm") ??
+    null
+  );
+}
+
 export async function GET(request: NextRequest) {
-  const sig = extractSignature(request);
-
-  if (!sig) {
-    return apiError("authentication_error", "Missing masterKeySignature", 401);
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
   }
 
-  let walletAddress: string;
-  try {
-    walletAddress = await recoverWalletAddress(sig);
-  } catch {
-    return apiError("authentication_error", "Invalid signature", 401);
+  const primary = await resolvePrimaryEvmWallet(session.vanaUserId);
+  if (!primary) {
+    return apiSuccess({ object: "list", data: [] });
   }
 
-  const server = await findServerByUserId(walletAddress.toLowerCase());
+  const server = await findServerByUserId(primary.address.toLowerCase());
 
   return apiSuccess({
     object: "list",
@@ -53,6 +70,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
+  }
+
   let body: { masterKeySignature?: string };
   try {
     body = await request.json();
@@ -60,19 +82,30 @@ export async function POST(request: NextRequest) {
     return apiError("invalid_request_error", "Invalid JSON body", 400);
   }
 
+  // PS-keypair derivation requires the master-key signature. This is NOT
+  // authentication — auth is the Vana session above. The master-key
+  // signature is metadata passed to PS so its bootstrap can derive a
+  // deterministic keypair.
   const { masterKeySignature } = body;
   if (!masterKeySignature) {
-    return apiError("authentication_error", "Missing masterKeySignature", 401);
+    return apiError(
+      "invalid_request_error",
+      "Missing masterKeySignature (required for PS keypair derivation)",
+      400,
+    );
   }
 
-  let walletAddress: string;
-  try {
-    walletAddress = await recoverWalletAddress(masterKeySignature);
-  } catch {
-    return apiError("authentication_error", "Invalid signature", 401);
+  const primary = await resolvePrimaryEvmWallet(session.vanaUserId);
+  if (!primary) {
+    return apiError(
+      "invalid_request_error",
+      "No EVM wallet linked to this user",
+      400,
+    );
   }
 
-  const userId = walletAddress.toLowerCase();
+  const userId = primary.address.toLowerCase();
+  const ownerAddress = primary.address;
 
   const existing = await findServerByUserId(userId);
   if (existing) {
@@ -99,14 +132,13 @@ export async function POST(request: NextRequest) {
   const provider = getServerProvider();
 
   try {
-    // Generate the per-server control-plane token used for hosted management.
     const controlPlaneToken = `vana_ps_${crypto.randomBytes(32).toString("hex")}`;
 
     const result = await provider.provision({
       serverId,
       userId,
       masterKeySignature,
-      ownerAddress: walletAddress,
+      ownerAddress,
       psAccessToken: controlPlaneToken,
     });
 
@@ -119,7 +151,6 @@ export async function POST(request: NextRequest) {
         dns_record_id: result.dnsRecordId ?? null,
       })) ?? row;
 
-    // Store the control-plane token separately since it's not in the updateServer allowlist.
     await updateServerControlPlaneToken(serverId, controlPlaneToken);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

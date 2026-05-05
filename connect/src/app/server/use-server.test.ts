@@ -19,6 +19,16 @@ vi.mock("@privy-io/react-auth", () => ({
   useWallets: () => mocks.walletsState,
 }));
 
+vi.mock("@/components/auth/use-confirmation", () => ({
+  useConfirmation: () => ({
+    pending: null,
+    error: null,
+    confirm: vi.fn(),
+    dismiss: vi.fn(),
+    handle401: vi.fn(async () => null),
+  }),
+}));
+
 import { useServer } from "./use-server";
 
 describe("useServer", () => {
@@ -27,6 +37,13 @@ describe("useServer", () => {
     mocks.signMessage.mockReset();
     mocks.signMessage.mockResolvedValue({ signature: "sig-123" });
     vi.stubGlobal("fetch", vi.fn());
+    // Vana access cookie — the new auth path. PR-X: use-server reads
+    // vana_access from document.cookie and sends it as Bearer.
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: () => "vana_access=vana-access-tok; other=value",
+      set: () => {},
+    });
   });
 
   afterEach(() => {
@@ -83,7 +100,7 @@ describe("useServer", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/servers", {
-      headers: { Authorization: "Bearer sig-123" },
+      headers: { Authorization: "Bearer vana-access-tok" },
     });
 
     await act(async () => {
@@ -98,7 +115,7 @@ describe("useServer", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/servers/srv_123", {
-      headers: { Authorization: "Bearer sig-123" },
+      headers: { Authorization: "Bearer vana-access-tok" },
     });
     expect(result.current.status).toBe("running");
   });

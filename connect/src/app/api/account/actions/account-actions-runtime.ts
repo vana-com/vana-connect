@@ -3,12 +3,10 @@
  *
  * Route files import the `run*` functions and only need to know about
  * Next.js. This module is the only place that pulls in concrete deps (DB
- * helpers, login session adapter, vana-user resolver), so route files stay
- * thin and the pure handlers in `lib/auth/account-action-routes.ts` stay
- * testable without a server.
+ * helpers, getVanaSession), so route files stay thin and the pure handlers in
+ * `lib/auth/account-action-routes.ts` stay testable without a server.
  */
 
-import { PrivyClient } from "@privy-io/node";
 import { NextResponse } from "next/server";
 import {
   type CreateActionRequestResult,
@@ -20,15 +18,8 @@ import {
   handleExchangeActionCode,
   handleGetActionRequest,
 } from "@/lib/auth/account-action-routes";
-import {
-  createPrivyLoginSessionAdapter,
-  type LoginEvidence,
-  type PrivyVerifiedUser,
-} from "@/lib/auth/login-session-adapter";
-import {
-  findLinkedWalletsByUser,
-  resolveVanaUserByPrivyEvidence,
-} from "@/lib/db/account";
+import { getVanaSession } from "@/lib/auth/vana-session";
+import { findLinkedWalletsByUser } from "@/lib/db/account";
 import {
   consumeActionCodeWithExchangeEvent,
   findActionRequestById,
@@ -41,46 +32,9 @@ import { findServerByUserId } from "@/lib/db/neon";
 import { executeGrantViaPersonalServer } from "@/lib/auth/execute-grant-via-personal-server";
 import type { RequestedData } from "@/lib/auth/account-action";
 
-let privyClient: PrivyClient | null = null;
-
-function getPrivyClient(): PrivyClient {
-  if (!privyClient) {
-    const appId = process.env.PRIVY_APP_ID;
-    const appSecret = process.env.PRIVY_APP_SECRET;
-    if (!appId || !appSecret) {
-      throw new Error(
-        "Privy verification is not configured (PRIVY_APP_ID and PRIVY_APP_SECRET)",
-      );
-    }
-    privyClient = new PrivyClient({
-      appId,
-      appSecret,
-      jwtVerificationKey: process.env.PRIVY_VERIFICATION_KEY,
-    });
-  }
-  return privyClient;
-}
-
-async function verifyPrivyIdentityToken(
-  token: string,
-): Promise<PrivyVerifiedUser> {
-  const user = await getPrivyClient().users().get({ id_token: token });
-  return user as unknown as PrivyVerifiedUser;
-}
-
-async function resolveVanaUser(input: LoginEvidence) {
-  const { user } = await resolveVanaUserByPrivyEvidence({
-    privySubject: input.privySubject,
-    email: input.email ?? null,
-    embeddedWallet: input.embeddedWallet
-      ? {
-          chainType: input.embeddedWallet.chainType,
-          address: input.embeddedWallet.address,
-          providerWalletId: input.embeddedWallet.providerWalletId ?? null,
-        }
-      : undefined,
-  });
-  return { user: { id: user.id } };
+async function resolveVanaUserId(request: Request): Promise<string | null> {
+  const session = await getVanaSession(request);
+  return session?.vanaUserId ?? null;
 }
 
 async function readJsonBody(request: Request): Promise<unknown> {
@@ -161,14 +115,10 @@ export async function runGetActionRequest(
   request: Request,
   actionRequestId: string,
 ): Promise<Response> {
-  const sessionAdapter = createPrivyLoginSessionAdapter({
-    verifyIdentityToken: verifyPrivyIdentityToken,
-  });
   const result = await handleGetActionRequest({
     request,
     actionRequestId,
-    sessionAdapter,
-    resolveVanaUser,
+    resolveVanaUserId,
     findActionRequestById,
   });
   return toGetResponse(result);
@@ -190,15 +140,11 @@ export async function runActionDecision(
   actionRequestId: string,
 ): Promise<Response> {
   const body = await readJsonBody(request);
-  const sessionAdapter = createPrivyLoginSessionAdapter({
-    verifyIdentityToken: verifyPrivyIdentityToken,
-  });
   const result = await handleActionDecision({
     request,
     actionRequestId,
     body,
-    sessionAdapter,
-    resolveVanaUser,
+    resolveVanaUserId,
     findActionRequestById,
     persistActionDecisionBundle,
     resolveSubjectWalletAddress,

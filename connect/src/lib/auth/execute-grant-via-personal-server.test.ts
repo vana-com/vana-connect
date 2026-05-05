@@ -18,6 +18,7 @@ function builderClient(): OauthClientRow {
     display_name: "Memory App",
     app_url: "https://memory-app.example",
     owner_address: "0xowneraddr",
+    owner_vana_user_id: null,
     grantee_address: "0xbuilderaddress",
     builder_id: "0xbuilderid",
     public_key: "0x04abc",

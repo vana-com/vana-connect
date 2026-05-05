@@ -1,55 +1,68 @@
+/**
+ * /api/servers/:id
+ *
+ * Auth-redesign PR-X: route auth swapped to `getVanaSession()`.
+ * Ownership is checked via the resolved primary EVM wallet (server.user_id
+ * is currently a lowercased address; the new vanaUserId path is also
+ * accepted for forward-compat).
+ */
+
 import type { NextRequest } from "next/server";
-import { recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
+import { getVanaSession } from "@/lib/auth/vana-session";
+import { findLinkedWalletsByUser } from "@/lib/db/account";
 import { deleteServer, findServerById, updateServer } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
 // Allow up to 60s — DELETE waits for the GCE VM delete operation to
-// complete before deleting the persistent data disk, which can take
-// 15-30s on its own. GET only does a fast status read.
+// complete before deleting the persistent data disk.
 export const maxDuration = 60;
-
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
-}
+export const runtime = "nodejs";
 
 export async function OPTIONS() {
   return apiOptions();
+}
+
+async function resolvePrimaryEvmWallet(vanaUserId: string) {
+  const wallets = await findLinkedWalletsByUser(vanaUserId);
+  return (
+    wallets.find((w) => w.is_primary && w.chain_type === "evm") ??
+    wallets.find((w) => w.chain_type === "evm") ??
+    null
+  );
+}
+
+function ownsServer(
+  server: { user_id: string },
+  vanaUserId: string,
+  primaryAddressLower: string | null,
+): boolean {
+  if (server.user_id === vanaUserId) return true;
+  if (primaryAddressLower && server.user_id === primaryAddressLower)
+    return true;
+  return false;
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const sig = extractSignature(request);
-  if (!sig) {
-    return apiError("authentication_error", "Missing masterKeySignature", 401);
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
   }
 
-  let walletAddress: string;
-  try {
-    walletAddress = await recoverWalletAddress(sig);
-  } catch {
-    return apiError("authentication_error", "Invalid signature", 401);
-  }
+  const { id } = await params;
+  const primary = await resolvePrimaryEvmWallet(session.vanaUserId);
+  const primaryAddressLower = primary?.address.toLowerCase() ?? null;
 
   const server = await findServerById(id);
-  if (!server) {
+  if (!server || !ownsServer(server, session.vanaUserId, primaryAddressLower)) {
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  if (server.user_id !== walletAddress.toLowerCase()) {
-    return apiError("not_found_error", "Server not found", 404);
-  }
-
-  // Live-check only while provisioning (to detect transition to running).
-  // Once running, return stored state — no unnecessary API calls.
-  // Skips the health check to stay within Vercel function timeout.
+  // Live-check only while provisioning to detect transition to running.
   if (server.state === "provisioning" && server.provider_id) {
     try {
       const provider = getServerProvider();
@@ -74,30 +87,20 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const sig = extractSignature(request);
-  if (!sig) {
-    return apiError("authentication_error", "Missing masterKeySignature", 401);
+  const session = await getVanaSession(request);
+  if (!session) {
+    return apiError("authentication_error", "Not authenticated", 401);
   }
 
-  let walletAddress: string;
-  try {
-    walletAddress = await recoverWalletAddress(sig);
-  } catch {
-    return apiError("authentication_error", "Invalid signature", 401);
-  }
+  const { id } = await params;
+  const primary = await resolvePrimaryEvmWallet(session.vanaUserId);
+  const primaryAddressLower = primary?.address.toLowerCase() ?? null;
 
   const server = await findServerById(id);
-  if (!server) {
+  if (!server || !ownsServer(server, session.vanaUserId, primaryAddressLower)) {
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  if (server.user_id !== walletAddress.toLowerCase()) {
-    return apiError("not_found_error", "Server not found", 404);
-  }
-
-  // Always run cleanup if we have any provider-side state recorded —
-  // VM, tunnel, or DNS — so retry from `deprovision_failed` works.
   if (server.provider_id || server.tunnel_id || server.dns_record_id) {
     try {
       const provider = getServerProvider();
@@ -117,9 +120,6 @@ export async function DELETE(
         `[api/servers DELETE] serverId=${id} providerId=${server.provider_id ?? ""} tunnelId=${server.tunnel_id ?? ""} dnsRecordId=${server.dns_record_id ?? ""} ${errorName}: ${errorMessage}`,
       );
       await updateServer(id, { state: "deprovision_failed" });
-      // Return the actual failure detail in the response body so it's visible
-      // without runtime-log access. This is admin/control-plane data; nothing
-      // here is secret (just step names + GCP/Cloudflare error messages).
       return apiError(
         "internal_error",
         `Failed to deprovision server: ${errorMessage}${
@@ -134,10 +134,6 @@ export async function DELETE(
     }
   }
 
-  // Provider deprovision destroys VM + tunnel + DNS + data disk. There's
-  // nothing left to recover, so drop the row entirely. The UI then shows
-  // "Provision Server" (idle) instead of a misleading "Stopped" with a
-  // dead public endpoint.
   await deleteServer(id);
 
   return apiSuccess({

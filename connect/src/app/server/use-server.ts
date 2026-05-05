@@ -2,9 +2,34 @@
 
 import { useSignMessage, useWallets } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useConfirmation } from "@/components/auth/use-confirmation";
 
 const MASTER_KEY_MESSAGE = "vana-master-key-v1";
 const POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Read the `vana_access` cookie (JS-readable companion to vana_session).
+ * The browser sends this as `Authorization: Bearer <vana_access>` for any
+ * state-mutating request — getVanaSession rejects cookie-only auth on
+ * POST/PUT/PATCH/DELETE.
+ */
+function readVanaAccessCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  for (const part of document.cookie.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    const k = part.slice(0, eq).trim();
+    if (k !== "vana_access") continue;
+    const v = part.slice(eq + 1).trim();
+    return v ? decodeURIComponent(v) : null;
+  }
+  return null;
+}
+
+function vanaAuthHeaders(): Record<string, string> {
+  const tok = readVanaAccessCookie();
+  return tok ? { Authorization: `Bearer ${tok}` } : {};
+}
 
 type ApiServer = {
   object: "server";
@@ -37,6 +62,7 @@ export type RegistrationStatus =
 export function useServer() {
   const { signMessage } = useSignMessage();
   const { wallets, ready: walletsReady } = useWallets();
+  const confirmation = useConfirmation();
   const [server, setServer] = useState<ApiServer | null>(null);
   const [status, setStatus] = useState<ServerStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -89,11 +115,12 @@ export function useServer() {
 
   const fetchServer = useCallback(async () => {
     try {
-      const sig = await getSignature();
       const serverId = provisioningServerIdRef.current;
       const endpoint = serverId ? `/api/servers/${serverId}` : "/api/servers";
+      // GET — verifier accepts vana_session cookie, but we send Bearer too
+      // for explicitness and so the same call shape works on POST/DELETE.
       const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${sig}` },
+        headers: { ...vanaAuthHeaders() },
       });
       if (!res.ok) {
         throw new Error(`Failed to fetch server: ${res.status}`);
@@ -123,7 +150,7 @@ export function useServer() {
       setStatus("error");
       return null;
     }
-  }, [getSignature]);
+  }, []);
 
   const refresh = useCallback(async () => {
     await fetchServer();
@@ -133,10 +160,14 @@ export function useServer() {
     setStatus("provisioning");
     setError(null);
     try {
+      // Master-key signature is still required in the body — NOT for auth
+      // (auth is the Vana session Bearer below) but for PS keypair
+      // derivation. The PS startup script uses VANA_MASTER_KEY_SIGNATURE
+      // to deterministically derive its signing keypair.
       const sig = await getSignature();
       const res = await fetch("/api/servers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...vanaAuthHeaders() },
         body: JSON.stringify({ masterKeySignature: sig }),
       });
       if (!res.ok) {
@@ -160,10 +191,9 @@ export function useServer() {
     if (!server) return;
     setError(null);
     try {
-      const sig = await getSignature();
       const res = await fetch(`/api/servers/${server.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${sig}` },
+        headers: { ...vanaAuthHeaders() },
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -178,7 +208,7 @@ export function useServer() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [server, getSignature, stopPolling]);
+  }, [server, stopPolling]);
 
   // Initial fetch once wallet is ready
   useEffect(() => {
@@ -265,14 +295,29 @@ export function useServer() {
       if (registeredOnChainRef.current.has(dbId)) return;
       registeredOnChainRef.current.add(dbId);
 
-      // 3. Trigger registration.
+      // 3. Trigger registration. Auth is the Vana session Bearer; if the
+      // server returns 401 confirmation_required, useConfirmation handles
+      // the inline modal dance, then we retry with x-vana-confirmation-id.
       setRegistrationStatus("registering");
       try {
-        const sig = await getSignature();
-        const res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
+        let res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${sig}` },
+          headers: { ...vanaAuthHeaders() },
         });
+        if (cancelled) return;
+        if (res.status === 401) {
+          const result = await confirmation.handle401(res);
+          if (cancelled) return;
+          if (result) {
+            res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
+              method: "POST",
+              headers: {
+                ...vanaAuthHeaders(),
+                "x-vana-confirmation-id": result.confirmedId,
+              },
+            });
+          }
+        }
         if (cancelled) return;
         if (res.ok) {
           const body = (await res.json()) as { serverId?: string };
@@ -316,7 +361,7 @@ export function useServer() {
     return () => {
       cancelled = true;
     };
-  }, [status, server, getSignature]);
+  }, [status, server, confirmation]);
 
   // Poll while provisioning
   useEffect(() => {
@@ -340,5 +385,7 @@ export function useServer() {
     provision,
     deprovision,
     refresh,
+    /** Surface confirmation state so the page can render the modal. */
+    confirmation,
   };
 }
