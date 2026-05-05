@@ -189,7 +189,7 @@ dbDescribe("signing_authorizations", () => {
   it("partial UNIQUE on payload_hash rejects two unconsumed authorities for the same payload", async () => {
     const { vanaUserId, vanaWalletId } = await makeUserWithWallet();
     const sessionId = `hydra_test_${uniqueSuffix()}`;
-    const sharedHash = `hash_${uniqueSuffix()}`;
+    const sharedHash = fakePayloadHash();
 
     const first = await insertSigningAuthorization({
       vanaUserId,
@@ -221,7 +221,7 @@ dbDescribe("signing_authorizations", () => {
   it("after consumption, a new authority for the same payload is allowed", async () => {
     const { vanaUserId, vanaWalletId } = await makeUserWithWallet();
     const sessionId = `hydra_test_${uniqueSuffix()}`;
-    const sharedHash = `hash_${uniqueSuffix()}`;
+    const sharedHash = fakePayloadHash();
 
     const first = await insertSigningAuthorization({
       vanaUserId,
