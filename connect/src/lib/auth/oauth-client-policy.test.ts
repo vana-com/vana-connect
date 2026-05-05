@@ -93,19 +93,20 @@ describe("evaluateConsentPolicy", () => {
     });
   });
 
-  it("allows a Personal Server URL audience for data-connect via pattern match", () => {
+  it("allows the family-level vana-personal-server audience for data-connect", () => {
     const decision = evaluateConsentPolicy({
       registry,
       clientId: "data-connect",
       requestedScope: ["openid", "offline"],
-      requestedAudience: [
-        "https://0x4ed00b8ceef2b05d3ee798a778a1e92a79f8a549.myvana.app",
-      ],
+      requestedAudience: ["vana-personal-server"],
     });
     expect(decision.kind).toBe("allow");
+    if (decision.kind === "allow") {
+      expect(decision.grantAudience).toEqual(["vana-personal-server"]);
+    }
   });
 
-  it("rejects a Personal Server URL with the wrong host shape", () => {
+  it("rejects an arbitrary audience for data-connect", () => {
     const decision = evaluateConsentPolicy({
       registry,
       clientId: "data-connect",
@@ -113,6 +114,9 @@ describe("evaluateConsentPolicy", () => {
       requestedAudience: ["https://evil.example.com"],
     });
     expect(decision.kind).toBe("deny");
+    if (decision.kind === "deny") {
+      expect(decision.reason).toBe("disallowed_audience");
+    }
   });
 
   it("allows when no audience is requested", () => {

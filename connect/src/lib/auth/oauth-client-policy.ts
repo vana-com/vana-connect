@@ -30,13 +30,6 @@ export type OauthClientRecord = {
   /** Audience identifiers Vana is willing to grant for this client. */
   allowedAudiences: readonly string[];
   /**
-   * Optional regex allowlist for audiences. Used when audiences are
-   * user-derived (e.g. a Personal Server URL containing the user's wallet
-   * address). Patterns are checked AFTER `allowedAudiences`; an audience
-   * passes if it matches either the exact list or any pattern.
-   */
-  allowedAudiencePatterns?: readonly RegExp[];
-  /**
    * Optional reference to a future protocol/application principal (builder
    * address, grantee address, etc.). Intentionally optional in the first
    * slice: OIDC client identity is separate from protocol principals.
@@ -93,23 +86,24 @@ export const DEV_MEMORY_APP_CLIENT: OauthClientRecord = {
  * not consulted on the device-grant path; they're for the auth-code flow.
  */
 /**
- * Personal Server URLs are derived from the owner's wallet address:
- * `https://0x<40-hex>.myvana.app`. We allow these as audiences for
- * data-connect tokens so the desktop app can authenticate to the user's
- * own PS. Hydra's per-client audience whitelist is updated separately
- * when a user provisions a PS (server-side admin call).
+ * data-connect tokens may target either:
+ *   - `account.vana.org` — Vana account APIs, or
+ *   - `vana-personal-server` — a stable, family-level audience identifier
+ *     usable at any user's Personal Server.
+ *
+ * Per-PS audience patterns (e.g. `https://0x<wallet>.myvana.app`) are no
+ * longer used here. Each Personal Server validates that
+ * `aud.includes("vana-personal-server")` and performs a wallet-ownership
+ * check on the bound subject; that PS-side authorization is outside the
+ * scope of this consent-policy registry.
  */
-const PERSONAL_SERVER_AUDIENCE_PATTERN =
-  /^https:\/\/0x[0-9a-f]{40}\.myvana\.app$/;
-
 export const DATA_CONNECT_CLIENT: OauthClientRecord = {
   clientId: "data-connect",
   displayName: "Vana data-connect",
   redirectUris: [],
   allowedOrigins: [],
   allowedScopes: ["openid", "offline", "offline_access"],
-  allowedAudiences: ["account.vana.org"],
-  allowedAudiencePatterns: [PERSONAL_SERVER_AUDIENCE_PATTERN],
+  allowedAudiences: ["account.vana.org", "vana-personal-server"],
 };
 
 const DEFAULT_CLIENTS: readonly OauthClientRecord[] = [
@@ -405,11 +399,8 @@ export function evaluateConsentPolicy(
 
   const requestedAudience = normalizeList(input.requestedAudience);
   const allowedAudiences = new Set(client.allowedAudiences);
-  const audiencePatterns = client.allowedAudiencePatterns ?? [];
-  const isAudienceAllowed = (a: string): boolean =>
-    allowedAudiences.has(a) || audiencePatterns.some((re) => re.test(a));
   const disallowedAudience = requestedAudience.find(
-    (a) => !isAudienceAllowed(a),
+    (a) => !allowedAudiences.has(a),
   );
   if (disallowedAudience) {
     return {
