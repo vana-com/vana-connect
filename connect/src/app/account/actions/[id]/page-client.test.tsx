@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     authenticated: false,
     login: vi.fn(),
   },
+  identityToken: "fake-privy-id-token",
 }));
 
 vi.mock("next/navigation", () => ({
@@ -16,7 +17,20 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@privy-io/react-auth", () => ({
   usePrivy: () => mocks.privy,
+  useIdentityToken: () => ({ identityToken: mocks.identityToken }),
 }));
+
+// Pre-seed vana_access cookie so the page's session-status state machine
+// flips to "ready" without hitting the bootstrap path. The bootstrap path
+// is exercised via integration; unit tests mock the BFF cookie directly.
+function setVanaAccessCookie(value: string | null) {
+  if (typeof document === "undefined") return;
+  if (value === null) {
+    document.cookie = "vana_access=; max-age=0; path=/";
+  } else {
+    document.cookie = `vana_access=${encodeURIComponent(value)}; path=/`;
+  }
+}
 
 import { ActionRequestPageClient } from "./page-client";
 
@@ -33,6 +47,7 @@ describe("ActionRequestPageClient", () => {
     mocks.privy.ready = true;
     mocks.privy.authenticated = false;
     mocks.privy.login.mockReset();
+    setVanaAccessCookie("fake-vana-access");
     vi.unstubAllGlobals();
   });
 
@@ -99,10 +114,16 @@ describe("ActionRequestPageClient", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "/api/account/actions/vana_areq_test",
     );
-    expect(fetchMock.mock.calls[0][1]?.headers).toBeUndefined();
+    expect(fetchMock.mock.calls[0][1]?.headers).toEqual({
+      authorization: "Bearer fake-vana-access",
+    });
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/account/actions/vana_areq_test/decision",
     );
+    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({
+      authorization: "Bearer fake-vana-access",
+      "content-type": "application/json",
+    });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       decision: "approved",
       state: "client-state",
