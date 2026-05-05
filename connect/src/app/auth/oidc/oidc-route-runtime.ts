@@ -23,7 +23,9 @@ import {
 import {
   type HydraAdminClientForOidc,
   handleOidcConsent,
+  handleOidcDeviceAccept,
   handleOidcLogin,
+  handleOidcLogout,
   type OidcRouteResult,
 } from "@/lib/auth/oidc-routes";
 import {
@@ -133,4 +135,35 @@ export async function runOidcConsent(request: Request): Promise<Response> {
     loadAccountClaims,
   });
   return toNextResponse(result, request.url);
+}
+
+export async function runOidcLogout(request: Request): Promise<Response> {
+  const { hydra } = buildAdapters();
+  const url = new URL(request.url);
+  const result = await handleOidcLogout({
+    logoutChallenge: url.searchParams.get("logout_challenge"),
+    hydra,
+  });
+  return toNextResponse(result, request.url);
+}
+
+/**
+ * Accept the Hydra device-grant request on behalf of the signed-in user. The
+ * caller (the API route) is responsible for verifying the Vana session before
+ * dispatching here.
+ */
+export async function runOidcDeviceAccept(body: {
+  device_challenge?: string;
+  user_code?: string;
+}): Promise<Response> {
+  const { hydra } = buildAdapters();
+  const result = await handleOidcDeviceAccept({
+    deviceChallenge: body.device_challenge ?? null,
+    userCode: body.user_code ?? null,
+    hydra,
+  });
+  if (result.kind === "redirect") {
+    return NextResponse.json({ redirect_to: result.location }, { status: 200 });
+  }
+  return new NextResponse(result.message, { status: result.status });
 }
