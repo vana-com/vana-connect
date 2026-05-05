@@ -93,6 +93,28 @@ describe("evaluateConsentPolicy", () => {
     });
   });
 
+  it("allows a Personal Server URL audience for data-connect via pattern match", () => {
+    const decision = evaluateConsentPolicy({
+      registry,
+      clientId: "data-connect",
+      requestedScope: ["openid", "offline"],
+      requestedAudience: [
+        "https://0x4ed00b8ceef2b05d3ee798a778a1e92a79f8a549.myvana.app",
+      ],
+    });
+    expect(decision.kind).toBe("allow");
+  });
+
+  it("rejects a Personal Server URL with the wrong host shape", () => {
+    const decision = evaluateConsentPolicy({
+      registry,
+      clientId: "data-connect",
+      requestedScope: ["openid"],
+      requestedAudience: ["https://evil.example.com"],
+    });
+    expect(decision.kind).toBe("deny");
+  });
+
   it("allows when no audience is requested", () => {
     const decision = evaluateConsentPolicy({
       registry,
