@@ -283,6 +283,79 @@ export async function gcExpiredTombstones(): Promise<number> {
   return (rows as DbRows).length;
 }
 
+// --- vana_active_sessions ---------------------------------------------------
+
+/**
+ * Active OIDC sessions, keyed by sha256(access_token). Captures the `sid`
+ * claim from the id_token at login so the session verifier can resolve a
+ * stable hydra session id on every introspection without trusting the client.
+ *
+ * Hydra v2 introspection (RFC 7662) does not expose `sid`, so we persist it
+ * here. See migration 009_active_sessions.sql.
+ */
+
+export type ActiveSessionRow = {
+  sid: string;
+  vanaUserId: VanaUserId;
+  expiresAt: Date;
+};
+
+export async function insertActiveSession(input: {
+  tokenHash: string;
+  sid: string;
+  vanaUserId: VanaUserId;
+  expiresAt: Date;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO vana_active_sessions
+      (token_hash, sid, vana_user_id, expires_at)
+    VALUES
+      (${input.tokenHash}, ${input.sid}, ${input.vanaUserId},
+       ${input.expiresAt.toISOString()})
+    ON CONFLICT (token_hash) DO NOTHING
+  `;
+}
+
+export async function findActiveSessionByTokenHash(
+  tokenHash: string,
+): Promise<ActiveSessionRow | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT sid, vana_user_id, expires_at
+      FROM vana_active_sessions
+     WHERE token_hash = ${tokenHash}
+     LIMIT 1
+  `;
+  const row = (rows as DbRows)[0];
+  if (!row) return null;
+  return {
+    sid: row.sid as string,
+    vanaUserId: row.vana_user_id as VanaUserId,
+    expiresAt: new Date(row.expires_at as string),
+  };
+}
+
+export async function deleteActiveSessionsBySid(sid: string): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    DELETE FROM vana_active_sessions
+     WHERE sid = ${sid}
+    RETURNING id
+  `;
+  return (rows as DbRows).length;
+}
+
+export async function deleteExpiredActiveSessions(): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    DELETE FROM vana_active_sessions
+     WHERE expires_at <= now()
+    RETURNING id
+  `;
+  return (rows as DbRows).length;
+}
+
 // Test-only helper, exported for unit tests.
 export const __testing__ = {
   encryptRefreshToken,

@@ -12,23 +12,29 @@
  *      login + consent server-side via admin API and capturing the code
  *      from Hydra's redirect chain. Exchanges the code for an opaque
  *      access_token + refresh_token.
- *   5. Refresh token is encrypted (AES-256-GCM, KEK = REFRESH_TOKEN_ENC_KEY)
+ *   5. Hydra `sid` is captured from the OIDC id_token (Hydra's RFC 7662
+ *      introspection response does NOT carry sid) and persisted to
+ *      vana_active_sessions, keyed by sha256(access_token). The verifier
+ *      reads this row on every authenticated request.
+ *   6. Refresh token is encrypted (AES-256-GCM, KEK = REFRESH_TOKEN_ENC_KEY)
  *      and persisted to vana_refresh_tokens.
- *   6. Cookies set:
+ *   7. Cookies set:
  *      - `vana_session` (HttpOnly, SameSite=Lax) — the access token.
  *        Only used for GET/HEAD/OPTIONS (cookie auth on read paths).
  *      - `vana_access`  (NOT HttpOnly, SameSite=Lax) — the access token
  *        as a JS-readable companion. Browser fetch helpers send it as
  *        `Authorization: Bearer <vana_access>` for state-mutating calls.
- *   7. Returns the tokens in the JSON body too, for non-browser callers.
+ *   8. Returns the tokens in the JSON body too, for non-browser callers.
  *
  * DELETE on this route is the legacy logout endpoint; logout has moved to
- * /api/auth/logout (with proper tombstone-first sequencing). DELETE here
- * is kept for transitional callers and just clears cookies.
+ * /api/auth/logout (which deletes the active-session rows for the sid and
+ * revokes the Hydra session). DELETE here is kept for transitional callers
+ * and just clears cookies.
  *
  * See docs/auth-redesign/01-architecture.md §3.3, §7.1.
  */
 
+import { createHash } from "node:crypto";
 import { PrivyClient } from "@privy-io/node";
 import { NextResponse } from "next/server";
 import {
@@ -39,7 +45,7 @@ import {
 } from "@/lib/auth/login-session-adapter";
 import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
 import { exchangeForVanaSession } from "@/lib/auth/hydra-headless-oidc";
-import { insertRefreshToken } from "@/lib/db/sessions";
+import { insertActiveSession, insertRefreshToken } from "@/lib/db/sessions";
 
 export const runtime = "nodejs";
 
@@ -90,6 +96,32 @@ function evidenceFromPrivyUser(user: PrivyVerifiedUser): LoginEvidence | null {
 }
 
 const COOKIE_NAMES = ["vana_session", "vana_access"];
+
+/**
+ * Decode the OIDC id_token payload (middle JWT segment) and pull `sid`.
+ *
+ * Hydra issues an id_token whenever the client requests `openid` scope, and
+ * OIDC requires a `sid` claim when session-management is in use (which it
+ * is for our login flow). We do NOT verify the JWT signature here — the
+ * id_token was just minted by Hydra and returned to us over a server-to-
+ * server TLS channel via PKCE; the trust boundary is the TLS connection.
+ */
+function extractSidFromIdToken(idToken: string | undefined): string | null {
+  if (!idToken) return null;
+  const parts = idToken.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    ) as { sid?: unknown };
+    if (typeof payload.sid !== "string" || payload.sid.length === 0) {
+      return null;
+    }
+    return payload.sid;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request): Promise<Response> {
   const token = readBearerToken(request);
@@ -166,20 +198,58 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  // 4. Persist the refresh token, encrypted at rest.
+  // 4. Capture the Hydra session id (`sid`) from the OIDC id_token. Hydra's
+  //    RFC 7662 introspection response does NOT surface sid, so we record it
+  //    here at login and look it up server-side on every verification.
+  //
+  //    No JWT signature verification: we just exchanged this id_token with
+  //    Hydra server-side over TLS via PKCE; the trust boundary is the TLS
+  //    connection, not the JWT signature.
+  const sid = extractSidFromIdToken(tokens.id_token);
+  if (!sid) {
+    console.error(
+      "[api/auth/session] id_token missing sid claim — issuer-config failure",
+    );
+    return NextResponse.json(
+      { error: { code: "id_token_missing_sid" } },
+      { status: 502 },
+    );
+  }
+
+  // 5. Persist the access-token → sid binding. The verifier
+  //    (getVanaSession) reads this on every authenticated request.
+  const tokenHash = createHash("sha256")
+    .update(tokens.access_token, "utf8")
+    .digest("hex");
+  const accessTtlSec = tokens.expires_in ?? 15 * 60;
+  const accessExpiresAt = new Date(Date.now() + accessTtlSec * 1000);
+  try {
+    await insertActiveSession({
+      tokenHash,
+      sid,
+      vanaUserId,
+      expiresAt: accessExpiresAt,
+    });
+  } catch (err) {
+    console.error(
+      "[api/auth/session] insertActiveSession failed",
+      err instanceof Error ? err.message : err,
+    );
+    return NextResponse.json(
+      { error: { code: "active_session_persist_failed" } },
+      { status: 500 },
+    );
+  }
+
+  // 6. Persist the refresh token, encrypted at rest.
   if (tokens.refresh_token) {
     try {
-      // We don't have the Hydra session_id surfaced here directly; use the
-      // access token's sha256 prefix as a fallback. The introspection
-      // verifier (getVanaSession) extracts the canonical sid via Hydra.
-      // TODO: thread the session_id through if the introspection contract
-      // surfaces it on the immediate token-exchange response.
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       await insertRefreshToken({
         vanaUserId,
-        hydraSessionId: `pending_${vanaUserId.slice(-8)}_${Date.now()}`,
+        hydraSessionId: sid,
         refreshToken: tokens.refresh_token,
-        expiresAt,
+        expiresAt: refreshExpiresAt,
       });
     } catch (err) {
       console.warn(
@@ -192,8 +262,7 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // 5. Set cookies + return token bundle.
-  const accessTtlSec = tokens.expires_in ?? 15 * 60;
+  // 7. Set cookies + return token bundle.
   const isProd = process.env.NODE_ENV === "production";
   const response = NextResponse.json(
     {

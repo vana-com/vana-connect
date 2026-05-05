@@ -1,9 +1,14 @@
 // @vitest-environment node
 
 import { afterAll, describe, expect, it } from "vitest";
+import { createHash, randomBytes } from "node:crypto";
 import {
   __testing__,
+  deleteActiveSessionsBySid,
+  deleteExpiredActiveSessions,
+  findActiveSessionByTokenHash,
   gcExpiredTombstones,
+  insertActiveSession,
   insertRefreshToken,
   insertTombstone,
   isSessionTombstoned,
@@ -32,6 +37,12 @@ function uniqueSuffix(): string {
 
 const createdUserIds = new Set<string>();
 const insertedSessionIds = new Set<string>();
+const insertedTokenHashes = new Set<string>();
+const insertedActiveSids = new Set<string>();
+
+function fakeTokenHash(): string {
+  return createHash("sha256").update(randomBytes(16)).digest("hex");
+}
 
 function getTestSQL() {
   return getSql() as unknown as (
@@ -51,8 +62,20 @@ afterAll(async () => {
       () => null,
     );
   }
+  for (const hash of insertedTokenHashes) {
+    await sql`DELETE FROM vana_active_sessions WHERE token_hash = ${hash}`.catch(
+      () => null,
+    );
+  }
+  for (const sid of insertedActiveSids) {
+    await sql`DELETE FROM vana_active_sessions WHERE sid = ${sid}`.catch(
+      () => null,
+    );
+  }
   createdUserIds.clear();
   insertedSessionIds.clear();
+  insertedTokenHashes.clear();
+  insertedActiveSids.clear();
 });
 
 // --- pure crypto, no DB ---
@@ -235,5 +258,127 @@ dbDescribe("vana_session_tombstones", () => {
     expect(deleted).toBeGreaterThanOrEqual(1);
 
     expect(await isSessionTombstoned(sessionId)).toBe(false);
+  });
+});
+
+dbDescribe("vana_active_sessions", () => {
+  it("insertActiveSession + findActiveSessionByTokenHash round-trip", async () => {
+    const user = await createVanaUser();
+    createdUserIds.add(user.user.id);
+    const tokenHash = fakeTokenHash();
+    insertedTokenHashes.add(tokenHash);
+    const sid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(sid);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await insertActiveSession({
+      tokenHash,
+      sid,
+      vanaUserId: user.user.id,
+      expiresAt,
+    });
+
+    const found = await findActiveSessionByTokenHash(tokenHash);
+    expect(found).not.toBeNull();
+    expect(found?.sid).toBe(sid);
+    expect(found?.vanaUserId).toBe(user.user.id);
+    expect(found?.expiresAt.getTime()).toBe(expiresAt.getTime());
+  });
+
+  it("insertActiveSession is idempotent on token_hash collision", async () => {
+    const user = await createVanaUser();
+    createdUserIds.add(user.user.id);
+    const tokenHash = fakeTokenHash();
+    insertedTokenHashes.add(tokenHash);
+    const sid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(sid);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await insertActiveSession({
+      tokenHash,
+      sid,
+      vanaUserId: user.user.id,
+      expiresAt,
+    });
+    // Re-insert with a different sid; ON CONFLICT DO NOTHING preserves first row.
+    const otherSid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(otherSid);
+    await insertActiveSession({
+      tokenHash,
+      sid: otherSid,
+      vanaUserId: user.user.id,
+      expiresAt,
+    });
+
+    const found = await findActiveSessionByTokenHash(tokenHash);
+    expect(found?.sid).toBe(sid);
+  });
+
+  it("findActiveSessionByTokenHash returns null for unknown hash", async () => {
+    const found = await findActiveSessionByTokenHash(fakeTokenHash());
+    expect(found).toBeNull();
+  });
+
+  it("deleteActiveSessionsBySid removes all rows sharing a sid", async () => {
+    const user = await createVanaUser();
+    createdUserIds.add(user.user.id);
+    const sid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(sid);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    const hashA = fakeTokenHash();
+    const hashB = fakeTokenHash();
+    insertedTokenHashes.add(hashA);
+    insertedTokenHashes.add(hashB);
+
+    await insertActiveSession({
+      tokenHash: hashA,
+      sid,
+      vanaUserId: user.user.id,
+      expiresAt,
+    });
+    await insertActiveSession({
+      tokenHash: hashB,
+      sid,
+      vanaUserId: user.user.id,
+      expiresAt,
+    });
+
+    const deleted = await deleteActiveSessionsBySid(sid);
+    expect(deleted).toBe(2);
+    expect(await findActiveSessionByTokenHash(hashA)).toBeNull();
+    expect(await findActiveSessionByTokenHash(hashB)).toBeNull();
+  });
+
+  it("deleteExpiredActiveSessions removes only expired rows", async () => {
+    const user = await createVanaUser();
+    createdUserIds.add(user.user.id);
+
+    const expiredHash = fakeTokenHash();
+    const liveHash = fakeTokenHash();
+    insertedTokenHashes.add(expiredHash);
+    insertedTokenHashes.add(liveHash);
+    const expiredSid = `hydra_sid_${uniqueSuffix()}`;
+    const liveSid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(expiredSid);
+    insertedActiveSids.add(liveSid);
+
+    await insertActiveSession({
+      tokenHash: expiredHash,
+      sid: expiredSid,
+      vanaUserId: user.user.id,
+      expiresAt: new Date(Date.now() - 60 * 1000),
+    });
+    await insertActiveSession({
+      tokenHash: liveHash,
+      sid: liveSid,
+      vanaUserId: user.user.id,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+
+    const deleted = await deleteExpiredActiveSessions();
+    expect(deleted).toBeGreaterThanOrEqual(1);
+    expect(await findActiveSessionByTokenHash(expiredHash)).toBeNull();
+    expect(await findActiveSessionByTokenHash(liveHash)).not.toBeNull();
   });
 });
