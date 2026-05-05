@@ -22,8 +22,12 @@
  *      `account.vana.org`, `exp` not exceeded (60s clock skew tolerance),
  *      `token_use === 'access_token'`.
  *
- *   5. Tombstone check: SELECT 1 FROM vana_session_tombstones — multi-lambda
- *      revocation. Cached 5s in-process to keep DB load manageable.
+ *   5. Active-session lookup: SELECT sid FROM vana_active_sessions WHERE
+ *      token_hash = sha256(token). The sid is captured at login from the
+ *      Hydra id_token (Hydra's RFC 7662 introspection response does NOT
+ *      carry sid). Missing row → 401. Cached 5s in-process to keep DB
+ *      load manageable; revocation/logout deletes the row(s) for the sid,
+ *      so propagation is bounded by that TTL.
  *
  *   6. assertVanaUserId(result.sub) — throws if `sub` is not the canonical
  *      `vana_user_<32hex>` shape; caught and treated as null.
@@ -33,7 +37,7 @@
 
 import { createHash } from "node:crypto";
 import { fetchGoogleIdTokenForAudience } from "./google-id-token";
-import { isSessionTombstoned } from "@/lib/db/sessions";
+import { findActiveSessionByTokenHash } from "@/lib/db/sessions";
 
 // Branded type stub. Stage 6 brings the brand; here it's a string alias.
 type VanaUserId = string;
@@ -56,7 +60,7 @@ const SESSION_COOKIE_NAME = "vana_session";
 const READ_ONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 const INTROSPECTION_CACHE_TTL_MS = 30_000;
-const TOMBSTONE_CACHE_TTL_MS = 5_000;
+const ACTIVE_SESSION_CACHE_TTL_MS = 5_000;
 const CLOCK_SKEW_SECONDS = 60;
 
 type IntrospectionResult = {
@@ -76,20 +80,20 @@ type CachedIntrospection = {
   cachedAt: number;
 };
 
-type CachedTombstone = {
-  tombstoned: boolean;
+type CachedActiveSession = {
+  sid: string | null;
   cachedAt: number;
 };
 
 /**
  * Per-process LRU caches. Multi-lambda revocation correctness comes from the
- * tombstone check which DOES round-trip Postgres on cache miss; the
+ * active-session lookup which DOES round-trip Postgres on cache miss; the
  * introspection cache only saves Hydra calls.
  */
 const introspectionCache = new Map<string, CachedIntrospection>();
-const tombstoneCache = new Map<string, CachedTombstone>();
+const activeSessionCache = new Map<string, CachedActiveSession>();
 const INTROSPECTION_CACHE_MAX = 10_000;
-const TOMBSTONE_CACHE_MAX = 10_000;
+const ACTIVE_SESSION_CACHE_MAX = 10_000;
 
 function pruneCache<V>(cache: Map<string, V>, maxSize: number) {
   if (cache.size <= maxSize) return;
@@ -114,7 +118,7 @@ export type GetVanaSessionDeps = {
   /** Audience this verifier accepts. Defaults to env (e.g. `account.vana.org`). */
   expectedAudience?: string;
   /** Override for tests. */
-  isSessionTombstoned?: (hydraSessionId: string) => Promise<boolean>;
+  findActiveSessionByTokenHash?: typeof findActiveSessionByTokenHash;
   /** Override for tests. */
   now?: () => number;
 };
@@ -131,7 +135,7 @@ function defaultDeps(): Required<
     | "hydraAdminAudience"
     | "hydraPublicUrl"
     | "expectedAudience"
-    | "isSessionTombstoned"
+    | "findActiveSessionByTokenHash"
     | "now"
   >
 > {
@@ -142,14 +146,14 @@ function defaultDeps(): Required<
     hydraPublicUrl: readEnv("HYDRA_PUBLIC_URL") ?? "",
     expectedAudience:
       readEnv("VANA_SESSION_EXPECTED_AUDIENCE") ?? "account.vana.org",
-    isSessionTombstoned,
+    findActiveSessionByTokenHash,
     now: () => Date.now(),
   };
 }
 
 /**
  * Public API. Returns null on any failure (missing/invalid/expired/revoked
- * token, malformed `sub`, audience mismatch, tombstoned session).
+ * token, malformed `sub`, audience mismatch, missing active-session row).
  *
  * Routes treat null as 401. They MUST NOT distinguish failure modes in the
  * response (no leaking introspection errors to the client).
@@ -173,10 +177,8 @@ export async function getVanaSession(
   if (!validateClaims(result, deps)) return null;
   if (!isValidVanaUserId(result.sub)) return null;
 
-  const hydraSessionId = extractSessionId(result);
+  const hydraSessionId = await lookupActiveSessionSid(token, deps);
   if (!hydraSessionId) return null;
-
-  if (await isTombstoned(hydraSessionId, deps)) return null;
 
   return {
     vanaUserId: result.sub,
@@ -189,7 +191,7 @@ export async function getVanaSession(
 /** Strictly for tests: clear all in-process caches. */
 export function clearVanaSessionCaches(): void {
   introspectionCache.clear();
-  tombstoneCache.clear();
+  activeSessionCache.clear();
 }
 
 // ---------- internals ----------
@@ -313,35 +315,34 @@ function parseScope(scope: string | undefined): string[] {
 }
 
 /**
- * Hydra access tokens carry a session identifier. The exact location depends
- * on the introspection response shape; we accept any of the conventional
- * fields (`sid`, `sub` is reserved for vana_user_id, `client_id` is wrong).
- * If none, derive a stable hash from token+sub as a fallback so tombstones
- * still have something to key on. (Hydra reliably exposes a session id; the
- * fallback is defense-in-depth, not the primary path.)
+ * Resolve the Hydra `sid` for this access token via vana_active_sessions.
+ *
+ * Hydra's RFC 7662 introspection response does NOT carry `sid`. We capture
+ * it once at login from the OIDC id_token and persist it server-side keyed
+ * by sha256(access_token). Logout deletes rows for the sid, so a missing
+ * row here is a hard 401.
+ *
+ * Cached per-process for ACTIVE_SESSION_CACHE_TTL_MS (5s) — short enough
+ * that revocation propagates within 5s across lambdas, long enough to keep
+ * Postgres load proportional to unique tokens, not to request volume.
  */
-function extractSessionId(result: IntrospectionResult): string | null {
-  // Hydra exposes `sid` on JWT tokens; opaque introspection includes it as
-  // `ext.sid` or `sid` depending on version.
-  const sid =
-    (result as { sid?: unknown }).sid ??
-    (result.ext as { sid?: unknown } | undefined)?.sid;
-  if (typeof sid === "string" && sid.length > 0) return sid;
-  return null;
-}
-
-async function isTombstoned(
-  hydraSessionId: string,
-  deps: Required<Pick<GetVanaSessionDeps, "isSessionTombstoned" | "now">>,
-): Promise<boolean> {
-  const cached = tombstoneCache.get(hydraSessionId);
-  if (cached && deps.now() - cached.cachedAt < TOMBSTONE_CACHE_TTL_MS) {
-    return cached.tombstoned;
+async function lookupActiveSessionSid(
+  token: string,
+  deps: Required<
+    Pick<GetVanaSessionDeps, "findActiveSessionByTokenHash" | "now">
+  >,
+): Promise<string | null> {
+  const tokenHash = tokenCacheKey(token);
+  const cached = activeSessionCache.get(tokenHash);
+  if (cached && deps.now() - cached.cachedAt < ACTIVE_SESSION_CACHE_TTL_MS) {
+    return cached.sid;
   }
-  if (cached) tombstoneCache.delete(hydraSessionId);
+  if (cached) activeSessionCache.delete(tokenHash);
 
-  const tombstoned = await deps.isSessionTombstoned(hydraSessionId);
-  tombstoneCache.set(hydraSessionId, { tombstoned, cachedAt: deps.now() });
-  pruneCache(tombstoneCache, TOMBSTONE_CACHE_MAX);
-  return tombstoned;
+  const row = await deps.findActiveSessionByTokenHash(tokenHash);
+  const sid =
+    row && typeof row.sid === "string" && row.sid.length > 0 ? row.sid : null;
+  activeSessionCache.set(tokenHash, { sid, cachedAt: deps.now() });
+  pruneCache(activeSessionCache, ACTIVE_SESSION_CACHE_MAX);
+  return sid;
 }

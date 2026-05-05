@@ -1,163 +1,131 @@
 /**
  * Vana session logout.
  *
- * See docs/auth-redesign/01-architecture.md §1.7 logout sequence.
+ * SLVP-correct flow (post-tombstone era):
+ *   1. Resolve the calling session (defensive: missing/invalid → still clear
+ *      cookies and 200 so a re-logout from an expired token doesn't strand
+ *      the client).
+ *   2. If authenticated:
+ *      a. Call Hydra admin
+ *         `DELETE /admin/oauth2/auth/sessions/login?subject=<vanaUserId>`
+ *         with a Google ID-token Bearer (audience = HYDRA_ADMIN_AUDIENCE).
+ *         This is Ory's documented way to invalidate every Hydra session
+ *         (and therefore every opaque access token issued under it) for a
+ *         subject. Future introspections return active:false.
  *
- * Fail-closed ordering:
- *   1. INSERT vana_session_tombstones row — DB write, multi-lambda visible.
- *      This is the security boundary: if subsequent steps fail, the tombstone
- *      alone still rejects future requests within ≤30s of cache TTL.
- *   2. Clear vana_session and vana_access cookies.
- *   3. POST Hydra /oauth2/revoke for refresh token (best-effort).
- *   4. POST Hydra /oauth2/sessions/logout (best-effort).
- *   5. UPDATE vana_refresh_tokens SET revoked_at = now() for the session.
+ *         TODO(prod): narrow to per-session granularity via the consent
+ *         endpoint once we have multiple concurrent device sessions per
+ *         subject. For dev-stage cutover, subject-level revoke is acceptable.
+ *      b. Drop our row in vana_active_sessions via deleteActiveSessionsBySid
+ *         so the verifier 401s any access tokens that survive the
+ *         per-process introspection cache.
+ *      c. Hydra admin failures are logged loudly but do NOT block cookie
+ *         clearing. Logout is best-effort from the user's perspective.
+ *   3. Clear `vana_session` and `vana_access` cookies (matching the login
+ *      route's secure/sameSite/path) and return 200.
  *
- * Steps 3-4 retried by background job on failure (TODO: stage 3.6 follow-up
- * to wire that up; for now they fire and forget with logging).
- *
- * Auth: Bearer required (state-mutating).
+ * Notes:
+ *   - No tombstone writes. The active-sessions table is the source of truth;
+ *     deleting the row is the new revocation primitive.
+ *   - Auth: not strictly required (we degrade gracefully on null), but if a
+ *     token is present we treat it as the session-under-logout.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getVanaSession } from "@/lib/auth/vana-session";
 import { fetchGoogleIdTokenForAudience } from "@/lib/auth/google-id-token";
-import {
-  insertTombstone,
-  revokeRefreshTokensForSession,
-} from "@/lib/db/sessions";
+import { deleteActiveSessionsBySid } from "@/lib/db/sessions";
 
 export const runtime = "nodejs";
 
-const COOKIE_NAMES = ["vana_session", "vana_access"];
+const COOKIE_NAMES = ["vana_session", "vana_access"] as const;
 
-function clearedCookieAttrs(): {
-  httpOnly: boolean;
-  sameSite: "lax";
-  secure: boolean;
-  path: string;
-  maxAge: number;
-} {
-  return {
-    httpOnly: false, // overridden per-cookie
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 0,
-  };
+function clearCookies(res: NextResponse): void {
+  const isProd = process.env.NODE_ENV === "production";
+  for (const name of COOKIE_NAMES) {
+    res.cookies.set({
+      name,
+      value: "",
+      httpOnly: name === "vana_session",
+      sameSite: "lax",
+      secure: isProd,
+      path: "/",
+      maxAge: 0,
+    });
+  }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await getVanaSession(req);
-  if (!session) {
-    // Even on 401 we still clear cookies — defense in depth for the
-    // "stale cookie kept around" case.
-    const res = NextResponse.json(
-      { ok: false, error: "Not authenticated" },
-      { status: 401 },
-    );
-    for (const name of COOKIE_NAMES) {
-      res.cookies.set(name, "", { ...clearedCookieAttrs(), httpOnly: true });
+
+  if (session) {
+    // Hydra admin DELETE — best-effort. Errors logged, do not block.
+    try {
+      await revokeHydraSubjectSession(session.vanaUserId);
+    } catch (err) {
+      console.error(
+        "[logout] hydra admin revoke failed",
+        err instanceof Error ? err.message : err,
+      );
     }
-    return res;
+
+    // Drop our active-sessions row so the verifier rejects any cached access
+    // tokens that still introspect as active during the brief window before
+    // Hydra's revocation propagates.
+    try {
+      await deleteActiveSessionsBySid(session.hydraSessionId);
+    } catch (err) {
+      console.error(
+        "[logout] deleteActiveSessionsBySid failed",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
-  // Step 1: tombstone first. This is the security boundary.
-  try {
-    await insertTombstone({
-      hydraSessionId: session.hydraSessionId,
-      vanaUserId: session.vanaUserId,
-    });
-  } catch (err) {
-    // Tombstone insert failure is rare but security-critical. Surface it.
-    console.error(
-      "[logout] tombstone insert failed",
-      err instanceof Error ? err.message : err,
-    );
-    return NextResponse.json(
-      { ok: false, error: "Logout failed" },
-      { status: 500 },
-    );
-  }
-
-  // Step 5 (DB-side, ordered before Hydra so we hold the consistent state):
-  // mark refresh tokens revoked. Best-effort — failure here doesn't block
-  // logout because the tombstone is already in place.
-  try {
-    await revokeRefreshTokensForSession(session.hydraSessionId);
-  } catch (err) {
-    console.warn(
-      "[logout] revokeRefreshTokensForSession failed",
-      err instanceof Error ? err.message : err,
-    );
-  }
-
-  // Step 3: revoke refresh token at Hydra (best-effort). We don't have the
-  // raw refresh token here without DB lookup; the route caller could pass it,
-  // but the standard logout path is "user clicks logout in account.vana.org"
-  // which has the cookies but not the raw refresh token. So we rely on
-  // Hydra's session-end and the DB-side revocation above.
-  // Best-effort kicked off but fire-and-forget.
-  void revokeRefreshAtHydra(session).catch((err) =>
-    console.warn(
-      "[logout] hydra revoke failed",
-      err instanceof Error ? err.message : err,
-    ),
-  );
-
-  // Step 4: end Hydra SSO session (best-effort).
-  void endHydraSession(session).catch((err) =>
-    console.warn(
-      "[logout] hydra session-end failed",
-      err instanceof Error ? err.message : err,
-    ),
-  );
-
-  // Step 2: clear cookies.
   const res = NextResponse.json({ ok: true }, { status: 200 });
-  res.cookies.set("vana_session", "", {
-    ...clearedCookieAttrs(),
-    httpOnly: true,
-  });
-  res.cookies.set("vana_access", "", {
-    ...clearedCookieAttrs(),
-    httpOnly: false,
-  });
+  res.headers.set("cache-control", "no-store");
+  clearCookies(res);
   return res;
 }
 
-async function revokeRefreshAtHydra(session: {
-  vanaUserId: string;
-  hydraSessionId: string;
-}): Promise<void> {
-  // We don't have the raw refresh token in this context. Hydra's
-  // admin endpoint can revoke by consent session id which is what we
-  // store as hydra_session_id. Use admin DELETE
-  // /admin/oauth2/auth/sessions/login?subject=<sub> to invalidate the
-  // login session, OR /admin/oauth2/auth/sessions/consent to drop
-  // outstanding consents.
+/**
+ * Revoke ALL Hydra-side login sessions for the given subject. Per Ory docs,
+ * this is the canonical way to invalidate every token issued under any
+ * session for that subject; subsequent introspections return active:false.
+ *
+ * TODO(prod): if/when a single subject can have multiple concurrent device
+ * sessions and we want device-scoped logout, switch to the per-session
+ * consent-revoke endpoint keyed by `sid`.
+ */
+async function revokeHydraSubjectSession(vanaUserId: string): Promise<void> {
   const hydraAdminUrl = process.env.HYDRA_ADMIN_URL;
-  if (!hydraAdminUrl) return;
+  if (!hydraAdminUrl) {
+    throw new Error("HYDRA_ADMIN_URL is not configured");
+  }
   const hydraAdminAudience = process.env.HYDRA_ADMIN_AUDIENCE ?? hydraAdminUrl;
   const adminBearer = await fetchGoogleIdTokenForAudience(hydraAdminAudience);
   const url = `${hydraAdminUrl.replace(
     /\/+$/,
     "",
-  )}/admin/oauth2/auth/sessions/login?subject=${encodeURIComponent(
-    session.vanaUserId,
-  )}`;
-  await fetch(url, {
+  )}/admin/oauth2/auth/sessions/login?subject=${encodeURIComponent(vanaUserId)}`;
+  const response = await fetch(url, {
     method: "DELETE",
     headers: {
       ...(adminBearer ? { authorization: `Bearer ${adminBearer}` } : {}),
     },
   });
+  if (!response.ok && response.status !== 404) {
+    // 404 is treated as success: nothing to revoke. Other non-2xx is loud.
+    throw new Error(
+      `Hydra admin DELETE returned ${response.status}: ${await safeReadBody(response)}`,
+    );
+  }
 }
 
-async function endHydraSession(session: { vanaUserId: string }): Promise<void> {
-  // The standard end-session endpoint is on the public Hydra URL and
-  // requires id_token_hint, which we don't have here. The admin-driven
-  // session deletion above achieves the same effective result for
-  // server-side SSO state. Public end-session is a best-effort browser
-  // redirect that's better handled by the client logout flow.
-  void session; // mark used; no-op for now.
+async function safeReadBody(response: Response): Promise<string> {
+  try {
+    return (await response.text()).slice(0, 512);
+  } catch {
+    return "<unreadable>";
+  }
 }

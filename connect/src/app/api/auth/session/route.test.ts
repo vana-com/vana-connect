@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -5,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   resolveVanaUserByPrivyEvidence: vi.fn(),
   exchangeForVanaSession: vi.fn(),
   insertRefreshToken: vi.fn(),
+  insertActiveSession: vi.fn(),
 }));
 
 vi.mock("@privy-io/node", () => ({
@@ -25,6 +27,7 @@ vi.mock("@/lib/auth/hydra-headless-oidc", () => ({
 
 vi.mock("@/lib/db/sessions", () => ({
   insertRefreshToken: mocks.insertRefreshToken,
+  insertActiveSession: mocks.insertActiveSession,
 }));
 
 async function importRoute() {
@@ -32,6 +35,21 @@ async function importRoute() {
 }
 
 const VALID_VANA_USER_ID = "vana_user_" + "0".repeat(32);
+const HYDRA_SID = "hydra_session_test";
+
+/**
+ * Build a JWT-looking string with a payload containing the given claims.
+ * Signature segment is irrelevant — the route does not verify it (trust
+ * boundary is the TLS-terminated Hydra exchange).
+ */
+function makeIdToken(payload: Record<string, unknown>): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "RS256", typ: "JWT" }),
+  ).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = "stub-signature";
+  return `${header}.${body}.${sig}`;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -100,20 +118,24 @@ describe("POST /api/auth/session", () => {
     mocks.exchangeForVanaSession.mockResolvedValue({
       access_token: "ory_at_test",
       refresh_token: "ory_rt_test",
+      id_token: makeIdToken({ sub: VALID_VANA_USER_ID, sid: HYDRA_SID }),
       expires_in: 900,
       token_type: "bearer",
     });
+    mocks.insertActiveSession.mockResolvedValue({});
     mocks.insertRefreshToken.mockResolvedValue({
       id: "vana_rt_test",
       family_id: "vana_rtfam_test",
     });
 
+    const before = Date.now();
     const response = await POST(
       new Request("https://account.vana.org/api/auth/session", {
         method: "POST",
         headers: { authorization: "Bearer privy-token" },
       }),
     );
+    const after = Date.now();
 
     expect(response.status).toBe(200);
     expect(mocks.privyUsersGet).toHaveBeenCalledWith({
@@ -134,7 +156,33 @@ describe("POST /api/auth/session", () => {
       audience: ["account.vana.org"],
       scope: ["openid", "offline"],
     });
+
+    // Active-session insert: tokenHash = sha256(access_token) hex; sid from id_token;
+    // expiresAt = now + expires_in seconds.
+    const expectedTokenHash = createHash("sha256")
+      .update("ory_at_test", "utf8")
+      .digest("hex");
+    expect(mocks.insertActiveSession).toHaveBeenCalledOnce();
+    const activeSessionArg = mocks.insertActiveSession.mock.calls[0]?.[0] as {
+      tokenHash: string;
+      sid: string;
+      vanaUserId: string;
+      expiresAt: Date;
+    };
+    expect(activeSessionArg.tokenHash).toBe(expectedTokenHash);
+    expect(activeSessionArg.sid).toBe(HYDRA_SID);
+    expect(activeSessionArg.vanaUserId).toBe(VALID_VANA_USER_ID);
+    expect(activeSessionArg.expiresAt).toBeInstanceOf(Date);
+    const expiresMs = activeSessionArg.expiresAt.getTime();
+    // 900s window with generous slack to absorb test scheduling jitter.
+    expect(expiresMs).toBeGreaterThanOrEqual(before + 900 * 1000 - 1000);
+    expect(expiresMs).toBeLessThanOrEqual(after + 900 * 1000 + 1000);
+
     expect(mocks.insertRefreshToken).toHaveBeenCalledOnce();
+    const refreshArg = mocks.insertRefreshToken.mock.calls[0]?.[0] as {
+      hydraSessionId: string;
+    };
+    expect(refreshArg.hydraSessionId).toBe(HYDRA_SID);
 
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("vana_session=ory_at_test");
@@ -168,6 +216,63 @@ describe("POST /api/auth/session", () => {
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(body.error.code).toBe("hydra_session_failed");
+  });
+
+  it("returns 502 when the Hydra id_token is missing the sid claim", async () => {
+    const { POST } = await importRoute();
+    mocks.privyUsersGet.mockResolvedValue({
+      id: "did:privy:user-1",
+      linked_accounts: [],
+    });
+    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValue({
+      user: { id: VALID_VANA_USER_ID },
+    });
+    mocks.exchangeForVanaSession.mockResolvedValue({
+      access_token: "ory_at_test",
+      refresh_token: "ory_rt_test",
+      // id_token without sid — issuer-config failure.
+      id_token: makeIdToken({ sub: VALID_VANA_USER_ID }),
+      expires_in: 900,
+      token_type: "bearer",
+    });
+    const response = await POST(
+      new Request("https://account.vana.org/api/auth/session", {
+        method: "POST",
+        headers: { authorization: "Bearer privy-token" },
+      }),
+    );
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.error.code).toBe("id_token_missing_sid");
+    expect(mocks.insertActiveSession).not.toHaveBeenCalled();
+    expect(mocks.insertRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 when the Hydra response omits the id_token entirely", async () => {
+    const { POST } = await importRoute();
+    mocks.privyUsersGet.mockResolvedValue({
+      id: "did:privy:user-1",
+      linked_accounts: [],
+    });
+    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValue({
+      user: { id: VALID_VANA_USER_ID },
+    });
+    mocks.exchangeForVanaSession.mockResolvedValue({
+      access_token: "ory_at_test",
+      refresh_token: "ory_rt_test",
+      // No id_token at all.
+      expires_in: 900,
+      token_type: "bearer",
+    });
+    const response = await POST(
+      new Request("https://account.vana.org/api/auth/session", {
+        method: "POST",
+        headers: { authorization: "Bearer privy-token" },
+      }),
+    );
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.error.code).toBe("id_token_missing_sid");
   });
 
   it("returns 500 when Vana user resolution fails", async () => {

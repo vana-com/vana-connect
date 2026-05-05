@@ -20,7 +20,8 @@ function makeIntrospectResponse(
     exp: Math.floor(Date.now() / 1000) + 600,
     iss: "https://hydra.test",
     scope: "openid offline",
-    sid: HYDRA_SID,
+    // Note: Hydra's RFC 7662 introspection response does NOT include `sid`.
+    // The verifier reads sid from vana_active_sessions via the dep override.
     ...overrides,
   };
   return new Response(JSON.stringify(body), {
@@ -45,6 +46,19 @@ function makeReq(
   });
 }
 
+import type { ActiveSessionRow } from "@/lib/db/sessions";
+
+function makeActiveSessionRow(
+  overrides: Partial<ActiveSessionRow> = {},
+): ActiveSessionRow {
+  return {
+    sid: HYDRA_SID,
+    vanaUserId: VALID_SUB,
+    expiresAt: new Date(Date.now() + 60_000),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<GetVanaSessionDeps> = {},
   fetchImpl?: (input: string, init?: RequestInit) => Promise<Response>,
@@ -66,7 +80,7 @@ function makeDeps(
     hydraAdminAudience: "https://hydra-admin.test",
     hydraPublicUrl: "https://hydra.test",
     expectedAudience: "account.vana.org",
-    isSessionTombstoned: async () => false,
+    findActiveSessionByTokenHash: async () => makeActiveSessionRow(),
     now: () => Date.now(),
     ...overrides,
   };
@@ -201,28 +215,73 @@ describe("getVanaSession introspection validation", () => {
   });
 });
 
-describe("getVanaSession tombstone integration", () => {
-  it("returns null when session is tombstoned", async () => {
+describe("getVanaSession active-session lookup", () => {
+  it("returns the session with sid from the active-session row", async () => {
     const session = await getVanaSession(
       makeReq({ bearer: "tok" }),
-      makeDeps({ isSessionTombstoned: async () => true }),
+      makeDeps({
+        findActiveSessionByTokenHash: async () =>
+          makeActiveSessionRow({ sid: "hydra_session_xyz" }),
+      }),
+    );
+    expect(session?.hydraSessionId).toBe("hydra_session_xyz");
+    expect(session?.vanaUserId).toBe(VALID_SUB);
+  });
+
+  it("returns null when no active-session row exists for the token", async () => {
+    const session = await getVanaSession(
+      makeReq({ bearer: "tok" }),
+      makeDeps({
+        findActiveSessionByTokenHash: async () => null,
+      }),
     );
     expect(session).toBeNull();
   });
 
-  it("calls tombstone check exactly once per session within 5s cache window", async () => {
-    let tombstoneCalls = 0;
+  it("calls active-session lookup exactly once within 5s cache window", async () => {
+    let lookups = 0;
     const deps = makeDeps({
-      isSessionTombstoned: async () => {
-        tombstoneCalls++;
-        return false;
+      findActiveSessionByTokenHash: async () => {
+        lookups++;
+        return makeActiveSessionRow();
       },
     });
 
     await getVanaSession(makeReq({ bearer: "tok" }), deps);
     await getVanaSession(makeReq({ bearer: "tok" }), deps);
     await getVanaSession(makeReq({ bearer: "tok" }), deps);
-    expect(tombstoneCalls).toBe(1);
+    expect(lookups).toBe(1);
+  });
+
+  it("re-queries after the active-session cache expires", async () => {
+    let lookups = 0;
+    let now = Date.now();
+    const deps = makeDeps({
+      findActiveSessionByTokenHash: async () => {
+        lookups++;
+        return makeActiveSessionRow();
+      },
+      now: () => now,
+    });
+    await getVanaSession(makeReq({ bearer: "tok" }), deps);
+    expect(lookups).toBe(1);
+    // Advance past the 5s active-session cache.
+    now += 6_000;
+    await getVanaSession(makeReq({ bearer: "tok" }), deps);
+    expect(lookups).toBe(2);
+  });
+
+  it("passes the sha256(token) hex digest as the lookup key", async () => {
+    const seenKeys: string[] = [];
+    const deps = makeDeps({
+      findActiveSessionByTokenHash: async (key: string) => {
+        seenKeys.push(key);
+        return makeActiveSessionRow();
+      },
+    });
+    await getVanaSession(makeReq({ bearer: "tok" }), deps);
+    expect(seenKeys).toHaveLength(1);
+    expect(seenKeys[0]).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 

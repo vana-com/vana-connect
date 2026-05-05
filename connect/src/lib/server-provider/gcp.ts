@@ -17,6 +17,10 @@ const GCP_SERVICE_ACCOUNT_EMAIL = process.env.GCP_SERVICE_ACCOUNT_EMAIL ?? "";
 const PS_CONTAINER_IMAGE =
   process.env.PS_CONTAINER_IMAGE ?? "ghcr.io/vana-com/personal-server:latest";
 
+const VANA_INTROSPECTION_URL =
+  process.env.VANA_INTROSPECTION_URL ??
+  "https://account-dev.vana.org/api/oauth/introspect";
+
 const MYVANA_DOMAIN = "myvana.app";
 
 function mapGcpStatus(gcpStatus: string | null | undefined): ServerState {
@@ -233,6 +237,8 @@ TUNNEL_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/tunnel-token)
 PS_ACCESS_TOKEN_VAL=$(curl -s -H "Metadata-Flavor: Google" \\
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/ps-access-token || true)
+INTROSPECTION_URL_VAL=$(curl -s -H "Metadata-Flavor: Google" \\
+  http://metadata.google.internal/computeMetadata/v1/instance/attributes/vana-introspection-url)
 
 # Mount persistent data disk (second disk)
 DATA_DIR="/var/ps-data"
@@ -266,6 +272,7 @@ docker run -d \\
   -e TUNNEL_ENABLED=false \\
   -e DEV_UI_ENABLED=false \\
   -e PS_ACCESS_TOKEN="$PS_ACCESS_TOKEN_VAL" \\
+  -e VANA_INTROSPECTION_URL="$INTROSPECTION_URL_VAL" \\
   "$CONTAINER_IMAGE"
 
 # Run cloudflared via Docker (COS has read-only root + noexec on /home)
@@ -403,6 +410,7 @@ export class GCPProvider implements ServerProvider {
             },
             { key: "container-image", value: PS_CONTAINER_IMAGE },
             { key: "tunnel-token", value: tunnel.tunnelToken },
+            { key: "vana-introspection-url", value: VANA_INTROSPECTION_URL },
             ...(params.psAccessToken
               ? [{ key: "ps-access-token", value: params.psAccessToken }]
               : []),
