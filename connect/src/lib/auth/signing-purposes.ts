@@ -25,12 +25,21 @@ export type SigningPurpose =
   | "create_grant"
   | "revoke_grant";
 
+/**
+ * High-risk purposes require an inline user confirmation modal before the
+ * server signs. We exclude `register_personal_server` and its deregistration
+ * counterpart from the set: the server signs with the PS's own derived
+ * keypair (not the user's wallet), so the cryptographic risk is bounded to
+ * a single PS lifecycle action that the user already initiated by clicking
+ * "Provision" / "Remove server" in the UI. Re-adding a confirmation here is
+ * legitimate as defense-in-depth and should be considered once the modal
+ * flow is robust; tracked separately.
+ *
+ * `create_grant` stays high-risk: it authorizes data access by a third
+ * party and is the load-bearing user-consent moment in the protocol.
+ */
 export const HIGH_RISK_PURPOSES: ReadonlySet<SigningPurpose> =
-  new Set<SigningPurpose>([
-    "register_personal_server",
-    "register_personal_server_deregistration",
-    "create_grant",
-  ]);
+  new Set<SigningPurpose>(["create_grant"]);
 
 export function isSigningPurpose(v: unknown): v is SigningPurpose {
   return (
