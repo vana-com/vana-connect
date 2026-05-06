@@ -106,44 +106,73 @@ export interface RegisterServerInput {
 export async function registerServerOnChain(
   input: RegisterServerInput,
 ): Promise<RegisterServerResult> {
-  // 1. Fetch identity from PS /health
+  // 1. Fetch identity from PS /health, with retry for transient post-provision
+  //    states. After provisioning, the VM is up before the Cloudflare tunnel
+  //    has fully registered with Cloudflare's edge — the page sees status =
+  //    "running" (driven by GCP VM state) and auto-fires register-on-chain.
+  //    The Cloudflare tunnel can return 530 (origin unreachable) or 502/503/
+  //    504 for ~30-60s during that window. Retry on transient failures.
   let serverAddress: Address;
   let publicKey: string;
-  try {
-    const healthRes = await fetch(`${input.serverUrl}/health`, {
-      cache: "no-store",
-    });
-    if (!healthRes.ok) {
+  {
+    const TRANSIENT_HTTP = new Set([
+      502, 503, 504, 522, 523, 524, 525, 526, 530,
+    ]);
+    const MAX_ATTEMPTS = 6;
+    let lastErr: { code: "HEALTH_FETCH_FAILED"; message: string } | null = null;
+    let success: { addr: Address; pk: string } | null = null;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const healthRes = await fetch(`${input.serverUrl}/health`, {
+          cache: "no-store",
+        });
+        if (!healthRes.ok) {
+          lastErr = {
+            code: "HEALTH_FETCH_FAILED",
+            message: `PS /health returned ${healthRes.status}`,
+          };
+          if (!TRANSIENT_HTTP.has(healthRes.status)) break;
+        } else {
+          const health = (await healthRes.json()) as {
+            identity?: { address?: string; publicKey?: string };
+          };
+          if (!health.identity?.address || !health.identity?.publicKey) {
+            lastErr = {
+              code: "HEALTH_FETCH_FAILED",
+              message: "PS /health did not return identity.address + publicKey",
+            };
+            break;
+          }
+          success = {
+            addr: health.identity.address as Address,
+            pk: health.identity.publicKey,
+          };
+          break;
+        }
+      } catch (err) {
+        lastErr = {
+          code: "HEALTH_FETCH_FAILED",
+          message: err instanceof Error ? err.message : String(err),
+        };
+        // Network-level failure is treated as transient.
+      }
+      // Linear backoff capped at total ~30s across 6 attempts: 1s, 3s, 5s, 7s, 9s.
+      if (attempt < MAX_ATTEMPTS - 1) {
+        const backoffMs = 1000 + attempt * 2000;
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+    if (!success) {
       return {
         ok: false,
-        error: {
+        error: lastErr ?? {
           code: "HEALTH_FETCH_FAILED",
-          message: `PS /health returned ${healthRes.status}`,
+          message: "PS /health probe exhausted retries",
         },
       };
     }
-    const health = (await healthRes.json()) as {
-      identity?: { address?: string; publicKey?: string };
-    };
-    if (!health.identity?.address || !health.identity?.publicKey) {
-      return {
-        ok: false,
-        error: {
-          code: "HEALTH_FETCH_FAILED",
-          message: "PS /health did not return identity.address + publicKey",
-        },
-      };
-    }
-    serverAddress = health.identity.address as Address;
-    publicKey = health.identity.publicKey;
-  } catch (err) {
-    return {
-      ok: false,
-      error: {
-        code: "HEALTH_FETCH_FAILED",
-        message: err instanceof Error ? err.message : String(err),
-      },
-    };
+    serverAddress = success.addr;
+    publicKey = success.pk;
   }
 
   // 2. Build the EIP-712 typed-data payload exactly matching the gateway's
