@@ -43,11 +43,21 @@ vi.mock("@/app/_components/logout-action-button", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
+function setVanaAccessCookie(value: string | null) {
+  if (typeof document === "undefined") return;
+  if (value === null) {
+    document.cookie = "vana_access=; max-age=0; path=/";
+  } else {
+    document.cookie = `vana_access=${encodeURIComponent(value)}; path=/`;
+  }
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   privyMock.ready = true;
   privyMock.authenticated = false;
   privyMock.identityToken = null;
+  setVanaAccessCookie(null);
 });
 
 const chatgptRequestedDataDisplay = {
@@ -184,6 +194,9 @@ describe("AccountAccessPageClient", () => {
   });
 
   it("updates after successful revoke using returned summary", async () => {
+    // Mutation needs Bearer; pre-seed the JS-readable session cookie so
+    // vanaFetch attaches it without bootstrapping.
+    setVanaAccessCookie("fake-vana-access");
     const initialSummary = {
       account: {
         vana_user_id: "vana_user_1",
@@ -282,6 +295,9 @@ describe("AccountAccessPageClient", () => {
   });
 
   it("updates after successful disconnect using returned summary", async () => {
+    // Mutation needs Bearer; pre-seed the JS-readable session cookie so
+    // vanaFetch attaches it without bootstrapping.
+    setVanaAccessCookie("fake-vana-access");
     const initialSummary = {
       account: {
         vana_user_id: "vana_user_1",
@@ -372,16 +388,25 @@ describe("AccountAccessPageClient", () => {
     render(<AccountAccessPageClient />);
 
     expect(await screen.findByText("vana_user_2")).toBeTruthy();
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/account/access", {
+    expect(fetchMock.mock.calls).toHaveLength(3);
+    // Call 1 + 3: vanaFetch normalizes init.headers to a Headers instance.
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/account/access");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
       credentials: "include",
       cache: "no-store",
     });
+    // No vana_access cookie, so vanaFetch issues the read-only GET without
+    // an Authorization header (the server's vana_session cookie path covers
+    // reads).
+    expect(fetchMock.mock.calls[0][1].headers.get("Authorization")).toBeNull();
+    // Call 2 is the manual bootstrap — direct fetch, plain object headers.
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/auth/session", {
       method: "POST",
       headers: { authorization: "Bearer test-identity-token" },
       cache: "no-store",
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/account/access", {
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/account/access");
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({
       credentials: "include",
       cache: "no-store",
     });

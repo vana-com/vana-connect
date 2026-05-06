@@ -1,6 +1,6 @@
 "use client";
 
-import { useIdentityToken, usePrivy } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
@@ -14,25 +14,8 @@ import {
   formatRequestedDataDisplay,
   formatStatusLabel,
 } from "@/lib/auth/action-display";
-
-/**
- * Read the JS-readable companion cookie that mirrors `vana_session`.
- * `getVanaSession` only accepts the cookie on read-only methods; for any
- * state-mutating POST (e.g. action decisions) the browser must explicitly
- * send `Authorization: Bearer <vana_access>` to satisfy the verifier.
- */
-function readVanaAccessCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  for (const part of document.cookie.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    const k = part.slice(0, eq).trim();
-    if (k !== "vana_access") continue;
-    const v = part.slice(eq + 1).trim();
-    return v ? decodeURIComponent(v) : null;
-  }
-  return null;
-}
+import { vanaFetch } from "@/lib/auth/vana-fetch";
+import { useVanaSessionBootstrap } from "@/lib/auth/vana-session-client";
 
 type ActionRequestDetails = {
   action_request_id: string;
@@ -71,53 +54,15 @@ export function ActionRequestPageClient({
 }) {
   const searchParams = useSearchParams();
   const { ready, authenticated, login } = usePrivy();
-  const { identityToken } = useIdentityToken();
   const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
   const [decisionState, setDecisionState] = useState<
     "idle" | "approving" | "denying"
   >("idle");
   const [decisionError, setDecisionError] = useState<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<
-    "unknown" | "bootstrapping" | "ready" | "missing"
-  >("unknown");
-
-  // Self-heal vana_access cookie when Privy is signed in but the BFF session
-  // hasn't been bootstrapped on this domain (e.g. a fresh tab). Mirrors what
-  // `/login` does so action approval works without a separate sign-in step.
-  useEffect(() => {
-    if (!ready || !authenticated) {
-      setSessionStatus("unknown");
-      return;
-    }
-    if (readVanaAccessCookie()) {
-      setSessionStatus("ready");
-      return;
-    }
-    if (!identityToken) {
-      setSessionStatus("bootstrapping");
-      return;
-    }
-    let cancelled = false;
-    setSessionStatus("bootstrapping");
-    void (async () => {
-      try {
-        const res = await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { authorization: `Bearer ${identityToken}` },
-        });
-        if (cancelled) return;
-        setSessionStatus(
-          res.ok && readVanaAccessCookie() ? "ready" : "missing",
-        );
-      } catch {
-        if (cancelled) return;
-        setSessionStatus("missing");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, authenticated, identityToken]);
+  // `useVanaSessionBootstrap` self-heals the vana_access cookie when Privy
+  // is signed in but the BFF session hasn't been bootstrapped on this
+  // domain. The Authorize button stays disabled until the cookie is ready.
+  const { status: sessionStatus } = useVanaSessionBootstrap();
 
   useEffect(() => {
     if (!ready || !authenticated) return;
@@ -125,12 +70,8 @@ export function ActionRequestPageClient({
 
     const controller = new AbortController();
     setLoadState({ kind: "loading" });
-    const accessToken = readVanaAccessCookie();
-    fetch(`/api/account/actions/${encodeURIComponent(actionRequestId)}`, {
+    vanaFetch(`/api/account/actions/${encodeURIComponent(actionRequestId)}`, {
       signal: controller.signal,
-      headers: accessToken
-        ? { authorization: `Bearer ${accessToken}` }
-        : undefined,
     })
       .then(async (response) => {
         const body = await response.json();
@@ -163,19 +104,12 @@ export function ActionRequestPageClient({
       setDecisionState(decision === "approved" ? "approving" : "denying");
       try {
         const state = searchParams.get("state");
-        const accessToken = readVanaAccessCookie();
-        if (!accessToken) {
-          throw new Error(
-            "Vana session is not ready yet. Refresh and try again.",
-          );
-        }
-        const response = await fetch(
+        const response = await vanaFetch(
           `/api/account/actions/${encodeURIComponent(actionRequestId)}/decision`,
           {
             method: "POST",
             headers: {
               "content-type": "application/json",
-              authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               decision,

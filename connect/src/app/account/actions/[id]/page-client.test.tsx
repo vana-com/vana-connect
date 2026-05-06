@@ -114,16 +114,16 @@ describe("ActionRequestPageClient", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "/api/account/actions/vana_areq_test",
     );
-    expect(fetchMock.mock.calls[0][1]?.headers).toEqual({
-      authorization: "Bearer fake-vana-access",
-    });
+    // vanaFetch normalizes init.headers to a Headers instance and attaches
+    // Authorization from the vana_access cookie.
+    const getHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(getHeaders.get("Authorization")).toBe("Bearer fake-vana-access");
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/account/actions/vana_areq_test/decision",
     );
-    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({
-      authorization: "Bearer fake-vana-access",
-      "content-type": "application/json",
-    });
+    const postHeaders = fetchMock.mock.calls[1][1]?.headers as Headers;
+    expect(postHeaders.get("Authorization")).toBe("Bearer fake-vana-access");
+    expect(postHeaders.get("content-type")).toBe("application/json");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       decision: "approved",
       state: "client-state",

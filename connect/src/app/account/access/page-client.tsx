@@ -9,6 +9,7 @@ import { APP_ROUTES } from "@/app/routes";
 import { PageHeader } from "@/components/elements/page-header";
 import { Text } from "@/components/typography/text";
 import { formatStatusLabel } from "@/lib/auth/action-display";
+import { vanaFetch } from "@/lib/auth/vana-fetch";
 
 type LoadState =
   | { status: "loading" }
@@ -32,7 +33,7 @@ export function AccountAccessPageClient() {
       if (!ready) return;
 
       try {
-        let response = await fetch("/api/account/access", {
+        let response = await vanaFetch("/api/account/access", {
           credentials: "include",
           cache: "no-store",
         });
@@ -44,6 +45,8 @@ export function AccountAccessPageClient() {
             !sessionBridgeAttemptedRef.current
           ) {
             sessionBridgeAttemptedRef.current = true;
+            // Direct fetch — `/api/auth/session` is the bootstrap endpoint
+            // itself and must not go through vanaFetch.
             const sessionResponse = await fetch("/api/auth/session", {
               method: "POST",
               headers: { authorization: `Bearer ${identityToken}` },
@@ -57,7 +60,7 @@ export function AccountAccessPageClient() {
               });
               return;
             }
-            response = await fetch("/api/account/access", {
+            response = await vanaFetch("/api/account/access", {
               credentials: "include",
               cache: "no-store",
             });
@@ -187,7 +190,7 @@ function LoadedState({
 
   async function mutateAccess(url: string, errorMessage: string) {
     setMutationError(null);
-    const response = await fetch(url, {
+    const response = await vanaFetch(url, {
       method: "POST",
       credentials: "include",
       cache: "no-store",

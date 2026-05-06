@@ -110,9 +110,19 @@ describe("useServer", () => {
       await Promise.resolve();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/servers", {
-      headers: { Authorization: "Bearer vana-access-tok" },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/servers",
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      }),
+    );
+    {
+      const firstCall = fetchMock.mock.calls.find(
+        (call) => call[0] === "/api/servers",
+      );
+      const headers = firstCall?.[1]?.headers as Headers;
+      expect(headers.get("Authorization")).toBe("Bearer vana-access-tok");
+    }
 
     await act(async () => {
       await result.current.provision();
@@ -125,9 +135,19 @@ describe("useServer", () => {
       await Promise.resolve();
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/servers/srv_123", {
-      headers: { Authorization: "Bearer vana-access-tok" },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/servers/srv_123",
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      }),
+    );
+    {
+      const polledCall = fetchMock.mock.calls.find(
+        (call) => call[0] === "/api/servers/srv_123",
+      );
+      const headers = polledCall?.[1]?.headers as Headers;
+      expect(headers.get("Authorization")).toBe("Bearer vana-access-tok");
+    }
     expect(result.current.status).toBe("running");
   });
 });

@@ -27,6 +27,9 @@ vi.mock("@privy-io/react-auth", () => ({
     </div>
   ),
   useSyncJwtBasedAuthState: mocks.useSyncJwtBasedAuthState,
+  // VanaFetchRegistration uses this hook; return a stable shape so it can
+  // mount without exercising real Privy state.
+  useIdentityToken: () => ({ identityToken: null }),
 }));
 
 const ORIGINAL_ENV = { ...process.env };
