@@ -221,6 +221,10 @@ export function useServer() {
   // /v1/servers/{address} route is keyed on serverAddress).
   useEffect(() => {
     if (status !== "running" || !server?.url) return;
+    // Gate on session bootstrap. Without this, the auto-register-on-chain
+    // POST below races the cookie set and 401s on every page load until
+    // a manual user action retries.
+    if (session.status !== "ready") return;
 
     let cancelled = false;
     const serverUrl = server.url;
@@ -352,7 +356,7 @@ export function useServer() {
     return () => {
       cancelled = true;
     };
-  }, [status, server, confirmation]);
+  }, [status, server, confirmation, session.status]);
 
   // Poll while provisioning
   useEffect(() => {
