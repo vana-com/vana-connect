@@ -16,6 +16,7 @@ import {
   PageHeader,
   PageLoadingState,
 } from "@/components/elements/page-header";
+import { ConfirmationModal } from "@/components/auth/confirmation-modal";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/classes";
@@ -55,6 +56,7 @@ function ServerPageContent() {
     refresh,
     sessionStatus,
     sessionError,
+    confirmation,
   } = useServer();
 
   if (status === "loading" || sessionStatus === "bootstrapping") {
@@ -246,6 +248,19 @@ function ServerPageContent() {
           )}
         </div>
       </PagePanel>
+      {confirmation.pending ? (
+        <ConfirmationModal
+          open
+          confirmationId={confirmation.pending.confirmation_id}
+          payloadSummary={confirmation.pending.payload_summary}
+          expiresAt={confirmation.pending.expires_at}
+          error={confirmation.error}
+          onConfirm={async () => {
+            await confirmation.confirm();
+          }}
+          onCancel={confirmation.dismiss}
+        />
+      ) : null}
     </PageShell>
   );
 }
