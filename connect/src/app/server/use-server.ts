@@ -48,6 +48,7 @@ export type ServerStatus =
   | "loading"
   | "idle"
   | "provisioning"
+  | "deprovisioning"
   | "running"
   | "stopped"
   | "deprovision_failed"
@@ -190,6 +191,10 @@ export function useServer() {
   const deprovision = useCallback(async () => {
     if (!server) return;
     setError(null);
+    // Reflect the in-flight deprovision in the UI immediately. The DELETE
+    // can take 30-60s (VM teardown + disk delete + tunnel/DNS cleanup).
+    // Without this, users see no feedback and assume the click was lost.
+    setStatus("deprovisioning");
     try {
       const res = await fetch(`/api/servers/${server.id}`, {
         method: "DELETE",
@@ -207,6 +212,7 @@ export function useServer() {
       stopPolling();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setStatus("deprovision_failed");
     }
   }, [server, stopPolling]);
 
