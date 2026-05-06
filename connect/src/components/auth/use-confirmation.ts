@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { vanaFetch } from "@/lib/auth/vana-fetch";
 
 /**
  * Shape of the JSON body returned by any /api/servers/* route that needs
@@ -152,19 +153,12 @@ export function useConfirmation(): UseConfirmationResult {
   const confirm = useCallback(async () => {
     const current = pendingRef.current;
     if (!current) return;
-    const access = readVanaAccessCookie();
-    if (!access) {
-      setError("Missing access token");
-      settle(null);
-      return;
-    }
     try {
-      const response = await fetch(
+      const response = await vanaFetch(
         `/api/auth/confirmations/${encodeURIComponent(current.confirmation_id)}/consume`,
         {
           method: "POST",
           credentials: "include",
-          headers: { Authorization: `Bearer ${access}` },
         },
       );
       if (!response.ok) {

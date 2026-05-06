@@ -3,10 +3,8 @@
 import { useSignMessage, useWallets } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConfirmation } from "@/components/auth/use-confirmation";
-import {
-  useVanaSessionBootstrap,
-  vanaAuthHeaders,
-} from "@/lib/auth/vana-session-client";
+import { vanaFetch } from "@/lib/auth/vana-fetch";
+import { useVanaSessionBootstrap } from "@/lib/auth/vana-session-client";
 
 const MASTER_KEY_MESSAGE = "vana-master-key-v1";
 const POLL_INTERVAL_MS = 5_000;
@@ -99,11 +97,10 @@ export function useServer() {
     try {
       const serverId = provisioningServerIdRef.current;
       const endpoint = serverId ? `/api/servers/${serverId}` : "/api/servers";
-      // GET — verifier accepts vana_session cookie, but we send Bearer too
-      // for explicitness and so the same call shape works on POST/DELETE.
-      const res = await fetch(endpoint, {
-        headers: { ...vanaAuthHeaders() },
-      });
+      // GET — verifier accepts vana_session cookie, but vanaFetch sends
+      // Bearer too for explicitness and so the same call shape works on
+      // POST/DELETE.
+      const res = await vanaFetch(endpoint);
       if (!res.ok) {
         throw new Error(`Failed to fetch server: ${res.status}`);
       }
@@ -147,9 +144,9 @@ export function useServer() {
       // derivation. The PS startup script uses VANA_MASTER_KEY_SIGNATURE
       // to deterministically derive its signing keypair.
       const sig = await getSignature();
-      const res = await fetch("/api/servers", {
+      const res = await vanaFetch("/api/servers", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...vanaAuthHeaders() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ masterKeySignature: sig }),
       });
       if (!res.ok) {
@@ -177,9 +174,8 @@ export function useServer() {
     // Without this, users see no feedback and assume the click was lost.
     setStatus("deprovisioning");
     try {
-      const res = await fetch(`/api/servers/${server.id}`, {
+      const res = await vanaFetch(`/api/servers/${server.id}`, {
         method: "DELETE",
-        headers: { ...vanaAuthHeaders() },
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -197,17 +193,15 @@ export function useServer() {
     }
   }, [server, stopPolling]);
 
-  // Initial fetch once wallet is ready AND the BFF session cookie is in
-  // place. Without the session gate, the GET /api/servers fires before
-  // /api/auth/session has minted vana_session, and the verifier 401s
-  // because state-mutating callers (provision later) need vana_access too.
+  // Initial fetch once wallet is ready. vanaFetch handles session bootstrap
+  // internally on mutating calls; GET /api/servers can use the vana_session
+  // cookie path on the verifier so no explicit gate is needed here.
   useEffect(() => {
     if (!walletsReady || !embeddedWalletAddress) return;
-    if (session.status !== "ready") return;
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
     fetchServer();
-  }, [walletsReady, embeddedWalletAddress, fetchServer, session.status]);
+  }, [walletsReady, embeddedWalletAddress, fetchServer]);
 
   // When status flips to `running`, determine whether this server is already
   // registered on the gateway and kick off registration if not.
@@ -221,10 +215,8 @@ export function useServer() {
   // /v1/servers/{address} route is keyed on serverAddress).
   useEffect(() => {
     if (status !== "running" || !server?.url) return;
-    // Gate on session bootstrap. Without this, the auto-register-on-chain
-    // POST below races the cookie set and 401s on every page load until
-    // a manual user action retries.
-    if (session.status !== "ready") return;
+    // vanaFetch bootstraps the session internally on the mutating
+    // register-on-chain POST below if the cookie isn't yet set.
 
     let cancelled = false;
     const serverUrl = server.url;
@@ -295,19 +287,17 @@ export function useServer() {
       // the inline modal dance, then we retry with x-vana-confirmation-id.
       setRegistrationStatus("registering");
       try {
-        let res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
+        let res = await vanaFetch(`/api/servers/${dbId}/register-on-chain`, {
           method: "POST",
-          headers: { ...vanaAuthHeaders() },
         });
         if (cancelled) return;
         if (res.status === 401) {
           const result = await confirmation.handle401(res);
           if (cancelled) return;
           if (result) {
-            res = await fetch(`/api/servers/${dbId}/register-on-chain`, {
+            res = await vanaFetch(`/api/servers/${dbId}/register-on-chain`, {
               method: "POST",
               headers: {
-                ...vanaAuthHeaders(),
                 "x-vana-confirmation-id": result.confirmedId,
               },
             });
@@ -356,7 +346,7 @@ export function useServer() {
     return () => {
       cancelled = true;
     };
-  }, [status, server, confirmation, session.status]);
+  }, [status, server, confirmation]);
 
   // Poll while provisioning
   useEffect(() => {

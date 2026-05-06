@@ -128,11 +128,14 @@ describe("useConfirmation", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "include",
-        headers: expect.objectContaining({
-          Authorization: "Bearer vat_test_token",
-        }),
+        headers: expect.any(Headers),
       }),
     );
+    const consumeCall = fetchMock.mock.calls.find(
+      (call) => call[0] === "/api/auth/confirmations/conf_abc/consume",
+    );
+    const headers = consumeCall?.[1]?.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer vat_test_token");
   });
 
   it("on consume failure sets error and resolves null", async () => {
@@ -196,6 +199,8 @@ describe("useConfirmation", () => {
     });
 
     await expect(promise).resolves.toBeNull();
-    expect(result.current.error).toContain("access token");
+    // vanaFetch can't bootstrap without a registered identity-token getter,
+    // so it throws VanaSessionUnavailableError; confirm surfaces the message.
+    expect(result.current.error).toContain("Vana session");
   });
 });

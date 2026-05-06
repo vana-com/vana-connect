@@ -1,6 +1,6 @@
 "use client";
 
-import { useIdentityToken, usePrivy } from "@privy-io/react-auth";
+import { usePrivy } from "@privy-io/react-auth";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
@@ -10,6 +10,8 @@ import { PageLoadingState } from "@/components/elements/page-loading-state";
 import { Spinner } from "@/components/elements/spinner";
 import { Text } from "@/components/typography/text";
 import { Button } from "@/components/ui/button";
+import { vanaFetch } from "@/lib/auth/vana-fetch";
+import { useVanaSessionBootstrap } from "@/lib/auth/vana-session-client";
 
 /**
  * Hydra device-grant verification page.
@@ -31,34 +33,28 @@ import { Button } from "@/components/ui/button";
  * `urls.device.success` → `/auth/oidc/device-success`.
  */
 
-function readVanaAccessCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  for (const part of document.cookie.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    const k = part.slice(0, eq).trim();
-    if (k !== "vana_access") continue;
-    const v = part.slice(eq + 1).trim();
-    return v ? decodeURIComponent(v) : null;
-  }
-  return null;
-}
-
 type AcceptStatus = "idle" | "submitting" | "approved" | "error";
-
-type SessionStatus = "unknown" | "bootstrapping" | "ready" | "missing";
 
 function DeviceVerificationContent() {
   const searchParams = useSearchParams();
   const { ready, authenticated } = usePrivy();
-  const { identityToken } = useIdentityToken();
+  // `useVanaSessionBootstrap` self-heals the vana_access cookie when Privy
+  // is signed in but the BFF session hasn't been bootstrapped on this
+  // domain. The Authorize button stays disabled until the cookie is ready.
+  const { status: sessionStatus, error: sessionError } =
+    useVanaSessionBootstrap();
 
   const deviceChallenge = searchParams.get("device_challenge");
   const userCode = searchParams.get("user_code");
 
   const [status, setStatus] = useState<AcceptStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("unknown");
+
+  // Surface session-bootstrap failures inline so the user sees why Authorize
+  // is disabled.
+  useEffect(() => {
+    if (sessionError) setError(sessionError);
+  }, [sessionError]);
 
   const isLoggedIn = ready && authenticated;
 
@@ -82,82 +78,15 @@ function DeviceVerificationContent() {
     window.location.href = `/login?return_to=${encodeURIComponent(here)}`;
   }, [deviceChallenge, userCode]);
 
-  // Self-heal the Vana session cookie when Privy is authenticated but
-  // `vana_access` is missing. This happens whenever a user lands on this
-  // page already signed in via Privy on another tab, but their browser has
-  // never POSTed to `/api/auth/session` on this domain (e.g., a fresh tab
-  // following Hydra's redirect rather than a `/login` round-trip).
-  //
-  // We mirror exactly what `/login` does: POST the Privy id_token; on
-  // success the BFF mints the Hydra session and sets vana_access + vana_session.
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setSessionStatus("unknown");
-      return;
-    }
-    if (readVanaAccessCookie()) {
-      setSessionStatus("ready");
-      return;
-    }
-    if (!identityToken) {
-      // Privy is authenticated but the id_token hasn't been minted yet.
-      // useIdentityToken updates as Privy resolves it; this effect re-runs.
-      setSessionStatus("bootstrapping");
-      return;
-    }
-
-    let cancelled = false;
-    setSessionStatus("bootstrapping");
-    void (async () => {
-      try {
-        const res = await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { authorization: `Bearer ${identityToken}` },
-        });
-        if (cancelled) return;
-        if (!res.ok) {
-          setSessionStatus("missing");
-          setError(
-            "Could not establish Vana session. Please sign in again from /login.",
-          );
-          return;
-        }
-        // Cookie is set on the response; double-check it landed before flipping
-        // to "ready" so a downstream cookie-blocking config doesn't hang the
-        // user on a Spinner forever.
-        if (readVanaAccessCookie()) {
-          setSessionStatus("ready");
-        } else {
-          setSessionStatus("missing");
-          setError(
-            "Vana session cookie was not stored. Check your browser's third-party-cookie settings.",
-          );
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setSessionStatus("missing");
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn, identityToken]);
-
   const handleAuthorize = useCallback(async () => {
     if (!deviceChallenge || !userCode) return;
     setStatus("submitting");
     setError(null);
     try {
-      const accessToken = readVanaAccessCookie();
-      if (!accessToken) {
-        throw new Error("Vana session is not ready yet.");
-      }
-      const res = await fetch("/api/auth/oidc/device-accept", {
+      const res = await vanaFetch("/api/auth/oidc/device-accept", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           device_challenge: deviceChallenge,
