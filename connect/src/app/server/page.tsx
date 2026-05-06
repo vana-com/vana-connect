@@ -217,10 +217,15 @@ function ServerPageContent() {
                 variant="ghost"
                 size="sm"
                 onClick={() => void deprovision()}
+                disabled={status === "deprovisioning"}
                 className="text-destructive-foreground hover:text-destructive-foreground"
               >
                 <Trash2Icon aria-hidden />
-                Remove Server
+                {status === "deprovisioning"
+                  ? "Removing..."
+                  : status === "deprovision_failed"
+                    ? "Retry remove"
+                    : "Remove Server"}
               </Button>
             </div>
           )}
@@ -361,6 +366,8 @@ function getStatusInfo(status: ServerStatus): {
       return { tone: "success", label: "Running" };
     case "provisioning":
       return { tone: "accent", label: "Provisioning..." };
+    case "deprovisioning":
+      return { tone: "accent", label: "Removing..." };
     case "stopped":
       return { tone: "warning", label: "Stopped" };
     case "deprovision_failed":

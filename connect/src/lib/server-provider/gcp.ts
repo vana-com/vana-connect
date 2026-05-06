@@ -543,10 +543,13 @@ export class GCPProvider implements ServerProvider {
           zone: GCP_ZONE,
           instance: serverId,
         });
-        // Poll until the VM is fully deleted (typically <15s for a stopped instance).
-        // The Compute v1 SDK exposes operation.promise() via the long-running
-        // operation client returned alongside InstancesClient; for older
-        // versions, fall back to manual polling via the zone operations endpoint.
+        // Wait for the LRO promise (the SDK's standard completion signal),
+        // then ALSO poll instances.get() until 404. The LRO completing means
+        // GCP accepted the delete, not that the resource is fully torn down —
+        // the VM can briefly still appear in get() while STOPPING, and the
+        // attached disk is not releasable until the VM resource is gone.
+        // Without the get-poll, the disk delete in step 3 races teardown and
+        // fails with RESOURCE_IN_USE_BY_ANOTHER_RESOURCE.
         const op = operation as unknown as {
           promise?: () => Promise<unknown>;
         };
@@ -554,13 +557,33 @@ export class GCPProvider implements ServerProvider {
           try {
             await op.promise();
           } catch (waitErr) {
-            // The VM may have been deleted between our delete call and the
-            // wait — that's a "stopped" code we can ignore.
             const code = errCode(waitErr);
             if (code !== 5 && code !== 404) {
               recordError("vm-wait", waitErr);
             }
           }
+        }
+        // Deterministic: poll instances.get() until 404 (VM gone). Up to 60s.
+        // Each check is a single API call; no exponential backoff to keep the
+        // total latency bounded near the function's max-duration budget.
+        const deadline = Date.now() + 60_000;
+        while (Date.now() < deadline) {
+          try {
+            await this.client.get({
+              project: this.project,
+              zone: GCP_ZONE,
+              instance: serverId,
+            });
+          } catch (getErr) {
+            const code = errCode(getErr);
+            if (code === 5 || code === 404) {
+              // VM is gone — disk is now releasable.
+              break;
+            }
+            // Any other error is logged but we keep polling — transient
+            // network blips shouldn't bail the deprovision.
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
       } catch (err: unknown) {
         const code = errCode(err);
