@@ -53,9 +53,11 @@ function ServerPageContent() {
     provision,
     deprovision,
     refresh,
+    sessionStatus,
+    sessionError,
   } = useServer();
 
-  if (status === "loading") {
+  if (status === "loading" || sessionStatus === "bootstrapping") {
     return (
       <PageShell actions={["dataConnect", "logout"]}>
         <PagePanel>
@@ -92,10 +94,23 @@ function ServerPageContent() {
                   variant="iris"
                   size="lg"
                   onClick={() => void provision()}
+                  disabled={sessionStatus !== "ready"}
                 >
                   <ServerIcon aria-hidden />
-                  Provision Server
+                  {sessionStatus === "missing"
+                    ? "Sign in required"
+                    : "Provision Server"}
                 </LoadingButton>
+                {sessionStatus === "missing" && sessionError ? (
+                  <Text
+                    as="p"
+                    intent="small"
+                    color="destructive"
+                    align="center"
+                  >
+                    {sessionError}
+                  </Text>
+                ) : null}
               </div>
             </ServerCard>
           </div>

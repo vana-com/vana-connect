@@ -17,17 +17,28 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@privy-io/react-auth", () => ({
   useSignMessage: () => ({ signMessage: mocks.signMessage }),
   useWallets: () => mocks.walletsState,
+  usePrivy: () => ({ ready: true, authenticated: true, login: vi.fn() }),
+  useIdentityToken: () => ({ identityToken: "fake-id-token" }),
 }));
 
-vi.mock("@/components/auth/use-confirmation", () => ({
-  useConfirmation: () => ({
-    pending: null,
-    error: null,
-    confirm: vi.fn(),
-    dismiss: vi.fn(),
-    handle401: vi.fn(async () => null),
-  }),
-}));
+vi.mock("@/components/auth/use-confirmation", async () => {
+  // Preserve the real `readVanaAccessCookie` — tests set document.cookie
+  // directly (`vana_access=vana-access-tok`) so the bootstrap hook flips
+  // to "ready" without needing a network round-trip mock.
+  const actual = await vi.importActual<
+    typeof import("@/components/auth/use-confirmation")
+  >("@/components/auth/use-confirmation");
+  return {
+    ...actual,
+    useConfirmation: () => ({
+      pending: null,
+      error: null,
+      confirm: vi.fn(),
+      dismiss: vi.fn(),
+      handle401: vi.fn(async () => null),
+    }),
+  };
+});
 
 import { useServer } from "./use-server";
 

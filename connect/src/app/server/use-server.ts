@@ -3,33 +3,13 @@
 import { useSignMessage, useWallets } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConfirmation } from "@/components/auth/use-confirmation";
+import {
+  useVanaSessionBootstrap,
+  vanaAuthHeaders,
+} from "@/lib/auth/vana-session-client";
 
 const MASTER_KEY_MESSAGE = "vana-master-key-v1";
 const POLL_INTERVAL_MS = 5_000;
-
-/**
- * Read the `vana_access` cookie (JS-readable companion to vana_session).
- * The browser sends this as `Authorization: Bearer <vana_access>` for any
- * state-mutating request — getVanaSession rejects cookie-only auth on
- * POST/PUT/PATCH/DELETE.
- */
-function readVanaAccessCookie(): string | null {
-  if (typeof document === "undefined") return null;
-  for (const part of document.cookie.split(";")) {
-    const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    const k = part.slice(0, eq).trim();
-    if (k !== "vana_access") continue;
-    const v = part.slice(eq + 1).trim();
-    return v ? decodeURIComponent(v) : null;
-  }
-  return null;
-}
-
-function vanaAuthHeaders(): Record<string, string> {
-  const tok = readVanaAccessCookie();
-  return tok ? { Authorization: `Bearer ${tok}` } : {};
-}
 
 type ApiServer = {
   object: "server";
@@ -64,6 +44,7 @@ export function useServer() {
   const { signMessage } = useSignMessage();
   const { wallets, ready: walletsReady } = useWallets();
   const confirmation = useConfirmation();
+  const session = useVanaSessionBootstrap();
   const [server, setServer] = useState<ApiServer | null>(null);
   const [status, setStatus] = useState<ServerStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -216,13 +197,17 @@ export function useServer() {
     }
   }, [server, stopPolling]);
 
-  // Initial fetch once wallet is ready
+  // Initial fetch once wallet is ready AND the BFF session cookie is in
+  // place. Without the session gate, the GET /api/servers fires before
+  // /api/auth/session has minted vana_session, and the verifier 401s
+  // because state-mutating callers (provision later) need vana_access too.
   useEffect(() => {
     if (!walletsReady || !embeddedWalletAddress) return;
+    if (session.status !== "ready") return;
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
     fetchServer();
-  }, [walletsReady, embeddedWalletAddress, fetchServer]);
+  }, [walletsReady, embeddedWalletAddress, fetchServer, session.status]);
 
   // When status flips to `running`, determine whether this server is already
   // registered on the gateway and kick off registration if not.
@@ -393,5 +378,8 @@ export function useServer() {
     refresh,
     /** Surface confirmation state so the page can render the modal. */
     confirmation,
+    /** BFF session bootstrap status — page should gate mutation buttons. */
+    sessionStatus: session.status,
+    sessionError: session.error,
   };
 }
