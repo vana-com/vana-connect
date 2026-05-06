@@ -34,6 +34,14 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return NextResponse.json(
+        { error: "Content-Type must be application/json" },
+        { status: 415, headers: CORS_HEADERS },
+      );
+    }
+
     const body = await request.json();
     const { masterKeySignature, message, typedData, type } = body;
 

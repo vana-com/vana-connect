@@ -36,6 +36,7 @@ import {
   type ActionRequestRow,
   type ActionResultMode,
   type ActionResultRow,
+  buildAccountHostedGrantActionResult,
   buildConsentEventRow,
   buildMockActionResult,
   buildRedirectParams,
@@ -56,6 +57,7 @@ import type { ExecuteGrantResult } from "./execute-grant-via-personal-server";
  * `docs/auth-redesign/01-architecture.md`); tests inject a fake.
  */
 export type ResolveVanaUserId = (request: Request) => Promise<string | null>;
+
 import {
   checkRedirectUri,
   createDefaultOauthClientRegistry,
@@ -579,6 +581,8 @@ export type DecisionRouteInput = {
   issuer?: string;
 };
 
+type SuccessfulGrant = Extract<ExecuteGrantResult, { ok: true }>;
+
 export type DecisionRouteResult =
   | {
       kind: "ok";
@@ -825,12 +829,8 @@ export async function handleActionDecision(
     decided_at: now.toISOString(),
   };
 
-  // For embedded-wallet account-hosted execution, mint a real grant on the
-  // user's Personal Server before persisting. Failure aborts the approval —
-  // the action request stays pending so the user can retry.
-  let authorizationReference: Record<string, unknown> | null = null;
-  let result: ActionResultRow;
-  if (existing.execution_mode === "embedded_wallet_account_hosted") {
+  let grant: SuccessfulGrant | null = null;
+  if (approvedRequest.execution_mode === "embedded_wallet_account_hosted") {
     // Guarded above; assert non-null for the type system.
     const executor = input.executeGrant;
     if (!executor) {
@@ -841,56 +841,40 @@ export async function handleActionDecision(
         message: "Real-grant executor missing",
       };
     }
-    const grant = await executor({
+    const grantResult = await executor({
       vanaUserId,
-      clientId: existing.client_id,
-      requestedData: existing.requested_data,
+      clientId: approvedRequest.client_id,
+      requestedData: approvedRequest.requested_data,
     });
-    if (!grant.ok) {
+    if (!grantResult.ok) {
       return {
         kind: "error",
-        status: grant.code === "no_personal_server" ? 409 : 502,
-        code: `grant_${grant.code}`,
-        message: grant.message,
+        status: grantResult.code === "no_personal_server" ? 409 : 502,
+        code: `grant_${grantResult.code}`,
+        message: grantResult.message,
       };
     }
-    authorizationReference = {
-      grantId: grant.grantId,
-      granteeAddress: grant.granteeAddress,
-      personalServer: grant.personalServer,
-    };
-    // Mock result_mode still applies for the data delivery path; real grant
-    // id rides on the result_payload alongside the marker so clients can
-    // resolve the on-chain grant after the OAuth code exchange.
-    result = buildMockActionResult({
-      request: approvedRequest,
-      actionCode,
-      now,
-      ttlSeconds: ACTION_CODE_TTL_SECONDS,
-    });
-    result = {
-      ...result,
-      result_payload: {
-        ...(result.result_payload as Record<string, unknown> | null),
-        grant_id: grant.grantId,
-        grantee_address: grant.granteeAddress,
-        personal_server: grant.personalServer,
-      },
-    };
-  } else {
-    result = buildMockActionResult({
-      request: approvedRequest,
-      actionCode,
-      now,
-      ttlSeconds: ACTION_CODE_TTL_SECONDS,
-    });
+    grant = grantResult;
   }
 
+  const result = grant
+    ? buildAccountHostedGrantActionResult({
+        request: approvedRequest,
+        actionCode,
+        grant,
+        now,
+        ttlSeconds: ACTION_CODE_TTL_SECONDS,
+      })
+    : buildMockActionResult({
+        request: approvedRequest,
+        actionCode,
+        now,
+        ttlSeconds: ACTION_CODE_TTL_SECONDS,
+      });
   const subjectWalletAddress = input.resolveSubjectWalletAddress
     ? await input.resolveSubjectWalletAddress(vanaUserId).catch(() => null)
     : null;
   const clientRecord = input.registry?.resolve(approvedRequest.client_id);
-
   const event = buildConsentEventRow({
     request: approvedRequest,
     eventType: "action.approved",
@@ -898,7 +882,15 @@ export async function handleActionDecision(
     vanaUserId,
     subjectWalletAddress,
     applicationId: clientRecord?.protocolPrincipal?.id ?? null,
-    authorizationReference,
+    authorizationReference: grant
+      ? {
+          type: "personal_server_grant",
+          grant_id: grant.grantId,
+          grantee_address: grant.granteeAddress,
+          personal_server_id: grant.personalServer.serverId,
+          personal_server_url: grant.personalServer.serverUrl,
+        }
+      : null,
     idempotencyKey: `${approvedRequest.id}:approved`,
     requestHash,
     issuer,

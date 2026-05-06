@@ -8,6 +8,7 @@ async function json(response: Response) {
 function request(body: Record<string, unknown>) {
   return new Request("https://account.vana.org/api/sign", {
     method: "POST",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 }
@@ -29,6 +30,20 @@ describe("/api/sign compatibility guardrails", () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: "Missing masterKeySignature" });
+  });
+
+  it("rejects non-JSON legacy posts before parsing the body", async () => {
+    const response = await POST(
+      new Request("https://account.vana.org/api/sign", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: "not-json",
+      }) as never,
+    );
+    const body = await json(response);
+
+    expect(response.status).toBe(415);
+    expect(body).toEqual({ error: "Content-Type must be application/json" });
   });
 
   it("keeps the signing operation allowlist before Privy wallet use", async () => {

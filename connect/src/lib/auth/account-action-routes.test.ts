@@ -591,6 +591,100 @@ describe("handleActionDecision", () => {
     expect(consentRow.vana_user_id).toBe(VANA_USER_ID);
   });
 
+  it("does not persist embedded-wallet approval when the real grant fails", async () => {
+    const pending = buildPendingRequest({
+      execution_mode: "embedded_wallet_account_hosted",
+      requested_data: { connector: "chatgpt", scopes: ["chatgpt.memories"] },
+    });
+    const executeGrant = vi.fn().mockResolvedValue({
+      ok: false as const,
+      code: "ps_rejected" as const,
+      message: "Personal Server rejected the grant",
+    });
+    const persistActionDecisionBundle = vi.fn();
+    const input = buildInput({
+      actionRequestId: pending.id,
+      findActionRequestById: vi.fn().mockResolvedValue(pending),
+      persistActionDecisionBundle,
+      executeGrant,
+    });
+
+    const result = await handleActionDecision(input);
+
+    expect(result.kind).toBe("error");
+    if (result.kind !== "error") return;
+    expect(result.status).toBe(502);
+    expect(result.code).toBe("grant_ps_rejected");
+    expect(executeGrant).toHaveBeenCalledWith({
+      vanaUserId: VANA_USER_ID,
+      clientId: pending.client_id,
+      requestedData: pending.requested_data,
+    });
+    expect(persistActionDecisionBundle).not.toHaveBeenCalled();
+  });
+
+  it("persists embedded-wallet grant metadata in the approval result", async () => {
+    const pending = buildPendingRequest({
+      execution_mode: "embedded_wallet_account_hosted",
+      requested_data: { connector: "chatgpt", scopes: ["chatgpt.memories"] },
+    });
+    const persistedApproved: ActionRequestRow = {
+      ...pending,
+      vana_user_id: VANA_USER_ID,
+      status: "approved",
+      decided_at: new Date().toISOString(),
+    };
+    const calls: string[] = [];
+    const executeGrant = vi.fn(async () => {
+      calls.push("grant");
+      return {
+        ok: true as const,
+        grantId: "0xgrant",
+        granteeAddress: "0xbuilderaddress",
+        personalServer: { serverId: "srv", serverUrl: "https://ps.example" },
+      };
+    });
+    const persistActionDecisionBundle = vi.fn(async ({ result, event }) => {
+      calls.push("persist");
+      return { request: persistedApproved, result, event };
+    });
+    const input = buildInput({
+      actionRequestId: pending.id,
+      findActionRequestById: vi.fn().mockResolvedValue(pending),
+      persistActionDecisionBundle,
+      executeGrant,
+    });
+
+    const result = await handleActionDecision(input);
+
+    expect(result.kind).toBe("ok");
+    expect(calls).toEqual(["grant", "persist"]);
+    expect(executeGrant).toHaveBeenCalledWith({
+      vanaUserId: VANA_USER_ID,
+      clientId: pending.client_id,
+      requestedData: pending.requested_data,
+    });
+    expect(persistActionDecisionBundle).toHaveBeenCalledOnce();
+    const approvalCall = persistActionDecisionBundle.mock.calls[0][0] as {
+      result: ActionResultRow | null;
+      event: ConsentEventRow;
+    };
+    expect(approvalCall.result?.result_payload).toEqual({
+      action_type: pending.action_type,
+      grant_id: "0xgrant",
+      grantee_address: "0xbuilderaddress",
+      personal_server_id: "srv",
+      personal_server_url: "https://ps.example",
+    });
+    expect(approvalCall.event.authorization_reference).toEqual({
+      type: "personal_server_grant",
+      grant_id: "0xgrant",
+      grantee_address: "0xbuilderaddress",
+      personal_server_id: "srv",
+      personal_server_url: "https://ps.example",
+    });
+  });
+
   it("denies a pending request and emits a redirect without action_code", async () => {
     const persistedDenied: ActionRequestRow = {
       ...buildPendingRequest(),
