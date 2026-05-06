@@ -55,6 +55,35 @@ function revokeGrantTypedData(): TypedDataDefinition {
   };
 }
 
+// Canonical high-risk fixture. The high-risk-gate / happy-path /
+// idempotent-retry suites all need *some* HIGH_RISK_PURPOSES member to
+// drive the gate. PS lifecycle was de-listed (server signs with the PS's
+// own derived keypair, no per-call human-consent benefit), so we use
+// create_grant — the load-bearing high-risk purpose in the protocol.
+const HIGH_RISK_PURPOSE = "create_grant" as const;
+function highRiskTypedData(): TypedDataDefinition {
+  return {
+    domain: { name: "Vana Data Portability", version: "1", chainId: 1480 },
+    primaryType: "GrantRegistration",
+    types: {
+      GrantRegistration: [
+        { name: "user", type: "address" },
+        { name: "builder", type: "address" },
+        { name: "scopes", type: "string[]" },
+        { name: "expiresAt", type: "uint256" },
+        { name: "nonce", type: "uint256" },
+      ],
+    },
+    message: {
+      user: ADDR1,
+      builder: ADDR2,
+      scopes: ["chatgpt.memories"],
+      expiresAt: 0,
+      nonce: 1,
+    },
+  };
+}
+
 type WalletShape = {
   id: string;
   vana_user_id: string;
@@ -245,8 +274,8 @@ describe("signTypedData — high-risk gate", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
-        typedData: rpsTypedData(),
+        purpose: HIGH_RISK_PURPOSE,
+        typedData: highRiskTypedData(),
       },
       deps,
     );
@@ -261,8 +290,8 @@ describe("signTypedData — high-risk gate", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
-        typedData: rpsTypedData(),
+        purpose: HIGH_RISK_PURPOSE,
+        typedData: highRiskTypedData(),
         confirmationId: "vana_confirm_unknown",
       },
       deps,
@@ -271,7 +300,7 @@ describe("signTypedData — high-risk gate", () => {
   });
 
   it("issues a fresh confirmation when payload_hash mismatches", async () => {
-    const td = rpsTypedData();
+    const td = highRiskTypedData();
     const deps = makeDeps({
       confirmations: {
         vana_confirm_x: {
@@ -279,7 +308,7 @@ describe("signTypedData — high-risk gate", () => {
           vana_user_id: VANA_USER_ID,
           hydra_session_id: HYDRA_SID,
           vana_wallet_id: "vana_wallet_xyz",
-          purpose: "register_personal_server",
+          purpose: HIGH_RISK_PURPOSE,
           payload_hash: "this_does_not_match",
           payload_summary: {},
           expires_at: new Date(Date.now() + 60_000).toISOString(),
@@ -292,7 +321,7 @@ describe("signTypedData — high-risk gate", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
+        purpose: HIGH_RISK_PURPOSE,
         typedData: td,
         confirmationId: "vana_confirm_x",
       },
@@ -302,7 +331,7 @@ describe("signTypedData — high-risk gate", () => {
   });
 
   it("issues a fresh confirmation when session mismatches", async () => {
-    const td = rpsTypedData();
+    const td = highRiskTypedData();
     const adapter = makeAdapter();
     const validHash =
       ""; /* computed inside; here we just need session mismatch */
@@ -315,7 +344,7 @@ describe("signTypedData — high-risk gate", () => {
           vana_user_id: VANA_USER_ID,
           hydra_session_id: "different_session",
           vana_wallet_id: "vana_wallet_xyz",
-          purpose: "register_personal_server",
+          purpose: HIGH_RISK_PURPOSE,
           payload_hash: "irrelevant",
           payload_summary: {},
           expires_at: new Date(Date.now() + 60_000).toISOString(),
@@ -328,7 +357,7 @@ describe("signTypedData — high-risk gate", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
+        purpose: HIGH_RISK_PURPOSE,
         typedData: td,
         confirmationId: "vana_confirm_x",
       },
@@ -361,8 +390,8 @@ describe("signTypedData — happy path with confirmation", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
-        typedData: rpsTypedData(),
+        purpose: HIGH_RISK_PURPOSE,
+        typedData: highRiskTypedData(),
       },
       deps1,
     );
@@ -382,8 +411,8 @@ describe("signTypedData — happy path with confirmation", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
-        typedData: rpsTypedData(),
+        purpose: HIGH_RISK_PURPOSE,
+        typedData: highRiskTypedData(),
         confirmationId: consumedRow.id,
       },
       deps2,
@@ -406,7 +435,7 @@ describe("signTypedData — idempotent retry", () => {
       vana_user_id: VANA_USER_ID,
       vana_wallet_id: "vana_wallet_xyz",
       hydra_session_id: HYDRA_SID,
-      purpose: "register_personal_server",
+      purpose: HIGH_RISK_PURPOSE,
       payload_hash: "any",
       payload_summary: {},
       confirmation_id: "vana_confirm_x",
@@ -417,7 +446,7 @@ describe("signTypedData — idempotent retry", () => {
       consumed_at: new Date().toISOString(), // just now
       created_at: new Date().toISOString(),
     };
-    const td = rpsTypedData();
+    const td = highRiskTypedData();
 
     // Build a confirmation that matches the request — so we reach the
     // idempotency lookup branch.
@@ -430,7 +459,7 @@ describe("signTypedData — idempotent retry", () => {
           vana_user_id: VANA_USER_ID,
           hydra_session_id: HYDRA_SID,
           vana_wallet_id: "vana_wallet_xyz",
-          purpose: "register_personal_server",
+          purpose: HIGH_RISK_PURPOSE,
           payload_hash: matchingHash,
           payload_summary: {},
           expires_at: new Date(Date.now() + 60_000).toISOString(),
@@ -447,7 +476,7 @@ describe("signTypedData — idempotent retry", () => {
       {
         vanaUserId: VANA_USER_ID,
         hydraSessionId: HYDRA_SID,
-        purpose: "register_personal_server",
+        purpose: HIGH_RISK_PURPOSE,
         typedData: td,
         confirmationId: "vana_confirm_x",
       },

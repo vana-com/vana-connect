@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { vanaFetch } from "@/lib/auth/vana-fetch";
 
 /**
@@ -221,5 +221,15 @@ export function useConfirmation(): UseConfirmationResult {
     [],
   );
 
-  return { pending, error, handle401, confirm, dismiss };
+  // Stable identity matters: `useServer`'s register-on-chain effect lists
+  // `confirmation` in its dep array. Without memoization, every render of
+  // any consuming component (wallet ready flips, session bootstrap, etc.)
+  // produces a new object → effect re-fires → its cleanup sets
+  // cancelled=true → the in-flight handle401 never gets a chance to surface
+  // the modal. Memoizing on the actual primitive deps keeps the effect
+  // stable except when `pending`/`error` truly change.
+  return useMemo(
+    () => ({ pending, error, handle401, confirm, dismiss }),
+    [pending, error, handle401, confirm, dismiss],
+  );
 }

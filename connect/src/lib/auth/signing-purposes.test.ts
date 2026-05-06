@@ -89,18 +89,21 @@ describe("isSigningPurpose", () => {
 });
 
 describe("isHighRisk", () => {
-  it("flags register/deregister/create_grant as high-risk", () => {
-    expect(isHighRisk("register_personal_server")).toBe(true);
-    expect(isHighRisk("register_personal_server_deregistration")).toBe(true);
+  it("flags create_grant as high-risk", () => {
     expect(isHighRisk("create_grant")).toBe(true);
   });
 
-  it("flags revoke_grant as not-high-risk (revocation is user-protective)", () => {
+  it("does not flag PS lifecycle purposes (server signs with its own key)", () => {
+    expect(isHighRisk("register_personal_server")).toBe(false);
+    expect(isHighRisk("register_personal_server_deregistration")).toBe(false);
+  });
+
+  it("does not flag revoke_grant (revocation is user-protective)", () => {
     expect(isHighRisk("revoke_grant")).toBe(false);
   });
 
-  it("HIGH_RISK_PURPOSES is a Set with three members", () => {
-    expect(HIGH_RISK_PURPOSES.size).toBe(3);
+  it("HIGH_RISK_PURPOSES is a Set with one member", () => {
+    expect(HIGH_RISK_PURPOSES.size).toBe(1);
   });
 });
 
