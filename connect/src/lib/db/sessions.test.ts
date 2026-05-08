@@ -1,27 +1,23 @@
 // @vitest-environment node
 
-import { afterAll, describe, expect, it } from "vitest";
 import { createHash, randomBytes } from "node:crypto";
+import { afterAll, describe, expect, it } from "vitest";
+import { createVanaUser } from "./account";
 import {
   __testing__,
   deleteActiveSessionsBySid,
   deleteExpiredActiveSessions,
   findActiveSessionByTokenHash,
-  gcExpiredTombstones,
   insertActiveSession,
   insertRefreshToken,
-  insertTombstone,
-  isSessionTombstoned,
   markRefreshTokenRotated,
   revokeRefreshTokenFamily,
   revokeRefreshTokensForSession,
 } from "./sessions";
-import { createVanaUser } from "./account";
 import { getSql } from "./sql";
 
 /**
- * Tests for vana_refresh_tokens (encrypted-at-rest) and vana_session_tombstones
- * (multi-lambda revocation).
+ * Tests for vana_refresh_tokens (encrypted-at-rest) and vana_active_sessions.
  *
  * Encryption tests run without DATABASE_URL (pure crypto).
  *
@@ -36,7 +32,6 @@ function uniqueSuffix(): string {
 }
 
 const createdUserIds = new Set<string>();
-const insertedSessionIds = new Set<string>();
 const insertedTokenHashes = new Set<string>();
 const insertedActiveSids = new Set<string>();
 
@@ -57,11 +52,6 @@ afterAll(async () => {
   for (const id of createdUserIds) {
     await sql`DELETE FROM vana_users WHERE id = ${id}`.catch(() => null);
   }
-  for (const sid of insertedSessionIds) {
-    await sql`DELETE FROM vana_session_tombstones WHERE hydra_session_id = ${sid}`.catch(
-      () => null,
-    );
-  }
   for (const hash of insertedTokenHashes) {
     await sql`DELETE FROM vana_active_sessions WHERE token_hash = ${hash}`.catch(
       () => null,
@@ -73,7 +63,6 @@ afterAll(async () => {
     );
   }
   createdUserIds.clear();
-  insertedSessionIds.clear();
   insertedTokenHashes.clear();
   insertedActiveSids.clear();
 });
@@ -192,75 +181,6 @@ dbDescribe("vana_refresh_tokens", () => {
   );
 });
 
-dbDescribe("vana_session_tombstones", () => {
-  it("insertTombstone is idempotent on hydra_session_id (PK)", async () => {
-    const user = await createVanaUser();
-    createdUserIds.add(user.user.id);
-    const sessionId = `hydra_test_${uniqueSuffix()}`;
-    insertedSessionIds.add(sessionId);
-
-    const first = await insertTombstone({
-      hydraSessionId: sessionId,
-      vanaUserId: user.user.id,
-    });
-    expect(first.hydra_session_id).toBe(sessionId);
-
-    // Second insert ON CONFLICT DO UPDATE — same row, refreshed timestamps.
-    const second = await insertTombstone({
-      hydraSessionId: sessionId,
-      vanaUserId: user.user.id,
-    });
-    expect(second.hydra_session_id).toBe(sessionId);
-  });
-
-  it("isSessionTombstoned returns true while not expired, false after", async () => {
-    const user = await createVanaUser();
-    createdUserIds.add(user.user.id);
-    const sessionId = `hydra_test_${uniqueSuffix()}`;
-    insertedSessionIds.add(sessionId);
-
-    await insertTombstone({
-      hydraSessionId: sessionId,
-      vanaUserId: user.user.id,
-      ttlSeconds: 60,
-    });
-    expect(await isSessionTombstoned(sessionId)).toBe(true);
-
-    // Insert one with ttl in the past.
-    const expiredSessionId = `hydra_test_${uniqueSuffix()}`;
-    insertedSessionIds.add(expiredSessionId);
-    await insertTombstone({
-      hydraSessionId: expiredSessionId,
-      vanaUserId: user.user.id,
-      ttlSeconds: -10,
-    });
-    expect(await isSessionTombstoned(expiredSessionId)).toBe(false);
-  });
-
-  it("isSessionTombstoned returns false for unknown session", async () => {
-    const unknown = `hydra_test_unknown_${uniqueSuffix()}`;
-    expect(await isSessionTombstoned(unknown)).toBe(false);
-  });
-
-  it("gcExpiredTombstones deletes expired rows", async () => {
-    const user = await createVanaUser();
-    createdUserIds.add(user.user.id);
-    const sessionId = `hydra_test_gc_${uniqueSuffix()}`;
-    insertedSessionIds.add(sessionId);
-
-    await insertTombstone({
-      hydraSessionId: sessionId,
-      vanaUserId: user.user.id,
-      ttlSeconds: -10,
-    });
-
-    const deleted = await gcExpiredTombstones();
-    expect(deleted).toBeGreaterThanOrEqual(1);
-
-    expect(await isSessionTombstoned(sessionId)).toBe(false);
-  });
-});
-
 dbDescribe("vana_active_sessions", () => {
   it("insertActiveSession + findActiveSessionByTokenHash round-trip", async () => {
     const user = await createVanaUser();
@@ -317,6 +237,24 @@ dbDescribe("vana_active_sessions", () => {
   it("findActiveSessionByTokenHash returns null for unknown hash", async () => {
     const found = await findActiveSessionByTokenHash(fakeTokenHash());
     expect(found).toBeNull();
+  });
+
+  it("findActiveSessionByTokenHash returns null for expired rows", async () => {
+    const user = await createVanaUser();
+    createdUserIds.add(user.user.id);
+    const tokenHash = fakeTokenHash();
+    insertedTokenHashes.add(tokenHash);
+    const sid = `hydra_sid_${uniqueSuffix()}`;
+    insertedActiveSids.add(sid);
+
+    await insertActiveSession({
+      tokenHash,
+      sid,
+      vanaUserId: user.user.id,
+      expiresAt: new Date(Date.now() - 60 * 1000),
+    });
+
+    expect(await findActiveSessionByTokenHash(tokenHash)).toBeNull();
   });
 
   it("deleteActiveSessionsBySid removes all rows sharing a sid", async () => {

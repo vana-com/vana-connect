@@ -14,8 +14,8 @@
 -- hex. The verifier hashes the presented token with the same function for
 -- lookup; the raw token is never persisted.
 --
--- Tombstone scaffolding (vana_session_tombstones) is intentionally retained;
--- a follow-up migration removes it once the new path is live.
+-- Tombstone scaffolding (vana_session_tombstones) is removed by
+-- 010_drop_session_tombstones.sql once this active-session path is live.
 
 CREATE TABLE IF NOT EXISTS vana_active_sessions (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

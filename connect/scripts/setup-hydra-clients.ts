@@ -7,10 +7,15 @@
  *
  * Both:
  *   - sub = vanaUserId (per-consent at acceptOAuth2LoginRequest time)
- *   - aud = ['account.vana.org']
  *   - access_token_strategy = opaque (introspection-based revocation)
  *   - 15min access TTL / 30day refresh TTL
  *   - token_endpoint_auth_method = 'none' (public clients)
+ *
+ * Audience contract:
+ *   - vana-account-web is scoped to account.vana.org.
+ *   - data-connect needs both account.vana.org and vana-personal-server so
+ *     device-code tokens keep working across account APIs and personal-server
+ *     ingest calls. Keep this in sync with the data-connect runtime.
  *
  * Usage (against dev):
  *
@@ -47,7 +52,7 @@ const DATA_CONNECT = {
     "refresh_token",
   ],
   scope: "openid offline",
-  audience: ["account.vana.org"],
+  audience: ["account.vana.org", "vana-personal-server"],
   token_endpoint_auth_method: "none",
   access_token_strategy: "opaque",
   authorization_code_grant_access_token_lifespan: "15m",
@@ -55,6 +60,11 @@ const DATA_CONNECT = {
   refresh_token_grant_access_token_lifespan: "15m",
   refresh_token_grant_refresh_token_lifespan: "720h",
 } as const;
+
+export const __testing__ = {
+  VANA_ACCOUNT_WEB,
+  DATA_CONNECT,
+};
 
 async function upsertClient(
   adminUrl: string,
@@ -100,11 +110,11 @@ async function upsertClient(
 
 async function main() {
   const adminUrl = process.env.HYDRA_ADMIN_URL;
-  const adminAud = process.env.HYDRA_ADMIN_AUDIENCE ?? adminUrl;
   if (!adminUrl) {
     throw new Error("HYDRA_ADMIN_URL is required");
   }
-  const bearer = await fetchGoogleIdTokenForAudience(adminAud!);
+  const adminAud = process.env.HYDRA_ADMIN_AUDIENCE ?? adminUrl;
+  const bearer = await fetchGoogleIdTokenForAudience(adminAud);
   if (!bearer) {
     throw new Error(
       "Google ID token unavailable. Run `gcloud auth login` and retry.",
@@ -115,7 +125,12 @@ async function main() {
   console.log("[hydra] all clients in sync");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1]?.endsWith("setup-hydra-clients.ts") ?? false;
+
+if (isDirectRun && process.env.NODE_ENV !== "test") {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

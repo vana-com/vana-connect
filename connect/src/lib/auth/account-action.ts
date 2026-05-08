@@ -16,8 +16,7 @@ import crypto from "node:crypto";
  *     stored or logged; only its hash is persisted via {@link hashActionCode}.
  *   - Redirect parameters carry `action_code` and `state` only; raw user
  *     data must never appear in {@link buildRedirectParams}.
- *   - BYO-wallet execution mode cannot produce a backend-signed mock result.
- *     {@link buildMockActionResult} rejects non-mock execution modes; live
+ *   - BYO-wallet execution mode cannot produce a backend-built result. Live
  *     BYO-wallet flows must come back through a separate client-signing
  *     code path.
  *   - The `mock` result mode carries a fixed non-user-data payload. Non-mock
@@ -124,6 +123,14 @@ export type ActionResultRow = {
 export type MockActionResultPayload = {
   mock: true;
   action_type: string;
+};
+
+export type AccountHostedGrantActionResultPayload = {
+  action_type: string;
+  grant_id: string;
+  grantee_address: string;
+  personal_server_id: string;
+  personal_server_url: string;
 };
 
 export type ConsentEventRow = {
@@ -272,10 +279,9 @@ export function decideActionRequest(input: {
 
 /**
  * Issue a mock result for an approved request. Rejects any execution mode
- * other than `mock`: BYO-wallet and embedded-wallet modes must not be
- * silently fulfilled by the backend; their fulfillment paths require
- * client-side or user-present signing flows that this helper does not
- * implement.
+ * other than `mock`; real embedded-wallet grants use
+ * {@link buildAccountHostedGrantActionResult} after the Personal Server has
+ * minted the grant.
  */
 export function buildMockActionResult(input: {
   request: ActionRequestRow;
@@ -288,17 +294,9 @@ export function buildMockActionResult(input: {
       `buildMockActionResult: request ${input.request.id} is not approved`,
     );
   }
-  // `mock` and `embedded_wallet_account_hosted` may produce backend-built
-  // mock RESULTS — both have their grant minting handled server-side already
-  // (the hosted-wallet flow proves authority via PS OAuth2 + EIP-712 signed
-  // by the PS's own key). BYO-wallet / delegated-runtime modes still require
-  // a client/user signature and must not flow through this helper.
-  if (
-    input.request.execution_mode !== "mock" &&
-    input.request.execution_mode !== "embedded_wallet_account_hosted"
-  ) {
+  if (input.request.execution_mode !== "mock") {
     throw new Error(
-      `buildMockActionResult: refusing to backend-sign execution_mode=${input.request.execution_mode}; only 'mock' and 'embedded_wallet_account_hosted' may produce a backend-built mock result`,
+      `buildMockActionResult: refusing execution_mode=${input.request.execution_mode}; only 'mock' may produce a mock result`,
     );
   }
   if (input.request.result_mode !== "mock") {
@@ -314,6 +312,53 @@ export function buildMockActionResult(input: {
     action_code_hash: hashActionCode(input.actionCode),
     result_mode: "mock",
     result_payload: { mock: true, action_type: input.request.action_type },
+    result_reference: null,
+    created_at: input.now.toISOString(),
+    expires_at: new Date(input.now.getTime() + ttl * 1000).toISOString(),
+    consumed_at: null,
+  };
+}
+
+export function buildAccountHostedGrantActionResult(input: {
+  request: ActionRequestRow;
+  actionCode: string;
+  grant: {
+    grantId: string;
+    granteeAddress: string;
+    personalServer: { serverId: string; serverUrl: string };
+  };
+  now: Date;
+  ttlSeconds?: number;
+}): ActionResultRow {
+  if (input.request.status !== "approved") {
+    throw new Error(
+      `buildAccountHostedGrantActionResult: request ${input.request.id} is not approved`,
+    );
+  }
+  if (input.request.execution_mode !== "embedded_wallet_account_hosted") {
+    throw new Error(
+      `buildAccountHostedGrantActionResult: refusing execution_mode=${input.request.execution_mode}; only 'embedded_wallet_account_hosted' may return a hosted grant result`,
+    );
+  }
+  if (input.request.result_mode !== "mock") {
+    throw new Error(
+      `buildAccountHostedGrantActionResult: result_mode=${input.request.result_mode} requires an encrypted bundle reference, not an inline grant payload`,
+    );
+  }
+  const ttl = input.ttlSeconds ?? ACTION_CODE_TTL_SECONDS;
+  return {
+    id: generateActionResultId(),
+    action_request_id: input.request.id,
+    client_id: input.request.client_id,
+    action_code_hash: hashActionCode(input.actionCode),
+    result_mode: "mock",
+    result_payload: {
+      action_type: input.request.action_type,
+      grant_id: input.grant.grantId,
+      grantee_address: input.grant.granteeAddress,
+      personal_server_id: input.grant.personalServer.serverId,
+      personal_server_url: input.grant.personalServer.serverUrl,
+    } satisfies AccountHostedGrantActionResultPayload,
     result_reference: null,
     created_at: input.now.toISOString(),
     expires_at: new Date(input.now.getTime() + ttl * 1000).toISOString(),

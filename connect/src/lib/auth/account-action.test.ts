@@ -4,6 +4,7 @@ import {
   ACTION_REQUEST_TTL_SECONDS,
   type ActionRequestRow,
   type ActionResultRow,
+  buildAccountHostedGrantActionResult,
   buildConsentEventRow,
   buildMockActionResult,
   buildRedirectParams,
@@ -220,29 +221,38 @@ describe("buildMockActionResult — mock-only invariants", () => {
         actionCode: generateActionCode(),
         now: NOW,
       }),
-    ).toThrow(
-      /refusing to backend-sign execution_mode=byo_wallet_client_signed/,
-    );
+    ).toThrow(/refusing execution_mode=byo_wallet_client_signed/);
   });
 
-  it("accepts embedded-wallet execution mode (grant minting is server-side)", () => {
-    // The hosted-wallet flow proves authority via PS OAuth2 + EIP-712 signed
-    // by the PS's own key, so the result envelope can be backend-built without
-    // user signing. The route caller stitches the real grantId onto the
-    // result_payload alongside the mock marker.
+  it("builds embedded-wallet grant result metadata after server-side grant minting", () => {
     const req = decideActionRequest({
       request: makeRequest({ executionMode: "embedded_wallet_account_hosted" }),
       decision: "approved",
       vanaUserId: VANA_USER_ID,
       now: NOW,
     });
-    const result = buildMockActionResult({
+    const result = buildAccountHostedGrantActionResult({
       request: req,
       actionCode: generateActionCode(),
+      grant: {
+        grantId: "grant-1",
+        granteeAddress: "0xbuilder",
+        personalServer: {
+          serverId: "ps-1",
+          serverUrl: "https://0xowner.myvana.app",
+        },
+      },
       now: NOW,
     });
     expect(result.action_request_id).toBe(req.id);
     expect(result.result_mode).toBe("mock");
+    expect(result.result_payload).toEqual({
+      action_type: "mock.echo",
+      grant_id: "grant-1",
+      grantee_address: "0xbuilder",
+      personal_server_id: "ps-1",
+      personal_server_url: "https://0xowner.myvana.app",
+    });
   });
 
   it("still rejects delegated_runtime execution mode (not yet a supported backend path)", () => {

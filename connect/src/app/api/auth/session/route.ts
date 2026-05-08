@@ -24,7 +24,8 @@
  *      - `vana_access`  (NOT HttpOnly, SameSite=Lax) — the access token
  *        as a JS-readable companion. Browser fetch helpers send it as
  *        `Authorization: Bearer <vana_access>` for state-mutating calls.
- *   8. Returns the tokens in the JSON body too, for non-browser callers.
+ *   8. Returns an access-token response by default. Non-browser callers that
+ *      explicitly send `{ "mode": "token" }` also receive the refresh token.
  *
  * DELETE on this route is the legacy logout endpoint; logout has moved to
  * /api/auth/logout (which deletes the active-session rows for the sid and
@@ -37,6 +38,7 @@
 import { createHash } from "node:crypto";
 import { PrivyClient } from "@privy-io/node";
 import { NextResponse } from "next/server";
+import { exchangeForVanaSession } from "@/lib/auth/hydra-headless-oidc";
 import {
   type LoginEvidence,
   type PrivyVerifiedUser,
@@ -44,7 +46,6 @@ import {
   pickVerifiedEmail,
 } from "@/lib/auth/login-session-adapter";
 import { resolveVanaUserByPrivyEvidence } from "@/lib/db/account";
-import { exchangeForVanaSession } from "@/lib/auth/hydra-headless-oidc";
 import { insertActiveSession, insertRefreshToken } from "@/lib/db/sessions";
 
 export const runtime = "nodejs";
@@ -96,6 +97,15 @@ function evidenceFromPrivyUser(user: PrivyVerifiedUser): LoginEvidence | null {
 }
 
 const COOKIE_NAMES = ["vana_session", "vana_access"];
+const SESSION_RESPONSE_MODES = new Set(["browser", "token"]);
+type SessionResponseMode = "browser" | "token";
+type SessionModeReadResult =
+  | { ok: true; mode: SessionResponseMode }
+  | { ok: false; code: string; message: string };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /**
  * Decode the OIDC id_token payload (middle JWT segment) and pull `sid`.
@@ -123,6 +133,43 @@ function extractSidFromIdToken(idToken: string | undefined): string | null {
   }
 }
 
+async function readSessionResponseMode(
+  request: Request,
+): Promise<SessionModeReadResult> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return { ok: true, mode: "browser" };
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return {
+      ok: false,
+      code: "invalid_request",
+      message: "Request body must be valid JSON",
+    };
+  }
+  if (!isRecord(body)) {
+    return {
+      ok: false,
+      code: "invalid_request",
+      message: "Request body must be a JSON object",
+    };
+  }
+  if (body.mode === undefined) {
+    return { ok: true, mode: "browser" };
+  }
+  if (typeof body.mode === "string" && SESSION_RESPONSE_MODES.has(body.mode)) {
+    return { ok: true, mode: body.mode as SessionResponseMode };
+  }
+  return {
+    ok: false,
+    code: "invalid_response_mode",
+    message: "mode must be either 'browser' or 'token'",
+  };
+}
+
 export async function POST(request: Request): Promise<Response> {
   const token = readBearerToken(request);
   if (!token) {
@@ -131,6 +178,19 @@ export async function POST(request: Request): Promise<Response> {
       { status: 401 },
     );
   }
+  const responseModeResult = await readSessionResponseMode(request);
+  if (!responseModeResult.ok) {
+    return NextResponse.json(
+      {
+        error: {
+          code: responseModeResult.code,
+          message: responseModeResult.message,
+        },
+      },
+      { status: 400 },
+    );
+  }
+  const responseMode = responseModeResult.mode;
 
   // 1. Verify Privy id_token. PrivyClient is configured with our app id/secret;
   //    the SDK rejects a token issued for a different app at this layer.
@@ -262,18 +322,26 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // 7. Set cookies + return token bundle.
+  // 7. Set cookies + return token bundle. Browser mode does not echo the
+  //    refresh token into JavaScript; token mode is for explicit non-browser
+  //    bootstrap callers that need to hold their own refresh token.
   const isProd = process.env.NODE_ENV === "production";
-  const response = NextResponse.json(
-    {
-      ok: true,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_in: accessTtlSec,
-      token_type: "Bearer",
-    },
-    { status: 200 },
-  );
+  const responseBody: {
+    ok: true;
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+    token_type: "Bearer";
+  } = {
+    ok: true,
+    access_token: tokens.access_token,
+    expires_in: accessTtlSec,
+    token_type: "Bearer",
+  };
+  if (responseMode === "token" && tokens.refresh_token) {
+    responseBody.refresh_token = tokens.refresh_token;
+  }
+  const response = NextResponse.json(responseBody, { status: 200 });
   response.headers.set("cache-control", "no-store");
   response.cookies.set({
     name: "vana_session",
@@ -297,9 +365,8 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 /**
- * Legacy logout. New code calls /api/auth/logout which writes the tombstone
- * first. This handler is kept for transitional callers and only clears
- * cookies.
+ * Legacy logout. New code calls /api/auth/logout, which deletes active-session
+ * rows and revokes Hydra state. This transitional handler only clears cookies.
  */
 export async function DELETE(): Promise<Response> {
   const isProd = process.env.NODE_ENV === "production";

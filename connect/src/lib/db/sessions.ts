@@ -11,10 +11,8 @@
  *     a 32-byte base64 env var DISTINCT from PRIVY_SIGNER_PRIVATE_KEY.
  *     Family-tracked: rotated tokens share family_id; if a previously-
  *     rotated token is presented, the entire family is revoked.
- *
- *   - vana_session_tombstones: multi-lambda revocation. Inserted FIRST
- *     during logout (fail-closed); checked on every introspection cache
- *     hit so revocation propagates within ≤5s.
+ *   - vana_active_sessions: access-token hash to Hydra sid bindings. Logout
+ *     deletes these rows and session lookup rejects expired rows.
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
@@ -213,76 +211,6 @@ export async function revokeRefreshTokensForSession(
   return (rows as DbRows).length;
 }
 
-// --- vana_session_tombstones ------------------------------------------------
-
-export type TombstoneRow = {
-  hydra_session_id: string;
-  vana_user_id: VanaUserId;
-  revoked_at: string;
-  expires_at: string;
-};
-
-const TOMBSTONE_DEFAULT_TTL_SECONDS = 30 * 60; // 30 min, exceeds 15 min access TTL
-
-/**
- * Insert a tombstone for a Hydra session. Idempotent (PK on hydra_session_id).
- * This is the FIRST step of logout: if subsequent steps (Hydra revoke,
- * end-session) fail, the tombstone alone still rejects future requests
- * within ≤30s (the introspection cache TTL).
- */
-export async function insertTombstone(input: {
-  hydraSessionId: string;
-  vanaUserId: VanaUserId;
-  ttlSeconds?: number;
-}): Promise<TombstoneRow> {
-  const sql = getSql();
-  const ttl = input.ttlSeconds ?? TOMBSTONE_DEFAULT_TTL_SECONDS;
-  const rows = await sql`
-    INSERT INTO vana_session_tombstones (hydra_session_id, vana_user_id, expires_at)
-    VALUES
-      (${input.hydraSessionId}, ${input.vanaUserId},
-       now() + (${ttl}::int * INTERVAL '1 second'))
-    ON CONFLICT (hydra_session_id) DO UPDATE
-      SET revoked_at = now(),
-          expires_at = EXCLUDED.expires_at
-    RETURNING *
-  `;
-  return (rows as DbRows)[0] as unknown as TombstoneRow;
-}
-
-/**
- * Tombstone check. Called by getVanaSession() on every introspection cache
- * hit to ensure logout takes effect across lambdas. Returns true if the
- * session is tombstoned (not yet expired).
- */
-export async function isSessionTombstoned(
-  hydraSessionId: string,
-): Promise<boolean> {
-  const sql = getSql();
-  const rows = await sql`
-    SELECT 1 FROM vana_session_tombstones
-     WHERE hydra_session_id = ${hydraSessionId}
-       AND expires_at > now()
-     LIMIT 1
-  `;
-  return (rows as DbRows).length > 0;
-}
-
-/**
- * Maintenance: GC expired tombstones. Run from a cron job; not in the hot
- * path. After 30min the access token has itself expired so the tombstone
- * is no longer load-bearing.
- */
-export async function gcExpiredTombstones(): Promise<number> {
-  const sql = getSql();
-  const rows = await sql`
-    DELETE FROM vana_session_tombstones
-     WHERE expires_at <= now()
-    RETURNING hydra_session_id
-  `;
-  return (rows as DbRows).length;
-}
-
 // --- vana_active_sessions ---------------------------------------------------
 
 /**
@@ -325,6 +253,7 @@ export async function findActiveSessionByTokenHash(
     SELECT sid, vana_user_id, expires_at
       FROM vana_active_sessions
      WHERE token_hash = ${tokenHash}
+       AND expires_at > now()
      LIMIT 1
   `;
   const row = (rows as DbRows)[0];

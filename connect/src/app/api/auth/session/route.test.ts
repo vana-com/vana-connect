@@ -34,7 +34,7 @@ async function importRoute() {
   return await import("./route");
 }
 
-const VALID_VANA_USER_ID = "vana_user_" + "0".repeat(32);
+const VALID_VANA_USER_ID = `vana_user_${"0".repeat(32)}`;
 const HYDRA_SID = "hydra_session_test";
 
 /**
@@ -96,7 +96,7 @@ describe("POST /api/auth/session", () => {
     expect(response.status).toBe(401);
   });
 
-  it("verifies Privy, resolves vanaUserId, drives Hydra, sets both cookies", async () => {
+  it("defaults browser bootstrap to no refresh token in the response body", async () => {
     const { POST } = await importRoute();
     mocks.privyUsersGet.mockResolvedValue({
       id: "did:privy:user-1",
@@ -193,8 +193,84 @@ describe("POST /api/auth/session", () => {
     const body = await response.json();
     expect(body.ok).toBe(true);
     expect(body.access_token).toBe("ory_at_test");
-    expect(body.refresh_token).toBe("ory_rt_test");
+    expect(body.refresh_token).toBeUndefined();
     expect(body.token_type).toBe("Bearer");
+  });
+
+  it("returns the refresh token only for explicit token-mode callers", async () => {
+    const { POST } = await importRoute();
+    mocks.privyUsersGet.mockResolvedValue({
+      id: "did:privy:user-1",
+      linked_accounts: [],
+    });
+    mocks.resolveVanaUserByPrivyEvidence.mockResolvedValue({
+      user: { id: VALID_VANA_USER_ID },
+    });
+    mocks.exchangeForVanaSession.mockResolvedValue({
+      access_token: "ory_at_test",
+      refresh_token: "ory_rt_test",
+      id_token: makeIdToken({ sub: VALID_VANA_USER_ID, sid: HYDRA_SID }),
+      expires_in: 900,
+      token_type: "bearer",
+    });
+    mocks.insertActiveSession.mockResolvedValue({});
+    mocks.insertRefreshToken.mockResolvedValue({
+      id: "vana_rt_test",
+      family_id: "vana_rtfam_test",
+    });
+
+    const response = await POST(
+      new Request("https://account.vana.org/api/auth/session", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer privy-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ mode: "token" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.refresh_token).toBe("ory_rt_test");
+  });
+
+  it("rejects malformed JSON session-mode bodies before Privy verification", async () => {
+    const { POST } = await importRoute();
+    const response = await POST(
+      new Request("https://account.vana.org/api/auth/session", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer privy-token",
+          "content-type": "application/json",
+        },
+        body: "{",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("invalid_request");
+    expect(mocks.privyUsersGet).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown session response modes", async () => {
+    const { POST } = await importRoute();
+    const response = await POST(
+      new Request("https://account.vana.org/api/auth/session", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer privy-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ mode: "debug" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error.code).toBe("invalid_response_mode");
+    expect(mocks.privyUsersGet).not.toHaveBeenCalled();
   });
 
   it("returns 502 when Hydra exchange fails", async () => {
