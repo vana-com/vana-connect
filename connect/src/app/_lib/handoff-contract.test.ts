@@ -27,6 +27,8 @@ function createContext(
     version: 1,
     sessionId: "sess-1",
     secret: "sec-1",
+    mode: null,
+    relayUrl: null,
     appUrl: null,
     dataSource: null,
     app: "discover-me",
