@@ -1,6 +1,6 @@
 {
   "name": "@opendatalabs/connect",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "description": "SDK for integrating Vana Data Portability 'Connect data' flows",
   "license": "MIT",
   "repository": {
