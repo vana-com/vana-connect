@@ -70,8 +70,37 @@ describe("ConnectReadyState", () => {
       />,
     );
 
-    expect(screen.getByText(/on your desktop to finish/i)).toBeTruthy();
+    expect(screen.getByText(/open it on your desktop/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: /copy link/i })).toBeTruthy();
+  });
+
+  it("does NOT offer the desktop-app download on mobile", () => {
+    render(
+      <ConnectReadyState
+        app={APP}
+        requestedDataLabel="Spotify"
+        deepLinkUrl="vana://connect?sessionId=s1&masterKeySig=abc"
+        downloadDataConnectHref="/download"
+        isMobile={true}
+      />,
+    );
+
+    expect(screen.queryByText(/Don't have it\?/i)).toBeNull();
+    expect(screen.queryByText(/Get DataConnect/i)).toBeNull();
+  });
+
+  it("keeps the desktop-app download on desktop", () => {
+    render(
+      <ConnectReadyState
+        app={APP}
+        requestedDataLabel="Spotify"
+        deepLinkUrl="vana://connect?sessionId=s1&masterKeySig=abc"
+        downloadDataConnectHref="/download"
+        isMobile={false}
+      />,
+    );
+
+    expect(screen.getByText(/Get DataConnect/i)).toBeTruthy();
   });
 });
 

@@ -177,15 +177,11 @@ export function ConnectReadyState({
         }
         subtitle={
           <Text as="p" intent="large" dim balance>
-            Approving this needs DataConnect, which runs on a computer. Open
-            this page on your desktop to finish.
+            Approving this needs DataConnect, which runs on a computer. Copy
+            this link, open it on your desktop, and finish there.
           </Text>
         }
-        content={
-          <ConnectMobileHandoffContent
-            downloadDataConnectHref={downloadDataConnectHref}
-          />
-        }
+        content={<ConnectMobileHandoffContent />}
       />
     );
   }
@@ -227,11 +223,7 @@ export function ConnectReadyState({
   );
 }
 
-function ConnectMobileHandoffContent({
-  downloadDataConnectHref,
-}: {
-  downloadDataConnectHref: string;
-}) {
+function ConnectMobileHandoffContent() {
   const [copied, setCopied] = useState(false);
 
   const onCopy = useCallback(() => {
@@ -246,15 +238,20 @@ function ConnectMobileHandoffContent({
     }
   }, []);
 
+  // No "Get DataConnect" download link here: DataConnect is desktop-only, so
+  // pointing a phone at a desktop installer is a dead end (BUI-449). The hand-off
+  // is "take this link to a computer", not "install something here".
   return (
     <ConnectLaunchSection
       primaryAction={{
         kind: "button",
         onClick: onCopy,
-        label: copied ? "Link copied" : "Copy link",
+        label: copied ? "Link copied — open it on your computer" : "Copy link",
       }}
       secondaryContent={
-        <DefaultDownloadSecondary href={downloadDataConnectHref} />
+        <Text as="p" intent="small" muted>
+          Send the link to yourself and open it on a computer to finish.
+        </Text>
       }
     />
   );
