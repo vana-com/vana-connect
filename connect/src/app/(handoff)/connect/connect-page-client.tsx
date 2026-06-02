@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import type { ComponentType } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import { PagePanel } from "@/app/_components/page-panel";
 import { PageShell } from "@/app/_components/page-shell";
+import { isMobileDevice } from "@/lib/platform";
 import {
   ConnectErrorState,
   ConnectLoadingState,
@@ -67,6 +68,7 @@ export function ConnectPageClient({
   emptyFooter: React.ReactNode;
 }) {
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const debug = resolveConnectPageUiDebugConfig(searchParams);
   const {
     view,
@@ -141,6 +143,7 @@ export function ConnectPageClient({
                 isLocalServerAuthFromDataConnect={
                   isLocalServerAuthFromDataConnect
                 }
+                isMobile={isMobile}
               />
             ) : null}
 
@@ -158,4 +161,19 @@ export function ConnectPageClient({
       <ConnectPageUiDebugPanel />
     </>
   );
+}
+
+/**
+ * Hydration-safe mobile detection. Returns false during SSR and the first
+ * client render (so server and client markup match), then re-renders with the
+ * real value after mount. The handoff CTA flips to the mobile path one frame
+ * later — acceptable, and avoids a hydration mismatch from reading navigator
+ * during render.
+ */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
+  return isMobile;
 }

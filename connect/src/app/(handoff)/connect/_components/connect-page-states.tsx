@@ -1,12 +1,13 @@
 "use client";
 
 import { ArrowUpRightIcon, RotateCcwIcon, XIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { APP_ROUTES } from "@/app/routes";
 import { Spinner } from "@/components/elements/spinner";
 import { Text } from "@/components/typography/text";
 import { ButtonArrow } from "@/components/ui/button";
 import type { ConnectAppMetadata } from "../_lib/app-registry";
+import { resolveConnectReadyMode } from "../_lib/ready-mode";
 import {
   ConnectLaunchSection,
   DefaultDownloadSecondary,
@@ -118,16 +119,23 @@ export function ConnectReadyState({
   deepLinkUrl,
   downloadDataConnectHref,
   isLocalServerAuthFromDataConnect = false,
+  isMobile = false,
 }: {
   app: ConnectAppMetadata;
   requestedDataLabel: string | null;
   deepLinkUrl: string;
   downloadDataConnectHref: string;
   isLocalServerAuthFromDataConnect?: boolean;
+  isMobile?: boolean;
 }) {
   const isHttpsRedirect = deepLinkUrl.startsWith("https://");
   const resolvedRequestedDataLabel =
     resolveRequestedDataLabel(requestedDataLabel);
+  const mode = resolveConnectReadyMode({
+    isHttpsRedirect,
+    isMobile,
+    isLocalServerAuthFromDataConnect,
+  });
 
   useEffect(() => {
     if (isHttpsRedirect) {
@@ -135,7 +143,7 @@ export function ConnectReadyState({
     }
   }, [isHttpsRedirect, deepLinkUrl]);
 
-  if (isHttpsRedirect) {
+  if (mode === "https-redirect") {
     return (
       <ConnectStateFrame
         app={app}
@@ -149,6 +157,34 @@ export function ConnectReadyState({
           <Text as="h1" intent="xlarge" dim>
             Redirecting back to your application.
           </Text>
+        }
+      />
+    );
+  }
+
+  // Mobile on the vana:// path: the scheme is desktop-only, so the deep-link
+  // button opens the wrong app or nothing (BUI-449). Offer a cross-device
+  // hand-off instead of a dead-end. `requestedDataLabel`/title are unchanged so
+  // the user still sees what they're approving.
+  if (mode === "mobile-handoff") {
+    return (
+      <ConnectStateFrame
+        app={app}
+        title={
+          <Text as="h1" intent="title">
+            {`${app.displayName} wants access to your ${resolvedRequestedDataLabel}`}
+          </Text>
+        }
+        subtitle={
+          <Text as="p" intent="large" dim balance>
+            Approving this needs DataConnect, which runs on a computer. Open
+            this page on your desktop to finish.
+          </Text>
+        }
+        content={
+          <ConnectMobileHandoffContent
+            downloadDataConnectHref={downloadDataConnectHref}
+          />
         }
       />
     );
@@ -186,6 +222,39 @@ export function ConnectReadyState({
             )
           }
         />
+      }
+    />
+  );
+}
+
+function ConnectMobileHandoffContent({
+  downloadDataConnectHref,
+}: {
+  downloadDataConnectHref: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = useCallback(() => {
+    const link = typeof window === "undefined" ? "" : window.location.href;
+    const clipboard =
+      typeof navigator === "undefined" ? undefined : navigator.clipboard;
+    if (clipboard?.writeText) {
+      clipboard.writeText(link).then(
+        () => setCopied(true),
+        () => setCopied(false),
+      );
+    }
+  }, []);
+
+  return (
+    <ConnectLaunchSection
+      primaryAction={{
+        kind: "button",
+        onClick: onCopy,
+        label: copied ? "Link copied" : "Copy link",
+      }}
+      secondaryContent={
+        <DefaultDownloadSecondary href={downloadDataConnectHref} />
       }
     />
   );
