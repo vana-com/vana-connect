@@ -1,6 +1,8 @@
-# Vana Connect SDK
+# OpenDataLabs Context Gateway JavaScript SDK
 
-Let your users bring their own data to your app.
+`@opendatalabs/connect` is the JavaScript client SDK for
+[OpenDataLabs Context Gateway](https://www.opendatalabs.com/context-gateway).
+Use it to let users connect their own data to your app.
 
 ## CLI
 

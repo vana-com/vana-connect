@@ -1,13 +1,13 @@
 {
   "name": "@opendatalabs/connect",
   "version": "0.14.0",
-  "description": "SDK for integrating Vana Data Portability 'Connect data' flows",
+  "description": "JavaScript client SDK for OpenDataLabs Context Gateway",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/vana-com/vana-connect.git"
   },
-  "homepage": "https://github.com/vana-com/vana-connect#readme",
+  "homepage": "https://www.opendatalabs.com/context-gateway",
   "bugs": {
     "url": "https://github.com/vana-com/vana-connect/issues"
   },
