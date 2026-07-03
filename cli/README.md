@@ -195,7 +195,7 @@ rm -rf ~/.vana
 
 - [Issues](https://github.com/vana-com/cli/issues): bugs and source requests
 - [Discussions](https://github.com/vana-com/cli/discussions): questions and ideas
-- [Discord](https://discord.gg/vana): chat with the team
+- [Discord](https://discord.gg/vanaofficial): chat with the team
 - [Contributing](CONTRIBUTING.md)
 
 ## License
