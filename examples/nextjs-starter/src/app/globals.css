@@ -141,3 +141,78 @@ body {
   color: #ef4444;
   font-size: 13px;
 }
+
+/* -- Instagram data display -- */
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.stats-row {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #27272a;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-value {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  border: 1px solid #27272a;
+  background: #18181b;
+  color: #d4d4d8;
+  white-space: nowrap;
+}
+
+.tag-topic {
+  border-color: #7c3aed44;
+  color: #a78bfa;
+}
+
+.tag-advertiser {
+  border-color: #0ea5e944;
+  color: #67e8f9;
+}

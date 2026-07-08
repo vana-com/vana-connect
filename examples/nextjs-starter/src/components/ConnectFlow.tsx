@@ -1,12 +1,34 @@
 "use client";
 
-// useVanaData() manages the full connect → poll → fetch-data lifecycle.
-// initConnect() starts a session, the hook polls until approved, then
-// fetchData() calls /api/data with the grant to retrieve user data.
-
 import type { ConnectionStatus } from "@opendatalabs/connect/core";
 import { useVanaData } from "@opendatalabs/connect/react";
 import { useEffect, useRef } from "react";
+
+// -- Types matching the instagram.ads + instagram.profile schemas --
+
+interface AdInterestsData {
+  advertisers: { name: string }[];
+  ad_topics: { name: string }[];
+}
+
+interface ProfileData {
+  username: string;
+  full_name: string;
+  bio?: string;
+  follower_count?: number;
+  following_count?: number;
+  media_count?: number;
+  is_private?: boolean;
+  is_verified?: boolean;
+  is_business?: boolean;
+}
+
+interface InstagramData {
+  "instagram.ads"?: AdInterestsData;
+  "instagram.profile"?: ProfileData;
+}
+
+// -- Status display --
 
 const STATUS_DISPLAY: Record<
   ConnectionStatus,
@@ -28,6 +50,97 @@ const STATUS_DISPLAY: Record<
   expired: { dot: "\u25CF", label: "Expired", className: "status-expired" },
   error: { dot: "\u25CF", label: "Error", className: "status-error" },
 };
+
+// -- Data display components --
+
+function ProfileCard({ profile }: { profile: ProfileData }) {
+  return (
+    <div className="card">
+      <div className="profile-header">
+        <div className="profile-avatar">
+          {profile.full_name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 16 }}>
+            {profile.full_name}
+          </div>
+          <div className="mono" style={{ fontSize: 13 }}>
+            @{profile.username}
+          </div>
+        </div>
+      </div>
+      {profile.bio && (
+        <p style={{ fontSize: 13, color: "#a1a1aa", marginTop: 12 }}>
+          {profile.bio}
+        </p>
+      )}
+      <div className="stats-row">
+        {profile.follower_count != null && (
+          <div className="stat">
+            <span className="stat-value">
+              {profile.follower_count.toLocaleString()}
+            </span>
+            <span className="stat-label">Followers</span>
+          </div>
+        )}
+        {profile.following_count != null && (
+          <div className="stat">
+            <span className="stat-value">
+              {profile.following_count.toLocaleString()}
+            </span>
+            <span className="stat-label">Following</span>
+          </div>
+        )}
+        {profile.media_count != null && (
+          <div className="stat">
+            <span className="stat-value">
+              {profile.media_count.toLocaleString()}
+            </span>
+            <span className="stat-label">Posts</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdInsightsCard({ ads }: { ads: AdInterestsData }) {
+  return (
+    <div className="card">
+      <div className="label" style={{ marginBottom: 16 }}>
+        Your Ad Profile
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
+          Ad Topics ({ads.ad_topics.length})
+        </div>
+        <div className="tag-grid">
+          {ads.ad_topics.map((topic) => (
+            <span key={topic.name} className="tag tag-topic">
+              {topic.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
+          Advertisers ({ads.advertisers.length})
+        </div>
+        <div className="tag-grid">
+          {ads.advertisers.map((adv) => (
+            <span key={adv.name} className="tag tag-advertiser">
+              {adv.name}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Main flow --
 
 export default function ConnectFlow() {
   const {
@@ -54,11 +167,24 @@ export default function ConnectFlow() {
   const display = STATUS_DISPLAY[status];
   const sessionReady = !!connectUrl;
   const hasConnectFailure = !sessionReady && !!error;
+  // Response shape: { data: { "instagram.ads": { data: { advertisers, ... } }, ... } }
+  // useVanaData sets data = json (the full response), so we unwrap: .data (API envelope) → .data (schema envelope)
+  const outer = data as Record<string, unknown> | null;
+  const scoped = (outer?.data ?? outer) as Record<string, unknown> | null;
+  const igData: InstagramData | null = scoped?.["instagram.ads"]
+    ? {
+        "instagram.ads": (scoped["instagram.ads"] as Record<string, unknown>)
+          ?.data as AdInterestsData | undefined,
+        "instagram.profile": (
+          scoped["instagram.profile"] as Record<string, unknown>
+        )?.data as ProfileData | undefined,
+      }
+    : null;
 
   return (
     <div>
-      {/* Launch button — shown until approved */}
-      {status !== "approved" && (
+      {/* Connect card — shown until data is loaded */}
+      {!igData && (
         <div className="card">
           <div style={{ marginBottom: 20 }}>
             <div className="field-row">
@@ -69,7 +195,23 @@ export default function ConnectFlow() {
             </div>
           </div>
 
-          {sessionReady ? (
+          {status === "approved" && grant ? (
+            <button
+              type="button"
+              onClick={fetchData}
+              disabled={isLoading}
+              className="btn-primary"
+              style={{ width: "100%" }}
+            >
+              {isLoading ? (
+                <>
+                  <span className="spinner" /> Loading your data...
+                </>
+              ) : (
+                "View My Ad Profile"
+              )}
+            </button>
+          ) : sessionReady ? (
             <a
               href={connectUrl}
               target="_blank"
@@ -84,7 +226,7 @@ export default function ConnectFlow() {
                 width: "100%",
               }}
             >
-              Connect with Vana
+              Connect Instagram with Vana
             </a>
           ) : (
             <button
@@ -101,49 +243,21 @@ export default function ConnectFlow() {
                   <span className="spinner" /> Creating session...
                 </>
               ) : hasConnectFailure ? (
-                "Retry session"
+                "Retry"
               ) : (
-                "Create session"
+                "Connect Instagram"
               )}
             </button>
           )}
         </div>
       )}
 
-      {/* Grant details + data */}
-      {status === "approved" && grant && (
-        <div className="card card-approved">
-          <div style={{ marginBottom: 20 }}>
-            <div className="field-row">
-              <span className="label">Status</span>
-              <span className={`mono ${display.className}`}>
-                {display.dot} {display.label}
-              </span>
-            </div>
-          </div>
-
-          <div className="label">Grant</div>
-          <pre className="pre-block">{JSON.stringify(grant, null, 2)}</pre>
-
-          <button
-            type="button"
-            onClick={fetchData}
-            disabled={isLoading}
-            className="btn-primary"
-            style={{ marginTop: 16, width: "100%" }}
-          >
-            {isLoading ? "Fetching..." : "Fetch Data"}
-          </button>
-
-          {data != null && (
-            <div style={{ marginTop: 16 }}>
-              <div className="label">Response</div>
-              <pre className="pre-block" style={{ maxHeight: 400 }}>
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
+      {/* Data display */}
+      {igData?.["instagram.profile"]?.full_name && (
+        <ProfileCard profile={igData["instagram.profile"]} />
+      )}
+      {igData?.["instagram.ads"]?.ad_topics && (
+        <AdInsightsCard ads={igData["instagram.ads"]} />
       )}
 
       {/* Errors */}
@@ -155,7 +269,7 @@ export default function ConnectFlow() {
         </div>
       )}
 
-      {/* Reset — reloads the page to start a fresh session */}
+      {/* Reset */}
       {status !== "idle" && status !== "connecting" && (
         <button
           type="button"
