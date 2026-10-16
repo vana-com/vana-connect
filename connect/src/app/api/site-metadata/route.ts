@@ -1,3 +1,5 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { NextResponse } from "next/server";
 
 const SITE_FETCH_TIMEOUT_MS = 3500;
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ name: null }, { status: 400 });
   }
 
-  if (!isPublicSiteUrl(parsedUrl)) {
+  if (!(await isPublicSiteUrl(parsedUrl))) {
     return NextResponse.json({ name: null }, { status: 400 });
   }
 
@@ -66,8 +68,25 @@ function isRedirect(status: number): boolean {
   return status >= 300 && status < 400;
 }
 
-function isPublicSiteUrl(url: URL): boolean {
-  return !isPrivateHostname(url.hostname);
+// Check the hostname literal AND every address it resolves to, so a public
+// name pointing at 127.0.0.1 or 169.254.169.254 is refused too.
+async function isPublicSiteUrl(url: URL): Promise<boolean> {
+  if (isPrivateHostname(url.hostname)) {
+    return false;
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) {
+    return true;
+  }
+  try {
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    return (
+      addresses.length > 0 &&
+      addresses.every(({ address }) => !isPrivateHostname(address))
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isPrivateHostname(hostname: string): boolean {
@@ -118,6 +137,16 @@ function parseIpv4(hostname: string): number[] | null {
   return values;
 }
 
+function hexPairToIpv4(value: string): number[] | null {
+  const m = value.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (!m) {
+    return null;
+  }
+  const hi = Number.parseInt(m[1], 16);
+  const lo = Number.parseInt(m[2], 16);
+  return [hi >> 8, hi & 255, lo >> 8, lo & 255];
+}
+
 function isPrivateIpv4(parts: number[]): boolean {
   const [a, b] = parts;
   return (
@@ -125,6 +154,7 @@ function isPrivateIpv4(parts: number[]): boolean {
     a === 10 || // private
     a === 127 || // loopback
     (a === 169 && b === 254) || // link-local
+    (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
     (a === 172 && b >= 16 && b <= 31) || // private
     (a === 192 && b === 168) // private
   );
@@ -132,6 +162,12 @@ function isPrivateIpv4(parts: number[]): boolean {
 
 function isPrivateIpv6(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
+  // IPv4-mapped (::ffff:a.b.c.d or ::ffff:7f00:1): judge the embedded IPv4.
+  const mapped = normalized.match(/^::ffff:(.+)$/);
+  if (mapped) {
+    const v4 = parseIpv4(mapped[1]) ?? hexPairToIpv4(mapped[1]);
+    return v4 ? isPrivateIpv4(v4) : true;
+  }
   return (
     normalized === "::1" || // loopback
     normalized === "::" || // unspecified

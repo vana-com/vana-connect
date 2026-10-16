@@ -4,7 +4,7 @@ import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { findServerById } from "@/lib/db/neon";
 import { registerServerOnChain } from "@/lib/server-provider/register-on-chain";
 
-// Generous timeout — calls PS /health, /api/sign, then gateway /v1/servers.
+// Generous timeout — calls PS /health, Privy signing, then gateway /v1/servers.
 export const maxDuration = 30;
 
 function extractSignature(request: NextRequest): string | null {
@@ -52,15 +52,10 @@ export async function POST(
     );
   }
 
-  // Sign + post via the same-host /api/sign endpoint
-  const origin = request.nextUrl.origin;
-  const signEndpoint = `${origin}/api/sign`;
-
   const result = await registerServerOnChain({
     masterKeySignature: sig as `0x${string}`,
     ownerAddress: walletAddress as `0x${string}`,
     serverUrl: server.url,
-    signEndpoint,
   });
 
   if (!result.ok) {
