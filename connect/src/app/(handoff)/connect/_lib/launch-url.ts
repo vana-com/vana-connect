@@ -9,8 +9,11 @@ type ResolveConnectLaunchUrlOptions = {
 /**
  * Build the Data Connect launch URL for the authenticated web flow.
  *
- * When `redirectUri` is an HTTPS URL, returns an HTTPS callback URL
- * (for OAuth flows like MCP auth). Otherwise returns a `vana://` deep link.
+ * Always returns a `vana://` deep link. The master key signature is the
+ * user's data encryption root, so it must never be handed to a web origin
+ * taken from the query string. The HTTPS callback variant (`redirectUri`)
+ * used by old Personal Server MCP auth was removed for that reason; current
+ * servers run their own OAuth and never send users here.
  */
 export function resolveConnectLaunchUrl(
   options: ResolveConnectLaunchUrlOptions,
@@ -22,19 +25,7 @@ export function resolveConnectLaunchUrl(
     return null;
   }
 
-  // OAuth redirect: return HTTPS callback URL with masterKeySig
-  const redirectUri = options.redirectUri?.trim();
-  if (redirectUri && redirectUri.startsWith("https://")) {
-    const url = new URL(redirectUri);
-    url.searchParams.set("masterKeySig", masterKeySig);
-    const oauthState = options.oauthState?.trim();
-    if (oauthState) {
-      url.searchParams.set("oauth_state", oauthState);
-    }
-    return url.toString();
-  }
-
-  // Default: vana:// deep link for DataConnect
+  // vana:// deep link for DataConnect
   const params = new URLSearchParams({
     sessionId,
     masterKeySig,

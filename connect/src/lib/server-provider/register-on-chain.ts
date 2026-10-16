@@ -16,6 +16,7 @@
  */
 
 import type { Address, Hex } from "viem";
+import { signTypedDataWithEmbeddedWallet } from "@/lib/privy-signer";
 
 const SERVERS_DOMAIN = {
   name: "Vana Data Portability",
@@ -52,14 +53,12 @@ export type RegisterServerResult =
   | { ok: false; error: { code: RegisterServerErrorCode; message: string } };
 
 export interface RegisterServerInput {
-  /** EIP-191 signature over "vana-master-key-v1" — used to sign ServerRegistration via /api/sign */
+  /** EIP-191 signature over "vana-master-key-v1"; identifies the embedded wallet that signs ServerRegistration */
   masterKeySignature: Hex;
   /** Owner wallet address (recovered from masterKeySignature) */
   ownerAddress: Address;
   /** Public URL the PS is reachable at, e.g. https://0xabc….myvana.app */
   serverUrl: string;
-  /** Origin to call /api/sign on (defaults to current host's account.vana.org) */
-  signEndpoint: string;
 }
 
 /**
@@ -132,7 +131,7 @@ export async function registerServerOnChain(
       ...SERVER_REGISTRATION_TYPES,
     },
     // Privy's signTypedData expects snake_case `primary_type`, not the
-    // EIP-712 standard `primaryType`. Validation in /api/sign accepts both.
+    // EIP-712 standard `primaryType`.
     primary_type: "ServerRegistration" as const,
     message: {
       ownerAddress: input.ownerAddress,
@@ -142,38 +141,13 @@ export async function registerServerOnChain(
     },
   };
 
-  // 3. Sign via /api/sign (server-side Privy authorization signer)
+  // 3. Sign in-process with the owner's embedded wallet (Privy signer)
   let signature: Hex;
   try {
-    const signRes = await fetch(input.signEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        masterKeySignature: input.masterKeySignature,
-        type: "eth_signTypedData_v4",
-        typedData,
-      }),
-    });
-    if (!signRes.ok) {
-      const body = await signRes.json().catch(() => ({}));
-      return {
-        ok: false,
-        error: {
-          code: "SIGN_FAILED",
-          message:
-            (body as { error?: string }).error ??
-            `Sign endpoint returned ${signRes.status}`,
-        },
-      };
-    }
-    const json = (await signRes.json()) as { signature?: Hex };
-    if (!json.signature) {
-      return {
-        ok: false,
-        error: { code: "SIGN_FAILED", message: "No signature returned" },
-      };
-    }
-    signature = json.signature;
+    signature = await signTypedDataWithEmbeddedWallet(
+      input.masterKeySignature,
+      typedData,
+    );
   } catch (err) {
     return {
       ok: false,

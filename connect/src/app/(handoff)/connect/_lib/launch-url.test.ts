@@ -33,6 +33,20 @@ describe("resolveConnectLaunchUrl", () => {
     expect(parsed.searchParams.get("masterKeySig")).toBe("0xdeadbeef");
   });
 
+  it("never sends the signature to an https redirect_uri", () => {
+    const url = resolveConnectLaunchUrl({
+      sessionId: "sess-1",
+      masterKeySig: "0xdeadbeef",
+      redirectUri: "https://attacker.example/cb",
+      oauthState: "st",
+    });
+
+    expect(url).toBeTruthy();
+    if (!url) throw new Error("expected a launch URL");
+    expect(url).not.toContain("attacker.example");
+    expect(new URL(url).protocol).toBe("vana:");
+  });
+
   it("includes secret when provided", () => {
     const url = resolveConnectLaunchUrl({
       sessionId: "sess-1",
