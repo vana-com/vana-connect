@@ -1,18 +1,11 @@
 import type { NextRequest } from "next/server";
-import { recoverWalletAddress } from "@/lib/api-auth";
+import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { findServerById } from "@/lib/db/neon";
 import { registerServerOnChain } from "@/lib/server-provider/register-on-chain";
 
 // Generous timeout — calls PS /health, Privy signing, then gateway /v1/servers.
 export const maxDuration = 30;
-
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
-}
 
 export async function OPTIONS() {
   return apiOptions();
