@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { recoverWalletAddress } from "@/lib/api-auth";
+import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import { deleteServer, findServerById, updateServer } from "@/lib/db/neon";
@@ -9,13 +9,6 @@ import { getServerProvider } from "@/lib/server-provider";
 // complete before deleting the persistent data disk, which can take
 // 15-30s on its own. GET only does a fast status read.
 export const maxDuration = 60;
-
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
-}
 
 export async function OPTIONS() {
   return apiOptions();

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
-import { recoverWalletAddress } from "@/lib/api-auth";
+import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import {
@@ -17,13 +17,6 @@ export const maxDuration = 60;
 function generateServerId(): string {
   const bytes = crypto.randomBytes(10);
   return `srv_${bytes.toString("base64url")}`;
-}
-
-function extractSignature(request: NextRequest): string | null {
-  return (
-    request.headers.get("authorization")?.replace("Bearer ", "") ??
-    request.nextUrl.searchParams.get("masterKeySignature")
-  );
 }
 
 export async function OPTIONS() {
