@@ -1,7 +1,7 @@
 import { createVanaConfig } from "@opendatalabs/connect/server";
 
 // Scopes define what user data your app requests.
-const SCOPES = ["chatgpt.conversations"];
+const SCOPES = ["instagram.ads", "instagram.profile"];
 
 export const config = createVanaConfig({
   privateKey: (process.env.VANA_PRIVATE_KEY ??

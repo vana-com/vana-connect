@@ -18,8 +18,8 @@ export async function GET() {
     });
 
     const manifest = {
-      name: "Vana Connect — Next.js Starter",
-      short_name: "Vana Starter",
+      name: "Ad Insights — powered by Vana",
+      short_name: "Ad Insights",
       start_url: "/",
       display: "standalone",
       background_color: "#09090b",
