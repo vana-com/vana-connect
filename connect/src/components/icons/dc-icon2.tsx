@@ -1,8 +1,5 @@
 import { useId } from "react";
-import {
-  Svg as SvgComponent,
-  type SvgIconProps,
-} from "@/components/elements/svg";
+import { Svg as SvgComponent, type SvgIconProps } from "@/components/icons/svg";
 
 export const DcIcon = (props: SvgIconProps) => {
   const idPrefix = useId().replace(/:/g, "");
