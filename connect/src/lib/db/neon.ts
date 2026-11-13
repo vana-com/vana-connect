@@ -124,6 +124,26 @@ export async function deleteServer(id: string): Promise<void> {
   await sql`DELETE FROM personal_servers WHERE id = ${id}`;
 }
 
+/**
+ * Delete the row only if no provider handle has been saved on it. Returns
+ * whether a row was deleted. False means the row is gone or gained a handle,
+ * so a delete that read it with no handles must not remove it untracked.
+ */
+export async function deleteServerIfNoProviderHandles(
+  id: string,
+): Promise<boolean> {
+  const sql = getSQL();
+  const rows = await sql`
+    DELETE FROM personal_servers
+    WHERE id = ${id}
+      AND provider_id IS NULL
+      AND tunnel_id IS NULL
+      AND dns_record_id IS NULL
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Device code auth
 // ---------------------------------------------------------------------------

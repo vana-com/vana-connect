@@ -2,7 +2,12 @@ import type { NextRequest } from "next/server";
 import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
-import { deleteServer, findServerById, updateServer } from "@/lib/db/neon";
+import {
+  deleteServer,
+  deleteServerIfNoProviderHandles,
+  findServerById,
+  updateServer,
+} from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
 // Allow up to 60s — DELETE waits for the GCE VM delete operation to
@@ -67,6 +72,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const cleanupDeadline = Date.now() + (maxDuration - 5) * 1000;
   const { id } = await params;
   const sig = extractSignature(request);
   if (!sig) {
@@ -89,14 +95,30 @@ export async function DELETE(
     return apiError("not_found_error", "Server not found", 404);
   }
 
+  const hasProviderState = (row: typeof server) =>
+    Boolean(row.provider_id || row.tunnel_id || row.dns_record_id);
+
+  // A create request saves its provider handles after provision() returns, so
+  // a row read with none may gain them before we write. Delete it only if it
+  // still has none. Otherwise look once more: the row is gone, or it now has
+  // handles and goes through the cleanup below.
+  let target = server;
+  if (!hasProviderState(server)) {
+    if (await deleteServerIfNoProviderHandles(id)) return deletedResponse(id);
+    const current = await findServerById(id);
+    if (!current) return deletedResponse(id);
+    target = current;
+  }
+
   // Always run cleanup if we have any provider-side state recorded —
   // VM, tunnel, or DNS — so retry from `deprovision_failed` works.
-  if (server.provider_id || server.tunnel_id || server.dns_record_id) {
+  if (target.provider_id || target.tunnel_id || target.dns_record_id) {
     try {
       const provider = getServerProvider();
-      await provider.deprovision(server.provider_id ?? "", {
-        tunnelId: server.tunnel_id,
-        dnsRecordId: server.dns_record_id,
+      await provider.deprovision(target.provider_id ?? "", {
+        tunnelId: target.tunnel_id,
+        dnsRecordId: target.dns_record_id,
+        deadline: cleanupDeadline,
       });
     } catch (err) {
       const errorName = err instanceof Error ? err.name : "Error";
@@ -107,7 +129,7 @@ export async function DELETE(
         }
       ).deprovisionErrors;
       console.error(
-        `[api/servers DELETE] serverId=${id} providerId=${server.provider_id ?? ""} tunnelId=${server.tunnel_id ?? ""} dnsRecordId=${server.dns_record_id ?? ""} ${errorName}: ${errorMessage}`,
+        `[api/servers DELETE] serverId=${id} providerId=${target.provider_id ?? ""} tunnelId=${target.tunnel_id ?? ""} dnsRecordId=${target.dns_record_id ?? ""} ${errorName}: ${errorMessage}`,
       );
       await updateServer(id, { state: "deprovision_failed" });
       // Return the actual failure detail in the response body so it's visible
@@ -133,6 +155,10 @@ export async function DELETE(
   // dead public endpoint.
   await deleteServer(id);
 
+  return deletedResponse(id);
+}
+
+function deletedResponse(id: string) {
   return apiSuccess({
     object: "server",
     id,

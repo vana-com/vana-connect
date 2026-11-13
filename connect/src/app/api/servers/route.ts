@@ -9,7 +9,11 @@ import {
   updateServer,
   updateServerControlPlaneToken,
 } from "@/lib/db/neon";
-import { getServerProvider } from "@/lib/server-provider";
+import {
+  getServerProvider,
+  type ProvisionResult,
+  type ServerProvider,
+} from "@/lib/server-provider";
 
 // Provisioning calls Cloudflare API + GCP API — needs more time than default 15s
 export const maxDuration = 60;
@@ -17,6 +21,46 @@ export const maxDuration = 60;
 function generateServerId(): string {
   const bytes = crypto.randomBytes(10);
   return `srv_${bytes.toString("base64url")}`;
+}
+
+/**
+ * Deprovision the resources a create request just made after its row was
+ * deleted underneath it. Never throws: it answers for the request either way.
+ * When cleanup fails there is no row to mark `deprovision_failed`, so the log
+ * line and the response body are the only record of the leaked ids.
+ */
+async function removeOrphanedProvision(
+  provider: ServerProvider,
+  serverId: string,
+  result: ProvisionResult,
+  cleanupDeadline: number,
+) {
+  const handles = `serverId=${serverId} providerId=${result.serverId} tunnelId=${result.tunnelId ?? ""} dnsRecordId=${result.dnsRecordId ?? ""}`;
+  console.info(`[api/servers POST] Cleaning up after deletion: ${handles}`);
+  try {
+    await provider.deprovision(result.serverId, {
+      tunnelId: result.tunnelId,
+      dnsRecordId: result.dnsRecordId,
+      deadline: cleanupDeadline,
+    });
+  } catch (err) {
+    const errorName = err instanceof Error ? err.name : "Error";
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[api/servers POST] ${handles} ${errorName}: ${errorMessage}`,
+    );
+    return apiError(
+      "internal_error",
+      `Server was deleted during setup and cleanup failed, so these resources must be removed by hand: ${handles}. ${errorMessage}`,
+      500,
+    );
+  }
+
+  return apiError(
+    "conflict_error",
+    "Server was deleted during setup. The resources created for it have been removed.",
+    409,
+  );
 }
 
 export async function OPTIONS() {
@@ -46,6 +90,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const cleanupDeadline = Date.now() + (maxDuration - 5) * 1000;
   let body: { masterKeySignature?: string };
   try {
     body = await request.json();
@@ -103,14 +148,27 @@ export async function POST(request: NextRequest) {
       psAccessToken: controlPlaneToken,
     });
 
-    row =
-      (await updateServer(serverId, {
-        provider_id: result.serverId,
-        url: result.url,
-        state: "provisioning",
-        tunnel_id: result.tunnelId ?? null,
-        dns_record_id: result.dnsRecordId ?? null,
-      })) ?? row;
+    const updated = await updateServer(serverId, {
+      provider_id: result.serverId,
+      url: result.url,
+      state: "provisioning",
+      tunnel_id: result.tunnelId ?? null,
+      dns_record_id: result.dnsRecordId ?? null,
+    });
+
+    // A signed DELETE that arrives while provision() is pending finds no
+    // provider handles, skips cleanup and removes the row. Then there is no
+    // row to attach what we just created to, so remove it here instead of
+    // reporting success for a server nothing tracks.
+    if (!updated) {
+      return await removeOrphanedProvision(
+        provider,
+        serverId,
+        result,
+        cleanupDeadline,
+      );
+    }
+    row = updated;
 
     // Store the control-plane token separately since it's not in the updateServer allowlist.
     await updateServerControlPlaneToken(serverId, controlPlaneToken);
