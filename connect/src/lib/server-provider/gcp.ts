@@ -527,10 +527,30 @@ export class GCPProvider implements ServerProvider {
       options?.deadline ?? Infinity,
       Date.now() + 45_000,
     );
-    const requestOptions = () => {
-      const timeout = deadline - Date.now();
-      if (timeout <= 0) throw new Error("Server cleanup timed out");
-      return { timeout, retry: null };
+    const remainingTime = () => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new Error("Server cleanup timed out");
+      return remaining;
+    };
+    // The SDK's REST transport may keep waiting after the RPC deadline.
+    const withinCleanupBudget = async <T>(
+      request: (options: { timeout: number; retry: null }) => Promise<T>,
+    ): Promise<T> => {
+      const timeout = remainingTime();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          request({ timeout, retry: null }),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error("Server cleanup timed out")),
+              timeout,
+            );
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     const errCode = (err: unknown): number =>
@@ -577,10 +597,13 @@ export class GCPProvider implements ServerProvider {
             credentials ? { credentials, projectId: this.project } : undefined,
           );
         }
-        await delay(Math.min(500, requestOptions().timeout));
-        const [updated] = await operations.get(
-          { project: this.project, zone: GCP_ZONE, operation: name },
-          requestOptions(),
+        await delay(Math.min(500, remainingTime()));
+        const client = operations;
+        const [updated] = await withinCleanupBudget((options) =>
+          client.get(
+            { project: this.project, zone: GCP_ZONE, operation: name },
+            options,
+          ),
         );
         operation = updated;
       }
@@ -611,9 +634,11 @@ export class GCPProvider implements ServerProvider {
     // RESOURCE_IN_USE_BY_ANOTHER_RESOURCE while the VM is still STOPPING.
     if (serverId) {
       try {
-        const [operation] = await this.client.delete(
-          { project: this.project, zone: GCP_ZONE, instance: serverId },
-          requestOptions(),
+        const [operation] = await withinCleanupBudget((options) =>
+          this.client.delete(
+            { project: this.project, zone: GCP_ZONE, instance: serverId },
+            options,
+          ),
         );
         try {
           await confirmDeletion(computeOperation(operation));
@@ -653,9 +678,11 @@ export class GCPProvider implements ServerProvider {
           const maxAttempts = 5;
           while (attempt < maxAttempts) {
             try {
-              const [operation] = await disksClient.delete(
-                { project: this.project, zone: GCP_ZONE, disk: diskName },
-                requestOptions(),
+              const [operation] = await withinCleanupBudget((options) =>
+                disksClient.delete(
+                  { project: this.project, zone: GCP_ZONE, disk: diskName },
+                  options,
+                ),
               );
               try {
                 await confirmDeletion(computeOperation(operation));
@@ -679,9 +706,7 @@ export class GCPProvider implements ServerProvider {
                 recordError(`disk:${diskName}`, err);
                 break;
               }
-              await delay(
-                Math.min(2000 * (attempt + 1), requestOptions().timeout),
-              );
+              await delay(Math.min(2000 * (attempt + 1), remainingTime()));
               attempt += 1;
             }
           }

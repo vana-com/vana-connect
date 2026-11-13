@@ -131,3 +131,19 @@ it("rejects cleanup when the route's remaining time is exhausted", async () => {
   expect(cloud.deleteInstance).not.toHaveBeenCalled();
   expect(cloud.deleteDisk).not.toHaveBeenCalled();
 });
+
+it("reports an unconfirmed deletion when the SDK keeps waiting past the deadline", async () => {
+  vi.useFakeTimers();
+  try {
+    cloud.deleteInstance.mockReturnValue(new Promise(() => {}));
+    const result = new GCPProvider().deprovision("test-vm", {
+      deadline: Date.now() + 1000,
+    });
+    const rejected = expect(result).rejects.toThrow("Server cleanup timed out");
+    await vi.advanceTimersByTimeAsync(1000);
+    await rejected;
+    expect(cloud.deleteDisk).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
