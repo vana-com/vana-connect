@@ -1,7 +1,19 @@
-import { InstancesClient, type protos } from "@google-cloud/compute";
+import { setTimeout as delay } from "node:timers/promises";
+import {
+  InstancesClient,
+  type protos,
+  ZoneOperationsClient,
+} from "@google-cloud/compute";
 import type { ServerProvider, ServerState, ServerStatus } from "./types";
 
 type Instance = protos.google.cloud.compute.v1.IInstance;
+type ComputeOperation = protos.google.cloud.compute.v1.IOperation;
+
+// The REST clients wrap a zonal Compute operation as latestResponse but type
+// the wrapper's response as a generic google.longrunning.Operation.
+function computeOperation(operation: { latestResponse?: unknown }) {
+  return operation.latestResponse as ComputeOperation | undefined;
+}
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -174,20 +186,27 @@ async function createTunnel(userId: string): Promise<CloudflareTunnelResult> {
 async function deleteTunnel(
   tunnelId: string | null | undefined,
   dnsRecordId: string | null | undefined,
+  deadline = Date.now() + 10_000,
 ): Promise<void> {
   const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
   const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
 
+  const errors: string[] = [];
+  const deleteOptions = (): RequestInit => ({
+    method: "DELETE",
+    signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+  });
+
   // Delete DNS record first (so traffic stops going to the tunnel)
   if (dnsRecordId) {
     try {
-      await cfFetch(`/zones/${zoneId}/dns_records/${dnsRecordId}`, {
-        method: "DELETE",
-      });
+      await cfFetch(
+        `/zones/${zoneId}/dns_records/${dnsRecordId}`,
+        deleteOptions(),
+      );
     } catch (err) {
       if (!isCfNotFound(err)) {
-        console.error("Failed to delete DNS record:", err);
-        // Continue to delete the tunnel even if DNS delete fails for non-404 reasons
+        errors.push(`DNS record: ${String(err)}`);
       }
     }
   }
@@ -197,13 +216,17 @@ async function deleteTunnel(
     try {
       await cfFetch(
         `/accounts/${accountId}/cfd_tunnel/${tunnelId}?cascade=true`,
-        { method: "DELETE" },
+        deleteOptions(),
       );
     } catch (err) {
       if (!isCfNotFound(err)) {
-        throw err;
+        errors.push(`tunnel: ${String(err)}`);
       }
     }
+  }
+
+  if (errors.length) {
+    throw new Error(errors.join("; "));
   }
 }
 
@@ -493,9 +516,22 @@ export class GCPProvider implements ServerProvider {
 
   async deprovision(
     serverId: string,
-    options?: { tunnelId?: string | null; dnsRecordId?: string | null },
+    options?: {
+      tunnelId?: string | null;
+      dnsRecordId?: string | null;
+      deadline?: number;
+    },
   ): Promise<void> {
     const errors: { step: string; code: number; message: string }[] = [];
+    const deadline = Math.min(
+      options?.deadline ?? Infinity,
+      Date.now() + 45_000,
+    );
+    const requestOptions = () => {
+      const timeout = deadline - Date.now();
+      if (timeout <= 0) throw new Error("Server cleanup timed out");
+      return { timeout, retry: null };
+    };
 
     const errCode = (err: unknown): number =>
       err && typeof err === "object" && "code" in err
@@ -519,40 +555,70 @@ export class GCPProvider implements ServerProvider {
         await deleteTunnel(
           options.tunnelId ?? null,
           options.dnsRecordId ?? null,
+          Math.min(deadline, Date.now() + 10_000),
         );
       } catch (err) {
         recordError("tunnel", err);
       }
     }
 
+    let operations: ZoneOperationsClient | undefined;
+    const confirmDeletion = async (response: ComputeOperation | undefined) => {
+      if (!response) throw new Error("Compute returned no delete operation");
+      let operation = response;
+      while (operation.status !== "DONE") {
+        const name = operation.name;
+        if (!name)
+          throw new Error("Compute returned an unnamed delete operation");
+
+        if (!operations) {
+          const credentials = loadGcpCredentials();
+          operations = new ZoneOperationsClient(
+            credentials ? { credentials, projectId: this.project } : undefined,
+          );
+        }
+        await delay(Math.min(500, requestOptions().timeout));
+        const [updated] = await operations.get(
+          { project: this.project, zone: GCP_ZONE, operation: name },
+          requestOptions(),
+        );
+        operation = updated;
+      }
+
+      const failures = operation.error?.errors ?? [];
+      if (failures.length || operation.httpErrorStatusCode) {
+        const message = failures
+          .map(({ message, code }) => message || code)
+          .join("; ");
+        const code = failures.some(
+          ({ code }) => code === "RESOURCE_IN_USE_BY_ANOTHER_RESOURCE",
+        )
+          ? 9
+          : operation.httpErrorStatusCode;
+        throw Object.assign(
+          new Error(
+            message ||
+              operation.httpErrorMessage ||
+              "Compute delete operation failed",
+          ),
+          { code },
+        );
+      }
+    };
+
     // 2. Delete the GCP VM and wait for completion. Without waiting, the
     // disk delete in step 3 races the VM teardown and fails with
     // RESOURCE_IN_USE_BY_ANOTHER_RESOURCE while the VM is still STOPPING.
     if (serverId) {
       try {
-        const [operation] = await this.client.delete({
-          project: this.project,
-          zone: GCP_ZONE,
-          instance: serverId,
-        });
-        // Poll until the VM is fully deleted (typically <15s for a stopped instance).
-        // The Compute v1 SDK exposes operation.promise() via the long-running
-        // operation client returned alongside InstancesClient; for older
-        // versions, fall back to manual polling via the zone operations endpoint.
-        const op = operation as unknown as {
-          promise?: () => Promise<unknown>;
-        };
-        if (typeof op.promise === "function") {
-          try {
-            await op.promise();
-          } catch (waitErr) {
-            // The VM may have been deleted between our delete call and the
-            // wait — that's a "stopped" code we can ignore.
-            const code = errCode(waitErr);
-            if (code !== 5 && code !== 404) {
-              recordError("vm-wait", waitErr);
-            }
-          }
+        const [operation] = await this.client.delete(
+          { project: this.project, zone: GCP_ZONE, instance: serverId },
+          requestOptions(),
+        );
+        try {
+          await confirmDeletion(computeOperation(operation));
+        } catch (err) {
+          recordError("vm-wait", err);
         }
       } catch (err: unknown) {
         const code = errCode(err);
@@ -587,11 +653,19 @@ export class GCPProvider implements ServerProvider {
           const maxAttempts = 5;
           while (attempt < maxAttempts) {
             try {
-              await disksClient.delete({
-                project: this.project,
-                zone: GCP_ZONE,
-                disk: diskName,
-              });
+              const [operation] = await disksClient.delete(
+                { project: this.project, zone: GCP_ZONE, disk: diskName },
+                requestOptions(),
+              );
+              try {
+                await confirmDeletion(computeOperation(operation));
+              } catch (err) {
+                if (errCode(err) !== 9 && errCode(err) !== 400) {
+                  recordError(`disk-wait:${diskName}`, err);
+                  break;
+                }
+                throw err;
+              }
               break;
             } catch (err: unknown) {
               const code = errCode(err);
@@ -605,8 +679,8 @@ export class GCPProvider implements ServerProvider {
                 recordError(`disk:${diskName}`, err);
                 break;
               }
-              await new Promise((resolve) =>
-                setTimeout(resolve, 2000 * (attempt + 1)),
+              await delay(
+                Math.min(2000 * (attempt + 1), requestOptions().timeout),
               );
               attempt += 1;
             }

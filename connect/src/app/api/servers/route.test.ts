@@ -145,6 +145,7 @@ describe("POST /api/servers", () => {
       expect(ports.deprovision).toHaveBeenCalledWith(ids.providerId, {
         tunnelId: ids.tunnelId,
         dnsRecordId: ids.dnsRecordId,
+        deadline: expect.any(Number),
       });
       expect(ports.tokens).toEqual([]);
       expect(ports.row).toBeNull();

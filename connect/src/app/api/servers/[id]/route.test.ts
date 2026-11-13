@@ -123,6 +123,7 @@ describe("DELETE /api/servers/[id]", () => {
     expect(ports.deprovision).toHaveBeenCalledWith(handles.provider_id, {
       tunnelId: handles.tunnel_id,
       dnsRecordId: handles.dns_record_id,
+      deadline: expect.any(Number),
     });
     expect(ports.row).toBeNull();
   });
@@ -168,6 +169,7 @@ describe("DELETE /api/servers/[id]", () => {
     expect(ports.deprovision).toHaveBeenCalledWith(handles.provider_id, {
       tunnelId: handles.tunnel_id,
       dnsRecordId: handles.dns_record_id,
+      deadline: expect.any(Number),
     });
     expect(ports.row).toBeNull();
   });

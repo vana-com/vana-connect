@@ -72,6 +72,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const cleanupDeadline = Date.now() + (maxDuration - 5) * 1000;
   const { id } = await params;
   const sig = extractSignature(request);
   if (!sig) {
@@ -117,6 +118,7 @@ export async function DELETE(
       await provider.deprovision(target.provider_id ?? "", {
         tunnelId: target.tunnel_id,
         dnsRecordId: target.dns_record_id,
+        deadline: cleanupDeadline,
       });
     } catch (err) {
       const errorName = err instanceof Error ? err.name : "Error";

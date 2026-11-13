@@ -33,16 +33,19 @@ async function removeOrphanedProvision(
   provider: ServerProvider,
   serverId: string,
   result: ProvisionResult,
+  cleanupDeadline: number,
 ) {
+  const handles = `serverId=${serverId} providerId=${result.serverId} tunnelId=${result.tunnelId ?? ""} dnsRecordId=${result.dnsRecordId ?? ""}`;
+  console.info(`[api/servers POST] Cleaning up after deletion: ${handles}`);
   try {
     await provider.deprovision(result.serverId, {
       tunnelId: result.tunnelId,
       dnsRecordId: result.dnsRecordId,
+      deadline: cleanupDeadline,
     });
   } catch (err) {
     const errorName = err instanceof Error ? err.name : "Error";
     const errorMessage = err instanceof Error ? err.message : String(err);
-    const handles = `serverId=${serverId} providerId=${result.serverId} tunnelId=${result.tunnelId ?? ""} dnsRecordId=${result.dnsRecordId ?? ""}`;
     console.error(
       `[api/servers POST] ${handles} ${errorName}: ${errorMessage}`,
     );
@@ -87,6 +90,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const cleanupDeadline = Date.now() + (maxDuration - 5) * 1000;
   let body: { masterKeySignature?: string };
   try {
     body = await request.json();
@@ -157,7 +161,12 @@ export async function POST(request: NextRequest) {
     // row to attach what we just created to, so remove it here instead of
     // reporting success for a server nothing tracks.
     if (!updated) {
-      return await removeOrphanedProvision(provider, serverId, result);
+      return await removeOrphanedProvision(
+        provider,
+        serverId,
+        result,
+        cleanupDeadline,
+      );
     }
     row = updated;
 
