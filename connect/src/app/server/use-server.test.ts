@@ -74,7 +74,9 @@ describe("useServer", () => {
           { status: 200 },
         ),
       )
-      .mockResolvedValueOnce(Response.json({ serverId: "registered-server" }));
+      .mockResolvedValueOnce(
+        Response.json({ identity: { serverId: "registered-server" } }),
+      );
 
     const { result } = renderHook(() => useServer());
 
