@@ -128,6 +128,8 @@ it("stores the token and publishes the endpoint after a successful create", asyn
     await input.recordProgress({
       step: "compute",
       instanceName: "fixture-vm",
+      tunnelId: "fixture-tunnel",
+      dnsRecordId: "fixture-dns",
       computeOperation: "fixture-op",
     });
     return { url: "https://fixture.invalid" };
@@ -142,6 +144,13 @@ it("stores the token and publishes the endpoint after a successful create", asyn
     state: "provisioning",
   });
   expect(fixtures.row?.control_plane_token).toMatch(/^vana_ps_/);
+  expect(fixtures.row?.control_plane_token).toBe(
+    fixtures.provision.mock.calls[0][0].psAccessToken,
+  );
+  expect(fixtures.row).toMatchObject({
+    tunnel_id: "fixture-tunnel",
+    dns_record_id: "fixture-dns",
+  });
 });
 
 it("keeps a setup failure discoverable so the owner can retry cleanup", async () => {
@@ -255,4 +264,29 @@ it("removes an expired reservation that never attempted a cloud write", async ()
   expect((await remove("srv_reserved")).status).toBe(200);
   expect(fixtures.row).toBeNull();
   expect(fixtures.recover).not.toHaveBeenCalled();
+});
+
+it("passes the recorded resources of an existing server to cleanup", async () => {
+  fixtures.row = {
+    id: "srv_existing",
+    user_id: account.address.toLowerCase(),
+    state: "running",
+    provisioning_step: null,
+    provisioning_expires_at: null,
+    provider_id: "existing-vm",
+    tunnel_id: "existing-tunnel",
+    dns_record_id: "existing-dns",
+    url: "https://fixture.invalid",
+  } as PersonalServer;
+  expect((await remove("srv_existing")).status).toBe(200);
+  expect(fixtures.recover).toHaveBeenCalledWith(
+    expect.objectContaining({
+      provider_id: "existing-vm",
+      tunnel_id: "existing-tunnel",
+      dns_record_id: "existing-dns",
+    }),
+    expect.any(Number),
+    expect.any(Function),
+  );
+  expect(fixtures.row).toBeNull();
 });

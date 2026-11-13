@@ -8,6 +8,7 @@ const cloud = vi.hoisted(() => ({
   deleteDisk: vi.fn(),
   getOperation: vi.fn(),
   getInstance: vi.fn(),
+  getDisk: vi.fn(),
   listOperations: vi.fn(),
   insertInstance: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock("@google-cloud/compute", () => ({
   },
   DisksClient: class {
     delete = cloud.deleteDisk;
+    get = cloud.getDisk;
   },
   ZoneOperationsClient: class {
     get = cloud.getOperation;
@@ -35,7 +37,12 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue([{ latestResponse: { status: "DONE" } }]);
   cloud.getOperation.mockReset();
-  cloud.getInstance.mockReset();
+  cloud.getInstance
+    .mockReset()
+    .mockResolvedValue([{ labels: { "vana-attempt": attempt.id.slice(4) } }]);
+  cloud.getDisk
+    .mockReset()
+    .mockResolvedValue([{ labels: { "vana-attempt": attempt.id.slice(4) } }]);
   cloud.listOperations.mockReset();
   cloud.insertInstance.mockReset();
   vi.stubEnv("GCP_PROJECT", "test-project");
@@ -339,8 +346,11 @@ it("removes the recorded VM and disk once the create operation is terminal", asy
   await new GCPProvider().recoverProvisioning(
     { ...attempt, compute_operation: "confirmed-create" },
     Date.now() + 10_000,
-    async () => {
-      throw new Error("Unexpected adoption");
+    async (handles) => {
+      expect(handles).toEqual({
+        step: "compute",
+        computeCreationSettled: true,
+      });
     },
   );
 
@@ -417,5 +427,204 @@ it("keeps polling if the VM lookup races successful completion of the create ope
     new GCPProvider().status("test-vm", "insert-vm"),
   ).resolves.toEqual({
     state: "provisioning",
+    computeCreationSettled: true,
   });
+});
+
+it.each([true, false])(
+  "only rewinds a rejected DNS write when the response is definitive (%s)",
+  async (rejected) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/cfd_tunnel"))
+          return cloudflare({ id: "new-tunnel" });
+        if (url.endsWith("/configurations")) return cloudflare({});
+        if (url.endsWith("/dns_records") && rejected) {
+          return Response.json(
+            {
+              success: false,
+              errors: [{ code: 81053, message: "Record already exists" }],
+            },
+            { status: 400 },
+          );
+        }
+        throw new Error("DNS reply lost");
+      }),
+    );
+    const saved: ProvisioningProgress[] = [];
+    await expect(
+      new GCPProvider().provision({
+        serverId: attempt.id,
+        userId: attempt.user_id,
+        ownerAddress: attempt.user_id,
+        masterKeySignature: "fixture-signature",
+        deadline: Date.now() + 10_000,
+        recordProgress: async (progress) => {
+          saved.push(progress);
+        },
+      }),
+    ).rejects.toThrow(rejected ? "Record already exists" : "DNS reply lost");
+    expect(saved.at(-1)?.step).toBe(rejected ? "tunnel" : "dns");
+    expect(cloud.insertInstance).not.toHaveBeenCalled();
+  },
+);
+
+it("rewinds a definitely rejected Compute insert and clears the intended names", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.endsWith("/cfd_tunnel")) return cloudflare({ id: "new-tunnel" });
+      if (url.endsWith("/dns_records")) return cloudflare({ id: "new-record" });
+      if (url.endsWith("/token")) return cloudflare("fixture-token");
+      return cloudflare({});
+    }),
+  );
+  cloud.insertInstance.mockRejectedValue(
+    Object.assign(new Error("Denied"), { code: 7 }),
+  );
+  const saved: ProvisioningProgress[] = [];
+  await expect(
+    new GCPProvider().provision({
+      serverId: attempt.id,
+      userId: attempt.user_id,
+      ownerAddress: attempt.user_id,
+      masterKeySignature: "fixture-signature",
+      deadline: Date.now() + 10_000,
+      recordProgress: async (progress) => {
+        saved.push(progress);
+      },
+    }),
+  ).rejects.toThrow("Denied");
+  expect(saved.at(-1)).toEqual({
+    step: "dns",
+    instanceName: null,
+    diskName: null,
+  });
+});
+
+it("cleans up a settled attempt without depending on the retained Compute operation", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => cloudflare({})),
+  );
+  await new GCPProvider().recoverProvisioning(
+    {
+      ...attempt,
+      compute_operation: "expired",
+      compute_creation_settled_at: new Date(Date.now() - 60_000),
+    },
+    Date.now() + 10_000,
+    async () => {
+      throw new Error("Unexpected adoption");
+    },
+  );
+  expect(cloud.getOperation).not.toHaveBeenCalled();
+  expect(cloud.deleteInstance).toHaveBeenCalledTimes(1);
+  expect(cloud.deleteDisk).toHaveBeenCalledTimes(1);
+});
+
+it("refuses to delete a Compute resource with a different attempt label", async () => {
+  cloud.getDisk.mockResolvedValue([{ labels: { "vana-attempt": "another" } }]);
+  await expect(
+    new GCPProvider().recoverProvisioning(
+      {
+        ...attempt,
+        compute_operation: "settled",
+        compute_creation_settled_at: new Date(Date.now() - 60_000),
+      },
+      Date.now() + 10_000,
+      async () => {
+        throw new Error("Unexpected adoption");
+      },
+    ),
+  ).rejects.toThrow("ownership could not be verified");
+  expect(cloud.deleteInstance).not.toHaveBeenCalled();
+  expect(cloud.deleteDisk).not.toHaveBeenCalled();
+});
+
+it.each(["expired", null])(
+  "recovers an expired or missing receipt (%s) when an owned VM proves creation finished",
+  async (operation) => {
+    cloud.listOperations.mockResolvedValue([[]]);
+    cloud.getOperation.mockRejectedValue(
+      Object.assign(new Error("Expired"), { code: 404 }),
+    );
+    cloud.getInstance.mockResolvedValue([
+      {
+        status: "RUNNING",
+        labels: { "vana-attempt": attempt.id.slice(4) },
+      },
+    ]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => cloudflare({})),
+    );
+    const saved = vi.fn();
+    await new GCPProvider().recoverProvisioning(
+      { ...attempt, compute_operation: operation },
+      Date.now() + 10_000,
+      saved,
+    );
+    expect(saved).toHaveBeenCalledWith({
+      step: "compute",
+      computeCreationSettled: true,
+    });
+    expect(cloud.deleteInstance).toHaveBeenCalledTimes(1);
+    expect(cloud.deleteDisk).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("does not trust provisioning status from an unrelated VM", async () => {
+  cloud.getInstance.mockResolvedValue([
+    { status: "RUNNING", labels: { "vana-attempt": "another" } },
+  ]);
+  await expect(
+    new GCPProvider().status("test-vm", "create", false, attempt.id.slice(4)),
+  ).rejects.toThrow("ownership could not be verified");
+});
+
+it("retains the journal when a newly settled Compute resource is temporarily absent", async () => {
+  cloud.getOperation.mockResolvedValue([{ status: "DONE" }]);
+  cloud.getInstance.mockRejectedValueOnce(
+    Object.assign(new Error("Not visible yet"), { code: 404 }),
+  );
+  const saved = vi.fn();
+  const provider = new GCPProvider();
+  const server = { ...attempt, compute_operation: "create" };
+  await expect(
+    provider.recoverProvisioning(server, Date.now() + 10_000, saved),
+  ).rejects.toThrow("still settling");
+  expect(saved).toHaveBeenCalledWith({
+    step: "compute",
+    computeCreationSettled: true,
+  });
+  expect(cloud.deleteInstance).not.toHaveBeenCalled();
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => cloudflare({})),
+  );
+  await provider.recoverProvisioning(
+    { ...server, compute_creation_settled_at: new Date() },
+    Date.now() + 10_000,
+    saved,
+  );
+  expect(cloud.deleteInstance).toHaveBeenCalledTimes(1);
+});
+
+it("leaves the reservation removable when the Cloudflare token is missing", async () => {
+  vi.stubEnv("CLOUDFLARE_API_TOKEN", "");
+  const recordProgress = vi.fn();
+  await expect(
+    new GCPProvider().provision({
+      serverId: attempt.id,
+      userId: attempt.user_id,
+      ownerAddress: attempt.user_id,
+      masterKeySignature: "fixture-signature",
+      deadline: Date.now() + 10_000,
+      recordProgress,
+    }),
+  ).rejects.toThrow("CLOUDFLARE_API_TOKEN");
+  expect(recordProgress).not.toHaveBeenCalled();
 });

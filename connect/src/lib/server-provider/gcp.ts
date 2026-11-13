@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import {
+  DisksClient,
   InstancesClient,
   type protos,
   ZoneOperationsClient,
@@ -72,6 +73,9 @@ async function computeRequest<T>(
     clearTimeout(timer);
   }
 }
+
+const settledInstanceStates = ["RUNNING", "STOPPED", "TERMINATED", "SUSPENDED"];
+const computeVisibilityGraceMs = 30_000;
 
 function mapGcpStatus(gcpStatus: string | null | undefined): ServerState {
   switch (gcpStatus) {
@@ -155,6 +159,27 @@ function isCfNotFound(err: unknown): boolean {
     : cfErr.cfStatus === 404;
 }
 
+// An explicit rejection before a resource is created is different from a
+// lost reply. Only known non-retryable client errors allow us to rewind.
+function rejectedCloudflareWrite(err: unknown) {
+  if (!(err instanceof Error)) return false;
+  const { cfStatus, cfErrors } = err as Error & {
+    cfStatus?: number;
+    cfErrors?: unknown[];
+  };
+  return cfErrors?.length && [400, 401, 403, 404, 422].includes(cfStatus ?? 0);
+}
+
+function computeNotFound(err: unknown) {
+  const status = Number((err as { code?: unknown } | null)?.code);
+  return status === 5 || status === 404;
+}
+
+function rejectedComputeWrite(err: unknown) {
+  const status = Number((err as { code?: unknown } | null)?.code);
+  return [3, 5, 6, 7, 16, 400, 401, 403, 404, 409].includes(status);
+}
+
 /**
  * Create a Cloudflare Tunnel, configure its ingress, and add a DNS CNAME.
  * Returns the tunnel ID, tunnel token, and DNS record ID so we can clean up
@@ -168,6 +193,7 @@ async function createTunnel({
 }: ProvisionParams): Promise<CloudflareTunnelResult> {
   const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
   const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
+  requireEnv("CLOUDFLARE_API_TOKEN");
   const tunnelName = attemptTunnelName(serverId);
   const hostname = `${userId}.${MYVANA_DOMAIN}`;
 
@@ -177,6 +203,10 @@ async function createTunnel({
   ).toString("base64");
 
   await recordProgress({ step: "tunnel" });
+  if (deadline <= Date.now()) {
+    await recordProgress({ step: "reserved" });
+    throw new Error("Server operation timed out");
+  }
   const tunnel = await cfFetch<{ id: string; token: string }>(
     `/accounts/${accountId}/cfd_tunnel`,
     {
@@ -188,7 +218,11 @@ async function createTunnel({
         config_src: "cloudflare",
       }),
     },
-  );
+  ).catch(async (err) => {
+    if (rejectedCloudflareWrite(err))
+      await recordProgress({ step: "reserved" });
+    throw err;
+  });
 
   const tunnelId = tunnel.id;
   if (!tunnelId) throw new Error("Cloudflare returned no tunnel ID");
@@ -213,6 +247,10 @@ async function createTunnel({
 
   // 3. Create DNS CNAME: userId.myvana.app → tunnelId.cfargotunnel.com
   await recordProgress({ step: "dns" });
+  if (deadline <= Date.now()) {
+    await recordProgress({ step: "tunnel" });
+    throw new Error("Server operation timed out");
+  }
   const dnsRecord = await cfFetch<{ id: string }>(
     `/zones/${zoneId}/dns_records`,
     {
@@ -226,7 +264,10 @@ async function createTunnel({
         comment: attemptDnsComment(serverId),
       }),
     },
-  );
+  ).catch(async (err) => {
+    if (rejectedCloudflareWrite(err)) await recordProgress({ step: "tunnel" });
+    throw err;
+  });
 
   if (!dnsRecord.id) throw new Error("Cloudflare returned no DNS record ID");
   await recordProgress({ step: "dns", dnsRecordId: dnsRecord.id });
@@ -422,11 +463,15 @@ export class GCPProvider implements ServerProvider {
 
     // Create Cloudflare Tunnel + DNS before the VM so we have the token
     const tunnel = await createTunnel(params);
+    const attemptLabels = {
+      "vana-attempt": params.serverId.slice("srv_".length),
+    };
 
     const instanceResource: Instance = {
       name: vmName,
       machineType: `zones/${GCP_ZONE}/machineTypes/e2-micro`,
       labels: {
+        ...attemptLabels,
         "managed-by": "vana-connect",
         "user-id": params.userId.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
       },
@@ -445,6 +490,7 @@ export class GCPProvider implements ServerProvider {
             // auto-generates `<vmName>-1` and deprovision can't find the
             // disk to delete by the deviceName-based lookup.
             diskName: `${vmName}-data`,
+            labels: attemptLabels,
             diskSizeGb: "10",
             diskType: `zones/${GCP_ZONE}/diskTypes/pd-standard`,
           },
@@ -501,6 +547,16 @@ export class GCPProvider implements ServerProvider {
       instanceName: vmName,
       diskName: `${vmName}-data`,
     });
+    const rejectedInsert = () =>
+      params.recordProgress({
+        step: "dns",
+        instanceName: null,
+        diskName: null,
+      });
+    if (params.deadline <= Date.now()) {
+      await rejectedInsert();
+      throw new Error("Server operation timed out");
+    }
     const [operation] = await computeRequest(params.deadline, (options) =>
       this.client.insert(
         {
@@ -511,13 +567,17 @@ export class GCPProvider implements ServerProvider {
         },
         options,
       ),
-    );
+    ).catch(async (err) => {
+      if (rejectedComputeWrite(err)) await rejectedInsert();
+      throw err;
+    });
     const response = computeOperation(operation);
     if (!response?.name)
       throw new Error("Compute returned no create operation name");
     await params.recordProgress({
       step: "compute",
       computeOperation: response.name,
+      ...(response.status === "DONE" && { computeCreationSettled: true }),
     });
     if (response.error?.errors?.length || response.httpErrorStatusCode) {
       throw new Error("Compute rejected server creation");
@@ -534,13 +594,20 @@ export class GCPProvider implements ServerProvider {
   async status(
     serverId: string,
     operation?: string | null,
+    settled?: boolean,
+    attemptId?: string,
   ): Promise<ServerStatus> {
     try {
-      const [instance] = await this.client.get({
-        project: this.project,
-        zone: GCP_ZONE,
-        instance: serverId,
-      });
+      const [instance] = await computeRequest(Date.now() + 5000, (options) =>
+        this.client.get(
+          { project: this.project, zone: GCP_ZONE, instance: serverId },
+          options,
+        ),
+      );
+
+      if (attemptId && instance.labels?.["vana-attempt"] !== attemptId) {
+        throw new Error("Compute resource ownership could not be verified");
+      }
 
       const state = mapGcpStatus(instance.status);
 
@@ -551,6 +618,11 @@ export class GCPProvider implements ServerProvider {
       const result: ServerStatus = {
         state,
         url,
+        ...(attemptId && {
+          computeCreationSettled: settledInstanceStates.includes(
+            instance.status ?? "",
+          ),
+        }),
       };
 
       // Health check through the public Cloudflare Tunnel URL (short timeout
@@ -575,12 +647,8 @@ export class GCPProvider implements ServerProvider {
 
       return result;
     } catch (err: unknown) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code: number }).code
-          : 0;
-      if (code === 5 || code === 404) {
-        if (operation) {
+      if (computeNotFound(err)) {
+        if (operation && !settled) {
           const [result] = await computeRequest(Date.now() + 5000, (options) =>
             this.zoneOperations().get(
               {
@@ -594,9 +662,12 @@ export class GCPProvider implements ServerProvider {
           const failed =
             result.status === "DONE" &&
             (result.error?.errors?.length || result.httpErrorStatusCode);
-          return failed ? { state: "error" } : { state: "provisioning" };
+          return {
+            state: failed ? "error" : "provisioning",
+            computeCreationSettled: result.status === "DONE",
+          };
         }
-        return { state: "stopped" };
+        return { state: settled ? "provisioning" : "stopped" };
       }
       throw err;
     }
@@ -623,6 +694,7 @@ export class GCPProvider implements ServerProvider {
     let tunnelId = server.tunnel_id;
     let dnsRecordId = server.dns_record_id;
     let operation = server.compute_operation;
+    let settledAt = server.compute_creation_settled_at;
 
     // A create reply can be lost after the provider accepts the request. Only
     // adopt a resource bearing this attempt's identity. An empty lookup after
@@ -682,7 +754,7 @@ export class GCPProvider implements ServerProvider {
       await saveHandles({ step, dnsRecordId });
     }
 
-    if (step === "compute" && !operation) {
+    if (step === "compute" && !operation && !settledAt) {
       const requestId = server.id.slice("srv_".length);
       const [operations, next] = await computeRequest(deadline, (options) =>
         this.zoneOperations().list(
@@ -698,37 +770,133 @@ export class GCPProvider implements ServerProvider {
       const match = operations[0];
       if (
         next ||
-        operations.length !== 1 ||
-        match.clientOperationId !== requestId ||
-        match.operationType !== "insert" ||
-        !match.targetLink?.endsWith(`/instances/${server.provider_id}`) ||
-        !match.name
+        operations.length > 1 ||
+        (match &&
+          (match.clientOperationId !== requestId ||
+            match.operationType !== "insert" ||
+            !match.targetLink?.endsWith(`/instances/${server.provider_id}`) ||
+            !match.name))
       ) {
         throw new Error(
           "Compute creation could not be confirmed. Retry cleanup or contact support.",
         );
       }
-      operation = match.name;
-      await saveHandles({ step, computeOperation: operation });
+      if (match?.name) {
+        operation = match.name;
+        await saveHandles({ step, computeOperation: operation });
+      }
     }
 
-    if (operation) {
-      const [result] = await computeRequest(deadline, (options) =>
-        this.zoneOperations().get(
-          { project: this.project, zone: GCP_ZONE, operation },
-          options,
-        ),
-      );
-      if (result.status !== "DONE")
+    if ((step === "compute" || operation) && !settledAt) {
+      const [result] = operation
+        ? await computeRequest(deadline, (options) =>
+            this.zoneOperations().get(
+              { project: this.project, zone: GCP_ZONE, operation },
+              options,
+            ),
+          ).catch((error) => {
+            if (computeNotFound(error)) return [undefined] as const;
+            throw error;
+          })
+        : [];
+      if (!result && server.provider_id) {
+        const instanceName = server.provider_id;
+        const [instance] = await computeRequest(deadline, (options) =>
+          this.client.get(
+            { project: this.project, zone: GCP_ZONE, instance: instanceName },
+            options,
+          ),
+        ).catch((error) => {
+          if (computeNotFound(error)) return [undefined] as const;
+          throw error;
+        });
+        const ownsSettledInstance =
+          instance?.labels?.["vana-attempt"] === server.id.slice(4) &&
+          settledInstanceStates.includes(instance?.status ?? "");
+        if (!ownsSettledInstance) {
+          throw new Error(
+            "Compute creation could not be confirmed. Retry cleanup or contact support.",
+          );
+        }
+      } else if (result?.status !== "DONE") {
         throw new Error(
           "Compute creation is still pending. Retry cleanup shortly.",
         );
+      }
+      await saveHandles({ step: "compute", computeCreationSettled: true });
+      settledAt = new Date();
     }
 
-    await this.deprovision(server.provider_id ?? "", {
+    let instanceName = server.provider_id;
+    let diskName = server.disk_id;
+    if (
+      instanceName &&
+      diskName &&
+      server.id.startsWith("srv_") &&
+      /^[0-9a-f-]{36}$/.test(server.id.slice(4))
+    ) {
+      const requestId = server.id.slice(4);
+      const disks = new DisksClient({
+        credentials: loadGcpCredentials() ?? undefined,
+        projectId: this.project,
+      });
+      const verifyOwnership = async <
+        T extends { labels?: Record<string, string> | null },
+      >(
+        read: (options: {
+          timeout: number;
+          retry: null;
+        }) => Promise<[T, ...unknown[]]>,
+      ) => {
+        const [resource] = await computeRequest(deadline, read).catch((err) => {
+          if (computeNotFound(err)) return [undefined] as const;
+          throw err;
+        });
+        if (
+          !resource &&
+          (!settledAt ||
+            Date.now() - new Date(settledAt).getTime() <
+              computeVisibilityGraceMs)
+        ) {
+          throw new Error(
+            "Compute resources are still settling. Retry cleanup shortly.",
+          );
+        }
+        if (resource && resource.labels?.["vana-attempt"] !== requestId) {
+          throw new Error(
+            "Compute resource ownership could not be verified. Contact support.",
+          );
+        }
+        return Boolean(resource);
+      };
+      const ownsInstance = await verifyOwnership((options) =>
+        this.client.get(
+          {
+            project: this.project,
+            zone: GCP_ZONE,
+            instance: server.provider_id ?? undefined,
+          },
+          options,
+        ),
+      );
+      const ownsDisk = await verifyOwnership((options) =>
+        disks.get(
+          {
+            project: this.project,
+            zone: GCP_ZONE,
+            disk: server.disk_id ?? undefined,
+          },
+          options,
+        ),
+      );
+      if (!ownsInstance) instanceName = null;
+      if (!ownsDisk) diskName = null;
+    }
+
+    await this.deprovision(instanceName ?? "", {
       tunnelId,
       dnsRecordId,
-      diskName: server.disk_id,
+      diskName: server.disk_id ? diskName : undefined,
       deadline,
     });
   }
@@ -848,12 +1016,11 @@ export class GCPProvider implements ServerProvider {
     // Newer provisions pin the disk name to `${vmName}-data`. Older
     // provisions let GCE auto-generate the name, which lands as
     // `${vmName}-1`. Try both so legacy rows can be cleaned up too.
-    if (serverId) {
+    if (options?.diskName || (serverId && options?.diskName === undefined)) {
       const diskNameCandidates = options?.diskName
         ? [options.diskName]
         : [`${serverId}-data`, `${serverId}-1`];
       try {
-        const { DisksClient } = await import("@google-cloud/compute");
         const credentials = loadGcpCredentials();
         const disksClient: InstanceType<typeof DisksClient> = credentials
           ? new DisksClient({

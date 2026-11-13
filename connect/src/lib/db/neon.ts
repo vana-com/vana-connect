@@ -18,6 +18,7 @@ export type PersonalServer = {
   provisioning_step: ProvisioningStep | null;
   provisioning_expires_at: string | Date | null;
   compute_operation: string | null;
+  compute_creation_settled_at: string | Date | null;
   cleanup_claim: string | null;
   cleanup_expires_at: string | Date | null;
   created_at: string;
@@ -76,9 +77,10 @@ export type ProvisioningProgress = {
   step: ProvisioningStep;
   tunnelId?: string;
   dnsRecordId?: string;
-  instanceName?: string;
-  diskName?: string;
+  instanceName?: string | null;
+  diskName?: string | null;
   computeOperation?: string;
+  computeCreationSettled?: boolean;
 };
 
 export async function recordProvisioningProgress(
@@ -91,9 +93,10 @@ export async function recordProvisioningProgress(
       provisioning_step = ${progress.step},
       tunnel_id = COALESCE(${progress.tunnelId ?? null}, tunnel_id),
       dns_record_id = COALESCE(${progress.dnsRecordId ?? null}, dns_record_id),
-      provider_id = COALESCE(${progress.instanceName ?? null}, provider_id),
-      disk_id = COALESCE(${progress.diskName ?? null}, disk_id),
+      provider_id = CASE WHEN ${progress.instanceName !== undefined} THEN ${progress.instanceName ?? null}::text ELSE provider_id END,
+      disk_id = CASE WHEN ${progress.diskName !== undefined} THEN ${progress.diskName ?? null}::text ELSE disk_id END,
       compute_operation = COALESCE(${progress.computeOperation ?? null}, compute_operation),
+      compute_creation_settled_at = CASE WHEN ${progress.computeCreationSettled ?? false} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END,
       updated_at = now()
     WHERE id = ${id}
       AND provisioning_expires_at > now()
@@ -129,10 +132,16 @@ export async function failProvisioning(id: string): Promise<void> {
   `;
 }
 
-export async function updateProvisionedServerStatus(id: string, state: string) {
+export async function updateProvisionedServerStatus(
+  id: string,
+  state: string,
+  settled: boolean,
+) {
   const sql = getSQL();
   const rows = await sql`
-    UPDATE personal_servers SET state = ${state}, compute_operation = NULL, updated_at = now()
+    UPDATE personal_servers SET state = ${state},
+      updated_at = CASE WHEN state <> ${state} THEN now() ELSE updated_at END,
+      compute_creation_settled_at = CASE WHEN ${settled} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END
     WHERE id = ${id} AND state = 'provisioning' AND provisioning_step IS NULL
       AND cleanup_claim IS NULL
     RETURNING *
@@ -162,7 +171,7 @@ export async function saveRecoveryHandles(
   claim: string,
   handles: Pick<
     ProvisioningProgress,
-    "tunnelId" | "dnsRecordId" | "computeOperation"
+    "tunnelId" | "dnsRecordId" | "computeOperation" | "computeCreationSettled"
   >,
 ): Promise<void> {
   const sql = getSQL();
@@ -171,6 +180,7 @@ export async function saveRecoveryHandles(
       tunnel_id = COALESCE(${handles.tunnelId ?? null}, tunnel_id),
       dns_record_id = COALESCE(${handles.dnsRecordId ?? null}, dns_record_id),
       compute_operation = COALESCE(${handles.computeOperation ?? null}, compute_operation),
+      compute_creation_settled_at = CASE WHEN ${handles.computeCreationSettled ?? false} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END,
       updated_at = now()
     WHERE id = ${id} AND cleanup_claim = ${claim} AND cleanup_expires_at > now()
     RETURNING id
@@ -184,9 +194,7 @@ export async function finishServerCleanup(
 ): Promise<boolean> {
   const sql = getSQL();
   const rows = await sql`
-    DELETE FROM personal_servers
-    WHERE id = ${id} AND cleanup_claim = ${claim} AND cleanup_expires_at > now()
-    RETURNING id
+    SELECT id FROM remove_cleaned_personal_server(${id}, ${claim}::uuid)
   `;
   return rows.length > 0;
 }

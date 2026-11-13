@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
     return apiError("internal_error", "Failed to create server", 500);
   }
 
+  let checkpoint = "reserved";
   try {
     const controlPlaneToken = `vana_ps_${randomBytes(32).toString("hex")}`;
     const { url } = await getServerProvider().provision({
@@ -93,16 +94,30 @@ export async function POST(request: NextRequest) {
       ownerAddress: walletAddress,
       psAccessToken: controlPlaneToken,
       deadline,
-      recordProgress: (progress) =>
-        recordProvisioningProgress(serverId, progress),
+      recordProgress: async (progress) => {
+        await recordProvisioningProgress(serverId, progress);
+        checkpoint = progress.step;
+      },
     });
+    checkpoint = "finalize";
     const row = await finishProvisioning(serverId, url, controlPlaneToken);
     if (!row) throw new Error("Provisioning attempt is no longer active");
     return apiSuccess(toApiServer(row), 201);
   } catch (err) {
+    const failure = err as {
+      code?: unknown;
+      cfStatus?: unknown;
+      cfErrors?: { code?: unknown }[];
+    } | null;
+    const code = failure?.code ?? failure?.cfErrors?.[0]?.code;
+    const httpStatus = failure?.cfStatus;
     console.error(
       `[api/servers POST] serverId=${serverId} provisioning failed`,
-      err,
+      {
+        checkpoint,
+        code: Number.isInteger(code) ? code : undefined,
+        httpStatus: Number.isInteger(httpStatus) ? httpStatus : undefined,
+      },
     );
     await failProvisioning(serverId).catch((error) => {
       console.error(

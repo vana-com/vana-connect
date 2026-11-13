@@ -61,20 +61,40 @@ export async function GET(
       const liveStatus = await provider.status(
         server.provider_id,
         server.compute_operation,
+        Boolean(server.compute_creation_settled_at),
+        server.compute_operation ? server.id.slice("srv_".length) : undefined,
       );
 
-      if (liveStatus.state !== server.state) {
+      if (
+        liveStatus.state !== server.state ||
+        (liveStatus.computeCreationSettled &&
+          !server.compute_creation_settled_at)
+      ) {
         const updated = await updateProvisionedServerStatus(
           id,
           liveStatus.state,
+          liveStatus.computeCreationSettled === true,
         );
         const current = updated ?? (await findServerById(id));
-        return current
-          ? apiSuccess(toApiServer(current))
-          : apiError("not_found_error", "Server not found", 404);
+        if (!current)
+          return apiError("not_found_error", "Server not found", 404);
+        if (current.state !== "provisioning")
+          return apiSuccess(toApiServer(current));
       }
     } catch (err) {
       console.error("Live status check failed:", err);
+    }
+
+    // A submitted VM that never became visible must still be removable.
+    // This only changes the returned state. Cleanup still verifies the operation.
+    if (
+      server.compute_operation &&
+      Date.now() - new Date(server.updated_at).getTime() >= 5 * 60_000
+    ) {
+      return apiSuccess({
+        ...toApiServer(server),
+        state: "deprovision_failed",
+      });
     }
   }
 

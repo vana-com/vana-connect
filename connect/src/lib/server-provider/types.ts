@@ -23,13 +23,19 @@ export type ProvisionResult = {
 
 export type ServerStatus = {
   state: ServerState;
+  computeCreationSettled?: boolean;
   url?: string;
   health?: { ownerAddress: string };
 };
 
 export interface ServerProvider {
   provision(params: ProvisionParams): Promise<ProvisionResult>;
-  status(serverId: string, operation?: string | null): Promise<ServerStatus>;
+  status(
+    serverId: string,
+    operation?: string | null,
+    settled?: boolean,
+    attemptId?: string,
+  ): Promise<ServerStatus>;
   recoverProvisioning(
     server: PersonalServer,
     deadline: number,
