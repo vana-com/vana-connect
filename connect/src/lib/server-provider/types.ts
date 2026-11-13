@@ -24,7 +24,6 @@ export type ProvisionResult = {
 export type ServerStatus = {
   state: ServerState;
   url?: string;
-  exists?: boolean;
   health?: { ownerAddress: string };
 };
 

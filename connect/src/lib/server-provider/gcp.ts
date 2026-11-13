@@ -591,9 +591,10 @@ export class GCPProvider implements ServerProvider {
               options,
             ),
           );
-          return result.status === "DONE"
-            ? { state: "error" }
-            : { state: "provisioning", exists: false };
+          const failed =
+            result.status === "DONE" &&
+            (result.error?.errors?.length || result.httpErrorStatusCode);
+          return failed ? { state: "error" } : { state: "provisioning" };
         }
         return { state: "stopped" };
       }

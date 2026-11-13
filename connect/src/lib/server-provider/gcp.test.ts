@@ -7,6 +7,7 @@ const cloud = vi.hoisted(() => ({
   deleteInstance: vi.fn(),
   deleteDisk: vi.fn(),
   getOperation: vi.fn(),
+  getInstance: vi.fn(),
   listOperations: vi.fn(),
   insertInstance: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock("@google-cloud/compute", () => ({
   InstancesClient: class {
     delete = cloud.deleteInstance;
     insert = cloud.insertInstance;
+    get = cloud.getInstance;
   },
   DisksClient: class {
     delete = cloud.deleteDisk;
@@ -33,6 +35,7 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue([{ latestResponse: { status: "DONE" } }]);
   cloud.getOperation.mockReset();
+  cloud.getInstance.mockReset();
   cloud.listOperations.mockReset();
   cloud.insertInstance.mockReset();
   vi.stubEnv("GCP_PROJECT", "test-project");
@@ -402,4 +405,17 @@ it("persists a recovered DNS record before removing it", async () => {
   );
 
   expect(saved).toHaveLength(1);
+});
+
+it("keeps polling if the VM lookup races successful completion of the create operation", async () => {
+  cloud.getInstance.mockRejectedValueOnce(
+    Object.assign(new Error("Not found"), { code: 404 }),
+  );
+  cloud.getOperation.mockResolvedValue([{ status: "DONE" }]);
+
+  await expect(
+    new GCPProvider().status("test-vm", "insert-vm"),
+  ).resolves.toEqual({
+    state: "provisioning",
+  });
 });

@@ -63,7 +63,7 @@ export async function GET(
         server.compute_operation,
       );
 
-      if (liveStatus.state !== server.state && liveStatus.exists !== false) {
+      if (liveStatus.state !== server.state) {
         const updated = await updateProvisionedServerStatus(
           id,
           liveStatus.state,
