@@ -9,7 +9,13 @@ export function toApiServer(row: PersonalServer) {
     provider_id: row.provider_id,
     url: row.url,
     mcp_endpoint: row.url ? `${row.url}/mcp` : null,
-    state: row.state,
+    state:
+      row.state === "provisioning" &&
+      ((row.provisioning_expires_at &&
+        new Date(row.provisioning_expires_at).getTime() <= Date.now()) ||
+        (!row.provisioning_step && !row.provider_id))
+        ? "deprovision_failed"
+        : row.state,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

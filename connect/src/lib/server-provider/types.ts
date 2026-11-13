@@ -1,3 +1,5 @@
+import type { PersonalServer, ProvisioningProgress } from "@/lib/db/neon";
+
 export type ServerState = "provisioning" | "running" | "stopped" | "error";
 
 export type ProvisionParams = {
@@ -6,6 +8,8 @@ export type ProvisionParams = {
   masterKeySignature: string;
   ownerAddress: string;
   psAccessToken?: string;
+  deadline: number;
+  recordProgress: (progress: ProvisioningProgress) => Promise<void>;
 };
 
 export type ProvisionResult = {
@@ -20,18 +24,25 @@ export type ProvisionResult = {
 export type ServerStatus = {
   state: ServerState;
   url?: string;
+  exists?: boolean;
   health?: { ownerAddress: string };
 };
 
 export interface ServerProvider {
   provision(params: ProvisionParams): Promise<ProvisionResult>;
-  status(serverId: string): Promise<ServerStatus>;
+  status(serverId: string, operation?: string | null): Promise<ServerStatus>;
+  recoverProvisioning(
+    server: PersonalServer,
+    deadline: number,
+    saveHandles: (handles: ProvisioningProgress) => Promise<void>,
+  ): Promise<void>;
   deprovision(
     serverId: string,
     options?: {
       tunnelId?: string | null;
       dnsRecordId?: string | null;
       deadline?: number;
+      diskName?: string | null;
     },
   ): Promise<void>;
 }

@@ -1,175 +1,258 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PersonalServer } from "@/lib/db/neon";
-import type { ProvisionResult } from "@/lib/server-provider";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { PersonalServer, ProvisioningProgress } from "@/lib/db/neon";
+import type { ProvisionParams } from "@/lib/server-provider/types";
+import { DELETE, GET as getServer } from "./[id]/route";
+import { POST } from "./route";
 
-const ids = {
-  providerId: "vm-1",
-  tunnelId: "tunnel-1",
-  dnsRecordId: "dns-1",
-};
-const provisioned: ProvisionResult = {
-  serverId: ids.providerId,
-  url: "https://fixture.example",
-  tunnelId: ids.tunnelId,
-  dnsRecordId: ids.dnsRecordId,
-};
-
-// In-memory store with the same null-on-missing-row contract as neon.ts, and
-// a provider whose provision() the test holds open.
-const ports = vi.hoisted(() => ({
+const fixtures = vi.hoisted(() => ({
   row: null as PersonalServer | null,
-  tokens: [] as string[],
-  provisionStarted: Promise.withResolvers<void>(),
-  provisionRelease: Promise.withResolvers<void>(),
   provision: vi.fn(),
-  deprovision: vi.fn(),
+  recover: vi.fn(),
 }));
 
 vi.mock("@/lib/db/neon", () => ({
-  findServerByUserId: async (userId: string) =>
-    ports.row?.user_id === userId ? ports.row : null,
+  findServerByUserId: async (id: string) =>
+    fixtures.row?.user_id === id ? fixtures.row : null,
+  findServerById: async (id: string) =>
+    fixtures.row?.id === id ? fixtures.row : null,
   insertServerIfNotExists: async (identity: Partial<PersonalServer>) => {
-    ports.row = {
+    if (fixtures.row) return null;
+    fixtures.row = {
       ...identity,
+      provisioning_step: "reserved",
+      provisioning_expires_at: new Date(Date.now() + 75_000).toISOString(),
+      cleanup_claim: null,
+      compute_operation: null,
       provider_id: null,
-      control_plane_token: null,
-      vm_ip: null,
-      url: null,
-      disk_id: null,
-      disk_expires: null,
       tunnel_id: null,
       dns_record_id: null,
-      created_at: "2026-01-01",
-      updated_at: "2026-01-01",
+      disk_id: null,
     } as PersonalServer;
-    return ports.row;
+    return fixtures.row;
   },
-  updateServer: async (id: string, fields: Partial<PersonalServer>) => {
-    if (ports.row?.id !== id) return null;
-    ports.row = { ...ports.row, ...fields };
-    return ports.row;
+  recordProvisioningProgress: async (
+    _id: string,
+    progress: ProvisioningProgress,
+  ) => {
+    if (!fixtures.row) throw new Error("No active provisioning attempt");
+    const row = fixtures.row;
+    row.provisioning_step = progress.step;
+    row.provider_id = progress.instanceName ?? row.provider_id;
+    row.tunnel_id = progress.tunnelId ?? row.tunnel_id;
+    row.dns_record_id = progress.dnsRecordId ?? row.dns_record_id;
+    row.compute_operation = progress.computeOperation ?? row.compute_operation;
   },
-  deleteServer: async (id: string) => {
-    if (ports.row?.id === id) ports.row = null;
+  finishProvisioning: async (_id: string, url: string, token: string) => {
+    if (!fixtures.row) return null;
+    fixtures.row.provisioning_step = null;
+    fixtures.row.provisioning_expires_at = null;
+    fixtures.row.control_plane_token = token;
+    fixtures.row.url = url;
+    return fixtures.row;
   },
-  updateServerControlPlaneToken: async (_id: string, token: string) => {
-    ports.tokens.push(token);
+  failProvisioning: async () => {
+    if (!fixtures.row) return;
+    fixtures.row.state = "deprovision_failed";
+    fixtures.row.provisioning_expires_at = null;
+  },
+  claimServerCleanup: async (id: string, claim: string) => {
+    const row = fixtures.row;
+    if (
+      !row ||
+      row.id !== id ||
+      row.cleanup_claim ||
+      (row.provisioning_expires_at &&
+        new Date(row.provisioning_expires_at).getTime() > Date.now())
+    )
+      return null;
+    row.cleanup_claim = claim;
+    row.state = "deprovision_failed";
+    return row;
+  },
+  saveRecoveryHandles: async () => {},
+  finishServerCleanup: async (id: string, claim: string) => {
+    if (fixtures.row?.id !== id || fixtures.row.cleanup_claim !== claim)
+      return false;
+    fixtures.row = null;
+    return true;
+  },
+  releaseServerCleanup: async () => {
+    if (fixtures.row) fixtures.row.cleanup_claim = null;
   },
 }));
 
 vi.mock("@/lib/server-provider", () => ({
   getServerProvider: () => ({
-    provision: ports.provision,
-    deprovision: ports.deprovision,
+    provision: fixtures.provision,
+    recoverProvisioning: fixtures.recover,
   }),
 }));
 
-import { POST } from "./route";
+const account = privateKeyToAccount(generatePrivateKey());
+const url = "https://fixture.invalid/api/servers";
 
-async function createServer() {
-  const account = privateKeyToAccount(generatePrivateKey());
-  const masterKeySignature = await account.signMessage({
+async function request(method: "POST" | "GET" | "DELETE", id?: string) {
+  const signature = await account.signMessage({
     message: "vana-master-key-v1",
   });
-  return POST(
-    new NextRequest("https://fixture.example/api/servers", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ masterKeySignature }),
-    }),
-  );
+  return new NextRequest(id ? `${url}/${id}` : url, {
+    method,
+    headers: { authorization: `Bearer ${signature}` },
+    body:
+      method === "POST"
+        ? JSON.stringify({ masterKeySignature: signature })
+        : undefined,
+  });
 }
 
-/** Start a create, delete its row while provision() is pending, then let it return. */
-async function createDeletedDuringProvisioning() {
-  const creating = createServer();
-  await ports.provisionStarted.promise;
-  // What DELETE does for a row with no provider handles: it just removes it.
-  ports.row = null;
-  ports.provisionRelease.resolve();
-  return creating;
+async function remove(id: string) {
+  return DELETE(await request("DELETE", id), {
+    params: Promise.resolve({ id }),
+  });
 }
 
 beforeEach(() => {
-  ports.row = null;
-  ports.tokens = [];
-  ports.provisionStarted = Promise.withResolvers<void>();
-  ports.provisionRelease = Promise.withResolvers<void>();
-  ports.provision.mockReset().mockImplementation(async () => {
-    ports.provisionStarted.resolve();
-    await ports.provisionRelease.promise;
-    return provisioned;
-  });
-  ports.deprovision.mockReset().mockResolvedValue(undefined);
+  fixtures.row = null;
+  fixtures.provision.mockReset();
+  fixtures.recover.mockReset().mockResolvedValue(undefined);
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("POST /api/servers", () => {
-  it("returns 201 and stores the control-plane token when the row survives provisioning", async () => {
-    ports.provisionRelease.resolve();
-
-    const response = await createServer();
-
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({
-      state: "provisioning",
-      provider_id: ids.providerId,
+it("stores the token and publishes the endpoint after a successful create", async () => {
+  fixtures.provision.mockImplementation(async (input: ProvisionParams) => {
+    await input.recordProgress({
+      step: "compute",
+      instanceName: "fixture-vm",
+      computeOperation: "fixture-op",
     });
-    expect(ports.row).toMatchObject({
-      provider_id: ids.providerId,
-      tunnel_id: ids.tunnelId,
-      dns_record_id: ids.dnsRecordId,
-    });
-    expect(ports.tokens).toEqual([
-      ports.provision.mock.calls[0][0].psAccessToken,
-    ]);
-    expect(ports.deprovision).not.toHaveBeenCalled();
+    return { url: "https://fixture.invalid" };
   });
 
-  describe("when the row is deleted while provisioning", () => {
-    it("cleans up what it created, reports a conflict, and stores no token", async () => {
-      const response = await createDeletedDuringProvisioning();
+  const response = await POST(await request("POST"));
 
-      expect(response.status).toBe(409);
-      expect(await response.json()).toMatchObject({
-        error: {
-          type: "conflict_error",
-          message: expect.stringContaining("deleted during setup"),
-        },
-      });
-      expect(ports.deprovision).toHaveBeenCalledTimes(1);
-      expect(ports.deprovision).toHaveBeenCalledWith(ids.providerId, {
-        tunnelId: ids.tunnelId,
-        dnsRecordId: ids.dnsRecordId,
-        deadline: expect.any(Number),
-      });
-      expect(ports.tokens).toEqual([]);
-      expect(ports.row).toBeNull();
-    });
-
-    it("answers 500 naming every id, and logs them, when cleanup fails", async () => {
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
-      ports.deprovision.mockRejectedValue(new Error("gcp unavailable"));
-
-      const response = await createDeletedDuringProvisioning();
-
-      const body = await response.json();
-      expect(response.status).toBe(500);
-      expect(body.error.type).toBe("internal_error");
-      for (const id of Object.values(ids)) {
-        expect(body.error.message).toContain(id);
-      }
-      expect(body.error.message).toContain("gcp unavailable");
-      const logged = log.mock.calls.map((call) => call.join(" ")).join("\n");
-      for (const id of Object.values(ids)) {
-        expect(logged).toContain(id);
-      }
-      expect(logged).toContain("gcp unavailable");
-      expect(ports.tokens).toEqual([]);
-    });
+  expect(response.status).toBe(201);
+  expect(await response.json()).toMatchObject({
+    provider_id: "fixture-vm",
+    url: "https://fixture.invalid",
+    state: "provisioning",
   });
+  expect(fixtures.row?.control_plane_token).toMatch(/^vana_ps_/);
+});
+
+it("keeps a setup failure discoverable so the owner can retry cleanup", async () => {
+  fixtures.provision.mockImplementation(async (input: ProvisionParams) => {
+    await input.recordProgress({ step: "dns", tunnelId: "tunnel-created" });
+    throw new Error("connection reset");
+  });
+  const response = await POST(await request("POST"));
+
+  expect(response.status).toBe(500);
+  expect(fixtures.row).toMatchObject({
+    tunnel_id: "tunnel-created",
+    state: "deprovision_failed",
+  });
+  const retry = await POST(await request("POST"));
+  expect(retry.status).toBe(200);
+  expect(await retry.json()).toMatchObject({
+    id: fixtures.row?.id,
+    state: "deprovision_failed",
+  });
+  expect(fixtures.provision).toHaveBeenCalledTimes(1);
+});
+
+it("blocks concurrent removal and replacement until an expired attempt is cleaned up", async () => {
+  const reachedProvider = Promise.withResolvers<void>();
+  const provision = Promise.withResolvers<never>();
+  fixtures.provision.mockImplementation(async (input: ProvisionParams) => {
+    await input.recordProgress({ step: "dns", tunnelId: "tunnel-created" });
+    reachedProvider.resolve();
+    return provision.promise;
+  });
+  const creating = POST(await request("POST"));
+  await reachedProvider.promise;
+  const row = fixtures.row;
+  if (!row) throw new Error("Expected a provisioning row");
+  const { id } = row;
+
+  try {
+    expect((await remove(id)).status).toBe(409);
+    expect(fixtures.recover).not.toHaveBeenCalled();
+
+    // The original request is still unresolved, as it would be after a hard kill.
+    row.provisioning_expires_at = new Date(Date.now() - 1).toISOString();
+    const expired = await getServer(await request("GET", id), {
+      params: Promise.resolve({ id }),
+    });
+    expect(await expired.json()).toMatchObject({
+      id,
+      state: "deprovision_failed",
+    });
+
+    fixtures.recover.mockRejectedValueOnce(new Error("cleanup unavailable"));
+    expect((await remove(id)).status).toBe(500);
+    expect(fixtures.row?.id).toBe(id);
+
+    const cleaning = Promise.withResolvers<void>();
+    const started = Promise.withResolvers<void>();
+    fixtures.recover.mockImplementationOnce(async () => {
+      started.resolve();
+      await cleaning.promise;
+    });
+    const deletion = remove(id);
+    await started.promise;
+    try {
+      expect((await remove(id)).status).toBe(409);
+      const duplicate = await POST(await request("POST"));
+      expect(duplicate.status).toBe(200);
+      expect(await duplicate.json()).toMatchObject({ id });
+      expect(fixtures.provision).toHaveBeenCalledTimes(1);
+    } finally {
+      cleaning.resolve();
+    }
+    expect((await deletion).status).toBe(200);
+    expect(fixtures.row).toBeNull();
+  } finally {
+    provision.reject(new Error("request expired"));
+    await creating;
+  }
+});
+
+it("keeps an older handle-less record for manual reconciliation", async () => {
+  fixtures.row = {
+    id: "srv_legacy",
+    user_id: account.address.toLowerCase(),
+    state: "provisioning",
+    provisioning_step: null,
+    provisioning_expires_at: null,
+    provider_id: null,
+    tunnel_id: null,
+    dns_record_id: null,
+    url: null,
+  } as PersonalServer;
+
+  expect((await remove("srv_legacy")).status).toBe(500);
+  expect(fixtures.row).toMatchObject({
+    id: "srv_legacy",
+    state: "deprovision_failed",
+  });
+  expect(fixtures.recover).not.toHaveBeenCalled();
+});
+
+it("removes an expired reservation that never attempted a cloud write", async () => {
+  fixtures.row = {
+    id: "srv_reserved",
+    user_id: account.address.toLowerCase(),
+    state: "provisioning",
+    provisioning_step: "reserved",
+    provisioning_expires_at: new Date(Date.now() - 1000),
+  } as PersonalServer;
+
+  expect((await remove("srv_reserved")).status).toBe(200);
+  expect(fixtures.row).toBeNull();
+  expect(fixtures.recover).not.toHaveBeenCalled();
 });

@@ -73,7 +73,8 @@ describe("useServer", () => {
           }),
           { status: 200 },
         ),
-      );
+      )
+      .mockResolvedValueOnce(Response.json({ serverId: "registered-server" }));
 
     const { result } = renderHook(() => useServer());
 
@@ -101,5 +102,37 @@ describe("useServer", () => {
       headers: { Authorization: "Bearer sig-123" },
     });
     expect(result.current.status).toBe("running");
+  });
+  it("surfaces the retained server when setup fails so the owner can remove it", async () => {
+    const failedServer = {
+      object: "server",
+      id: "srv_123",
+      state: "deprovision_failed",
+    };
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValueOnce(Response.json({ data: [] }))
+      .mockResolvedValueOnce(
+        Response.json({ error: { message: "Setup expired" } }, { status: 500 }),
+      )
+      .mockResolvedValueOnce(Response.json({ data: [failedServer] }));
+    const { result } = renderHook(() => useServer());
+    await act(async () => {});
+
+    await act(async () => {
+      await result.current.provision();
+    });
+
+    expect(result.current.server?.id).toBe("srv_123");
+    expect(result.current.status).toBe("deprovision_failed");
+    expect(result.current.error).toBe("Setup expired");
+
+    fetchMock.mockResolvedValueOnce(Response.json({ deleted: true }));
+    await act(async () => {
+      await result.current.deprovision();
+    });
+
+    expect(result.current.status).toBe("idle");
+    expect(result.current.server).toBeNull();
   });
 });
