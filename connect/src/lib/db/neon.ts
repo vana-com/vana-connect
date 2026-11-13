@@ -1,5 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 
+export type ProvisioningStep = "reserved" | "tunnel" | "dns" | "compute";
+
 export type PersonalServer = {
   id: string;
   user_id: string;
@@ -13,6 +15,12 @@ export type PersonalServer = {
   disk_expires: string | null;
   tunnel_id: string | null;
   dns_record_id: string | null;
+  provisioning_step: ProvisioningStep | null;
+  provisioning_expires_at: string | Date | null;
+  compute_operation: string | null;
+  compute_creation_settled_at: string | Date | null;
+  cleanup_claim: string | null;
+  cleanup_expires_at: string | Date | null;
   created_at: string;
   updated_at: string;
 };
@@ -54,94 +62,152 @@ export async function insertServerIfNotExists(
 ): Promise<PersonalServer | null> {
   const sql = getSQL();
   const rows = await sql`
-    INSERT INTO personal_servers (id, user_id, provider, state)
-    VALUES (${server.id}, ${server.user_id}, ${server.provider}, ${server.state})
+    INSERT INTO personal_servers (
+      id, user_id, provider, state, provisioning_step, provisioning_expires_at
+    )
+    VALUES (${server.id}, ${server.user_id}, ${server.provider}, ${server.state},
+            'reserved', now() + interval '75 seconds')
     ON CONFLICT (user_id) DO NOTHING
     RETURNING *
   `;
   return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
-export async function findAllActiveServers(): Promise<PersonalServer[]> {
+export type ProvisioningProgress = {
+  step: ProvisioningStep;
+  tunnelId?: string;
+  dnsRecordId?: string;
+  instanceName?: string | null;
+  diskName?: string | null;
+  computeOperation?: string;
+  computeCreationSettled?: boolean;
+};
+
+export async function recordProvisioningProgress(
+  id: string,
+  progress: ProvisioningProgress,
+): Promise<void> {
   const sql = getSQL();
   const rows = await sql`
-    SELECT * FROM personal_servers WHERE state IN ('provisioning', 'running')
+    UPDATE personal_servers SET
+      provisioning_step = ${progress.step},
+      tunnel_id = COALESCE(${progress.tunnelId ?? null}, tunnel_id),
+      dns_record_id = COALESCE(${progress.dnsRecordId ?? null}, dns_record_id),
+      provider_id = CASE WHEN ${progress.instanceName !== undefined} THEN ${progress.instanceName ?? null}::text ELSE provider_id END,
+      disk_id = CASE WHEN ${progress.diskName !== undefined} THEN ${progress.diskName ?? null}::text ELSE disk_id END,
+      compute_operation = COALESCE(${progress.computeOperation ?? null}, compute_operation),
+      compute_creation_settled_at = CASE WHEN ${progress.computeCreationSettled ?? false} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END,
+      updated_at = now()
+    WHERE id = ${id}
+      AND provisioning_expires_at > now()
+      AND cleanup_claim IS NULL
+    RETURNING id
   `;
-  return rows.map((row) => mapPersonalServerRow(row as PersonalServerRow));
+  if (!rows.length) throw new Error("Provisioning attempt is no longer active");
 }
 
-const UPDATABLE_COLUMNS = new Set([
-  "provider_id",
-  "vm_ip",
-  "url",
-  "state",
-  "disk_id",
-  "disk_expires",
-  "tunnel_id",
-  "dns_record_id",
-]);
-
-export async function updateServer(
+export async function finishProvisioning(
   id: string,
-  fields: Partial<
-    Pick<
-      PersonalServer,
-      | "provider_id"
-      | "vm_ip"
-      | "url"
-      | "state"
-      | "disk_id"
-      | "disk_expires"
-      | "tunnel_id"
-      | "dns_record_id"
-    >
-  >,
+  url: string,
+  accessToken: string,
 ): Promise<PersonalServer | null> {
   const sql = getSQL();
-  const updates: string[] = [];
-  const values: unknown[] = [];
-
-  for (const [col, val] of Object.entries(fields)) {
-    if (val === undefined) continue;
-    if (!UPDATABLE_COLUMNS.has(col)) {
-      throw new Error(`Column not in allowlist: ${col}`);
-    }
-    updates.push(col);
-    values.push(val);
-  }
-
-  if (updates.length === 0) return findServerById(id);
-
-  const setClauses = updates.map((col, i) => `${col} = $${i + 1}`).join(", ");
-  const query = `UPDATE personal_servers SET ${setClauses}, updated_at = now() WHERE id = $${updates.length + 1} RETURNING *`;
-
-  const rows = await sql.query(query, [...values, id]);
+  const rows = await sql`
+    UPDATE personal_servers SET
+      url = ${url}, access_token = ${accessToken}, provisioning_step = NULL,
+      provisioning_expires_at = NULL, updated_at = now()
+    WHERE id = ${id} AND provisioning_expires_at > now()
+      AND cleanup_claim IS NULL AND compute_operation IS NOT NULL
+    RETURNING *
+  `;
   return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
 }
 
-export async function deleteServer(id: string): Promise<void> {
+export async function failProvisioning(id: string): Promise<void> {
   const sql = getSQL();
-  await sql`DELETE FROM personal_servers WHERE id = ${id}`;
+  await sql`
+    UPDATE personal_servers SET state = 'deprovision_failed',
+      provisioning_expires_at = NULL, updated_at = now()
+    WHERE id = ${id} AND provisioning_step IS NOT NULL AND cleanup_claim IS NULL
+  `;
 }
 
-/**
- * Delete the row only if no provider handle has been saved on it. Returns
- * whether a row was deleted. False means the row is gone or gained a handle,
- * so a delete that read it with no handles must not remove it untracked.
- */
-export async function deleteServerIfNoProviderHandles(
+export async function updateProvisionedServerStatus(
   id: string,
+  state: string,
+  settled: boolean,
+) {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE personal_servers SET state = ${state},
+      updated_at = CASE WHEN state <> ${state} THEN now() ELSE updated_at END,
+      compute_creation_settled_at = CASE WHEN ${settled} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END
+    WHERE id = ${id} AND state = 'provisioning' AND provisioning_step IS NULL
+      AND cleanup_claim IS NULL
+    RETURNING *
+  `;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
+}
+
+export async function claimServerCleanup(
+  id: string,
+  claim: string,
+): Promise<PersonalServer | null> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE personal_servers SET cleanup_claim = ${claim},
+      cleanup_expires_at = now() + interval '75 seconds',
+      state = 'deprovision_failed', updated_at = now()
+    WHERE id = ${id}
+      AND (provisioning_expires_at IS NULL OR provisioning_expires_at <= now())
+      AND (cleanup_expires_at IS NULL OR cleanup_expires_at <= now())
+    RETURNING *
+  `;
+  return rows[0] ? mapPersonalServerRow(rows[0] as PersonalServerRow) : null;
+}
+
+export async function saveRecoveryHandles(
+  id: string,
+  claim: string,
+  handles: Pick<
+    ProvisioningProgress,
+    "tunnelId" | "dnsRecordId" | "computeOperation" | "computeCreationSettled"
+  >,
+): Promise<void> {
+  const sql = getSQL();
+  const rows = await sql`
+    UPDATE personal_servers SET
+      tunnel_id = COALESCE(${handles.tunnelId ?? null}, tunnel_id),
+      dns_record_id = COALESCE(${handles.dnsRecordId ?? null}, dns_record_id),
+      compute_operation = COALESCE(${handles.computeOperation ?? null}, compute_operation),
+      compute_creation_settled_at = CASE WHEN ${handles.computeCreationSettled ?? false} THEN COALESCE(compute_creation_settled_at, now()) ELSE compute_creation_settled_at END,
+      updated_at = now()
+    WHERE id = ${id} AND cleanup_claim = ${claim} AND cleanup_expires_at > now()
+    RETURNING id
+  `;
+  if (!rows.length) throw new Error("Cleanup claim expired");
+}
+
+export async function finishServerCleanup(
+  id: string,
+  claim: string,
 ): Promise<boolean> {
   const sql = getSQL();
   const rows = await sql`
-    DELETE FROM personal_servers
-    WHERE id = ${id}
-      AND provider_id IS NULL
-      AND tunnel_id IS NULL
-      AND dns_record_id IS NULL
-    RETURNING id
+    SELECT id FROM remove_cleaned_personal_server(${id}, ${claim}::uuid)
   `;
   return rows.length > 0;
+}
+
+export async function releaseServerCleanup(
+  id: string,
+  claim: string,
+): Promise<void> {
+  const sql = getSQL();
+  await sql`
+    UPDATE personal_servers SET cleanup_claim = NULL, cleanup_expires_at = NULL
+    WHERE id = ${id} AND cleanup_claim = ${claim}
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,14 +330,4 @@ export async function findSession(token: string): Promise<Session | null> {
     SELECT * FROM sessions WHERE token = ${token} LIMIT 1
   `;
   return rows[0] ? mapSessionRow(rows[0] as SessionRow) : null;
-}
-
-export async function updateServerControlPlaneToken(
-  id: string,
-  controlPlaneToken: string,
-): Promise<void> {
-  const sql = getSQL();
-  await sql`
-    UPDATE personal_servers SET access_token = ${controlPlaneToken}, updated_at = now() WHERE id = ${id}
-  `;
 }

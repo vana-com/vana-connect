@@ -1,67 +1,18 @@
-import crypto from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import {
+  failProvisioning,
   findServerByUserId,
+  finishProvisioning,
   insertServerIfNotExists,
-  updateServer,
-  updateServerControlPlaneToken,
+  recordProvisioningProgress,
 } from "@/lib/db/neon";
-import {
-  getServerProvider,
-  type ProvisionResult,
-  type ServerProvider,
-} from "@/lib/server-provider";
+import { getServerProvider } from "@/lib/server-provider";
 
-// Provisioning calls Cloudflare API + GCP API — needs more time than default 15s
 export const maxDuration = 60;
-
-function generateServerId(): string {
-  const bytes = crypto.randomBytes(10);
-  return `srv_${bytes.toString("base64url")}`;
-}
-
-/**
- * Deprovision the resources a create request just made after its row was
- * deleted underneath it. Never throws: it answers for the request either way.
- * When cleanup fails there is no row to mark `deprovision_failed`, so the log
- * line and the response body are the only record of the leaked ids.
- */
-async function removeOrphanedProvision(
-  provider: ServerProvider,
-  serverId: string,
-  result: ProvisionResult,
-  cleanupDeadline: number,
-) {
-  const handles = `serverId=${serverId} providerId=${result.serverId} tunnelId=${result.tunnelId ?? ""} dnsRecordId=${result.dnsRecordId ?? ""}`;
-  console.info(`[api/servers POST] Cleaning up after deletion: ${handles}`);
-  try {
-    await provider.deprovision(result.serverId, {
-      tunnelId: result.tunnelId,
-      dnsRecordId: result.dnsRecordId,
-      deadline: cleanupDeadline,
-    });
-  } catch (err) {
-    const errorName = err instanceof Error ? err.name : "Error";
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[api/servers POST] ${handles} ${errorName}: ${errorMessage}`,
-    );
-    return apiError(
-      "internal_error",
-      `Server was deleted during setup and cleanup failed, so these resources must be removed by hand: ${handles}. ${errorMessage}`,
-      500,
-    );
-  }
-
-  return apiError(
-    "conflict_error",
-    "Server was deleted during setup. The resources created for it have been removed.",
-    409,
-  );
-}
 
 export async function OPTIONS() {
   return apiOptions();
@@ -90,7 +41,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const cleanupDeadline = Date.now() + (maxDuration - 5) * 1000;
+  const deadline = Date.now() + (maxDuration - 5) * 1000;
   let body: { masterKeySignature?: string };
   try {
     body = await request.json();
@@ -117,7 +68,7 @@ export async function POST(request: NextRequest) {
     return apiSuccess(toApiServer(existing));
   }
 
-  const serverId = generateServerId();
+  const serverId = `srv_${randomUUID()}`;
   const providerName = process.env.SERVER_PROVIDER ?? "gcp";
 
   const inserted = await insertServerIfNotExists({
@@ -133,51 +84,51 @@ export async function POST(request: NextRequest) {
     return apiError("internal_error", "Failed to create server", 500);
   }
 
-  let row = inserted;
-  const provider = getServerProvider();
-
+  let checkpoint = "reserved";
   try {
-    // Generate the per-server control-plane token used for hosted management.
-    const controlPlaneToken = `vana_ps_${crypto.randomBytes(32).toString("hex")}`;
-
-    const result = await provider.provision({
+    const controlPlaneToken = `vana_ps_${randomBytes(32).toString("hex")}`;
+    const { url } = await getServerProvider().provision({
       serverId,
       userId,
       masterKeySignature,
       ownerAddress: walletAddress,
       psAccessToken: controlPlaneToken,
+      deadline,
+      recordProgress: async (progress) => {
+        await recordProvisioningProgress(serverId, progress);
+        checkpoint = progress.step;
+      },
     });
-
-    const updated = await updateServer(serverId, {
-      provider_id: result.serverId,
-      url: result.url,
-      state: "provisioning",
-      tunnel_id: result.tunnelId ?? null,
-      dns_record_id: result.dnsRecordId ?? null,
-    });
-
-    // A signed DELETE that arrives while provision() is pending finds no
-    // provider handles, skips cleanup and removes the row. Then there is no
-    // row to attach what we just created to, so remove it here instead of
-    // reporting success for a server nothing tracks.
-    if (!updated) {
-      return await removeOrphanedProvision(
-        provider,
-        serverId,
-        result,
-        cleanupDeadline,
-      );
-    }
-    row = updated;
-
-    // Store the control-plane token separately since it's not in the updateServer allowlist.
-    await updateServerControlPlaneToken(serverId, controlPlaneToken);
+    checkpoint = "finalize";
+    const row = await finishProvisioning(serverId, url, controlPlaneToken);
+    if (!row) throw new Error("Provisioning attempt is no longer active");
+    return apiSuccess(toApiServer(row), 201);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("Provisioning error:", msg);
-    await updateServer(serverId, { state: "error" });
-    return apiError("internal_error", `Provisioning failed: ${msg}`, 500);
+    const failure = err as {
+      code?: unknown;
+      cfStatus?: unknown;
+      cfErrors?: { code?: unknown }[];
+    } | null;
+    const code = failure?.code ?? failure?.cfErrors?.[0]?.code;
+    const httpStatus = failure?.cfStatus;
+    console.error(
+      `[api/servers POST] serverId=${serverId} provisioning failed`,
+      {
+        checkpoint,
+        code: Number.isInteger(code) ? code : undefined,
+        httpStatus: Number.isInteger(httpStatus) ? httpStatus : undefined,
+      },
+    );
+    await failProvisioning(serverId).catch((error) => {
+      console.error(
+        `[api/servers POST] serverId=${serverId} could not record failure`,
+        error,
+      );
+    });
+    return apiError(
+      "internal_error",
+      "Server setup did not finish. Remove the server to clean it up before trying again.",
+      500,
+    );
   }
-
-  return apiSuccess(toApiServer(row), 201);
 }

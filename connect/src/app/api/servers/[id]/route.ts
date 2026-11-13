@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { extractSignature, recoverWalletAddress } from "@/lib/api-auth";
 import { apiError, apiOptions, apiSuccess } from "@/lib/api-error";
 import { toApiServer } from "@/lib/api-server";
 import {
-  deleteServer,
-  deleteServerIfNoProviderHandles,
+  claimServerCleanup,
   findServerById,
-  updateServer,
+  finishServerCleanup,
+  releaseServerCleanup,
+  saveRecoveryHandles,
+  updateProvisionedServerStatus,
 } from "@/lib/db/neon";
 import { getServerProvider } from "@/lib/server-provider";
 
@@ -48,20 +51,50 @@ export async function GET(
   // Live-check only while provisioning (to detect transition to running).
   // Once running, return stored state — no unnecessary API calls.
   // Skips the health check to stay within Vercel function timeout.
-  if (server.state === "provisioning" && server.provider_id) {
+  if (
+    server.state === "provisioning" &&
+    !server.provisioning_step &&
+    server.provider_id
+  ) {
     try {
       const provider = getServerProvider();
-      const liveStatus = await provider.status(server.provider_id);
+      const liveStatus = await provider.status(
+        server.provider_id,
+        server.compute_operation,
+        Boolean(server.compute_creation_settled_at),
+        server.compute_operation ? server.id.slice("srv_".length) : undefined,
+      );
 
-      if (liveStatus.state !== server.state) {
-        await updateServer(id, { state: liveStatus.state });
-        return apiSuccess({
-          ...toApiServer(server),
-          state: liveStatus.state,
-        });
+      if (
+        liveStatus.state !== server.state ||
+        (liveStatus.computeCreationSettled &&
+          !server.compute_creation_settled_at)
+      ) {
+        const updated = await updateProvisionedServerStatus(
+          id,
+          liveStatus.state,
+          liveStatus.computeCreationSettled === true,
+        );
+        const current = updated ?? (await findServerById(id));
+        if (!current)
+          return apiError("not_found_error", "Server not found", 404);
+        if (current.state !== "provisioning")
+          return apiSuccess(toApiServer(current));
       }
     } catch (err) {
       console.error("Live status check failed:", err);
+    }
+
+    // A submitted VM that never became visible must still be removable.
+    // This only changes the returned state. Cleanup still verifies the operation.
+    if (
+      server.compute_operation &&
+      Date.now() - new Date(server.updated_at).getTime() >= 5 * 60_000
+    ) {
+      return apiSuccess({
+        ...toApiServer(server),
+        state: "deprovision_failed",
+      });
     }
   }
 
@@ -95,70 +128,53 @@ export async function DELETE(
     return apiError("not_found_error", "Server not found", 404);
   }
 
-  const hasProviderState = (row: typeof server) =>
-    Boolean(row.provider_id || row.tunnel_id || row.dns_record_id);
-
-  // A create request saves its provider handles after provision() returns, so
-  // a row read with none may gain them before we write. Delete it only if it
-  // still has none. Otherwise look once more: the row is gone, or it now has
-  // handles and goes through the cleanup below.
-  let target = server;
-  if (!hasProviderState(server)) {
-    if (await deleteServerIfNoProviderHandles(id)) return deletedResponse(id);
-    const current = await findServerById(id);
-    if (!current) return deletedResponse(id);
-    target = current;
+  const claim = randomUUID();
+  const target = await claimServerCleanup(id, claim);
+  if (!target) {
+    return apiError(
+      "conflict_error",
+      "Server setup or cleanup is still in progress. Try removing it again shortly.",
+      409,
+    );
   }
 
-  // Always run cleanup if we have any provider-side state recorded —
-  // VM, tunnel, or DNS — so retry from `deprovision_failed` works.
-  if (target.provider_id || target.tunnel_id || target.dns_record_id) {
-    try {
-      const provider = getServerProvider();
-      await provider.deprovision(target.provider_id ?? "", {
-        tunnelId: target.tunnel_id,
-        dnsRecordId: target.dns_record_id,
-        deadline: cleanupDeadline,
-      });
-    } catch (err) {
-      const errorName = err instanceof Error ? err.name : "Error";
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const deprovisionErrors = (
-        err as Error & {
-          deprovisionErrors?: { step: string; code: number; message: string }[];
-        }
-      ).deprovisionErrors;
-      console.error(
-        `[api/servers DELETE] serverId=${id} providerId=${target.provider_id ?? ""} tunnelId=${target.tunnel_id ?? ""} dnsRecordId=${target.dns_record_id ?? ""} ${errorName}: ${errorMessage}`,
-      );
-      await updateServer(id, { state: "deprovision_failed" });
-      // Return the actual failure detail in the response body so it's visible
-      // without runtime-log access. This is admin/control-plane data; nothing
-      // here is secret (just step names + GCP/Cloudflare error messages).
-      return apiError(
-        "internal_error",
-        `Failed to deprovision server: ${errorMessage}${
-          deprovisionErrors?.length
-            ? ` [steps: ${deprovisionErrors
-                .map((e) => `${e.step}(code=${e.code})`)
-                .join(", ")}]`
-            : ""
-        }`,
-        500,
+  try {
+    if (
+      !target.provisioning_step &&
+      (!target.provider_id ||
+        (!target.url && (!target.tunnel_id || !target.dns_record_id)))
+    ) {
+      throw new Error(
+        "This older attempt has incomplete ownership records. Contact support to verify and remove its resources.",
       );
     }
+    if (target.provisioning_step !== "reserved") {
+      const provider = getServerProvider();
+      await provider.recoverProvisioning(target, cleanupDeadline, (handles) =>
+        saveRecoveryHandles(id, claim, handles),
+      );
+    }
+    if (!(await finishServerCleanup(id, claim))) {
+      throw new Error("Cleanup claim expired. Try removing the server again.");
+    }
+  } catch (err) {
+    await releaseServerCleanup(id, claim).catch((error) => {
+      console.error(
+        `[api/servers DELETE] serverId=${id} could not release cleanup claim`,
+        error,
+      );
+    });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[api/servers DELETE] serverId=${id} cleanup failed: ${message}`,
+    );
+    return apiError(
+      "internal_error",
+      `Failed to deprovision server: ${message}`,
+      500,
+    );
   }
 
-  // Provider deprovision destroys VM + tunnel + DNS + data disk. There's
-  // nothing left to recover, so drop the row entirely. The UI then shows
-  // "Provision Server" (idle) instead of a misleading "Stopped" with a
-  // dead public endpoint.
-  await deleteServer(id);
-
-  return deletedResponse(id);
-}
-
-function deletedResponse(id: string) {
   return apiSuccess({
     object: "server",
     id,

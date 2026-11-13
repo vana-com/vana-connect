@@ -147,14 +147,16 @@ export function useServer() {
       }
       const s: ApiServer = await res.json();
       setServer(s);
-      provisioningServerIdRef.current = s.id;
-      setStatus("provisioning");
+      const state = s.state as ServerStatus;
+      provisioningServerIdRef.current = state === "provisioning" ? s.id : null;
+      setStatus(state);
       setError(null);
     } catch (err) {
+      const record = await fetchServer();
       setError(err instanceof Error ? err.message : String(err));
-      setStatus("error");
+      if (!record) setStatus("error");
     }
-  }, [getSignature]);
+  }, [fetchServer, getSignature]);
 
   const deprovision = useCallback(async () => {
     if (!server) return;
